@@ -66,17 +66,27 @@ class User extends Authenticatable
         ];
     }
 
+    public function role()
+    {
+        return $this->belongsTo(Role::class);
+    }
+
+
     // Role helpers
+    public function isDataEntry()
+    {
+        return $this->role && $this->role->name === 'dataentry';
+    }
     public function isAdmin()
     {
-        return $this->role === 'admin';
+        return $this->role && $this->role->name === 'admin';
     }
     public function isManager()
     {
-        return $this->role === 'manager';
+        return $this->role && $this->role->name === 'farmmanager';
     }
     public function isSuperuser()
     {
-        return $this->role === 'superuser';
+        return $this->role && $this->role->name === 'superuser';
     }
 }

@@ -2,8 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-// use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
@@ -15,28 +13,42 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        // Seed the roles table first
+        DB::table('roles')->insert([
+            ['name' => 'admin'],
+            ['name' => 'dataentry'],
+            ['name' => 'farmmanager'],
+            ['name' => 'superuser'],
         ]);
 
+        // Get role IDs
+        $roles = DB::table('roles')->pluck('id', 'name');
+
+        // Insert users with role_id
         DB::table('users')->insert([
             [
                 'name' => 'Admin User',
                 'email' => 'admin@chipperfarms.com',
                 'password' => Hash::make('password123'),
-                'role' => 'admin',
+                'role_id' => $roles['admin'],
                 'email_verified_at' => now(),
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
             [
-                'name' => 'Manager User',
+                'name' => 'Data Entry',
+                'email' => 'dataentry@chipperfarms.com',
+                'password' => Hash::make('password123'),
+                'role_id' => $roles['dataentry'],
+                'email_verified_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'name' => 'Farm Manager',
                 'email' => 'manager@chipperfarms.com',
                 'password' => Hash::make('password123'),
-                'role' => 'manager',
+                'role_id' => $roles['farmmanager'],
                 'email_verified_at' => now(),
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -45,7 +57,7 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Super User',
                 'email' => 'superuser@chipperfarms.com',
                 'password' => Hash::make('password123'),
-                'role' => 'superuser',
+                'role_id' => $roles['superuser'],
                 'email_verified_at' => now(),
                 'created_at' => now(),
                 'updated_at' => now(),

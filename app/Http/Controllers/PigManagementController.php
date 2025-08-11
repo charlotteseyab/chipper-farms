@@ -1,0 +1,1969 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\PigManagement;
+use App\Models\PigWeight;
+use App\Models\PigSale;
+use App\Models\Mating;
+use App\Models\Weaning;
+use App\Models\Farrowing;
+use App\Helpers\FlashHelper;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
+class PigManagementController extends Controller {
+
+    // All Stock Management
+    public function allIndex(Request $request) {
+        $query = PigManagement::query();
+
+        if ($request->breed) {
+            $query->where('breed', $request->breed);
+        }
+
+        if ($request->gender) {
+            $query->where('gender', $request->gender);
+        }
+
+        if ($request->age) {
+            $query->where('age_in_days', '<=', $request->age);
+        }
+
+        if ($request->stock_type) {
+            $query->where('stock_type', $request->stock_type);
+        }
+
+        // Add pagination with 10 records per page
+        $pigmanagement = $query->with(['recentWeightAlerts' => function($query) {
+            $query->where('acknowledged', false)
+                  ->orderBy('created_at', 'desc')
+                  ->limit(1);
+        }])->orderBy('created_at', 'desc')->paginate(10);
+
+        // Append query parameters to pagination links
+        $pigmanagement->appends($request->query());
+
+        return view('stocks.all.index', compact('pigmanagement'));
+    }
+
+    // Breeding Stock Management (existing functionality)
+    public function index(Request $request) {
+        $query = PigManagement::where('stock_type', 'breeding');
+
+        if ($request->breed) {
+            $query->where('breed', $request->breed);
+        }
+
+        if ($request->gender) {
+            $query->where('gender', $request->gender);
+        }
+
+        if ($request->age) {
+            $query->where('age_in_days', '<=', $request->age);
+        }
+
+        // Add pagination with 10 records per page
+        $pigmanagement = $query->orderBy('created_at', 'desc')->paginate(10);
+
+        // Append query parameters to pagination links
+        $pigmanagement->appends($request->query());
+
+        return view('breeding_stocks.index', compact('pigmanagement'));
+    }
+
+    // Standard Stock Management
+    public function standardIndex(Request $request) {
+        $query = PigManagement::where('stock_type', 'standard');
+
+        if ($request->breed) {
+            $query->where('breed', $request->breed);
+        }
+
+        if ($request->gender) {
+            $query->where('gender', $request->gender);
+        }
+
+        if ($request->age) {
+            $query->where('age_in_days', '<=', $request->age);
+        }
+
+        // Add pagination with 10 records per page
+        $pigmanagement = $query->orderBy('created_at', 'desc')->paginate(10);
+
+        // Append query parameters to pagination links
+        $pigmanagement->appends($request->query());
+
+        return view('stocks.standard.index', compact('pigmanagement'));
+    }
+
+    public function exportCsv(Request $request)
+    {
+        $query = PigManagement::where('stock_type', 'breeding')->with(['latestWeight', 'sale']);
+
+        if ($request->breed) {
+            $query->where('breed', $request->breed);
+        }
+
+        if ($request->gender) {
+            $query->where('gender', $request->gender);
+        }
+
+        if ($request->age) {
+            $query->where('age_in_days', '<=', $request->age);
+        }
+
+        $pigs = $query->get();
+
+        $response = new StreamedResponse(function() use ($pigs) {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, [
+                'Code', 'Ear Tag', 'Breed', 'Gender', 'Date of Birth', 'Age (days)',
+                'Breeding Ready', 'Age Status', 'Weight Status', 'Current Weight',
+                'Latest Weight Date', 'Father', 'Mother'
+            ]);
+
+            foreach ($pigs as $pig) {
+                $readiness = $pig->breeding_readiness;
+
+                fputcsv($handle, [
+                    $pig->code,
+                    $pig->ear_tag_number,
+                    $pig->breed,
+                    $pig->gender === 'M' ? 'Male' : 'Female',
+                    $pig->date_of_birth ? $pig->date_of_birth->format('Y-m-d') : 'Not set',
+                    $pig->current_age_in_days,
+                    $readiness['ready'] ? 'Yes' : 'No',
+                    ucfirst(str_replace('_', ' ', $readiness['age_status'])),
+                    ucfirst(str_replace('_', ' ', $readiness['factors']['weight']['status'])),
+                    $pig->latestWeight ? $pig->latestWeight->weight . ' kg' : 'No data',
+                    $pig->latestWeight && $pig->latestWeight->weigh_date ? $pig->latestWeight->weigh_date->format('Y-m-d') : 'No data',
+                    $pig->father ? $pig->father->ear_tag_number : 'N/A',
+                    $pig->mother ? $pig->mother->ear_tag_number : 'N/A',
+                ]);
+            }
+
+            fclose($handle);
+        });
+
+        $response->headers->set('Content-Type', 'text/csv');
+        $response->headers->set('Content-Disposition', 'attachment; filename="breeding_stocks_' . date('Y-m-d') . '.csv"');
+
+        return $response;
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $query = PigManagement::where('stock_type', 'breeding')->with(['latestWeight', 'sale', 'father', 'mother']);
+
+        if ($request->breed) {
+            $query->where('breed', $request->breed);
+        }
+
+        if ($request->gender) {
+            $query->where('gender', $request->gender);
+        }
+
+        if ($request->age) {
+            $query->where('age_in_days', '<=', $request->age);
+        }
+
+        $pigs = $query->get();
+
+        $pdf = Pdf::loadView('breeding_stocks.pdf', compact('pigs'));
+
+        return $pdf->download('breeding_stocks_' . date('Y-m-d') . '.pdf');
+    }
+
+    public function create() {
+        $males = PigManagement::where('gender', 'M')->get();
+        $females = PigManagement::where('gender', 'F')->get();
+        return view('breeding_stocks.create', compact('males', 'females'));
+    }
+
+    public function standardCreate() {
+        $males = PigManagement::where('gender', 'M')->get();
+        $females = PigManagement::where('gender', 'F')->get();
+        return view('stocks.standard.create', compact('males', 'females'));
+    }
+
+    public function allCreate() {
+        $males = PigManagement::where('gender', 'M')->get();
+        $females = PigManagement::where('gender', 'F')->get();
+        return view('stocks.all.create', compact('males', 'females'));
+    }
+
+    public function store(Request $request) {
+        try {
+            $data = $request->validate([
+                'breed' => 'required|in:LW,DR,LWDR',
+                'gender' => 'required|in:M,F',
+                'stock_type' => 'required|in:standard,breeding',
+                'date_of_birth' => 'required|date|before_or_equal:today',
+                'ear_tag_number' => 'required|string|max:50|unique:pigs_management,ear_tag_number',
+                'father_id' => 'nullable|exists:pigs_management,id',
+                'mother_id' => 'nullable|exists:pigs_management,id',
+            ]);
+
+            // Trim and format the ear tag number
+            $data['ear_tag_number'] = trim($data['ear_tag_number']);
+
+            // Inbreeding check
+            if ($this->hasInbreedingRisk($data['father_id'] ?? null, $data['mother_id'] ?? null)) {
+                return back()->withErrors(['inbreeding' => 'Inbreeding risk detected.']);
+            }
+
+            // Auto-generate code in format CFPG-YM-ID (without leading zeros)
+            $birthDate = \Carbon\Carbon::parse($data['date_of_birth']);
+            $yearMonth = $birthDate->format('ym'); // e.g., 2501 for January 2025
+            $nextId = PigManagement::max('id') + 1;
+            $data['code'] = 'CFPG-' . $yearMonth . '-' . $nextId;
+            $data['age_in_days'] = (int) $birthDate->diffInDays(now());
+
+            $pig = PigManagement::create($data);
+
+            // Redirect based on selected stock type
+            if ($data['stock_type'] === 'breeding') {
+                return redirect()->route('breeding-stocks.index')
+                    ->with('success', 'Pig registered successfully as breeding stock.');
+            } else {
+                return redirect()->route('standard-stocks.index')
+                    ->with('success', 'Pig registered successfully as standard stock.');
+            }
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return back()->withErrors($e->errors())->withInput();
+        } catch (\Exception $e) {
+            \Log::error('Pig creation failed: ' . $e->getMessage());
+            return back()->withErrors(['error' => 'Failed to create pig. Please try again.'])->withInput();
+        }
+    }
+    
+    private function hasInbreedingRisk($fatherId, $motherId): bool {
+        $relationship = $this->analyzeRelationship($fatherId, $motherId);
+        return $relationship['risk_level'] === 'critical';
+    }
+
+    public function checkRelationship(Request $request)
+    {
+        $fatherId = $request->input('father_id');
+        $motherId = $request->input('mother_id');
+
+        return response()->json($this->analyzeRelationship($fatherId, $motherId));
+    }
+
+    private function analyzeRelationship($fatherId, $motherId): array {
+        // Basic validation
+        if (!$fatherId || !$motherId) {
+            return ['risk_level' => 'none', 'relationship' => null, 'message' => ''];
+        }
+
+        // Same pig selected twice
+        if ($fatherId == $motherId) {
+            return [
+                'risk_level' => 'critical',
+                'relationship' => 'same_pig',
+                'message' => 'Cannot select the same pig as both father and mother.',
+                'can_proceed' => false
+            ];
+        }
+
+        $father = PigManagement::find($fatherId);
+        $mother = PigManagement::find($motherId);
+
+        if (!$father || !$mother) {
+            return ['risk_level' => 'none', 'relationship' => null, 'message' => ''];
+        }
+
+        // Check for direct parent-child relationships
+        if ($this->isDirectParentChild($father, $mother)) {
+            return [
+                'risk_level' => 'critical',
+                'relationship' => 'parent_child',
+                'message' => 'Direct parent-child relationship detected. This mating is not allowed.',
+                'can_proceed' => false,
+                'details' => $this->getParentChildDetails($father, $mother)
+            ];
+        }
+
+        // Check for sibling relationships
+        $siblingCheck = $this->checkSiblingRelationship($father, $mother);
+        if ($siblingCheck['is_sibling']) {
+            return [
+                'risk_level' => $siblingCheck['type'] === 'full' ? 'warning' : 'caution',
+                'relationship' => $siblingCheck['type'] . '_siblings',
+                'message' => $siblingCheck['message'],
+                'can_proceed' => true,
+                'details' => $siblingCheck['details']
+            ];
+        }
+
+        // Check for grandparent relationships
+        $grandparentCheck = $this->checkGrandparentRelationship($father, $mother);
+        if ($grandparentCheck['is_related']) {
+            return [
+                'risk_level' => 'caution',
+                'relationship' => 'grandparent_grandchild',
+                'message' => $grandparentCheck['message'],
+                'can_proceed' => true,
+                'details' => $grandparentCheck['details']
+            ];
+        }
+
+        // Check for ancestor relationships (existing logic)
+        if ($this->isAncestor($fatherId, $motherId) || $this->isAncestor($motherId, $fatherId)) {
+            return [
+                'risk_level' => 'caution',
+                'relationship' => 'distant_relatives',
+                'message' => 'These pigs are distantly related. Consider genetic diversity.',
+                'can_proceed' => true
+            ];
+        }
+
+        return [
+            'risk_level' => 'none',
+            'relationship' => null,
+            'message' => 'No close relationships detected.',
+            'can_proceed' => true
+        ];
+    }
+
+    private function isDirectParentChild($pig1, $pig2): bool {
+        // Check if pig1 is parent of pig2
+        if ($pig2->father_id == $pig1->id || $pig2->mother_id == $pig1->id) {
+            return true;
+        }
+        // Check if pig2 is parent of pig1
+        if ($pig1->father_id == $pig2->id || $pig1->mother_id == $pig2->id) {
+            return true;
+        }
+        return false;
+    }
+
+    private function getParentChildDetails($pig1, $pig2): array {
+        if ($pig2->father_id == $pig1->id) {
+            return ['relationship' => $pig1->ear_tag_number . ' is the father of ' . $pig2->ear_tag_number];
+        }
+        if ($pig2->mother_id == $pig1->id) {
+            return ['relationship' => $pig1->ear_tag_number . ' is the mother of ' . $pig2->ear_tag_number];
+        }
+        if ($pig1->father_id == $pig2->id) {
+            return ['relationship' => $pig2->ear_tag_number . ' is the father of ' . $pig1->ear_tag_number];
+        }
+        if ($pig1->mother_id == $pig2->id) {
+            return ['relationship' => $pig2->ear_tag_number . ' is the mother of ' . $pig1->ear_tag_number];
+        }
+        return [];
+    }
+
+    private function checkSiblingRelationship($pig1, $pig2): array {
+        $sharedFather = $pig1->father_id && $pig2->father_id && $pig1->father_id == $pig2->father_id;
+        $sharedMother = $pig1->mother_id && $pig2->mother_id && $pig1->mother_id == $pig2->mother_id;
+
+        if ($sharedFather && $sharedMother) {
+            return [
+                'is_sibling' => true,
+                'type' => 'full',
+                'message' => 'These pigs are full siblings (same parents). High inbreeding risk.',
+                'details' => [
+                    'shared_father' => $pig1->father ? $pig1->father->ear_tag_number : 'Unknown',
+                    'shared_mother' => $pig1->mother ? $pig1->mother->ear_tag_number : 'Unknown'
+                ]
+            ];
+        }
+
+        if ($sharedFather || $sharedMother) {
+            $sharedParent = $sharedFather ? 'father' : 'mother';
+            $parentTag = $sharedFather ?
+                ($pig1->father ? $pig1->father->ear_tag_number : 'Unknown') :
+                ($pig1->mother ? $pig1->mother->ear_tag_number : 'Unknown');
+
+            return [
+                'is_sibling' => true,
+                'type' => 'half',
+                'message' => "These pigs are half-siblings (shared $sharedParent). Moderate inbreeding risk.",
+                'details' => [
+                    'shared_parent' => $sharedParent,
+                    'parent_tag' => $parentTag
+                ]
+            ];
+        }
+
+        return ['is_sibling' => false];
+    }
+
+    private function checkGrandparentRelationship($pig1, $pig2): array {
+        // Check if pig1 is grandparent of pig2
+        if ($this->isGrandparent($pig1->id, $pig2)) {
+            return [
+                'is_related' => true,
+                'message' => $pig1->ear_tag_number . ' is a grandparent of ' . $pig2->ear_tag_number . '. Moderate inbreeding risk.',
+                'details' => ['type' => 'grandparent_grandchild']
+            ];
+        }
+
+        // Check if pig2 is grandparent of pig1
+        if ($this->isGrandparent($pig2->id, $pig1)) {
+            return [
+                'is_related' => true,
+                'message' => $pig2->ear_tag_number . ' is a grandparent of ' . $pig1->ear_tag_number . '. Moderate inbreeding risk.',
+                'details' => ['type' => 'grandparent_grandchild']
+            ];
+        }
+
+        return ['is_related' => false];
+    }
+
+    private function isGrandparent($grandparentId, $pig): bool {
+        if (!$pig->father_id && !$pig->mother_id) return false;
+
+        // Check paternal grandparents
+        if ($pig->father_id) {
+            $father = PigManagement::find($pig->father_id);
+            if ($father && ($father->father_id == $grandparentId || $father->mother_id == $grandparentId)) {
+                return true;
+            }
+        }
+
+        // Check maternal grandparents
+        if ($pig->mother_id) {
+            $mother = PigManagement::find($pig->mother_id);
+            if ($mother && ($mother->father_id == $grandparentId || $mother->mother_id == $grandparentId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isAncestor($ancestorId, $pigId, $depth = 0): bool {
+        if (!$ancestorId || !$pigId || $depth > 3) return false; // Limit depth to prevent infinite recursion
+        $pig = PigManagement::find($pigId);
+        if (!$pig) return false;
+        if ($pig->father_id === $ancestorId || $pig->mother_id === $ancestorId) return true;
+        return $this->isAncestor($ancestorId, $pig->father_id, $depth + 1) ||
+               $this->isAncestor($ancestorId, $pig->mother_id, $depth + 1);
+    }
+
+    public function destroy($id)
+    {
+        $pig = PigManagement::findOrFail($id);
+        $pig->delete();
+        return redirect()->route('breeding-stocks.index')->with('success', 'Pig deleted successfully.');
+    }
+
+    public function edit($id)
+    {
+        $pig = PigManagement::findOrFail($id);
+        $males = PigManagement::where('gender', 'M')->get();
+        $females = PigManagement::where('gender', 'F')->get();
+        return view('breeding_stocks.edit', [
+            'breedingStock' => $pig,
+            'males' => $males,
+            'females' => $females,
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $pig = PigManagement::findOrFail($id);
+
+        $data = $request->validate([
+            'breed' => 'required|in:LW,DR,LWDR',
+            'gender' => 'required|in:M,F',
+            'stock_type' => 'required|in:breeding,standard',
+            'date_of_birth' => 'required|date|before_or_equal:today',
+            'ear_tag_number' => 'required|string|max:50|unique:pigs_management,ear_tag_number,' . $pig->id,
+            'father_id' => 'nullable|exists:pigs_management,id',
+            'mother_id' => 'nullable|exists:pigs_management,id',
+        ]);
+
+        // Inbreeding check - exclude current pig from ancestry check
+        if ($this->hasInbreedingRiskForUpdate($data['father_id'] ?? null, $data['mother_id'] ?? null, $pig->id)) {
+            return back()->withErrors(['inbreeding' => 'Inbreeding risk detected.']);
+        }
+
+        // Trim and format the ear tag number
+        $data['ear_tag_number'] = trim($data['ear_tag_number']);
+
+        // Recalculate age if date of birth changed
+        if ($pig->date_of_birth->format('Y-m-d') !== $data['date_of_birth']) {
+            $data['age_in_days'] = (int) \Carbon\Carbon::parse($data['date_of_birth'])->diffInDays(now());
+        }
+
+        $pig->update($data);
+
+        // Redirect based on stock type
+        if ($data['stock_type'] === 'breeding') {
+            return redirect()->route('breeding-stocks.index')->with('success', 'Breeding stock updated successfully.');
+        } else {
+            return redirect()->route('standard-stocks.index')->with('success', 'Standard stock updated successfully.');
+        }
+    }
+
+    private function hasInbreedingRiskForUpdate($fatherId, $motherId, $currentPigId): bool {
+        // Don't check inbreeding if either parent is the current pig being updated
+        if ($fatherId == $currentPigId || $motherId == $currentPigId) {
+            return false;
+        }
+
+        return $this->isAncestor($fatherId, $motherId) || $this->isAncestor($motherId, $fatherId);
+    }
+
+    // All Stock Export Methods
+    public function allExportCsv(Request $request)
+    {
+        $query = PigManagement::with(['latestWeight', 'sale']);
+
+        if ($request->breed) {
+            $query->where('breed', $request->breed);
+        }
+
+        if ($request->gender) {
+            $query->where('gender', $request->gender);
+        }
+
+        if ($request->age) {
+            $query->where('age_in_days', '<=', $request->age);
+        }
+
+        if ($request->stock_type) {
+            $query->where('stock_type', $request->stock_type);
+        }
+
+        $pigs = $query->get();
+
+        $response = new StreamedResponse(function() use ($pigs) {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, [
+                'Code', 'Ear Tag', 'Stock Type', 'Breed', 'Gender', 'Date of Birth', 'Age (days)',
+                'Breeding Ready', 'Age Status', 'Weight Status', 'Current Weight',
+                'Sale Status', 'Sale Price', 'Father', 'Mother'
+            ]);
+
+            foreach ($pigs as $pig) {
+                $readiness = $pig->breeding_readiness;
+                $saleStatus = $pig->sale_status;
+
+                fputcsv($handle, [
+                    $pig->code,
+                    $pig->ear_tag_number,
+                    ucfirst($pig->stock_type),
+                    $pig->breed,
+                    $pig->gender === 'M' ? 'Male' : 'Female',
+                    $pig->date_of_birth ? $pig->date_of_birth->format('Y-m-d') : 'Not set',
+                    $pig->current_age_in_days,
+                    $readiness['ready'] ? 'Yes' : 'No',
+                    ucfirst(str_replace('_', ' ', $readiness['age_status'])),
+                    ucfirst(str_replace('_', ' ', $readiness['factors']['weight']['status'])),
+                    $pig->latestWeight ? $pig->latestWeight->weight . ' kg' : 'No data',
+                    $saleStatus['sold'] ? 'Sold' : 'Available',
+                    $saleStatus['sold'] && $pig->sale ? $pig->sale->formatted_sale_price : 'N/A',
+                    $pig->father ? $pig->father->ear_tag_number : 'N/A',
+                    $pig->mother ? $pig->mother->ear_tag_number : 'N/A',
+                ]);
+            }
+
+            fclose($handle);
+        });
+
+        $response->headers->set('Content-Type', 'text/csv');
+        $response->headers->set('Content-Disposition', 'attachment; filename="all_stocks_' . date('Y-m-d') . '.csv"');
+
+        return $response;
+    }
+
+    public function allExportPdf(Request $request)
+    {
+        $query = PigManagement::with(['latestWeight', 'sale', 'father', 'mother']);
+
+        if ($request->breed) {
+            $query->where('breed', $request->breed);
+        }
+
+        if ($request->gender) {
+            $query->where('gender', $request->gender);
+        }
+
+        if ($request->age) {
+            $query->where('age_in_days', '<=', $request->age);
+        }
+
+        if ($request->stock_type) {
+            $query->where('stock_type', $request->stock_type);
+        }
+
+        $pigs = $query->get();
+
+        $pdf = Pdf::loadView('stocks.all.pdf', compact('pigs'));
+
+        return $pdf->download('all_stocks_' . date('Y-m-d') . '.pdf');
+    }
+
+    // Standard Stock Export Methods
+    public function standardExportCsv(Request $request)
+    {
+        $query = PigManagement::where('stock_type', 'standard')->with(['latestWeight', 'sale']);
+
+        if ($request->breed) {
+            $query->where('breed', $request->breed);
+        }
+
+        if ($request->gender) {
+            $query->where('gender', $request->gender);
+        }
+
+        if ($request->age) {
+            $query->where('age_in_days', '<=', $request->age);
+        }
+
+        $pigs = $query->get();
+
+        $response = new StreamedResponse(function() use ($pigs) {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, [
+                'Code', 'Ear Tag', 'Breed', 'Gender', 'Date of Birth', 'Age (days)',
+                'Breeding Ready', 'Age Status', 'Weight Status', 'Current Weight',
+                'Sale Status', 'Sale Price', 'Sale Date', 'Buyer', 'Father', 'Mother'
+            ]);
+
+            foreach ($pigs as $pig) {
+                $readiness = $pig->breeding_readiness;
+                $saleStatus = $pig->sale_status;
+
+                fputcsv($handle, [
+                    $pig->code,
+                    $pig->ear_tag_number,
+                    $pig->breed,
+                    $pig->gender === 'M' ? 'Male' : 'Female',
+                    $pig->date_of_birth ? $pig->date_of_birth->format('Y-m-d') : 'Not set',
+                    $pig->current_age_in_days,
+                    $readiness['ready'] ? 'Yes' : 'No',
+                    ucfirst(str_replace('_', ' ', $readiness['age_status'])),
+                    ucfirst(str_replace('_', ' ', $readiness['factors']['weight']['status'])),
+                    $pig->latestWeight ? $pig->latestWeight->weight . ' kg' : 'No data',
+                    $saleStatus['sold'] ? 'Sold' : 'Available',
+                    $saleStatus['sold'] && $pig->sale ? $pig->sale->formatted_sale_price : 'N/A',
+                    $saleStatus['sold'] && $pig->sale ? $pig->sale->sale_date->format('Y-m-d') : 'N/A',
+                    $saleStatus['sold'] && $pig->sale ? $pig->sale->buyer_name : 'N/A',
+                    $pig->father ? $pig->father->ear_tag_number : 'N/A',
+                    $pig->mother ? $pig->mother->ear_tag_number : 'N/A',
+                ]);
+            }
+
+            fclose($handle);
+        });
+
+        $response->headers->set('Content-Type', 'text/csv');
+        $response->headers->set('Content-Disposition', 'attachment; filename="standard_stocks_' . date('Y-m-d') . '.csv"');
+
+        return $response;
+    }
+
+    public function standardExportPdf(Request $request)
+    {
+        $query = PigManagement::where('stock_type', 'standard')->with(['latestWeight', 'sale', 'father', 'mother']);
+
+        if ($request->breed) {
+            $query->where('breed', $request->breed);
+        }
+
+        if ($request->gender) {
+            $query->where('gender', $request->gender);
+        }
+
+        if ($request->age) {
+            $query->where('age_in_days', '<=', $request->age);
+        }
+
+        $pigs = $query->get();
+
+        $pdf = Pdf::loadView('stocks.standard.pdf', compact('pigs'));
+
+        return $pdf->download('standard_stocks_' . date('Y-m-d') . '.pdf');
+    }
+
+    // Mating Planner Methods
+    public function matingIndex()
+    {
+        // Get all pigs first
+        $allMales = PigManagement::where('gender', 'M')->get();
+        $allFemales = PigManagement::where('gender', 'F')->get();
+
+        // Filter available pigs using the same logic as dropdown (availability_status)
+        $availableMales = $allMales->filter(function($pig) {
+            return $pig->availability_status['available'];
+        });
+
+        $availableFemales = $allFemales->filter(function($pig) {
+            return $pig->availability_status['available'];
+        });
+
+        $males = $availableMales->map(function($pig) {
+            $readiness = $pig->breeding_readiness;
+            return [
+                'id' => $pig->id,
+                'code' => $pig->code,
+                'ear_tag_number' => $pig->ear_tag_number,
+                'breed' => $pig->breed,
+                'stock_type' => $pig->stock_type,
+                'current_age_in_days' => $pig->current_age_in_days,
+                'breeding_readiness' => $readiness,
+                'readiness_message' => $pig->breeding_readiness_message,
+                'readiness_badge' => $pig->breeding_readiness_badge
+            ];
+        });
+
+        $females = $availableFemales->map(function($pig) {
+            $readiness = $pig->breeding_readiness;
+            return [
+                'id' => $pig->id,
+                'code' => $pig->code,
+                'ear_tag_number' => $pig->ear_tag_number,
+                'breed' => $pig->breed,
+                'stock_type' => $pig->stock_type,
+                'current_age_in_days' => $pig->current_age_in_days,
+                'breeding_readiness' => $readiness,
+                'readiness_message' => $pig->breeding_readiness_message,
+                'readiness_badge' => $pig->breeding_readiness_badge
+            ];
+        });
+
+        return view('mating.index', compact('males', 'females', 'allMales', 'allFemales', 'availableMales', 'availableFemales'));
+    }
+
+    public function planMating(Request $request)
+    {
+        $data = $request->validate([
+            'male_id' => 'required|exists:pigs_management,id',
+            'female_id' => 'required|exists:pigs_management,id',
+            'planned_date' => 'required|date|after_or_equal:today',
+            'notes' => 'nullable|string|max:1000'
+        ]);
+
+        // Check breeding readiness
+        $male = PigManagement::findOrFail($data['male_id']);
+        $female = PigManagement::findOrFail($data['female_id']);
+
+        $maleReadiness = $male->breeding_readiness;
+        $femaleReadiness = $female->breeding_readiness;
+
+        if (!$maleReadiness['ready']) {
+            return back()->withErrors(['mating' => "Male {$male->code} is not ready for breeding: {$maleReadiness['age_message']}"]);
+        }
+
+        if (!$femaleReadiness['ready']) {
+            return back()->withErrors(['mating' => "Female {$female->code} is not ready for breeding: {$femaleReadiness['age_message']}"]);
+        }
+
+        // Check relationship before planning
+        $relationship = $this->analyzeRelationship($data['male_id'], $data['female_id']);
+
+        if ($relationship['risk_level'] === 'critical') {
+            return back()->withErrors(['mating' => $relationship['message']]);
+        }
+
+        // Check for duplicate planned matings
+        $existingMating = Mating::where('male_id', $data['male_id'])
+            ->where('female_id', $data['female_id'])
+            ->where('status', 'planned')
+            ->first();
+
+        if ($existingMating) {
+            return back()->withErrors(['mating' => 'A mating between these pigs is already planned for ' . $existingMating->planned_date->format('M d, Y')]);
+        }
+
+        // Create the mating record
+        $mating = Mating::create([
+            'male_id' => $data['male_id'],
+            'female_id' => $data['female_id'],
+            'planned_date' => $data['planned_date'],
+            'notes' => $data['notes'],
+            'status' => 'planned',
+            'created_by' => auth()->id()
+        ]);
+
+        $male = PigManagement::find($data['male_id']);
+        $female = PigManagement::find($data['female_id']);
+
+        $successMessage = "Mating successfully planned for {$male->code} × {$female->code} on " .
+                         Carbon::parse($data['planned_date'])->format('M d, Y');
+
+        if ($relationship['risk_level'] !== 'none') {
+            $successMessage .= ' ⚠️ Note: ' . $relationship['message'];
+        }
+
+        return back()->with('success', $successMessage);
+    }
+
+    public function matingManage()
+    {
+        $matings = Mating::with(['male', 'female', 'createdBy', 'checkedBy'])
+            ->orderBy('planned_date', 'desc')
+            ->paginate(10);
+
+        $stats = [
+            'total' => Mating::count(),
+            'planned' => Mating::planned()->count(),
+            'completed' => Mating::completed()->count(),
+            'overdue' => Mating::overdue()->count(),
+            'upcoming' => Mating::upcoming()->count(),
+            'pregnancy_checks_due' => Mating::pregnancyCheckDue()->count(),
+            'pregnancy_checks_overdue' => Mating::pregnancyCheckOverdue()->count(),
+            'pregnant' => Mating::pregnant()->count(),
+            'not_pregnant' => Mating::notPregnant()->count()
+        ];
+
+        return view('mating.manage', compact('matings', 'stats'));
+    }
+
+    public function recordPregnancyCheck(Request $request, $id)
+    {
+        $mating = Mating::findOrFail($id);
+
+        $data = $request->validate([
+            'pregnancy_status' => 'required|in:pregnant,not_pregnant,uncertain',
+            'pregnancy_check_method' => 'required|in:physical_exam,blood_test,ultrasound,behavioral_signs,other',
+            'pregnancy_confidence' => 'required|in:high,medium,low',
+            'pregnancy_check_date' => 'required|date|before_or_equal:today',
+            'pregnancy_check_notes' => 'nullable|string|max:1000'
+        ]);
+
+        $success = $mating->recordPregnancyCheck(
+            $data['pregnancy_status'],
+            $data['pregnancy_check_method'],
+            $data['pregnancy_confidence'],
+            $data['pregnancy_check_notes'] ?? null,
+            $data['pregnancy_check_date'],
+            auth()->id()
+        );
+
+        if ($success) {
+            $statusMessage = match($data['pregnancy_status']) {
+                'pregnant' => '🤰 Pregnancy confirmed! Expected farrowing: ' . $mating->fresh()->expected_farrowing_date->format('M d, Y'),
+                'not_pregnant' => '❌ Not pregnant. Consider re-mating or health check.',
+                'uncertain' => '❓ Pregnancy uncertain. Consider follow-up check in a few days.',
+            };
+
+            return back()->with('success', 'Pregnancy check recorded successfully. ' . $statusMessage);
+        }
+
+        return back()->withErrors(['pregnancy' => 'Failed to record pregnancy check.']);
+    }
+
+    public function completeMating(Request $request, $id)
+    {
+        $mating = Mating::findOrFail($id);
+
+        $data = $request->validate([
+            'actual_date' => 'required|date|before_or_equal:today',
+            'outcome_notes' => 'nullable|string|max:1000'
+        ]);
+
+        $success = $mating->markAsCompleted(
+            auth()->id(),
+            $data['actual_date'],
+            $data['outcome_notes'] ?? null
+        );
+
+        if ($success) {
+            $male = $mating->male;
+            $female = $mating->female;
+            $pregnancyCheckDate = \Carbon\Carbon::parse($data['actual_date'])->addDays(14);
+
+            return back()->with('success',
+                "Mating completed for {$male->code} × {$female->code}. " .
+                "Pregnancy check recommended on {$pregnancyCheckDate->format('M d, Y')} (14 days from mating)."
+            );
+        }
+
+        return back()->withErrors(['mating' => 'Failed to complete mating.']);
+    }
+
+    // Gestation Period Management Methods
+    public function gestationIndex()
+    {
+        $pregnantMatings = Mating::with(['male', 'female', 'createdBy', 'checkedBy'])
+            ->whereIn('pregnancy_status', ['pregnant', 'farrowed'])
+            ->orderByRaw("CASE WHEN pregnancy_status = 'pregnant' THEN 0 ELSE 1 END")
+            ->orderBy('expected_farrowing_date', 'asc')
+            ->paginate(10);
+
+        $stats = [
+            'total_pregnant' => Mating::where('pregnancy_status', 'pregnant')->count(),
+            'total_farrowed' => Mating::where('pregnancy_status', 'farrowed')->count(),
+            'due_this_week' => Mating::where('pregnancy_status', 'pregnant')
+                ->whereBetween('expected_farrowing_date', [now(), now()->addWeek()])
+                ->count(),
+            'due_next_week' => Mating::where('pregnancy_status', 'pregnant')
+                ->whereBetween('expected_farrowing_date', [now()->addWeek(), now()->addWeeks(2)])
+                ->count(),
+            'overdue' => Mating::where('pregnancy_status', 'pregnant')
+                ->where('expected_farrowing_date', '<', now())
+                ->count(),
+            'farrowed_this_month' => Mating::where('pregnancy_status', 'farrowed')
+                ->whereMonth('actual_farrowing_date', now()->month)
+                ->whereYear('actual_farrowing_date', now()->year)
+                ->count(),
+            'average_gestation' => Mating::where('pregnancy_status', 'pregnant')
+                ->selectRaw('AVG(DATEDIFF(expected_farrowing_date, actual_date)) as avg_days')
+                ->value('avg_days') ?? config('breeding.cycle.gestation_days'),
+        ];
+
+        return view('gestation.index', compact('pregnantMatings', 'stats'));
+    }
+
+    public function recordFarrowing(Request $request, $id)
+    {
+        $mating = Mating::findOrFail($id);
+
+        $data = $request->validate([
+            'farrowing_date' => 'required|date|before_or_equal:today',
+            'farrowing_time' => 'nullable|date_format:H:i',
+            'total_piglets_born' => 'required|integer|min:0|max:20',
+            'live_births' => 'required|integer|min:0|max:20',
+            'stillbirths' => 'required|integer|min:0|max:20',
+            'number_of_males' => 'required|integer|min:0|max:20',
+            'number_of_females' => 'required|integer|min:0|max:20',
+            'farrowing_type' => 'required|in:natural,assisted,cesarean',
+            'farrowing_difficulty' => 'required|in:easy,moderate,difficult,complicated',
+            'average_birth_weight' => 'nullable|numeric|min:0|max:5',
+            'sow_condition' => 'required|in:excellent,good,fair,poor',
+            'complications' => 'nullable|string|max:1000',
+            'notes' => 'nullable|string|max:1000'
+        ]);
+
+
+
+        // Ensure all values are integers for comparison
+        $totalPiglets = (int) $data['total_piglets_born'];
+        $liveBirths = (int) $data['live_births'];
+        $stillbirths = (int) $data['stillbirths'];
+        $males = (int) $data['number_of_males'];
+        $females = (int) $data['number_of_females'];
+
+        // Validate that live + stillborn = total (using integer comparison)
+        $calculatedTotal = $liveBirths + $stillbirths;
+        if ($calculatedTotal !== $totalPiglets) {
+
+            return back()->withErrors([
+                'piglets' => "Live births ({$liveBirths}) + stillbirths ({$stillbirths}) = {$calculatedTotal} must equal total piglets born ({$totalPiglets})."
+            ])->withInput();
+        }
+
+        // Validate that gender distribution matches live births
+        $genderTotal = $males + $females;
+        if ($genderTotal !== $liveBirths) {
+
+            return back()->withErrors([
+                'gender' => "Number of males ({$males}) + females ({$females}) = {$genderTotal} must equal live births ({$liveBirths})."
+            ])->withInput();
+        }
+
+        // Calculate gestation length
+        $gestationLength = null;
+        if ($mating->mating_date) {
+            $gestationLength = \Carbon\Carbon::parse($mating->mating_date)->diffInDays($data['farrowing_date']);
+        }
+
+        // Create farrowing record
+        $farrowing = Farrowing::create([
+            'sow_id' => $mating->female_id,
+            'boar_id' => $mating->male_id,
+            'farrowing_date' => $data['farrowing_date'],
+            'farrowing_time' => $data['farrowing_time'],
+            'total_piglets_born' => $data['total_piglets_born'],
+            'live_births' => $data['live_births'],
+            'stillbirths' => $data['stillbirths'],
+            'number_of_males' => $data['number_of_males'],
+            'number_of_females' => $data['number_of_females'],
+            'average_birth_weight' => $data['average_birth_weight'],
+            'farrowing_type' => $data['farrowing_type'],
+            'farrowing_difficulty' => $data['farrowing_difficulty'],
+            'gestation_length_days' => $gestationLength,
+            'complications' => $data['complications'],
+            'notes' => $data['notes'],
+            'sow_condition' => $data['sow_condition'],
+            'recorded_by' => auth()->id(),
+            'status' => 'active'
+        ]);
+
+        // Update mating record (keep for backward compatibility)
+        $mating->update([
+            'actual_farrowing_date' => $data['farrowing_date'],
+            'total_piglets' => $data['total_piglets_born'],
+            'live_piglets' => $data['live_births'],
+            'stillborn_piglets' => $data['stillbirths'],
+            'farrowing_notes' => $data['notes'],
+            'pregnancy_status' => 'farrowed', // Mark as farrowed to indicate completion
+            'status' => 'farrowed' // Mark mating status as farrowed
+        ]);
+
+        if ($farrowing) {
+            $female = $mating->female;
+            $weaningDate = \Carbon\Carbon::parse($data['farrowing_date'])->addDays(config('breeding.cycle.birth_to_weaning_days'));
+
+            return back()->with('success',
+                "Farrowing recorded for {$female->code}! " .
+                "{$data['live_births']} live piglets born ({$data['number_of_males']} males, {$data['number_of_females']} females). " .
+                "Expected weaning date: {$weaningDate->format('M d, Y')}"
+            );
+        }
+
+        return back()->withErrors(['farrowing' => 'Failed to record farrowing.']);
+    }
+
+    public function updateGestationStatus(Request $request, $id)
+    {
+        $mating = Mating::findOrFail($id);
+
+        $data = $request->validate([
+            'status' => 'required|in:pregnant,lost_pregnancy,aborted',
+            'status_date' => 'required|date|before_or_equal:today',
+            'notes' => 'nullable|string|max:1000'
+        ]);
+
+        $success = $mating->update([
+            'pregnancy_status' => $data['status'],
+            'pregnancy_status_date' => $data['status_date'],
+            'pregnancy_status_notes' => $data['notes'] ?? null
+        ]);
+
+        if ($success) {
+            $female = $mating->female;
+            $statusMessage = match($data['status']) {
+                'lost_pregnancy' => "Pregnancy loss recorded for {$female->code}. Sow will become available for re-breeding.",
+                'aborted' => "Abortion recorded for {$female->code}. Sow will become available for re-breeding.",
+                'pregnant' => "Pregnancy status updated for {$female->code}.",
+            };
+
+            return back()->with('success', $statusMessage);
+        }
+
+        return back()->withErrors(['status' => 'Failed to update gestation status.']);
+    }
+
+    // Weaning Period Management Methods
+
+    private function getWeaningAlerts()
+    {
+        $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+        $today = now()->startOfDay();
+
+        // Calculate target weaning dates
+        $alerts = [
+            'upcoming' => [], // 2 days before weaning
+            'today' => [],    // Due today
+            'overdue' => []   // 2+ days overdue
+        ];
+
+        // Get pigs that haven't been weaned yet
+        $unweaned = PigManagement::whereNotNull('date_of_birth')
+            ->whereDoesntHave('weaning')
+            ->with(['mother', 'father'])
+            ->get();
+
+        foreach ($unweaned as $pig) {
+            $birthDate = $pig->date_of_birth;
+            $targetWeaningDate = $birthDate->copy()->addDays($weaningAge);
+            $daysUntilWeaning = $today->diffInDays($targetWeaningDate, false);
+
+            // 2 days before weaning (upcoming alert)
+            if ($daysUntilWeaning == 2) {
+                $alerts['upcoming'][] = [
+                    'pig' => $pig,
+                    'target_date' => $targetWeaningDate,
+                    'days_until' => 2,
+                    'message' => "Weaning due in 2 days"
+                ];
+            }
+            // Due today or 1 day before
+            elseif ($daysUntilWeaning <= 1 && $daysUntilWeaning >= 0) {
+                $alerts['today'][] = [
+                    'pig' => $pig,
+                    'target_date' => $targetWeaningDate,
+                    'days_until' => $daysUntilWeaning,
+                    'message' => $daysUntilWeaning == 0 ? "Weaning due today" : "Weaning due tomorrow"
+                ];
+            }
+            // Overdue (2+ days past due date)
+            elseif ($daysUntilWeaning <= -2) {
+                $daysOverdue = abs($daysUntilWeaning);
+                $alerts['overdue'][] = [
+                    'pig' => $pig,
+                    'target_date' => $targetWeaningDate,
+                    'days_overdue' => $daysOverdue,
+                    'message' => "Weaning overdue by {$daysOverdue} days"
+                ];
+            }
+        }
+
+        return $alerts;
+    }
+
+    // Weaning Status Pages
+    public function weaningPending()
+    {
+        $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+
+        // Get pigs that are not yet ready for weaning OR ready but not overdue
+        // This includes pigs from 0 days up to 6 days past weaning age (before they become overdue)
+        $pendingPigs = PigManagement::whereNotNull('date_of_birth')
+            ->whereRaw('DATEDIFF(NOW(), date_of_birth) < ?', [$weaningAge + 7]) // Under 52 days (not overdue)
+            ->whereDoesntHave('weaning')
+            ->with(['mother', 'father'])
+            ->orderBy('date_of_birth', 'desc')
+            ->paginate(10);
+
+        $stats = [
+            'total_pending' => PigManagement::whereNotNull('date_of_birth')
+                ->whereRaw('DATEDIFF(NOW(), date_of_birth) < ?', [$weaningAge + 7])
+                ->whereDoesntHave('weaning')
+                ->count(),
+            'ready_soon' => PigManagement::whereNotNull('date_of_birth')
+                ->whereRaw('DATEDIFF(NOW(), date_of_birth) BETWEEN ? AND ?', [$weaningAge - 7, $weaningAge - 1])
+                ->whereDoesntHave('weaning')
+                ->count(),
+            'ready_for_weaning' => PigManagement::whereNotNull('date_of_birth')
+                ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$weaningAge])
+                ->whereRaw('DATEDIFF(NOW(), date_of_birth) < ?', [$weaningAge + 7])
+                ->whereDoesntHave('weaning')
+                ->count(),
+        ];
+
+        return view('weaning.pending', compact('pendingPigs', 'stats'));
+    }
+
+    public function weaningInProgress()
+    {
+        $maturityAge = config('breeding.cycle.birth_to_maturity_days', 180);
+
+        // Get pigs that have been weaned but haven't completed maturity yet
+        // Show ALL weaned pigs regardless of age until they're manually completed
+        $inProgressPigs = PigManagement::whereNotNull('date_of_birth')
+            ->whereHas('weaning', function($query) {
+                $query->where('maturity_completed', false); // Not yet completed
+            })
+            ->with(['mother', 'father', 'weaning'])
+            ->orderBy('date_of_birth', 'asc')
+            ->paginate(10);
+
+        // Calculate additional data for each pig
+        $inProgressPigs->getCollection()->transform(function ($pig) use ($maturityAge) {
+            if ($pig->weaning) {
+                $pig->days_since_weaning = (int) $pig->weaning->weaning_date->diffInDays(now());
+                $pig->days_until_mature = $maturityAge - (int) $pig->date_of_birth->diffInDays(now());
+                $pig->progress_percentage = round((($pig->date_of_birth->diffInDays(now()) - 45) / ($maturityAge - 45)) * 100, 1);
+                $pig->expected_maturity_date = $pig->date_of_birth->copy()->addDays($maturityAge);
+            }
+            return $pig;
+        });
+
+        $stats = [
+            'total_in_progress' => PigManagement::whereNotNull('date_of_birth')
+                ->whereHas('weaning', function($query) {
+                    $query->where('maturity_completed', false);
+                })
+                ->count(),
+            'recently_weaned' => PigManagement::whereNotNull('date_of_birth')
+                ->whereHas('weaning', function($query) {
+                    $query->where('weaning_date', '>=', now()->subDays(7))
+                          ->where('maturity_completed', false);
+                })
+                ->count(),
+            'near_maturity' => PigManagement::whereNotNull('date_of_birth')
+                ->whereRaw('DATEDIFF(NOW(), date_of_birth) BETWEEN ? AND ?', [$maturityAge - 14, $maturityAge - 1])
+                ->whereHas('weaning', function($query) {
+                    $query->where('maturity_completed', false);
+                })
+                ->count(),
+            'ready_for_completion' => PigManagement::whereNotNull('date_of_birth')
+                ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$maturityAge])
+                ->whereHas('weaning', function($query) {
+                    $query->where('maturity_completed', false);
+                })
+                ->count(),
+        ];
+
+        return view('weaning.in-progress', compact('inProgressPigs', 'stats'));
+    }
+
+    public function weaningWeaned()
+    {
+        // Show only pigs that have completed the full weaning-to-maturity journey
+        $completedPigs = Weaning::with(['pig', 'mother', 'recordedBy', 'completedBy'])
+            ->where('maturity_completed', true)
+            ->orderBy('maturity_completion_date', 'desc')
+            ->paginate(10);
+
+        $stats = [
+            'total_completed' => Weaning::where('maturity_completed', true)->count(),
+            'completed_this_month' => Weaning::where('maturity_completed', true)
+                ->whereMonth('maturity_completion_date', now()->month)
+                ->whereYear('maturity_completion_date', now()->year)
+                ->count(),
+            'average_maturity_age' => Weaning::where('maturity_completed', true)
+                ->avg('age_at_maturity_days'),
+            'breeding_destination' => Weaning::where('maturity_completed', true)
+                ->where('next_destination', 'breeding')
+                ->count(),
+            'market_destination' => Weaning::where('maturity_completed', true)
+                ->where('next_destination', 'market')
+                ->count(),
+        ];
+
+        return view('weaning.weaned', compact('completedPigs', 'stats'));
+    }
+
+    public function weaningOverdue()
+    {
+        $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+
+        $overduePigs = PigManagement::whereNotNull('date_of_birth')
+            ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$weaningAge + 7]) // 7+ days overdue
+            ->whereDoesntHave('weaning')
+            ->with(['mother', 'father'])
+            ->orderBy('date_of_birth', 'asc') // Oldest first (most overdue)
+            ->paginate(10);
+
+        $stats = [
+            'total_overdue' => PigManagement::whereNotNull('date_of_birth')
+                ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$weaningAge + 7])
+                ->whereDoesntHave('weaning')
+                ->count(),
+            'critically_overdue' => PigManagement::whereNotNull('date_of_birth')
+                ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$weaningAge + 14]) // 14+ days overdue
+                ->whereDoesntHave('weaning')
+                ->count(),
+        ];
+
+        return view('weaning.overdue', compact('overduePigs', 'stats'));
+    }
+
+    public function recordWeaning(Request $request, $id)
+    {
+        $pig = PigManagement::findOrFail($id);
+
+        $data = $request->validate([
+            'weaning_date' => 'required|date|before_or_equal:today',
+            'weaning_weight' => 'nullable|numeric|min:0|max:500',
+            'weaning_method' => 'required|in:natural,forced,gradual',
+            'weaning_reason' => 'required|in:age_appropriate,health_issue,mother_issue,management_decision',
+            'notes' => 'nullable|string|max:1000',
+            'post_weaning_status' => 'required|in:healthy,stressed,sick,monitoring',
+            'follow_up_date' => 'nullable|date|after:weaning_date'
+        ]);
+
+        // Check if pig is eligible for weaning
+        if (!$pig->date_of_birth) {
+            return back()->withErrors(['weaning' => 'Cannot wean pig without birth date.']);
+        }
+
+        // Check if pig is already weaned
+        if ($pig->weaning) {
+            return back()->withErrors(['weaning' => 'This pig has already been weaned.']);
+        }
+
+        $ageAtWeaning = (int) $pig->date_of_birth->diffInDays($data['weaning_date']);
+        $minWeaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+
+        if ($ageAtWeaning < $minWeaningAge) {
+            return back()->withErrors(['weaning' => "Pig is too young for weaning. Minimum age is {$minWeaningAge} days."]);
+        }
+
+        // Create weaning record
+        $weaning = Weaning::create([
+            'pig_id' => $pig->id,
+            'mother_id' => $pig->mother_id,
+            'weaning_date' => $data['weaning_date'],
+            'age_at_weaning_days' => $ageAtWeaning,
+            'weaning_weight' => $data['weaning_weight'] ?? null,
+            'weaning_method' => $data['weaning_method'],
+            'weaning_reason' => $data['weaning_reason'],
+            'notes' => $data['notes'] ?? null,
+            'post_weaning_status' => $data['post_weaning_status'],
+            'follow_up_date' => $data['follow_up_date'] ?? null,
+            'recorded_by' => auth()->id(),
+            'maturity_completed' => false  // Explicitly set to false for In Progress tracking
+        ]);
+
+        // Create weight record if provided
+        if (isset($data['weaning_weight'])) {
+            $pig->weights()->create([
+                'weight' => $data['weaning_weight'],
+                'weigh_date' => $data['weaning_date'],
+                'notes' => 'Weaning weight'
+            ]);
+        }
+
+        $statusMessage = match($data['post_weaning_status']) {
+            'healthy' => 'Pig appears healthy post-weaning.',
+            'stressed' => 'Pig showing signs of stress. Monitor closely.',
+            'sick' => 'Health concerns noted. Consider veterinary consultation.',
+            'monitoring' => 'Pig requires ongoing monitoring.',
+        };
+
+        return back()->with('success',
+            "Weaning recorded for {$pig->code} at {$ageAtWeaning} days old. {$statusMessage}"
+        );
+    }
+
+    public function completeMaturity(Request $request, $id)
+    {
+        $pig = PigManagement::findOrFail($id);
+
+        $data = $request->validate([
+            'completion_date' => 'required|date|before_or_equal:today',
+            'final_weight' => 'nullable|numeric|min:0|max:500',
+            'health_status' => 'required|in:excellent,good,fair,poor',
+            'body_condition_score' => 'nullable|in:1,2,3,4,5',
+            'next_destination' => 'required|in:breeding,market,monitoring,other',
+            'growth_performance' => 'nullable|in:excellent,good,average,poor',
+            'completion_notes' => 'nullable|string|max:1000'
+        ]);
+
+        // Check if pig has been weaned
+        if (!$pig->weaning) {
+            return back()->withErrors(['maturity' => 'This pig has not been weaned yet.']);
+        }
+
+        // Check if pig is already completed
+        if ($pig->weaning->maturity_completed) {
+            return back()->withErrors(['maturity' => 'This pig has already completed maturity.']);
+        }
+
+        $ageAtCompletion = (int) $pig->date_of_birth->diffInDays($data['completion_date']);
+        $maturityAge = config('breeding.cycle.birth_to_maturity_days', 180);
+
+        // Update weaning record with maturity completion data
+        $pig->weaning->update([
+            'maturity_completed' => true,
+            'maturity_completion_date' => $data['completion_date'],
+            'age_at_maturity_days' => $ageAtCompletion,
+            'final_weight' => $data['final_weight'],
+            'health_status_at_maturity' => $data['health_status'],
+            'body_condition_score' => $data['body_condition_score'],
+            'next_destination' => $data['next_destination'],
+            'growth_performance' => $data['growth_performance'],
+            'maturity_notes' => $data['completion_notes'],
+            'completed_by' => auth()->id()
+        ]);
+
+        // Create final weight record if provided
+        if (isset($data['final_weight'])) {
+            $pig->weights()->create([
+                'weight' => $data['final_weight'],
+                'weigh_date' => $data['completion_date'],
+                'notes' => 'Maturity completion weight'
+            ]);
+        }
+
+        $destinationMessage = match($data['next_destination']) {
+            'breeding' => 'Ready for breeding program.',
+            'market' => 'Ready for market.',
+            'monitoring' => 'Requires continued monitoring.',
+            'other' => 'Special handling required.',
+        };
+
+        return back()->with('success',
+            "Maturity completed for {$pig->code} at {$ageAtCompletion} days old. {$destinationMessage}"
+        );
+    }
+
+    public function updateWeaningStatus(Request $request, $id)
+    {
+        $pig = PigManagement::findOrFail($id);
+
+        $data = $request->validate([
+            'status' => 'required|in:weaned,delayed,health_issue',
+            'status_date' => 'required|date|before_or_equal:today',
+            'notes' => 'nullable|string|max:1000'
+        ]);
+
+        if ($data['status'] === 'weaned') {
+            $pig->update([
+                'weaning_date' => $data['status_date'],
+                'weaning_notes' => $data['notes'] ?? null
+            ]);
+            $message = "Weaning status updated for {$pig->code}.";
+        } else {
+            $pig->update([
+                'weaning_notes' => $data['notes'] ?? null
+            ]);
+            $statusMessage = match($data['status']) {
+                'delayed' => "Weaning delayed for {$pig->code}. Monitor for readiness.",
+                'health_issue' => "Health issue noted for {$pig->code}. Consult veterinarian before weaning.",
+            };
+            $message = $statusMessage;
+        }
+
+        return back()->with('success', $message);
+    }
+
+    // Promote pig from standard to breeding stock
+    public function promoteToBreeding($id)
+    {
+        $pig = PigManagement::findOrFail($id);
+
+        // Check if pig is already breeding stock
+        if ($pig->stock_type === 'breeding') {
+            return FlashHelper::errorAndBack('This pig is already breeding stock.');
+        }
+
+        // Check breeding readiness
+        $readiness = $pig->breeding_readiness;
+
+        // Allow promotion if pig meets minimum age requirements (even if not optimal)
+        if (!in_array($readiness['age_status'], ['minimum_met', 'optimal'])) {
+            return back()->withErrors([
+                'promotion' => "Cannot promote {$pig->code} to breeding stock: {$readiness['age_message']}"
+            ]);
+        }
+
+        // Check weight if available
+        if ($readiness['factors']['weight']['status'] === 'too_light') {
+            return back()->withErrors([
+                'promotion' => "Cannot promote {$pig->code} to breeding stock: {$readiness['factors']['weight']['message']}"
+            ]);
+        }
+
+        // Promote to breeding stock
+        $pig->update(['stock_type' => 'breeding']);
+
+        // Create a weight record for breeding promotion if none exists
+        if (!$pig->latestWeight) {
+            // Suggest adding weight data
+            $message = "Pig {$pig->code} promoted to breeding stock successfully! Consider adding weight data for better breeding management.";
+        } else {
+            $message = "Pig {$pig->code} promoted to breeding stock successfully!";
+        }
+
+        return FlashHelper::successAndRedirect($message, 'breeding-stocks.index');
+    }
+
+    // Demote pig from breeding to standard stock
+    public function demoteToStandard($id)
+    {
+        $pig = PigManagement::findOrFail($id);
+
+        // Check if pig is already standard stock
+        if ($pig->stock_type === 'standard') {
+            return back()->withErrors(['demotion' => 'This pig is already standard stock.']);
+        }
+
+        // Check if pig has active breeding activities
+        $hasActiveMating = $pig->maleMatings()->whereIn('status', ['planned', 'completed'])->exists() ||
+                          $pig->femaleMatings()->whereIn('status', ['planned', 'completed'])->exists();
+
+        if ($hasActiveMating) {
+            return back()->withErrors([
+                'demotion' => "Cannot demote {$pig->code} to standard stock: pig has active or completed matings."
+            ]);
+        }
+
+        // Demote to standard stock
+        $pig->update(['stock_type' => 'standard']);
+
+        return redirect()->route('standard-stocks.index')->with('success', "Pig {$pig->code} demoted to standard stock successfully.");
+    }
+
+    // Show detailed pig information
+    public function show($id)
+    {
+        $pig = PigManagement::with([
+            'father',
+            'mother',
+            'weights' => function($query) {
+                $query->latest('weigh_date')->limit(10);
+            },
+            'latestWeight',
+            'maleMatings' => function($query) {
+                $query->with(['female', 'createdBy'])->latest('created_at');
+            },
+            'femaleMatings' => function($query) {
+                $query->with(['male', 'createdBy'])->latest('created_at');
+            }
+        ])->findOrFail($id);
+
+        // Get breeding readiness
+        $breedingReadiness = $pig->breeding_readiness;
+
+        // Get availability status
+        $availabilityStatus = $pig->availability_status;
+
+        // Get offspring (children)
+        $offspring = PigManagement::where(function($query) use ($pig) {
+            if ($pig->gender === 'M') {
+                $query->where('father_id', $pig->id);
+            } else {
+                $query->where('mother_id', $pig->id);
+            }
+        })->with(['father', 'mother'])->get();
+
+        // Get siblings
+        $siblings = collect();
+        if ($pig->father_id || $pig->mother_id) {
+            $siblings = PigManagement::where('id', '!=', $pig->id)
+                ->where(function($query) use ($pig) {
+                    if ($pig->father_id) {
+                        $query->where('father_id', $pig->father_id);
+                    }
+                    if ($pig->mother_id) {
+                        $query->orWhere('mother_id', $pig->mother_id);
+                    }
+                })
+                ->get();
+        }
+
+        // Calculate statistics
+        $stats = [
+            'total_matings' => $pig->maleMatings->count() + $pig->femaleMatings->count(),
+            'successful_matings' => $pig->maleMatings->where('successful', true)->count() +
+                                   $pig->femaleMatings->where('successful', true)->count(),
+            'total_offspring' => $offspring->count(),
+            'weight_records' => $pig->weights->count(),
+            'days_since_last_weight' => $pig->latestWeight ? $pig->latestWeight->days_ago : null,
+        ];
+
+        return view('pigs.show', compact(
+            'pig',
+            'breedingReadiness',
+            'availabilityStatus',
+            'offspring',
+            'siblings',
+            'stats'
+        ));
+    }
+
+    // Sale Management Methods
+    public function saleForm($id)
+    {
+        $pig = PigManagement::findOrFail($id);
+
+        // Check if pig is eligible for sale
+        $eligibility = $pig->sale_eligibility;
+        if (!$eligibility['eligible']) {
+            return back()->withErrors(['sale' => $eligibility['reason']]);
+        }
+
+        return view('pigs.sale', compact('pig'));
+    }
+
+    public function recordSale(Request $request, $id)
+    {
+        $pig = PigManagement::findOrFail($id);
+
+        // Check if pig is eligible for sale
+        $eligibility = $pig->sale_eligibility;
+        if (!$eligibility['eligible']) {
+            return back()->withErrors(['sale' => $eligibility['reason']]);
+        }
+
+        $data = $request->validate([
+            'sale_date' => 'required|date|before_or_equal:today',
+            'sale_price' => 'required|numeric|min:0',
+            'sale_weight' => 'nullable|numeric|min:0',
+            'buyer_name' => 'required|string|max:255',
+            'buyer_contact' => 'nullable|string|max:255',
+            'buyer_address' => 'nullable|string|max:1000',
+            'sale_purpose' => 'required|in:market,breeding,slaughter,export,other',
+            'payment_method' => 'nullable|in:cash,check,bank_transfer,mobile_money,other',
+            'payment_status' => 'required|in:pending,paid,partial',
+            'notes' => 'nullable|string|max:1000',
+            'sold_by' => 'nullable|string|max:255',
+            'transport_cost' => 'nullable|numeric|min:0',
+            'transport_method' => 'nullable|in:pickup,delivery,farm_gate,other'
+        ]);
+
+        $data['pig_id'] = $pig->id;
+
+        // Create sale record
+        PigSale::create($data);
+
+        return redirect()->route('sales.index')->with('success', "Sale of pig {$pig->code} recorded successfully!");
+    }
+
+    // Sales Management
+    public function salesIndex(Request $request)
+    {
+        $query = PigSale::with(['pig']);
+
+        // Apply filters
+        if ($request->buyer_name) {
+            $query->where('buyer_name', 'like', '%' . $request->buyer_name . '%');
+        }
+
+        if ($request->sale_purpose) {
+            $query->where('sale_purpose', $request->sale_purpose);
+        }
+
+        if ($request->payment_status) {
+            $query->where('payment_status', $request->payment_status);
+        }
+
+        if ($request->date_from) {
+            $query->where('sale_date', '>=', $request->date_from);
+        }
+
+        if ($request->date_to) {
+            $query->where('sale_date', '<=', $request->date_to);
+        }
+
+        $sales = $query->orderBy('sale_date', 'desc')->paginate(10);
+        $sales->appends($request->query());
+
+        // Calculate statistics
+        $stats = [
+            'total_sales' => PigSale::count(),
+            'total_value' => PigSale::sum('sale_price'),
+            'recent_sales' => PigSale::recent(30)->count(),
+            'recent_value' => PigSale::recent(30)->sum('sale_price'),
+            'pending_payments' => PigSale::pending()->count(),
+            'pending_value' => PigSale::pending()->sum('sale_price'),
+            'average_price' => PigSale::avg('sale_price'),
+            'average_weight' => PigSale::whereNotNull('sale_weight')->avg('sale_weight')
+        ];
+
+        return view('sales.index', compact('sales', 'stats'));
+    }
+
+    public function saleShow($id)
+    {
+        $sale = PigSale::with(['pig'])->findOrFail($id);
+        return view('sales.show', compact('sale'));
+    }
+
+    public function updatePaymentStatus(Request $request, $id)
+    {
+        $sale = PigSale::findOrFail($id);
+
+        $data = $request->validate([
+            'payment_status' => 'required|in:pending,paid,partial',
+            'notes' => 'nullable|string|max:1000'
+        ]);
+
+        $sale->update($data);
+
+        return back()->with('success', 'Payment status updated successfully!');
+    }
+
+    // Finisher Management Methods
+    public function finishersIndex()
+    {
+        // Get pigs with their latest weights (50kg+ = finisher stage)
+        $finishers = PigManagement::select('pigs_management.*', 'latest_weights.weight as current_weight', 'latest_weights.weigh_date')
+            ->join(DB::raw('(SELECT pig_id, weight, weigh_date, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
+                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
+                     ->where('latest_weights.rn', '=', 1);
+            })
+            ->where('stock_type', 'standard')
+            ->where('latest_weights.weight', '>=', 50)
+            ->with(['mother', 'father'])
+            ->orderBy('latest_weights.weight', 'desc')
+            ->paginate(10);
+
+        // Calculate statistics
+        $allFinishers = PigManagement::select('pigs_management.id', 'latest_weights.weight')
+            ->join(DB::raw('(SELECT pig_id, weight, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
+                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
+                     ->where('latest_weights.rn', '=', 1);
+            })
+            ->where('stock_type', 'standard')
+            ->where('latest_weights.weight', '>=', 50)
+            ->get();
+
+        $stats = [
+            'total_finishers' => $allFinishers->count(),
+            'growing' => $allFinishers->whereBetween('weight', [50, 79.99])->count(),
+            'near_market' => $allFinishers->whereBetween('weight', [80, 99.99])->count(),
+            'market_ready' => $allFinishers->where('weight', '>=', 100)->count(),
+            'average_weight' => $allFinishers->avg('weight'),
+        ];
+
+        return view('finishers.index', compact('finishers', 'stats'));
+    }
+
+    public function finishersGrowing()
+    {
+        // Get growing finishers (50-80kg)
+        $finishers = PigManagement::select('pigs_management.*', 'latest_weights.weight as current_weight', 'latest_weights.weigh_date')
+            ->join(DB::raw('(SELECT pig_id, weight, weigh_date, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
+                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
+                     ->where('latest_weights.rn', '=', 1);
+            })
+            ->where('stock_type', 'standard')
+            ->whereBetween('latest_weights.weight', [50, 79.99])
+            ->with(['mother', 'father'])
+            ->orderBy('latest_weights.weight', 'desc')
+            ->paginate(10);
+
+        // Calculate statistics for growing finishers
+        $growingFinishers = PigManagement::select('latest_weights.weight')
+            ->join(DB::raw('(SELECT pig_id, weight, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
+                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
+                     ->where('latest_weights.rn', '=', 1);
+            })
+            ->where('stock_type', 'standard')
+            ->whereBetween('latest_weights.weight', [50, 79.99])
+            ->get();
+
+        $stats = [
+            'total_growing' => $growingFinishers->count(),
+            'average_weight' => $growingFinishers->avg('weight'),
+            'expected_market_ready' => $growingFinishers->whereBetween('weight', [70, 79.99])->count(), // Pigs close to 80kg threshold
+        ];
+
+        return view('finishers.growing', compact('finishers', 'stats'));
+    }
+
+    public function finishersReady()
+    {
+        // Get near market ready finishers (80-100kg)
+        $finishers = PigManagement::select('pigs_management.*', 'latest_weights.weight as current_weight', 'latest_weights.weigh_date')
+            ->join(DB::raw('(SELECT pig_id, weight, weigh_date, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
+                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
+                     ->where('latest_weights.rn', '=', 1);
+            })
+            ->where('stock_type', 'standard')
+            ->whereBetween('latest_weights.weight', [80, 99.99])
+            ->with(['mother', 'father'])
+            ->orderBy('latest_weights.weight', 'desc')
+            ->paginate(10);
+
+        // Calculate statistics for near market ready finishers
+        $nearMarketFinishers = PigManagement::select('latest_weights.weight')
+            ->join(DB::raw('(SELECT pig_id, weight, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
+                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
+                     ->where('latest_weights.rn', '=', 1);
+            })
+            ->where('stock_type', 'standard')
+            ->whereBetween('latest_weights.weight', [80, 99.99])
+            ->get();
+
+        $stats = [
+            'total_near_market' => $nearMarketFinishers->count(),
+            'average_weight' => $nearMarketFinishers->avg('weight'),
+            'days_to_market' => 14, // Estimated days to reach market weight
+        ];
+
+        return view('finishers.ready', compact('finishers', 'stats'));
+    }
+
+    public function finishersMarketReady()
+    {
+        // Get market ready finishers (100kg+)
+        $finishers = PigManagement::select('pigs_management.*', 'latest_weights.weight as current_weight', 'latest_weights.weigh_date')
+            ->join(DB::raw('(SELECT pig_id, weight, weigh_date, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
+                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
+                     ->where('latest_weights.rn', '=', 1);
+            })
+            ->where('stock_type', 'standard')
+            ->where('latest_weights.weight', '>=', 100)
+            ->with(['mother', 'father'])
+            ->orderBy('latest_weights.weight', 'desc')
+            ->paginate(10);
+
+        // Calculate statistics for market ready finishers
+        $marketReadyFinishers = PigManagement::select('latest_weights.weight')
+            ->join(DB::raw('(SELECT pig_id, weight, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
+                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
+                     ->where('latest_weights.rn', '=', 1);
+            })
+            ->where('stock_type', 'standard')
+            ->where('latest_weights.weight', '>=', 100)
+            ->get();
+
+        $stats = [
+            'total_market_ready' => $marketReadyFinishers->count(),
+            'average_weight' => $marketReadyFinishers->avg('weight'),
+            'total_value' => $marketReadyFinishers->sum('weight') * 8, // Estimated at $8/kg
+        ];
+
+        return view('finishers.market-ready', compact('finishers', 'stats'));
+    }
+
+    public function updateFinisherWeight(Request $request, $id)
+    {
+        $pig = PigManagement::findOrFail($id);
+
+        $data = $request->validate([
+            'weight' => 'required|numeric|min:0|max:300',
+            'weigh_date' => 'required|date|before_or_equal:today',
+            'notes' => 'nullable|string|max:500'
+        ]);
+
+        // Use database transaction to ensure data consistency
+        DB::transaction(function () use ($pig, $data) {
+            // Create weight record
+            PigWeight::create([
+                'pig_id' => $pig->id,
+                'weight' => $data['weight'],
+                'weigh_date' => $data['weigh_date'],
+                'notes' => $data['notes'],
+                'weighed_by' => auth()->user()->name,
+                'purpose' => 'finisher_tracking',
+                'weight_unit' => 'kg',
+                'is_estimated' => false
+            ]);
+        });
+
+        // Force a small delay to ensure database commit
+        usleep(100000); // 0.1 second
+
+        return back()->with('success', "Weight updated for pig {$pig->code}! New weight: {$data['weight']}kg");
+    }
+
+    public function markMarketReady(Request $request, $id)
+    {
+        $pig = PigManagement::findOrFail($id);
+
+        // Get the latest weight for this pig
+        $latestWeight = PigWeight::where('pig_id', $pig->id)
+            ->orderBy('weigh_date', 'desc')
+            ->first();
+
+        if (!$latestWeight || $latestWeight->weight < 100) {
+            return back()->withErrors(['weight' => 'Pig must weigh at least 100kg to be marked as market ready.']);
+        }
+
+        // Redirect to sales form
+        return redirect()->route('pigs.sale-form', $pig->id);
+    }
+
+    public function finishersExportCsv()
+    {
+        // Get all finishers with their latest weights
+        $finishers = PigManagement::select('pigs_management.*', 'latest_weights.weight as current_weight', 'latest_weights.weigh_date')
+            ->join(DB::raw('(SELECT pig_id, weight, weigh_date, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
+                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
+                     ->where('latest_weights.rn', '=', 1);
+            })
+            ->where('stock_type', 'standard')
+            ->where('latest_weights.weight', '>=', 50)
+            ->with(['mother', 'father'])
+            ->get();
+
+        $filename = 'finishers_' . date('Y-m-d') . '.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+
+        $callback = function() use ($finishers) {
+            $file = fopen('php://output', 'w');
+            fputcsv($file, ['Code', 'Gender', 'Date of Birth', 'Age (Days)', 'Current Weight (kg)', 'Weigh Date', 'Mother', 'Father', 'Status']);
+
+            foreach ($finishers as $pig) {
+                fputcsv($file, [
+                    $pig->code,
+                    $pig->gender === 'M' ? 'Male' : 'Female',
+                    $pig->date_of_birth ? $pig->date_of_birth->format('Y-m-d') : 'N/A',
+                    $pig->age_in_days,
+                    $pig->current_weight ?? 'N/A',
+                    $pig->weigh_date ?? 'N/A',
+                    $pig->mother ? $pig->mother->code : 'N/A',
+                    $pig->father ? $pig->father->code : 'N/A',
+                    $pig->current_weight >= 100 ? 'Market Ready' : ($pig->current_weight >= 80 ? 'Near Market' : 'Growing')
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function finishersExportPdf()
+    {
+        // Get all finishers with their latest weights
+        $finishers = PigManagement::select('pigs_management.*', 'latest_weights.weight as current_weight', 'latest_weights.weigh_date')
+            ->join(DB::raw('(SELECT pig_id, weight, weigh_date, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
+                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
+                     ->where('latest_weights.rn', '=', 1);
+            })
+            ->where('stock_type', 'standard')
+            ->where('latest_weights.weight', '>=', 50)
+            ->with(['mother', 'father'])
+            ->orderBy('latest_weights.weight', 'desc')
+            ->get();
+
+        $stats = [
+            'total_finishers' => $finishers->count(),
+            'growing' => $finishers->whereBetween('current_weight', [50, 79.99])->count(),
+            'near_market' => $finishers->whereBetween('current_weight', [80, 99.99])->count(),
+            'market_ready' => $finishers->where('current_weight', '>=', 100)->count(),
+            'average_weight' => $finishers->avg('current_weight'),
+        ];
+
+        // Generate PDF using the finishers.pdf view
+        $pdf = PDF::loadView('finishers.pdf', compact('finishers', 'stats'));
+
+        // Set PDF options for better formatting
+        $pdf->setPaper('A4', 'landscape');
+        $pdf->setOptions([
+            'isHtml5ParserEnabled' => true,
+            'isRemoteEnabled' => true,
+            'defaultFont' => 'Arial'
+        ]);
+
+        // Return PDF download
+        return $pdf->download('finishers_report_' . date('Y-m-d_H-i-s') . '.pdf');
+    }
+
+    // Weaning Weight Update Methods
+    public function updateWeaningWeight(Request $request, $id)
+    {
+        $pig = PigManagement::findOrFail($id);
+
+        $data = $request->validate([
+            'weight' => 'required|numeric|min:0|max:100',
+            'weigh_date' => 'required|date|before_or_equal:today',
+            'notes' => 'nullable|string|max:500'
+        ]);
+
+        // Use database transaction to ensure data consistency
+        DB::transaction(function () use ($pig, $data) {
+            // Create weight record
+            PigWeight::create([
+                'pig_id' => $pig->id,
+                'weight' => $data['weight'],
+                'weigh_date' => $data['weigh_date'],
+                'notes' => $data['notes'],
+                'weighed_by' => auth()->user()->name,
+                'purpose' => 'weaning_tracking',
+                'weight_unit' => 'kg',
+                'is_estimated' => false
+            ]);
+        });
+
+        // Force a small delay to ensure database commit
+        usleep(100000); // 0.1 second
+
+        return back()->with('success', "Weight updated for piglet {$pig->code}! New weight: {$data['weight']}kg");
+    }
+
+    /**
+     * Check if an ear tag number already exists (for real-time validation)
+     */
+    public function checkEarTag(Request $request)
+    {
+        $request->validate([
+            'ear_tag_number' => 'required|string|max:50'
+        ]);
+
+        $earTagNumber = trim($request->ear_tag_number);
+        $exists = PigManagement::where('ear_tag_number', $earTagNumber)->exists();
+
+        return response()->json([
+            'exists' => $exists,
+            'ear_tag_number' => $earTagNumber
+        ]);
+    }
+}
+

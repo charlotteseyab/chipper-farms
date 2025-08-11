@@ -1,0 +1,230 @@
+<x-app-layout>
+    <main class="flex-1 p-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-900">Weight Management</h2>
+                <div class="flex gap-2">
+                    <a href="{{ route('weights.create') }}" class="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition">
+                        <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                        </svg>
+                        Record Weight
+                    </a>
+                    <a href="{{ route('weights.reports') }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">
+                        <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        Weight Reports
+                    </a>
+                </div>
+            </div>
+
+            <!-- Weight Alerts Summary -->
+            <x-weight-alerts-summary />
+
+            <!-- Filters -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+                <form method="GET" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Pig</label>
+                        <select name="pig_id" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500">
+                            <option value="">All Pigs</option>
+                            @foreach($pigs as $pig)
+                                <option value="{{ $pig->id }}" {{ request('pig_id') == $pig->id ? 'selected' : '' }}>
+                                    {{ $pig->ear_tag_number }} - {{ $pig->code }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
+                        <select name="purpose" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500">
+                            <option value="">All Purposes</option>
+                            @foreach($purposes as $purpose)
+                                <option value="{{ $purpose }}" {{ request('purpose') == $purpose ? 'selected' : '' }}>
+                                    {{ ucfirst($purpose) }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date From</label>
+                        <input type="date" name="date_from" value="{{ request('date_from') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date To</label>
+                        <input type="date" name="date_to" value="{{ request('date_to') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Weight From (kg)</label>
+                        <input type="number" name="weight_from" value="{{ request('weight_from') }}" step="0.1" min="0" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Weight To (kg)</label>
+                        <input type="number" name="weight_to" value="{{ request('weight_to') }}" step="0.1" min="0" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500">
+                    </div>
+
+                    <div class="flex items-end gap-2">
+                        <button type="submit" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
+                            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z"/>
+                            </svg>
+                            Filter
+                        </button>
+                        <a href="{{ route('weights.index') }}" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition">Clear</a>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Weight Records Table -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900">Weight Records ({{ $weights->total() }})</h3>
+                </div>
+
+                @if($weights->count() > 0)
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pig</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight & Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age at Weighing</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Body Condition</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                @foreach($weights as $weight)
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center">
+                                                <div>
+                                                    <div class="text-sm font-medium text-gray-900">{{ $weight->pig->ear_tag_number }}</div>
+                                                    <div class="text-sm text-gray-500">{{ $weight->pig->code }}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center gap-2">
+                                                <div>
+                                                    <div class="text-sm font-medium text-gray-900">{{ number_format($weight->weight, 1) }} kg</div>
+                                                    <div class="text-sm text-gray-500">{{ number_format($weight->weight_in_lbs, 1) }} lbs</div>
+                                                </div>
+                                                @if($weight->weightAlerts->count() > 0)
+                                                    @php
+                                                        $alert = $weight->weightAlerts->first();
+                                                        $alertConfig = [
+                                                            'under_weight' => ['icon' => '⬇️', 'color' => 'text-blue-600', 'bg' => 'bg-blue-100', 'text' => 'Under Weight'],
+                                                            'over_weight' => ['icon' => '⬆️', 'color' => 'text-orange-600', 'bg' => 'bg-orange-100', 'text' => 'Over Weight'],
+                                                            'normal' => ['icon' => '✅', 'color' => 'text-green-600', 'bg' => 'bg-green-100', 'text' => 'Normal'],
+                                                            'no_standard' => ['icon' => '❓', 'color' => 'text-gray-600', 'bg' => 'bg-gray-100', 'text' => 'No Standard']
+                                                        ];
+                                                        $config = $alertConfig[$alert->alert_type] ?? $alertConfig['no_standard'];
+                                                        $severityColor = $alert->severity == 'high' ? 'border-red-500' : ($alert->severity == 'medium' ? 'border-yellow-500' : 'border-gray-300');
+                                                    @endphp
+                                                    <div class="flex items-center gap-1">
+                                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $config['bg'] }} {{ $config['color'] }} border {{ $severityColor }}"
+                                                              title="{{ $alert->alert_message }}">
+                                                            {{ $config['icon'] }} {{ $config['text'] }}
+                                                            @if($alert->severity == 'high')
+                                                                <span class="ml-1 text-red-600 font-bold">!</span>
+                                                            @endif
+                                                        </span>
+                                                        @if($alert->deviation_percentage)
+                                                            <span class="text-xs {{ $alert->severity == 'high' ? 'text-red-600' : 'text-gray-500' }}">
+                                                                ({{ number_format(abs($alert->deviation_percentage), 1) }}% {{ $alert->alert_type == 'under_weight' ? 'under' : 'over' }})
+                                                            </span>
+                                                        @endif
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            {{ $weight->weigh_date->format('M d, Y') }}
+                                            @if($weight->weigh_date->format('H:i') !== '00:00')
+                                                <div class="text-xs text-gray-500">{{ $weight->weigh_date->format('H:i') }}</div>
+                                            @endif
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                                {{ $weight->purpose === 'routine' ? 'bg-blue-100 text-blue-800' : 
+                                                   ($weight->purpose === 'breeding' ? 'bg-green-100 text-green-800' : 
+                                                   ($weight->purpose === 'health' ? 'bg-red-100 text-red-800' : 
+                                                   ($weight->purpose === 'sale' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'))) }}">
+                                                {{ ucfirst($weight->purpose) }}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            @if($weight->pig->date_of_birth)
+                                                @php
+                                                    $ageAtWeighing = $weight->pig->date_of_birth->diffInDays($weight->weigh_date);
+                                                    $years = floor($ageAtWeighing / 365);
+                                                    $remainingDays = $ageAtWeighing % 365;
+                                                    $months = floor($remainingDays / 30);
+                                                    $days = $remainingDays % 30;
+
+                                                    $ageParts = [];
+                                                    if ($years > 0) $ageParts[] = $years . 'y';
+                                                    if ($months > 0) $ageParts[] = $months . 'm';
+                                                    if ($days > 0 || empty($ageParts)) $ageParts[] = $days . 'd';
+
+                                                    $ageDisplay = implode(' ', $ageParts);
+                                                @endphp
+                                                <span title="{{ $ageAtWeighing }} days">{{ $ageDisplay }}</span>
+                                            @else
+                                                N/A
+                                            @endif
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            @if($weight->body_condition_score)
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                                                    {{ $weight->body_condition_score <= 2 ? 'bg-red-100 text-red-800' : 
+                                                       ($weight->body_condition_score == 3 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800') }}">
+                                                    {{ $weight->body_condition_score }}/5
+                                                </span>
+                                            @else
+                                                <span class="text-gray-400">-</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                            <a href="{{ route('pigs.show', $weight->pig->id) }}" class="text-blue-600 hover:text-blue-900">View Pig</a>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="px-6 py-4 border-t border-gray-200">
+                        {{ $weights->links() }}
+                    </div>
+                @else
+                    <div class="px-6 py-12 text-center">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+                        </svg>
+                        <h3 class="mt-2 text-sm font-medium text-gray-900">No weight records found</h3>
+                        <p class="mt-1 text-sm text-gray-500">Get started by recording your first weight measurement.</p>
+                        <div class="mt-6">
+                            <a href="{{ route('weights.create') }}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                                </svg>
+                                Record Weight
+                            </a>
+                        </div>
+                    </div>
+                @endif
+            </div>
+        </div>
+    </main>
+</x-app-layout>

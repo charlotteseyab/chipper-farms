@@ -1,0 +1,232 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\ExpectedWeightStandard;
+use App\Helpers\FlashHelper;
+
+class WeightStandardsController extends Controller
+{
+    /**
+     * Display a listing of weight standards
+     */
+    public function index(Request $request)
+    {
+        $query = ExpectedWeightStandard::with('creator');
+
+        // Filter by breed
+        if ($request->breed) {
+            $query->where('breed', $request->breed);
+        }
+
+        // Filter by gender
+        if ($request->gender) {
+            $query->where('gender', $request->gender);
+        }
+
+        // Filter by stock type
+        if ($request->stock_type) {
+            $query->where('stock_type', $request->stock_type);
+        }
+
+        // Filter by active status
+        if ($request->has('is_active')) {
+            $query->where('is_active', $request->boolean('is_active'));
+        }
+
+        // Filter by week range
+        if ($request->week_from) {
+            $query->where('week_number', '>=', $request->week_from);
+        }
+        if ($request->week_to) {
+            $query->where('week_number', '<=', $request->week_to);
+        }
+
+        $standards = $query->orderBy('breed')
+                          ->orderBy('gender')
+                          ->orderBy('stock_type')
+                          ->orderBy('week_number')
+                          ->paginate(20);
+
+        $standards->appends($request->query());
+
+        return view('weight-standards.index', compact('standards'));
+    }
+
+    /**
+     * Show the form for creating a new weight standard
+     */
+    public function create()
+    {
+        return view('weight-standards.create');
+    }
+
+    /**
+     * Store a newly created weight standard
+     */
+    public function store(Request $request)
+    {
+        $data = $request->validate([
+            'breed' => 'required|in:LW,DR,LWDR',
+            'gender' => 'required|in:M,F',
+            'stock_type' => 'required|in:standard,breeding',
+            'week_number' => 'required|integer|min:1|max:104', // Up to 2 years
+            'expected_min_weight' => 'required|numeric|min:0.1|max:500',
+            'expected_max_weight' => 'required|numeric|min:0.1|max:500|gt:expected_min_weight',
+            'optimal_weight' => 'required|numeric|min:0.1|max:500|gte:expected_min_weight|lte:expected_max_weight',
+            'notes' => 'nullable|string|max:1000',
+            'is_active' => 'boolean'
+        ]);
+
+        $data['created_by'] = auth()->id();
+        $data['is_active'] = $request->boolean('is_active', true);
+
+        // Check if standard already exists
+        $existing = ExpectedWeightStandard::where('breed', $data['breed'])
+                                         ->where('gender', $data['gender'])
+                                         ->where('stock_type', $data['stock_type'])
+                                         ->where('week_number', $data['week_number'])
+                                         ->first();
+
+        if ($existing) {
+            return back()->withErrors([
+                'week_number' => 'A weight standard already exists for this breed, gender, stock type, and week combination.'
+            ])->withInput();
+        }
+
+        ExpectedWeightStandard::create($data);
+
+        return FlashHelper::successAndRedirect(
+            'Weight standard created successfully!',
+            'weight-standards.index'
+        );
+    }
+
+    /**
+     * Display the specified weight standard
+     */
+    public function show(ExpectedWeightStandard $weightStandard)
+    {
+        $weightStandard->load('creator');
+        return view('weight-standards.show', compact('weightStandard'));
+    }
+
+    /**
+     * Show the form for editing the specified weight standard
+     */
+    public function edit(ExpectedWeightStandard $weightStandard)
+    {
+        return view('weight-standards.edit', compact('weightStandard'));
+    }
+
+    /**
+     * Update the specified weight standard
+     */
+    public function update(Request $request, ExpectedWeightStandard $weightStandard)
+    {
+        $data = $request->validate([
+            'expected_min_weight' => 'required|numeric|min:0.1|max:500',
+            'expected_max_weight' => 'required|numeric|min:0.1|max:500|gt:expected_min_weight',
+            'optimal_weight' => 'required|numeric|min:0.1|max:500|gte:expected_min_weight|lte:expected_max_weight',
+            'notes' => 'nullable|string|max:1000',
+            'is_active' => 'boolean'
+        ]);
+
+        $data['is_active'] = $request->boolean('is_active', true);
+
+        $weightStandard->update($data);
+
+        return FlashHelper::successAndRedirect(
+            'Weight standard updated successfully!',
+            'weight-standards.index'
+        );
+    }
+
+    /**
+     * Remove the specified weight standard
+     */
+    public function destroy(ExpectedWeightStandard $weightStandard)
+    {
+        $weightStandard->delete();
+
+        return FlashHelper::successAndRedirect(
+            'Weight standard deleted successfully!',
+            'weight-standards.index'
+        );
+    }
+
+    /**
+     * Show bulk create form
+     */
+    public function bulkCreate()
+    {
+        return view('weight-standards.bulk-create');
+    }
+
+    /**
+     * Store multiple weight standards at once
+     */
+    public function bulkStore(Request $request)
+    {
+        $data = $request->validate([
+            'breed' => 'required|in:LW,DR,LWDR',
+            'gender' => 'required|in:M,F',
+            'stock_type' => 'required|in:standard,breeding',
+            'week_from' => 'required|integer|min:1|max:104',
+            'week_to' => 'required|integer|min:1|max:104|gte:week_from',
+            'min_weight_start' => 'required|numeric|min:0.1|max:500',
+            'max_weight_start' => 'required|numeric|min:0.1|max:500|gt:min_weight_start',
+            'optimal_weight_start' => 'required|numeric|min:0.1|max:500|gte:min_weight_start|lte:max_weight_start',
+            'weekly_growth_rate' => 'required|numeric|min:0|max:10', // kg per week
+            'notes' => 'nullable|string|max:1000'
+        ]);
+
+        $createdCount = 0;
+        $skippedCount = 0;
+
+        for ($week = $data['week_from']; $week <= $data['week_to']; $week++) {
+            // Check if standard already exists
+            $existing = ExpectedWeightStandard::where('breed', $data['breed'])
+                                             ->where('gender', $data['gender'])
+                                             ->where('stock_type', $data['stock_type'])
+                                             ->where('week_number', $week)
+                                             ->exists();
+
+            if ($existing) {
+                $skippedCount++;
+                continue;
+            }
+
+            // Calculate weights for this week
+            $weeksFromStart = $week - $data['week_from'];
+            $growthAmount = $weeksFromStart * $data['weekly_growth_rate'];
+
+            $minWeight = $data['min_weight_start'] + $growthAmount;
+            $maxWeight = $data['max_weight_start'] + $growthAmount;
+            $optimalWeight = $data['optimal_weight_start'] + $growthAmount;
+
+            ExpectedWeightStandard::create([
+                'breed' => $data['breed'],
+                'gender' => $data['gender'],
+                'stock_type' => $data['stock_type'],
+                'week_number' => $week,
+                'expected_min_weight' => $minWeight,
+                'expected_max_weight' => $maxWeight,
+                'optimal_weight' => $optimalWeight,
+                'notes' => $data['notes'],
+                'created_by' => auth()->id(),
+                'is_active' => true
+            ]);
+
+            $createdCount++;
+        }
+
+        $message = "Created {$createdCount} weight standards.";
+        if ($skippedCount > 0) {
+            $message .= " Skipped {$skippedCount} existing standards.";
+        }
+
+        return FlashHelper::successAndRedirect($message, 'weight-standards.index');
+    }
+}

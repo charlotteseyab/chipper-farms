@@ -1,52 +1,28 @@
 <x-app-layout>
-    <div class="flex min-h-screen">
-        @php $user = Auth::user(); @endphp
-        @if($user && $user->isAdmin())
-            <x-sidebar-admin />
-        @elseif($user && $user->isManager())
-            <x-sidebar-manager />
-        @elseif($user && $user->isSuperuser())
-            <x-sidebar-superuser />
-        @endif
-        <main class="flex-1 p-8 ml-40">
-            <div class="max-w-2xl mx-auto sm:px-2 lg:px-2">
-                <h2 class="text-2xl font-bold mb-6">Add Breeding Stock</h2>
-                <form action="{{ route('breeding-stocks.store') }}" method="POST" class="bg-white shadow rounded-lg p-8 space-y-6">
-                    @csrf
-                    <div>
-                        <label class="block font-semibold mb-1">Animal ID</label>
-                        <input type="text" name="animal_id" class="w-full border-gray-300 rounded-lg" required value="{{ old('animal_id') }}">
-                    </div>
-                    <div>
-                        <label class="block font-semibold mb-1">Breed</label>
-                        <input type="text" name="breed" class="w-full border-gray-300 rounded-lg" required value="{{ old('breed') }}">
-                    </div>
-                    <div>
-                        <label class="block font-semibold mb-1">Gender</label>
-                        <select name="gender" class="w-full border-gray-300 rounded-lg" required>
-                            <option value="">Select Gender</option>
-                            <option value="male" @if(old('gender')=='male') selected @endif>Male</option>
-                            <option value="female" @if(old('gender')=='female') selected @endif>Female</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block font-semibold mb-1">Date of Birth</label>
-                        <input type="date" name="date_of_birth" class="w-full border-gray-300 rounded-lg" required value="{{ old('date_of_birth') }}">
-                    </div>
-                    <div>
-                        <label class="block font-semibold mb-1">Status</label>
-                        <input type="text" name="status" class="w-full border-gray-300 rounded-lg" required value="{{ old('status') }}">
-                    </div>
-                    <div>
-                        <label class="block font-semibold mb-1">Notes</label>
-                        <textarea name="notes" class="w-full border-gray-300 rounded-lg">{{ old('notes') }}</textarea>
-                    </div>
-                    <div class="flex justify-end gap-2">
-                        <a href="{{ route('breeding-stocks.index') }}" class="px-4 py-2 rounded-lg bg-gray-200 text-gray-700 font-semibold">Cancel</a>
-                        <button type="submit" class="px-4 py-2 rounded-lg bg-[#1C6C51] text-white font-semibold hover:bg-green-700">Save</button>
-                    </div>
-                </form>
+    <main class="flex-1 pl-8 pr-4 pt-8 pb-8">
+        <div class="max-w-2xl mx-auto bg-white shadow-xl rounded-lg p-8">
+            <div class="text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                    <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <h2 class="text-2xl font-bold mb-4 text-gray-900">Form Disabled</h2>
+                <p class="text-gray-600 mb-6">This form has been disabled. Please use the unified stock registration form.</p>
+                
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                    <p class="text-sm text-green-800">
+                        <strong>New Process:</strong> All pig registration is now handled through the All Stocks form where you can select the stock type.
+                    </p>
+                </div>
+                
+                <a href="{{ route('all-stocks.create') }}" class="inline-flex items-center px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow hover:bg-green-700 transition">
+                    <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                    Go to Stock Registration Form
+                </a>
             </div>
         </div>
-        </main>
+    </main>
 </x-app-layout>

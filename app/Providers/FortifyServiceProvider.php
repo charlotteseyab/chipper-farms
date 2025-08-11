@@ -53,12 +53,14 @@ class FortifyServiceProvider extends ServiceProvider
                 public function toResponse($request)
                 {
                     $user = Auth::user();
-                    if ($user->role === 'admin') {
+                    if ($user->role && $user->role->name === 'admin') {
                         return redirect('/admin/dashboard');
-                    } elseif ($user->role === 'manager') {
+                    } elseif ($user->role && $user->role->name === 'farmmanager') {
                         return redirect('/manager/dashboard');
-                    } elseif ($user->role === 'superuser') {
+                    } elseif ($user->role && $user->role->name === 'superuser') {
                         return redirect('/superuser/dashboard');
+                    } elseif ($user->role && $user->role->name === 'dataentry') {
+                        return redirect('/dataentry/dashboard');
                     }
                     return redirect('/dashboard');
                 }

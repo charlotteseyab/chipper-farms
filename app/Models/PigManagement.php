@@ -1,0 +1,684 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use App\Helpers\BreedingCalculator;
+
+class PigManagement extends Model 
+{
+    protected $table = 'pigs_management'; // Make sure this matches your actual table name
+
+    protected $fillable = [
+        'ear_tag_number', 'breed', 'gender', 'stock_type', 'date_of_birth',
+        'code', 'age_in_days', 'father_id', 'mother_id'
+    ];
+
+    protected $casts = [
+        'date_of_birth' => 'date',
+    ];
+
+    // Relationship to the father pig
+    public function father(): BelongsTo
+    {
+        return $this->belongsTo(PigManagement::class, 'father_id');
+    }
+
+    // Relationship to the mother pig
+    public function mother(): BelongsTo
+    {
+        return $this->belongsTo(PigManagement::class, 'mother_id');
+    }
+
+    // Children where this pig is the father
+    public function childrenAsFather(): HasMany
+    {
+        return $this->hasMany(PigManagement::class, 'father_id');
+    }
+
+    // Children where this pig is the mother
+    public function childrenAsMother(): HasMany
+    {
+        return $this->hasMany(PigManagement::class, 'mother_id');
+    }
+
+    // Optional: Custom accessor to get all children (father or mother)
+    public function getAllChildrenAttribute()
+    {
+        return self::where('father_id', $this->id)
+                    ->orWhere('mother_id', $this->id)
+                    ->get();
+    }
+
+    // Weaning relationships
+    public function weaning(): HasOne
+    {
+        return $this->hasOne(Weaning::class, 'pig_id');
+    }
+
+    public function weaningsAsMother(): HasMany
+    {
+        return $this->hasMany(Weaning::class, 'mother_id');
+    }
+
+    // Farrowing relationships
+    public function farrowingsAsSow(): HasMany
+    {
+        return $this->hasMany(Farrowing::class, 'sow_id');
+    }
+
+    public function farrowingsAsBoar(): HasMany
+    {
+        return $this->hasMany(Farrowing::class, 'boar_id');
+    }
+
+    public function latestFarrowing()
+    {
+        return $this->hasOne(Farrowing::class, 'sow_id')->latest('farrowing_date');
+    }
+
+    // Accessor to get current age in days (dynamically calculated)
+    public function getCurrentAgeInDaysAttribute()
+    {
+        if (!$this->date_of_birth) {
+            return 0;
+        }
+        return (int) $this->date_of_birth->diffInDays(now());
+    }
+
+
+
+    /**
+     * Get compact age display for tables and lists
+     */
+    public function getAgeCompactAttribute()
+    {
+        if (!$this->date_of_birth) {
+            return 'N/A';
+        }
+
+        $totalDays = $this->current_age_in_days;
+
+        // Calculate years, months, and days
+        $years = floor($totalDays / 365);
+        $remainingDaysAfterYears = $totalDays % 365;
+        $months = floor($remainingDaysAfterYears / 30);
+        $days = $remainingDaysAfterYears % 30;
+
+        $parts = [];
+
+        if ($years > 0) {
+            $parts[] = $years . 'y';
+        }
+
+        if ($months > 0) {
+            $parts[] = $months . 'm';
+        }
+
+        if ($days > 0 || empty($parts)) {
+            $parts[] = $days . 'd';
+        }
+
+        return implode(' ', $parts);
+    }
+
+    // Breeding age calculations using BreedingCalculator
+    public function getBreedingStatusAttribute(): array
+    {
+        return BreedingCalculator::getBreedingStatus($this->date_of_birth);
+    }
+
+    public function getIsBreedingAgeAttribute(): bool
+    {
+        return BreedingCalculator::isBreedingAge($this->date_of_birth);
+    }
+
+    public function getIsTooOldForBreedingAttribute(): bool
+    {
+        return BreedingCalculator::isTooOldForBreeding($this->date_of_birth);
+    }
+
+    public function getMaturityDateAttribute(): \Carbon\Carbon
+    {
+        return BreedingCalculator::calculateMaturityDate($this->date_of_birth);
+    }
+
+    public function getDaysToMaturityAttribute(): int
+    {
+        if ($this->is_breeding_age) {
+            return 0;
+        }
+        return (int) $this->maturity_date->diffInDays(now());
+    }
+
+    public function getBreedingStatusBadgeAttribute(): string
+    {
+        $status = $this->breeding_status;
+        return match($status['status']) {
+            'ready' => 'bg-green-100 text-green-800',
+            'immature' => 'bg-yellow-100 text-yellow-800',
+            'retired' => 'bg-gray-100 text-gray-800',
+            default => 'bg-blue-100 text-blue-800'
+        };
+    }
+
+    public function getBreedingStatusIconAttribute(): string
+    {
+        $status = $this->breeding_status;
+        return match($status['status']) {
+            'ready' => '✅',
+            'immature' => '⏳',
+            'retired' => '🛑',
+            default => '❓'
+        };
+    }
+
+    // Availability tracking for breeding
+    public function getIsAvailableForBreedingAttribute(): bool
+    {
+        // Must be of breeding age
+        if (!$this->is_breeding_age) {
+            return false;
+        }
+
+        // Check for active matings
+        $activeMating = $this->getActiveMating();
+
+        return $activeMating === null;
+    }
+
+    public function getActiveMating()
+    {
+        if ($this->gender === 'M') {
+            // Males are only unavailable during planned matings, not after completion
+            return Mating::where('male_id', $this->id)
+                ->where('status', 'planned')
+                ->first();
+        } else {
+            // Females are unavailable during planned matings and while pregnant/uncertain
+            return Mating::where('female_id', $this->id)
+                ->where(function($query) {
+                    $query->where('status', 'planned')
+                          ->orWhere(function($subQuery) {
+                              $subQuery->where('status', 'completed')
+                                       ->whereIn('pregnancy_status', ['pending', 'pregnant', 'uncertain']);
+                          });
+                })
+                ->first();
+        }
+    }
+
+    public function getAvailabilityStatusAttribute(): array
+    {
+        // Use our new breeding readiness system
+        $readiness = $this->breeding_readiness;
+
+        // Check age readiness first
+        if (!$readiness['ready']) {
+            $ageStatus = $readiness['age_status'];
+
+            if ($ageStatus === 'too_young') {
+                return [
+                    'available' => false,
+                    'reason' => $readiness['age_message'],
+                    'status' => 'immature',
+                    'icon' => '⏳'
+                ];
+            }
+
+            if ($ageStatus === 'too_old') {
+                return [
+                    'available' => false,
+                    'reason' => 'Too old for breeding',
+                    'status' => 'retired',
+                    'icon' => '🛑'
+                ];
+            }
+
+            // Check weight readiness
+            $weightStatus = $readiness['factors']['weight']['status'];
+            if ($weightStatus === 'too_light') {
+                return [
+                    'available' => false,
+                    'reason' => $readiness['factors']['weight']['message'],
+                    'status' => 'underweight',
+                    'icon' => '⚖️'
+                ];
+            }
+        }
+
+        $activeMating = $this->getActiveMating();
+
+        if (!$activeMating) {
+            return [
+                'available' => true,
+                'reason' => 'Available for breeding',
+                'status' => 'available',
+                'icon' => '✅'
+            ];
+        }
+
+        // Determine specific unavailability reason
+        if ($activeMating->status === 'planned') {
+            return [
+                'available' => false,
+                'reason' => 'Mating planned for ' . $activeMating->planned_date->format('M d, Y'),
+                'status' => 'planned_mating',
+                'icon' => '📅',
+                'mating' => $activeMating
+            ];
+        }
+
+        // For females only - males don't get restricted after mating completion
+        if ($this->gender === 'F') {
+            if ($activeMating->pregnancy_status === 'pending') {
+                return [
+                    'available' => false,
+                    'reason' => 'Awaiting pregnancy check (mated ' . $activeMating->actual_date->format('M d, Y') . ')',
+                    'status' => 'pending_check',
+                    'icon' => '⏳',
+                    'mating' => $activeMating
+                ];
+            }
+
+            if ($activeMating->pregnancy_status === 'pregnant') {
+                $farrowingDate = $activeMating->expected_farrowing_date;
+                return [
+                    'available' => false,
+                    'reason' => 'Pregnant (due ' . $farrowingDate->format('M d, Y') . ')',
+                    'status' => 'pregnant',
+                    'icon' => '🤰',
+                    'mating' => $activeMating
+                ];
+            }
+
+            if ($activeMating->pregnancy_status === 'uncertain') {
+                return [
+                    'available' => false,
+                    'reason' => 'Pregnancy uncertain - follow-up needed',
+                    'status' => 'uncertain',
+                    'icon' => '❓',
+                    'mating' => $activeMating
+                ];
+            }
+        }
+
+        return [
+            'available' => true,
+            'reason' => 'Available for breeding',
+            'status' => 'available',
+            'icon' => '✅'
+        ];
+    }
+
+    public function getAvailabilityBadgeAttribute(): string
+    {
+        $status = $this->availability_status;
+        return match($status['status']) {
+            'available' => 'bg-green-100 text-green-800',
+            'immature' => 'bg-yellow-100 text-yellow-800',
+            'retired' => 'bg-gray-100 text-gray-800',
+            'planned_mating' => 'bg-blue-100 text-blue-800',
+            'pending_check' => 'bg-orange-100 text-orange-800',
+            'pregnant' => 'bg-pink-100 text-pink-800',
+            'uncertain' => 'bg-purple-100 text-purple-800',
+            default => 'bg-gray-100 text-gray-800'
+        };
+    }
+
+    // Accessor to get age with proper formatting (years, months, days)
+    public function getAgeDisplayAttribute()
+    {
+        if (!$this->date_of_birth) {
+            return 'Unknown age';
+        }
+
+        $totalDays = $this->current_age_in_days;
+
+        if ($totalDays < 0) {
+            return 'Invalid Date';
+        }
+
+        // Calculate years, months, and days
+        $years = floor($totalDays / 365);
+        $remainingDaysAfterYears = $totalDays % 365;
+        $months = floor($remainingDaysAfterYears / 30);
+        $days = $remainingDaysAfterYears % 30;
+
+        $parts = [];
+
+        if ($years > 0) {
+            $parts[] = $years . ' year' . ($years > 1 ? 's' : '');
+        }
+
+        if ($months > 0) {
+            $parts[] = $months . ' month' . ($months > 1 ? 's' : '');
+        }
+
+        if ($days > 0 || empty($parts)) {
+            $parts[] = $days . ' day' . ($days > 1 ? 's' : '');
+        }
+
+        return implode(', ', $parts);
+    }
+
+
+
+    // Mating relationships
+    public function maleMatings(): HasMany
+    {
+        return $this->hasMany(Mating::class, 'male_id');
+    }
+
+    public function femaleMatings(): HasMany
+    {
+        return $this->hasMany(Mating::class, 'female_id');
+    }
+
+    // Weight relationships
+    public function weights(): HasMany
+    {
+        return $this->hasMany(PigWeight::class, 'pig_id');
+    }
+
+    public function recentWeightAlerts(): HasMany
+    {
+        return $this->hasMany(WeightAlert::class, 'pig_id');
+    }
+
+    public function latestWeight()
+    {
+        return $this->hasOne(PigWeight::class, 'pig_id')->latest('weigh_date');
+    }
+
+    // Sale relationship
+    public function sale()
+    {
+        return $this->hasOne(PigSale::class, 'pig_id');
+    }
+
+    // Scopes for availability
+    public function scopeAvailableForBreeding($query)
+    {
+        return $query->where(function($q) {
+            $q->where(function($maleQuery) {
+                // Males: only unavailable during planned matings
+                $maleQuery->where('gender', 'M')
+                         ->whereDoesntHave('maleMatings', function($matingQuery) {
+                             $matingQuery->where('status', 'planned');
+                         });
+            })
+            ->orWhere(function($femaleQuery) {
+                // Females: unavailable during planned matings and pregnancy/uncertainty
+                $femaleQuery->where('gender', 'F')
+                           ->whereDoesntHave('femaleMatings', function($matingQuery) {
+                               $matingQuery->where(function($statusQuery) {
+                                   $statusQuery->where('status', 'planned')
+                                              ->orWhere(function($pregnancyQuery) {
+                                                  $pregnancyQuery->where('status', 'completed')
+                                                                ->whereIn('pregnancy_status', ['pending', 'pregnant', 'uncertain']);
+                                              });
+                               });
+                           });
+            });
+        });
+    }
+
+    public function scopeBreedingAge($query)
+    {
+        $maxAge = config('breeding.parameters.maximum_breeding_age');
+        $minDate = now()->subDays($maxAge);
+
+        return $query->where(function($q) use ($minDate) {
+            // Female breeding age (7 months minimum)
+            $femaleMinAge = config('breeding.parameters.minimum_breeding_age.female');
+            $femaleMaxDate = now()->subDays($femaleMinAge);
+
+            // Male breeding age (8 months minimum)
+            $maleMinAge = config('breeding.parameters.minimum_breeding_age.male');
+            $maleMaxDate = now()->subDays($maleMinAge);
+
+            $q->where(function($femaleQuery) use ($minDate, $femaleMaxDate) {
+                $femaleQuery->where('gender', 'F')
+                           ->whereBetween('date_of_birth', [$minDate, $femaleMaxDate]);
+            })
+            ->orWhere(function($maleQuery) use ($minDate, $maleMaxDate) {
+                $maleQuery->where('gender', 'M')
+                         ->whereBetween('date_of_birth', [$minDate, $maleMaxDate]);
+            });
+        });
+    }
+
+    public function scopeOptimalBreedingAge($query)
+    {
+        $maxAge = config('breeding.parameters.maximum_breeding_age');
+        $minDate = now()->subDays($maxAge);
+
+        return $query->where(function($q) use ($minDate) {
+            // Female optimal breeding age (8 months)
+            $femaleOptimalAge = config('breeding.parameters.optimal_first_breeding_age.female');
+            $femaleMaxDate = now()->subDays($femaleOptimalAge);
+
+            // Male optimal breeding age (10 months)
+            $maleOptimalAge = config('breeding.parameters.optimal_first_breeding_age.male');
+            $maleMaxDate = now()->subDays($maleOptimalAge);
+
+            $q->where(function($femaleQuery) use ($minDate, $femaleMaxDate) {
+                $femaleQuery->where('gender', 'F')
+                           ->whereBetween('date_of_birth', [$minDate, $femaleMaxDate]);
+            })
+            ->orWhere(function($maleQuery) use ($minDate, $maleMaxDate) {
+                $maleQuery->where('gender', 'M')
+                         ->whereBetween('date_of_birth', [$minDate, $maleMaxDate]);
+            });
+        });
+    }
+
+    // Breeding readiness assessment
+    public function getBreedingReadinessAttribute(): array
+    {
+        $ageInDays = $this->current_age_in_days;
+        $gender = $this->gender === 'M' ? 'male' : 'female';
+
+        $minAge = config("breeding.parameters.minimum_breeding_age.{$gender}");
+        $optimalAge = config("breeding.parameters.optimal_first_breeding_age.{$gender}");
+        $maxAge = config('breeding.parameters.maximum_breeding_age');
+
+        // Age assessment
+        $ageStatus = 'too_young';
+        $ageMessage = '';
+
+        if ($ageInDays >= $maxAge) {
+            $ageStatus = 'too_old';
+            $ageMessage = 'Pig is beyond optimal breeding age';
+        } elseif ($ageInDays >= $optimalAge) {
+            $ageStatus = 'optimal';
+            $ageMessage = 'Pig is at optimal breeding age';
+        } elseif ($ageInDays >= $minAge) {
+            $ageStatus = 'minimum_met';
+            $ageMessage = 'Pig meets minimum breeding age but not yet optimal';
+        } else {
+            $daysUntilMinimum = $minAge - $ageInDays;
+            $ageMessage = "Pig needs {$daysUntilMinimum} more days to reach minimum breeding age";
+        }
+
+        // Weight assessment
+        $weightStatus = 'not_checked';
+        $weightMessage = 'Weight data not available';
+        $weightReady = null;
+
+        $latestWeight = $this->latestWeight;
+        if ($latestWeight) {
+            $minWeight = config("breeding.parameters.minimum_breeding_weight.{$gender}");
+            $optimalWeight = config("breeding.parameters.optimal_breeding_weight.{$gender}");
+            $currentWeight = $latestWeight->weight_in_kg;
+
+            if ($currentWeight >= $optimalWeight) {
+                $weightStatus = 'optimal';
+                $weightMessage = "Weight is optimal for breeding ({$latestWeight->formatted_weight})";
+                $weightReady = true;
+            } elseif ($currentWeight >= $minWeight) {
+                $weightStatus = 'minimum_met';
+                $weightMessage = "Weight meets minimum requirement ({$latestWeight->formatted_weight})";
+                $weightReady = true;
+            } else {
+                $weightStatus = 'too_light';
+                $neededWeight = $minWeight - $currentWeight;
+                $weightMessage = "Pig needs to gain {$neededWeight}kg to reach minimum breeding weight";
+                $weightReady = false;
+            }
+        }
+
+        // Overall readiness (includes both age and weight)
+        $overallReady = in_array($ageStatus, ['minimum_met', 'optimal']) &&
+                       ($weightReady === null || $weightReady === true);
+
+        $readinessScore = match(true) {
+            $ageStatus === 'optimal' && $weightStatus === 'optimal' => 100,
+            $ageStatus === 'optimal' && $weightStatus === 'minimum_met' => 90,
+            $ageStatus === 'optimal' && $weightStatus === 'not_checked' => 85,
+            $ageStatus === 'minimum_met' && $weightStatus === 'optimal' => 85,
+            $ageStatus === 'minimum_met' && $weightStatus === 'minimum_met' => 75,
+            $ageStatus === 'minimum_met' && $weightStatus === 'not_checked' => 70,
+            $weightStatus === 'too_light' => 25,
+            $ageStatus === 'too_young' => 0,
+            $ageStatus === 'too_old' => 50,
+            default => 0
+        };
+
+        return [
+            'ready' => $overallReady,
+            'score' => $readinessScore,
+            'age_status' => $ageStatus,
+            'age_message' => $ageMessage,
+            'age_in_days' => $ageInDays,
+            'minimum_age' => $minAge,
+            'optimal_age' => $optimalAge,
+            'maximum_age' => $maxAge,
+            'factors' => [
+                'age' => [
+                    'status' => $ageStatus,
+                    'meets_requirement' => $overallReady,
+                    'message' => $ageMessage
+                ],
+                // Weight factor
+                'weight' => [
+                    'status' => $weightStatus,
+                    'meets_requirement' => $weightReady,
+                    'message' => $weightMessage,
+                    'current_weight' => $latestWeight ? $latestWeight->formatted_weight : null,
+                    'minimum_required' => $latestWeight ? number_format((float)config("breeding.parameters.minimum_breeding_weight.{$gender}") ?? 0, 1) . ' kg' : null,
+                    'optimal_weight' => $latestWeight ? number_format((float)config("breeding.parameters.optimal_breeding_weight.{$gender}") ?? 0, 1) . ' kg' : null,
+                    'last_weighed' => $latestWeight ? $latestWeight->weigh_date->format('M d, Y') : null
+                ]
+            ]
+        ];
+    }
+
+    // Check if pig is ready for first breeding
+    public function getIsReadyForFirstBreedingAttribute(): bool
+    {
+        return $this->breeding_readiness['ready'];
+    }
+
+    // Get breeding readiness message for UI
+    public function getBreedingReadinessMessageAttribute(): string
+    {
+        $readiness = $this->breeding_readiness;
+
+        if ($readiness['ready']) {
+            return $readiness['age_message'];
+        }
+
+        return $readiness['age_message'];
+    }
+
+    // Get breeding readiness badge class for UI
+    public function getBreedingReadinessBadgeAttribute(): string
+    {
+        $status = $this->breeding_readiness['age_status'];
+
+        return match($status) {
+            'optimal' => 'bg-green-100 text-green-800',
+            'minimum_met' => 'bg-yellow-100 text-yellow-800',
+            'too_young' => 'bg-red-100 text-red-800',
+            'too_old' => 'bg-gray-100 text-gray-800',
+            default => 'bg-gray-100 text-gray-800'
+        };
+    }
+
+    // Sale status methods
+    public function getIsSoldAttribute(): bool
+    {
+        return $this->sale()->exists();
+    }
+
+    public function getSaleStatusAttribute(): array
+    {
+        if (!$this->is_sold) {
+            return [
+                'sold' => false,
+                'status' => 'available',
+                'message' => 'Available for sale',
+                'icon' => '💰',
+                'badge_class' => 'bg-green-100 text-green-800'
+            ];
+        }
+
+        $sale = $this->sale;
+        return [
+            'sold' => true,
+            'status' => 'sold',
+            'message' => "Sold on {$sale->sale_date->format('M d, Y')} for {$sale->formatted_sale_price}",
+            'sale_date' => $sale->sale_date,
+            'sale_price' => $sale->formatted_sale_price,
+            'buyer' => $sale->buyer_name,
+            'purpose' => $sale->sale_purpose,
+            'icon' => '✅',
+            'badge_class' => 'bg-blue-100 text-blue-800'
+        ];
+    }
+
+    public function getSaleEligibilityAttribute(): array
+    {
+        // Already sold
+        if ($this->is_sold) {
+            return [
+                'eligible' => false,
+                'reason' => 'Pig has already been sold',
+                'icon' => '✅'
+            ];
+        }
+
+        // Breeding stock - generally not for sale unless specifically demoted
+        if ($this->stock_type === 'breeding') {
+            return [
+                'eligible' => false,
+                'reason' => 'Breeding stock - demote to standard stock first',
+                'icon' => '🚫'
+            ];
+        }
+
+        // Check if pig has active breeding activities
+        $hasActiveMating = $this->maleMatings()->whereIn('status', ['planned', 'completed'])->exists() ||
+                          $this->femaleMatings()->whereIn('status', ['planned', 'completed'])->exists();
+
+        if ($hasActiveMating) {
+            return [
+                'eligible' => false,
+                'reason' => 'Pig has active mating records',
+                'icon' => '💕'
+            ];
+        }
+
+        // Standard stock without active breeding - eligible for sale
+        return [
+            'eligible' => true,
+            'reason' => 'Eligible for sale',
+            'icon' => '💰'
+        ];
+    }
+}

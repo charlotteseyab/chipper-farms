@@ -1,0 +1,287 @@
+<x-app-layout>
+    <main class="flex-1 p-8">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-blue-700">Standard Stock Management</h2>
+                <a href="{{ route('standard-stocks.create') }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">Add New</a>
+            </div>
+
+            <div class="bg-white shadow-xl rounded-lg">
+                <!-- Filters and Export Buttons integrated with table -->
+                <div class="p-6 border-b border-gray-200">
+                    <form method="GET" action="{{ route('standard-stocks.index') }}" id="filterForm" class="flex flex-wrap items-end gap-4 mb-4">
+                        <div class="flex-1 min-w-[200px]">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Breed</label>
+                            <select name="breed" id="breedFilter" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600">
+                                <option value="" disabled selected>All Breeds</option>
+                                <option value="LW" {{ request('breed') == 'LW' ? 'selected' : '' }}>Large White</option>
+                                <option value="DR" {{ request('breed') == 'DR' ? 'selected' : '' }}>Duroc</option>
+                                <option value="LWDR" {{ request('breed') == 'LWDR' ? 'selected' : '' }}>Large White Duroc</option>
+                            </select>
+                        </div>
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                            <select name="gender" id="genderFilter" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600">
+                                <option value="" disabled selected>All Genders</option>
+                                <option value="M" {{ request('gender') == 'M' ? 'selected' : '' }}>Male</option>
+                                <option value="F" {{ request('gender') == 'F' ? 'selected' : '' }}>Female</option>
+                            </select>
+                        </div>
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Min Age (days)</label>
+                            <input type="number" name="age" id="ageFilter" value="{{ request('age') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600" placeholder="e.g. 365">
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">Filter</button>
+                            <a href="{{ route('standard-stocks.index') }}" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-medium">Clear</a>
+                        </div>
+                    </form>
+                    
+                    <!-- Export Buttons -->
+                    <div class="flex gap-2">
+                        <a href="{{ route('standard-stocks.export.csv', request()->query()) }}" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Export CSV
+                        </a>
+                        <a href="{{ route('standard-stocks.export.pdf', request()->query()) }}" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 font-medium">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Export PDF
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Results Summary -->
+                <div class="px-6 py-3 bg-blue-50 border-b border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm text-blue-700">
+                            @if($pigmanagement->total() > 0)
+                                Total: {{ $pigmanagement->total() }} standard pig{{ $pigmanagement->total() !== 1 ? 's' : '' }}
+                                @if(request()->hasAny(['breed', 'gender', 'age']))
+                                    (filtered)
+                                @endif
+                            @else
+                                No standard pigs found
+                            @endif
+                        </div>
+                        @if($pigmanagement->hasPages())
+                        <div class="text-sm text-blue-700">
+                            Page {{ $pigmanagement->currentPage() }} of {{ $pigmanagement->lastPage() }}
+                        </div>
+                        @endif
+                    </div>
+                </div>
+                
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-blue-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-blue-700 uppercase tracking-wider">Code</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-blue-700 uppercase tracking-wider">Ear tag</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-blue-700 uppercase tracking-wider">Breed</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-blue-700 uppercase tracking-wider">Gender</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-blue-700 uppercase tracking-wider">Age</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-blue-700 uppercase tracking-wider">Breeding Ready</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-blue-700 uppercase tracking-wider">Sale Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-blue-700 uppercase tracking-wider">Parents</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-blue-700 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        @forelse($pigmanagement as $pig)
+                        @php
+                            $readiness = $pig->breeding_readiness;
+                            $saleEligibility = $pig->sale_eligibility;
+                            $saleStatus = $pig->sale_status;
+                        @endphp
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ $pig->code }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ $pig->ear_tag_number }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">{{ $pig->breed }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap capitalize">{{ $pig->gender }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap" title="{{ $pig->current_age_in_days }} days">
+                                {{ $pig->age_compact }}
+                                @if($pig->current_age_in_days < 0)
+                                    <span class="text-red-500 text-xs">(Invalid)</span>
+                                @endif
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex flex-col space-y-1">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $pig->breeding_readiness_badge }}">
+                                        @if($readiness['age_status'] === 'optimal')
+                                            ✓ Optimal
+                                        @elseif($readiness['age_status'] === 'minimum_met')
+                                            ⚠ Ready
+                                        @elseif($readiness['age_status'] === 'too_young')
+                                            ⏳ Too Young
+                                        @elseif($readiness['age_status'] === 'too_old')
+                                            🛑 Too Old
+                                        @endif
+                                    </span>
+                                    @if($readiness['factors']['weight']['status'] !== 'not_checked')
+                                        <span class="text-xs text-gray-500">
+                                            Weight: {{ $readiness['factors']['weight']['status'] === 'optimal' ? '✓' : ($readiness['factors']['weight']['status'] === 'minimum_met' ? '⚠' : '✗') }}
+                                            @if($pig->latestWeight)
+                                                {{ $pig->latestWeight->formatted_weight }}
+                                            @endif
+                                        </span>
+                                    @else
+                                        <span class="text-xs text-gray-400">No weight data</span>
+                                    @endif
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $saleStatus['badge_class'] }}">
+                                    {{ $saleStatus['icon'] }} {{ ucfirst($saleStatus['status']) }}
+                                </span>
+                                @if($saleStatus['sold'])
+                                    <p class="text-xs text-gray-500 mt-1">{{ $saleStatus['sale_price'] }}</p>
+                                @endif
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                @php
+                                    $father = $pig->father_id ? $pig->father->ear_tag_number ?? 'N/A' : 'N/A';
+                                    $mother = $pig->mother_id ? $pig->mother->ear_tag_number ?? 'N/A' : 'N/A';
+                                @endphp
+                                F: {{ $father }}<br>M: {{ $mother }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex flex-col space-y-2">
+                                    <!-- Promotion Button -->
+                                    @if(!$saleStatus['sold'])
+                                        @if(in_array($readiness['age_status'], ['minimum_met', 'optimal']) && $readiness['factors']['weight']['status'] !== 'too_light')
+                                            <form action="{{ route('pigs.promote-to-breeding', $pig->id) }}" method="POST" onsubmit="return confirm('Promote {{ $pig->code }} to breeding stock?');">
+                                                @csrf
+                                                <button type="submit" class="inline-flex items-center px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition">
+                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                                                    </svg>
+                                                    Promote
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-500 text-xs font-medium rounded-md cursor-not-allowed" title="{{ $readiness['age_message'] }}">
+                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                                                </svg>
+                                                Not Ready
+                                            </span>
+                                        @endif
+                                    @endif
+
+                                    <!-- Sale Button -->
+                                    @if(!$saleStatus['sold'])
+                                        @if($saleEligibility['eligible'])
+                                            <a href="{{ route('pigs.sale-form', $pig->id) }}" class="inline-flex items-center px-3 py-1 bg-orange-600 text-white text-xs font-medium rounded-md hover:bg-orange-700 transition">
+                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+                                                </svg>
+                                                Record Sale
+                                            </a>
+                                        @else
+                                            <span class="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-500 text-xs font-medium rounded-md cursor-not-allowed" title="{{ $saleEligibility['reason'] }}">
+                                                {{ $saleEligibility['icon'] }} Cannot Sell
+                                            </span>
+                                        @endif
+                                    @else
+                                        <span class="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-md">
+                                            ✅ Sold
+                                        </span>
+                                    @endif
+
+                                    <div class="flex space-x-2">
+                                        <a href="{{ route('pigs.show', $pig->id) }}" class="text-green-600 hover:underline text-xs">View</a>
+                                        @if(!$saleStatus['sold'])
+                                            <a href="#" class="text-blue-600 hover:underline text-xs">Edit</a>
+                                            <form action="#" method="POST" onsubmit="return confirm('Are you sure?');" class="inline">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:underline text-xs">Delete</button>
+                                            </form>
+                                        @endif
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="8" class="px-6 py-12 text-center">
+                                <div class="flex flex-col items-center justify-center">
+                                    <svg class="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.29-1.009-5.824-2.562M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.636 6.636a9 9 0 000 12.728"></path>
+                                    </svg>
+                                    <h3 class="text-lg font-medium text-gray-900 mb-2">No standard stock found</h3>
+                                    <p class="text-gray-500 mb-4">
+                                        @if(request()->hasAny(['breed', 'gender', 'age']))
+                                            No standard pigs match your current filter criteria. Try adjusting your filters or 
+                                            <a href="{{ route('standard-stocks.index') }}" class="text-blue-600 hover:underline font-medium">clear all filters</a>.
+                                        @else
+                                            There are no standard stock records in the system yet.
+                                        @endif
+                                    </p>
+                                    @if(!request()->hasAny(['breed', 'gender', 'age']))
+                                    <a href="#" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">
+                                        Add First Standard Stock
+                                    </a>
+                                    @endif
+                                </div>
+                            </td>
+                        </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+                
+                <!-- Pagination -->
+                @if($pigmanagement->hasPages())
+                <div class="px-6 py-4 border-t border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm text-gray-700">
+                            Showing {{ $pigmanagement->firstItem() }} to {{ $pigmanagement->lastItem() }} of {{ $pigmanagement->total() }} results
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            {{ $pigmanagement->links('pagination::tailwind') }}
+                        </div>
+                    </div>
+                </div>
+                @endif
+            </div>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('filterForm');
+            const breedFilter = document.getElementById('breedFilter');
+            const genderFilter = document.getElementById('genderFilter');
+            const ageFilter = document.getElementById('ageFilter');
+            
+            // Add event listeners for live search
+            breedFilter.addEventListener('change', function() {
+                form.submit();
+            });
+            
+            genderFilter.addEventListener('change', function() {
+                form.submit();
+            });
+            
+            // For age input, use a debounced approach to avoid too many requests
+            let ageTimeout;
+            ageFilter.addEventListener('input', function() {
+                clearTimeout(ageTimeout);
+                ageTimeout = setTimeout(function() {
+                    form.submit();
+                }, 500); // Wait 500ms after user stops typing
+            });
+            
+            // Also submit on Enter key for age input
+            ageFilter.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    clearTimeout(ageTimeout);
+                    form.submit();
+                }
+            });
+        });
+    </script>
+</x-app-layout>
