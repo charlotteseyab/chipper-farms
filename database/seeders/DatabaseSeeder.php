@@ -13,55 +13,56 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Seed the roles table first
-        DB::table('roles')->insert([
-            ['name' => 'admin'],
-            ['name' => 'dataentry'],
-            ['name' => 'farmmanager'],
-            ['name' => 'superuser'],
-        ]);
+        // Seed the roles table 
+        $rolesList = ['admin', 'dataentry', 'farmmanager', 'superuser'];
+        foreach ($rolesList as $role) {
+            DB::table('roles')->updateOrInsert(['name' => $role]);
+        }
 
         // Get role IDs
         $roles = DB::table('roles')->pluck('id', 'name');
 
-        // Insert users with role_id
-        DB::table('users')->insert([
+        
+        $users = [
             [
                 'name' => 'Admin User',
                 'email' => 'admin@chipperfarms.com',
-                'password' => Hash::make('password123'),
+                'password' => 'Adm!n#2025$Xy7',
                 'role_id' => $roles['admin'],
-                'email_verified_at' => now(),
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'name' => 'Data Entry',
                 'email' => 'dataentry@chipperfarms.com',
-                'password' => Hash::make('password123'),
+                'password' => 'D@t@#2025$EnTry',
                 'role_id' => $roles['dataentry'],
-                'email_verified_at' => now(),
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'name' => 'Farm Manager',
                 'email' => 'manager@chipperfarms.com',
-                'password' => Hash::make('password123'),
+                'password' => 'F@rm#2025$Mngr',
                 'role_id' => $roles['farmmanager'],
-                'email_verified_at' => now(),
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'name' => 'Super User',
                 'email' => 'superuser@chipperfarms.com',
-                'password' => Hash::make('password123'),
+                'password' => 'Sup3r#2025$User',
                 'role_id' => $roles['superuser'],
-                'email_verified_at' => now(),
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
-        ]);
+        ];
+
+        // Insert or update users
+        foreach ($users as $user) {
+            DB::table('users')->updateOrInsert(
+                ['email' => $user['email']], 
+                [
+                    'name' => $user['name'],
+                    'password' => Hash::make($user['password']),
+                    'role_id' => $user['role_id'],
+                    'email_verified_at' => now(),
+                    'updated_at' => now(),
+                    'created_at' => now(), 
+                ]
+            );
+        }
     }
 }
