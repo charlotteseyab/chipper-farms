@@ -1,4 +1,3 @@
-
 <x-app-layout>
     <main class="flex-1 pl-8 pr-4 pt-2 pb-8">
         <div class="max-w-7xl mx-auto">
@@ -49,18 +48,17 @@
   <div class="text-sm font-semibold text-gray-700 mb-3">🐷 Stock Type</div>
 
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-
 	<!-- Standard -->
-	<label class="relative block cursor-pointer">
+	<label class="relative block cursor-pointer select-none">
   	<input
     	type="radio"
     	name="stock_type"
     	value="standard"
-    	class="peer absolute inset-0 opacity-0 appearance-none"
+    	class="peer absolute inset-0 z-10 w-full h-full opacity-0 appearance-none cursor-pointer"
     	{{ old('stock_type') == 'standard' ? 'checked' : '' }}
     	required
   	>
-  	<div class="stock-card rounded-xl border border-gray-200 p-5 text-center transition
+  	<div class="pointer-events-none rounded-xl border border-gray-200 p-5 text-center transition
               	hover:border-blue-400 peer-checked:border-blue-600
               	peer-checked:bg-blue-50 peer-checked:shadow">
     	<div class="text-2xl mb-2">🐖</div>
@@ -73,16 +71,17 @@
   	</div>
 	</label>
 
-	<label class="relative block cursor-pointer">
+	<!-- Breeding -->
+	<label class="relative block cursor-pointer select-none">
   	<input
     	type="radio"
     	name="stock_type"
     	value="breeding"
-    	class="peer absolute inset-0 opacity-0 appearance-none"
+    	class="peer absolute inset-0 z-10 w-full h-full opacity-0 appearance-none cursor-pointer"
     	{{ old('stock_type') == 'breeding' ? 'checked' : '' }}
     	required
   	>
-  	<div class="stock-card rounded-xl border border-gray-200 p-5 text-center transition
+  	<div class="pointer-events-none rounded-xl border border-gray-200 p-5 text-center transition
               	hover:border-green-400 peer-checked:border-green-600
               	peer-checked:bg-green-50 peer-checked:shadow">
     	<div class="text-2xl mb-2">👑</div>
@@ -94,7 +93,6 @@
     	</span>
   	</div>
 	</label>
-
   </div>
 </div>
 
