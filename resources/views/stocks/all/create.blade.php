@@ -1,12 +1,3 @@
-<style>
-  input[type="radio"][name="stock_type"]{
-	position:absolute;
-	width:0;height:0;
-	opacity:0;
-	appearance:none;     
-	pointer-events:none;
-  }
-</style>
 
 <x-app-layout>
     <main class="flex-1 pl-8 pr-4 pt-2 pb-8">
@@ -55,31 +46,26 @@
 
                             <!-- Stock Type Selection -->
                             <div class="mb-6">
-  <label class="block text-sm font-semibold text-gray-700 mb-3">🐷 Stock Type</label>
+  <div class="text-sm font-semibold text-gray-700 mb-3">🐷 Stock Type</div>
 
-  <!-- Always side-by-side; stack on very small screens -->
-  <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
 	<!-- Standard -->
-	<label class="relative cursor-pointer">
+	<label class="relative block cursor-pointer">
   	<input
     	type="radio"
     	name="stock_type"
     	value="standard"
+    	class="peer absolute inset-0 opacity-0 appearance-none"
     	{{ old('stock_type') == 'standard' ? 'checked' : '' }}
     	required
-    	class="peer"
   	>
-  	<div
-    	class="rounded-xl border border-gray-200 p-5 text-center transition
-           	hover:border-blue-400 peer-checked:border-blue-600
-           	peer-checked:bg-blue-50 peer-checked:shadow"
-  	>
+  	<div class="stock-card rounded-xl border border-gray-200 p-5 text-center transition
+              	hover:border-blue-400 peer-checked:border-blue-600
+              	peer-checked:bg-blue-50 peer-checked:shadow">
     	<div class="text-2xl mb-2">🐖</div>
     	<div class="font-semibold text-gray-800">Standard Stock</div>
     	<div class="text-xs text-gray-600 mt-1">For fattening & Sale</div>
-
-    	<!-- Check badge -->
     	<span class="hidden peer-checked:inline-block absolute top-2 right-2
                  	text-[10px] px-2 py-0.5 rounded-full bg-blue-600 text-white">
       	Selected
@@ -87,25 +73,21 @@
   	</div>
 	</label>
 
-	<!-- Breeding -->
-	<label class="relative cursor-pointer">
+	<label class="relative block cursor-pointer">
   	<input
     	type="radio"
     	name="stock_type"
     	value="breeding"
+    	class="peer absolute inset-0 opacity-0 appearance-none"
     	{{ old('stock_type') == 'breeding' ? 'checked' : '' }}
     	required
-    	class="peer"
   	>
-  	<div
-    	class="rounded-xl border border-gray-200 p-5 text-center transition
-           	hover:border-green-400 peer-checked:border-green-600
-           	peer-checked:bg-green-50 peer-checked:shadow"
-  	>
+  	<div class="stock-card rounded-xl border border-gray-200 p-5 text-center transition
+              	hover:border-green-400 peer-checked:border-green-600
+              	peer-checked:bg-green-50 peer-checked:shadow">
     	<div class="text-2xl mb-2">👑</div>
     	<div class="font-semibold text-gray-800">Breeding Stock</div>
     	<div class="text-xs text-gray-600 mt-1">For reproduction</div>
-
     	<span class="hidden peer-checked:inline-block absolute top-2 right-2
                  	text-[10px] px-2 py-0.5 rounded-full bg-green-600 text-white">
       	Selected
