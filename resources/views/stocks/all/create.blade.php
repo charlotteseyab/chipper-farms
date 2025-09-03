@@ -1,3 +1,13 @@
+<style>
+  input[type="radio"][name="stock_type"]{
+	position:absolute;
+	width:0;height:0;
+	opacity:0;
+	appearance:none;     
+	pointer-events:none;
+  }
+</style>
+
 <x-app-layout>
     <main class="flex-1 pl-8 pr-4 pt-2 pb-8">
         <div class="max-w-7xl mx-auto">
@@ -47,30 +57,31 @@
                             <div class="mb-6">
   <label class="block text-sm font-semibold text-gray-700 mb-3">🐷 Stock Type</label>
 
-  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  <!-- Always side-by-side; stack on very small screens -->
+  <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+
 	<!-- Standard -->
 	<label class="relative cursor-pointer">
   	<input
     	type="radio"
     	name="stock_type"
     	value="standard"
-    	class="peer sr-only"
     	{{ old('stock_type') == 'standard' ? 'checked' : '' }}
     	required
+    	class="peer"
   	>
   	<div
-    	class="border-2 border-gray-200 rounded-lg p-4 text-center transition
-           	hover:border-blue-300 peer-checked:border-blue-500
-           	peer-checked:bg-blue-50 peer-focus-visible:ring-2
-           	peer-focus-visible:ring-blue-300"
+    	class="rounded-xl border border-gray-200 p-5 text-center transition
+           	hover:border-blue-400 peer-checked:border-blue-600
+           	peer-checked:bg-blue-50 peer-checked:shadow"
   	>
     	<div class="text-2xl mb-2">🐖</div>
     	<div class="font-semibold text-gray-800">Standard Stock</div>
     	<div class="text-xs text-gray-600 mt-1">For fattening & Sale</div>
 
-    	<!-- Tick shown only when selected -->
+    	<!-- Check badge -->
     	<span class="hidden peer-checked:inline-block absolute top-2 right-2
-                 	bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full">
+                 	text-[10px] px-2 py-0.5 rounded-full bg-blue-600 text-white">
       	Selected
     	</span>
   	</div>
@@ -82,26 +93,26 @@
     	type="radio"
     	name="stock_type"
     	value="breeding"
-    	class="peer sr-only"
     	{{ old('stock_type') == 'breeding' ? 'checked' : '' }}
     	required
+    	class="peer"
   	>
   	<div
-    	class="border-2 border-gray-200 rounded-lg p-4 text-center transition
-           	hover:border-green-300 peer-checked:border-green-500
-           	peer-checked:bg-green-50 peer-focus-visible:ring-2
-           	peer-focus-visible:ring-green-300"
+    	class="rounded-xl border border-gray-200 p-5 text-center transition
+           	hover:border-green-400 peer-checked:border-green-600
+           	peer-checked:bg-green-50 peer-checked:shadow"
   	>
     	<div class="text-2xl mb-2">👑</div>
     	<div class="font-semibold text-gray-800">Breeding Stock</div>
     	<div class="text-xs text-gray-600 mt-1">For reproduction</div>
 
     	<span class="hidden peer-checked:inline-block absolute top-2 right-2
-                 	bg-green-600 text-white text-[10px] px-2 py-0.5 rounded-full">
+                 	text-[10px] px-2 py-0.5 rounded-full bg-green-600 text-white">
       	Selected
     	</span>
   	</div>
 	</label>
+
   </div>
 </div>
 
