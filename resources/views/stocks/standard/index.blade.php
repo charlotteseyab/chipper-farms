@@ -148,59 +148,99 @@
                                 F: {{ $father }}<br>M: {{ $mother }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="flex flex-col space-y-2">
-                                    <!-- Promotion Button -->
-                                    @if(!$saleStatus['sold'])
-                                        @if(in_array($readiness['age_status'], ['minimum_met', 'optimal']) && $readiness['factors']['weight']['status'] !== 'too_light')
-                                            <form action="{{ route('pigs.promote-to-breeding', $pig->id) }}" method="POST" onsubmit="return confirm('Promote {{ $pig->code }} to breeding stock?');">
-                                                @csrf
-                                                <button type="submit" class="inline-flex items-center px-3 py-1 bg-green-600 text-white text-xs font-medium rounded-md hover:bg-green-700 transition">
-                                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
-                                                    </svg>
-                                                    Promote
-                                                </button>
-                                            </form>
-                                        @else
-                                            <span class="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-500 text-xs font-medium rounded-md cursor-not-allowed" title="{{ $readiness['age_message'] }}">
-                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                                <div class="relative" x-data="{ open: false }">
+                                    <button @click="open = !open" class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                        Actions
+                                        <svg class="ml-2 -mr-0.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </button>
+                                    
+                                    <div x-show="open" @click.away="open = false" x-transition:enter="transition ease-out duration-100" x-transition:enter-start="transform opacity-0 scale-95" x-transition:enter-end="transform opacity-100 scale-100" x-transition:leave="transition ease-in duration-75" x-transition:leave-start="transform opacity-100 scale-100" x-transition:leave-end="transform opacity-0 scale-95" class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+                                        <div class="py-1">
+                                            <!-- View -->
+                                            <a href="{{ route('pigs.show', $pig->id) }}" class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                <svg class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                                 </svg>
-                                                Not Ready
-                                            </span>
-                                        @endif
-                                    @endif
-
-                                    <!-- Sale Button -->
-                                    @if(!$saleStatus['sold'])
-                                        @if($saleEligibility['eligible'])
-                                            <a href="{{ route('pigs.sale-form', $pig->id) }}" class="inline-flex items-center px-3 py-1 bg-orange-600 text-white text-xs font-medium rounded-md hover:bg-orange-700 transition">
-                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
-                                                </svg>
-                                                Record Sale
+                                                View Details
                                             </a>
-                                        @else
-                                            <span class="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-500 text-xs font-medium rounded-md cursor-not-allowed" title="{{ $saleEligibility['reason'] }}">
-                                                {{ $saleEligibility['icon'] }} Cannot Sell
-                                            </span>
-                                        @endif
-                                    @else
-                                        <span class="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-md">
-                                            ✅ Sold
-                                        </span>
-                                    @endif
-
-                                    <div class="flex space-x-2">
-                                        <a href="{{ route('pigs.show', $pig->id) }}" class="text-green-600 hover:underline text-xs">View</a>
-                                        @if(!$saleStatus['sold'])
-                                            <a href="#" class="text-blue-600 hover:underline text-xs">Edit</a>
-                                            <form action="#" method="POST" onsubmit="return confirm('Are you sure?');" class="inline">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="text-red-600 hover:underline text-xs">Delete</button>
-                                            </form>
-                                        @endif
+                                            
+                                            @if(!$saleStatus['sold'])
+                                                <!-- Edit -->
+                                                <a href="#" class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                    <svg class="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                                    </svg>
+                                                    Edit
+                                                </a>
+                                                
+                                                <!-- Promote to Breeding -->
+                                                @if(in_array($readiness['age_status'], ['minimum_met', 'optimal']) && $readiness['factors']['weight']['status'] !== 'too_light')
+                                                    <form action="{{ route('pigs.promote-to-breeding', $pig->id) }}" method="POST" onsubmit="return confirm('Promote {{ $pig->code }} to breeding stock?');" class="block">
+                                                        @csrf
+                                                        <button type="submit" class="group flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 text-left">
+                                                            <svg class="mr-3 h-4 w-4 text-green-500 group-hover:text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+                                                            </svg>
+                                                            Promote to Breeding
+                                                        </button>
+                                                    </form>
+                                                @else
+                                                    <div class="px-4 py-2 text-sm text-gray-400 cursor-not-allowed" title="{{ $readiness['age_message'] }}">
+                                                        <div class="flex items-center">
+                                                            <svg class="mr-3 h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                                                            </svg>
+                                                            Not Ready for Promotion
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                                
+                                                <!-- Record Sale -->
+                                                @if($saleEligibility['eligible'])
+                                                    <a href="{{ route('pigs.sale-form', $pig->id) }}" class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                                        <svg class="mr-3 h-4 w-4 text-orange-500 group-hover:text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+                                                        </svg>
+                                                        Record Sale
+                                                    </a>
+                                                @else
+                                                    <div class="px-4 py-2 text-sm text-gray-400 cursor-not-allowed" title="{{ $saleEligibility['reason'] }}">
+                                                        <div class="flex items-center">
+                                                            <span class="mr-3">{{ $saleEligibility['icon'] }}</span>
+                                                            Cannot Sell
+                                                        </div>
+                                                    </div>
+                                                @endif
+                                                
+                                                <!-- Divider -->
+                                                <div class="border-t border-gray-100 my-1"></div>
+                                                
+                                                <!-- Delete -->
+                                                <form action="#" method="POST" onsubmit="return confirm('Are you sure you want to delete this pig?');" class="block">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="group flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50 text-left">
+                                                        <svg class="mr-3 h-4 w-4 text-red-400 group-hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                                        </svg>
+                                                        Delete
+                                                    </button>
+                                                </form>
+                                            @else
+                                                <!-- Sold Status -->
+                                                <div class="px-4 py-2 text-sm text-blue-600 bg-blue-50">
+                                                    <div class="flex items-center">
+                                                        <svg class="mr-3 h-4 w-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                                        </svg>
+                                                        ✅ Sold
+                                                    </div>
+                                                </div>
+                                            @endif
+                                        </div>
                                     </div>
                                 </div>
                             </td>
