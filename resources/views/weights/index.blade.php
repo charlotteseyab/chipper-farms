@@ -24,11 +24,11 @@
 
             <!-- Filters -->
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-                <form method="GET" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <form method="GET" id="weightsFilterForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Pig</label>
-                        <select name="pig_id" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500">
-                            <option value="">All Pigs</option>
+                        <select name="pig_id" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500 auto-submit">
+                            <option value="" disabled selected >-- All Pigs --</option>
                             @foreach($pigs as $pig)
                                 <option value="{{ $pig->id }}" {{ request('pig_id') == $pig->id ? 'selected' : '' }}>
                                     {{ $pig->ear_tag_number }} - {{ $pig->code }}
@@ -39,8 +39,8 @@
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Purpose</label>
-                        <select name="purpose" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500">
-                            <option value="">All Purposes</option>
+                        <select name="purpose" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500 auto-submit">
+                            <option value="" disabled selected>-- All Purposes --</option>
                             @foreach($purposes as $purpose)
                                 <option value="{{ $purpose }}" {{ request('purpose') == $purpose ? 'selected' : '' }}>
                                     {{ ucfirst($purpose) }}
@@ -51,22 +51,22 @@
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Date From</label>
-                        <input type="date" name="date_from" value="{{ request('date_from') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500">
+                        <input type="date" name="date_from" value="{{ request('date_from') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500 auto-debounce">
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Date To</label>
-                        <input type="date" name="date_to" value="{{ request('date_to') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500">
+                        <input type="date" name="date_to" value="{{ request('date_to') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500 auto-debounce">
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Weight From (kg)</label>
-                        <input type="number" name="weight_from" value="{{ request('weight_from') }}" step="0.1" min="0" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500">
+                        <input type="number" name="weight_from" value="{{ request('weight_from') }}" step="0.1" min="0" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500 auto-debounce">
                     </div>
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Weight To (kg)</label>
-                        <input type="number" name="weight_to" value="{{ request('weight_to') }}" step="0.1" min="0" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500">
+                        <input type="number" name="weight_to" value="{{ request('weight_to') }}" step="0.1" min="0" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500 auto-debounce">
                     </div>
 
                     <div class="flex items-end gap-2">
@@ -97,6 +97,7 @@
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age at Weighing</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Health Status</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Body Condition</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
@@ -184,10 +185,28 @@
                                             @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            @if($weight->health_status)
+                                                @php
+                                                    $healthConfig = [
+                                                        'excellent' => ['color' => 'text-green-600', 'icon' => '🟢'],
+                                                        'good' => ['color' => 'text-blue-600', 'icon' => '🔵'],
+                                                        'fair' => ['color' => 'text-yellow-600', 'icon' => '🟡'],
+                                                        'poor' => ['color' => 'text-red-600', 'icon' => '🔴']
+                                                    ];
+                                                    $config = $healthConfig[$weight->health_status] ?? $healthConfig['good'];
+                                                @endphp
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $config['color'] }}">
+                                                    {{ $config['icon'] }} {{ ucfirst($weight->health_status) }}
+                                                </span>
+                                            @else
+                                                <span class="text-gray-400">-</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             @if($weight->body_condition_score)
                                                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
-                                                    {{ $weight->body_condition_score <= 2 ? 'bg-red-100 text-red-800' : 
-                                                       ($weight->body_condition_score == 3 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800') }}">
+                                                    {{ $weight->body_condition_score <= 2 ? 'text-red-800' : 
+                                                    ($weight->body_condition_score == 3 ? 'text-yellow-800' : 'text-green-800') }}">
                                                     {{ $weight->body_condition_score }}/5
                                                 </span>
                                             @else
@@ -195,7 +214,10 @@
                                             @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <a href="{{ route('pigs.show', $weight->pig->id) }}" class="text-blue-600 hover:text-blue-900">View Pig</a>
+                                            <div class="flex gap-2">
+                                                <a href="{{ route('weights.edit', $weight) }}" class="text-green-600 hover:text-green-900">Edit</a>
+                                                <a href="{{ route('pigs.show', $weight->pig->id) }}" class="text-blue-600 hover:text-blue-900">View Pig</a>
+                                            </div>
                                         </td>
                                     </tr>
                                 @endforeach
@@ -205,7 +227,14 @@
 
                     <!-- Pagination -->
                     <div class="px-6 py-4 border-t border-gray-200">
-                        {{ $weights->links() }}
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-gray-700">
+                                Showing {{ $weights->firstItem() }} to {{ $weights->lastItem() }} of {{ $weights->total() }} results
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <x-simple-pagination :paginator="$weights" />
+                            </div>
+                        </div>
                     </div>
                 @else
                     <div class="px-6 py-12 text-center">
@@ -227,4 +256,27 @@
             </div>
         </div>
     </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('weightsFilterForm');
+
+            // Auto-submit on select change
+            document.querySelectorAll('#weightsFilterForm select.auto-submit').forEach(sel => {
+                sel.addEventListener('change', () => form.submit());
+            });
+
+            // Debounced submit for date/number inputs
+            let debounceTimer;
+            function debouncedSubmit() {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => form.submit(), 400);
+            }
+
+            document.querySelectorAll('#weightsFilterForm input.auto-debounce').forEach(inp => {
+                inp.addEventListener('input', debouncedSubmit);
+                inp.addEventListener('change', () => form.submit());
+            });
+        });
+    </script>
 </x-app-layout>

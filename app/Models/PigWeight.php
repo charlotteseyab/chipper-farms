@@ -19,7 +19,8 @@ class PigWeight extends Model
         'weighed_by',
         'purpose',
         'is_estimated',
-        'body_condition_score'
+        'body_condition_score',
+        'health_status'
     ];
 
     protected $casts = [

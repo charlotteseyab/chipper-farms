@@ -116,11 +116,11 @@
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center">
                                             <div>
-                                                <div class="text-sm font-medium text-gray-900">
-                                                    {{ $mating->male->code }} × {{ $mating->female->code }}
-                                                </div>
                                                 <div class="text-sm text-gray-500">
                                                     {{ $mating->male->ear_tag_number }} × {{ $mating->female->ear_tag_number }}
+                                                </div>
+                                                <div class="text-sm font-medium text-gray-900">
+                                                    {{ $mating->male->ear_tag_number }} × {{ $mating->female->code }}
                                                 </div>
                                             </div>
                                         </div>
@@ -131,15 +131,30 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm text-gray-900">{{ $mating->expected_farrowing_date->format('M d, Y') }}</div>
-                                        <div class="text-xs text-gray-500">
-                                            @if($mating->is_overdue_for_farrowing)
-                                                {{ abs($mating->days_to_farrowing) }} days overdue
-                                            @elseif($mating->days_to_farrowing == 0)
-                                                Due today
-                                            @else
-                                                {{ $mating->days_to_farrowing }} days to go
-                                            @endif
-                                        </div>
+                                        @if($mating->pregnancy_status === 'farrowed' && $mating->actual_farrowing_date)
+                                            @php $delta = $mating->expected_farrowing_date->diffInDays($mating->actual_farrowing_date, false);
+                                            @endphp
+                                            <div class="mt-1 space-x-2">
+                                                @if($delta < 0)
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Farrowed early by {{ abs($delta) }} days</span>
+                                                @elseif($delta === 0)
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Farrowed on time</span>
+                                                @else
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">Farrowed late by {{ $delta }} days</span>
+                                                @endif
+                                            </div>
+                                            <div class="text-xs text-gray-500 mt-1">Actual: {{ $mating->actual_farrowing_date->format('M d, Y') }} • Expected: {{ $mating->expected_farrowing_date->format('M d, Y') }}</div>
+                                        @else
+                                            <div class="text-xs text-gray-500">
+                                                @if($mating->is_overdue_for_farrowing)
+                                                    {{ abs($mating->days_to_farrowing) }} days overdue
+                                                @elseif($mating->days_to_farrowing == 0)
+                                                    Due today
+                                                @else
+                                                    {{ $mating->days_to_farrowing }} days to go
+                                                @endif
+                                            </div>
+                                        @endif
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $mating->farrowing_status_badge }}">
@@ -151,22 +166,27 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         @if($mating->pregnancy_status === 'pregnant')
-                                            <button onclick="openFarrowingModal({{ $mating->id }}, '{{ $mating->female->code }}', '{{ $mating->expected_farrowing_date->format('Y-m-d') }}')"
+                                            <button onclick="openFarrowingModal({{ $mating->id }}, '{{ $mating->female->ear_tag_number }}', '{{ $mating->expected_farrowing_date->format('Y-m-d') }}')"
                                                     class="text-green-600 hover:text-green-900 mr-3">
                                                 Record Farrowing
                                             </button>
-                                            <button onclick="openStatusModal({{ $mating->id }}, '{{ $mating->female->code }}')"
+                                                <button onclick="openStatusModal({{ $mating->id }}, '{{ $mating->female->ear_tag_number }}')"
                                                     class="text-blue-600 hover:text-blue-900">
                                                 Update Status
                                             </button>
                                         @elseif($mating->pregnancy_status === 'farrowed')
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                                ✓ Farrowed
-                                            </span>
-                                            @if($mating->actual_farrowing_date)
-                                                <span class="text-xs text-gray-500 ml-2">
-                                                    {{ $mating->actual_farrowing_date->format('M d, Y') }}
-                                                </span>
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Farrowed</span>
+                                            @if($mating->actual_farrowing_date && $mating->expected_farrowing_date)
+                                                @php $delta = $mating->expected_farrowing_date->diffInDays($mating->actual_farrowing_date, false);
+                                                @endphp
+                                                @if($delta < 0)
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 ml-2">Early by {{ abs($delta) }}d</span>
+                                                @elseif($delta === 0)
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">On time</span>
+                                                @else
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 ml-2">Late by {{ $delta }}d</span>
+                                                @endif
+                                                <span class="text-xs text-gray-500 ml-2">{{ $mating->actual_farrowing_date->format('M d, Y') }}</span>
                                             @endif
                                         @else
                                             <span class="text-gray-400">Completed</span>
@@ -192,7 +212,14 @@
 
                 @if($pregnantMatings->hasPages())
                     <div class="px-6 py-4 border-t border-gray-200">
-                        {{ $pregnantMatings->links() }}
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-gray-700">
+                                Showing {{ $pregnantMatings->firstItem() }} to {{ $pregnantMatings->lastItem() }} of {{ $pregnantMatings->total() }} results
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <x-simple-pagination :paginator="$pregnantMatings" />
+                            </div>
+                        </div>
                     </div>
                 @endif
             </div>
@@ -285,7 +312,7 @@
 
                             <div class="bg-blue-50 p-3 rounded-lg">
                                 <h5 class="text-sm font-medium text-blue-800 mb-2">Gender Distribution</h5>
-                                <p class="text-xs text-blue-600 mb-2">💡 Males + Females must equal Live Births</p>
+                                <p class="text-xs text-blue-600 mb-2">💡 Males + Females must equal Total Born</p>
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
                                         <label class="block text-xs font-medium text-gray-700 mb-1">Males</label>
@@ -341,7 +368,7 @@
                                 <select name="sow_condition" required
                                         class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 text-sm">
                                     <option value="excellent">Excellent</option>
-                                    <option value="good" selected>Good</option>
+                                    <option value="good">Good</option>
                                     <option value="fair">Fair</option>
                                     <option value="poor">Poor</option>
                                 </select>
@@ -413,7 +440,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">New Status</label>
                             <select name="status" required class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">-- Select Status --</option>
+                                <option value="" disabled selected>-- Select Status --</option>
                                 <option value="pregnant">🤰 Still Pregnant</option>
                                 <option value="lost_pregnancy">💔 Lost Pregnancy</option>
                                 <option value="aborted">🚫 Aborted</option>
@@ -444,7 +471,7 @@
     </div>
 
     <script>
-        function openFarrowingModal(matingId, femaleCode, expectedDate) {
+        function openFarrowingModal(matingId, femaleEarTag, expectedDate) {
             try {
                 // Update form action
                 const form = document.getElementById('farrowingForm');
@@ -463,7 +490,7 @@
                 if (infoDiv) {
                     infoDiv.innerHTML = `
                         <div class="text-sm">
-                            <div class="font-medium text-gray-900 mb-2">Sow: ${femaleCode}</div>
+                            <div class="font-medium text-gray-900 mb-2">Sow: ${femaleEarTag}</div>
                             <div class="text-gray-600">Expected Farrowing: ${new Date(expectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
                             <div class="text-green-600 mt-2">✓ Ready to record farrowing details</div>
                         </div>
@@ -559,20 +586,19 @@
                 }
 
                 // Check gender distribution if no birth total errors
-                if (!hasErrors && liveBirths > 0) {
-                    const genderTotal = males + females;
+                if (!hasErrors && totalBorn > 0) {
+                const genderTotal = males + females;
 
-                    if (genderTotal > liveBirths) {
-                        messages.push('<span class="text-red-600">⚠️ Gender total (' + genderTotal + ') exceeds live births (' + liveBirths + ')</span>');
-                        hasErrors = true;
-                    } else if (genderTotal < liveBirths && genderTotal > 0) {
-                        messages.push('<span class="text-yellow-600">⚠️ Gender total (' + genderTotal + ') is less than live births (' + liveBirths + ') - some genders not specified</span>');
-                    } else if (genderTotal === liveBirths && totalBorn > 0) {
-                        messages.push('<span class="text-green-600">✓ All validations passed: Birth totals and gender distribution are correct</span>');
-                    }
-                } else if (!hasErrors && totalBorn > 0 && (liveBirths + stillbirths) === totalBorn) {
-                    messages.push('<span class="text-green-600">✓ Birth totals are correct</span>');
-                }
+                if (genderTotal > totalBorn) {
+                   messages.push('<span class="text-red-600">⚠️ Gender total (' + genderTotal + ') exceeds total piglets born (' + totalBorn + ')</span>');
+                 hasErrors = true;
+                 } else if (genderTotal < totalBorn && genderTotal > 0) {
+                   messages.push('<span class="text-yellow-600">⚠️ Gender total (' + genderTotal + ') is less than total piglets born (' + totalBorn + ') - some genders not specified</span>');
+                 } else if (genderTotal === totalBorn) {
+                    messages.push('<span class="text-green-600">✓ All validations passed: Birth totals and gender distribution are correct</span>');
+                     }
+                }          
+
 
                 // Display messages
                 validationDiv.innerHTML = messages.join('<br>');
@@ -583,7 +609,7 @@
 
 
 
-        function openStatusModal(matingId, femaleCode) {
+        function openStatusModal(matingId, femaleEarTag) {
             try {
                 // Update form action
                 const form = document.getElementById('statusForm');
@@ -602,7 +628,7 @@
                 if (infoDiv) {
                     infoDiv.innerHTML = `
                         <div class="text-sm">
-                            <div class="font-medium text-gray-900 mb-2">Sow: ${femaleCode}</div>
+                            <div class="font-medium text-gray-900 mb-2">Sow: ${femaleEarTag}</div>
                             <div class="text-gray-600">Update pregnancy status if there are any changes</div>
                         </div>
                     `;

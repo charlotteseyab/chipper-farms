@@ -1,14 +1,14 @@
 <x-app-layout>
     <main class="flex-1 p-8">
-        <div class="max-w-4xl mx-auto">
+        <div class="max-w-6xl mx-auto">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-3xl font-bold text-gray-800">🐷💕 Mating Planner</h2>
+                <h2 class="text-3xl font-bold text-gray-800">Mating Planner</h2>
                 <div class="text-sm text-gray-600">
                     Plan safe and genetically diverse breeding pairs
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                 <!-- Mating Planner Form -->
                 <div class="bg-white shadow-xl rounded-lg p-6">
                     <h3 class="text-xl font-semibold mb-4 text-gray-800">Plan a Mating</h3>
@@ -19,12 +19,12 @@
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Select Male</label>
                             <select name="male_id" id="male_id" required class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-pink-500 focus:border-pink-500">
-                                <option value="">-- Choose Male --</option>
+                                <option value="" disabled selected>-- Choose Male --</option>
                                 @foreach($allMales as $male)
                                     @php $availability = $male->availability_status; @endphp
                                     <option value="{{ $male->id }}" {{ old('male_id') == $male->id ? 'selected' : '' }}
                                             @if(!$availability['available']) disabled class="text-gray-400" @endif>
-                                        {{ $availability['icon'] }} {{ $male->code }} - {{ $male->ear_tag_number }}
+                                        {{ $availability['icon'] }} {{ $male->ear_tag_number }} - {{ $male->code }}
                                         ({{ $male->breed }}, {{ $male->current_age_in_days }} days)
                                         @if(!$availability['available'])
                                             - {{ $availability['reason'] }}
@@ -37,12 +37,12 @@
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Select Female</label>
                             <select name="female_id" id="female_id" required class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-pink-500 focus:border-pink-500">
-                                <option value="">-- Choose Female --</option>
+                                <option value="" disabled selected>-- Choose Female --</option>
                                 @foreach($allFemales as $female)
                                     @php $availability = $female->availability_status; @endphp
                                     <option value="{{ $female->id }}" {{ old('female_id') == $female->id ? 'selected' : '' }}
                                             @if(!$availability['available']) disabled class="text-gray-400" @endif>
-                                        {{ $availability['icon'] }} {{ $female->code }} - {{ $female->ear_tag_number }}
+                                            {{ $availability['icon'] }} {{ $female->ear_tag_number }} - {{ $female->code }}
                                         ({{ $female->breed }}, {{ $female->current_age_in_days }} days)
                                         @if(!$availability['available'])
                                             - {{ $availability['reason'] }}
@@ -127,7 +127,7 @@
                     </div> -->
 
                     <!-- Breeding Guidelines -->
-                    <div class="bg-white shadow-lg rounded-lg p-6">
+                    <div class="bg-white shadow-lg rounded-lg p-6 ">
                         <h3 class="text-lg font-semibold mb-4 text-gray-800">🧬 Breeding Guidelines</h3>
                         <div class="space-y-3 text-sm text-gray-600">
                             <div class="flex items-start gap-2">
@@ -153,19 +153,19 @@
                     <div class="bg-white shadow-lg rounded-lg p-6">
                         <h3 class="text-lg font-semibold mb-4 text-gray-800">📊 Breeding Cycle Info</h3>
                         <div class="grid grid-cols-2 gap-4 text-sm">
-                            <div class="flex justify-between">
+                            <div class="flex space-x-2">
                                 <span class="text-gray-600">Gestation:</span>
                                 <span class="font-medium">{{ config('breeding.cycle.gestation_days') }} days</span>
                             </div>
-                            <div class="flex justify-between">
+                            <div class="flex space-x-2">
                                 <span class="text-gray-600">Pregnancy Check:</span>
                                 <span class="font-medium">{{ config('breeding.cycle.pregnancy_check_days') }} days</span>
                             </div>
-                            <div class="flex justify-between">
+                            <div class="flex space-x-2">
                                 <span class="text-gray-600">Weaning Age:</span>
                                 <span class="font-medium">{{ config('breeding.cycle.birth_to_weaning_days') }} days</span>
                             </div>
-                            <div class="flex justify-between">
+                            <div class="flex space-x-2">
                                 <span class="text-gray-600">Breeding Age:</span>
                                 <span class="font-medium">{{ config('breeding.cycle.birth_to_maturity_days') }} days</span>
                             </div>
@@ -246,7 +246,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             const maleSelect = document.getElementById('male_id');
             const femaleSelect = document.getElementById('female_id');
-            const alert = new InbreedingAlert('mating-alert');
+            const inbreedingAlert = new InbreedingAlert('mating-alert');
             const pairInfo = document.getElementById('pair-info');
             const maleDetails = document.getElementById('male-details');
             const femaleDetails = document.getElementById('female-details');
@@ -318,7 +318,7 @@
 
                     maleDetails.innerHTML = `
                         <div class="flex items-center justify-between mb-2">
-                            <div><strong>${selectedMale.code}</strong> - ${selectedMale.ear_tag_number}</div>
+                            <div><strong>${selectedMale.ear_tag_number}</strong> - ${selectedMale.code}</div>
                             ${maleReadinessBadge}
                         </div>
                         <div class="text-sm text-gray-600">Breed: ${selectedMale.breed}</div>
@@ -329,7 +329,7 @@
 
                     femaleDetails.innerHTML = `
                         <div class="flex items-center justify-between mb-2">
-                            <div><strong>${selectedFemale.code}</strong> - ${selectedFemale.ear_tag_number}</div>
+                            <div><strong>${selectedFemale.ear_tag_number}</strong> - ${selectedFemale.code}</div>
                             ${femaleReadinessBadge}
                         </div>
                         <div class="text-sm text-gray-600">Breed: ${selectedFemale.breed}</div>
@@ -395,7 +395,7 @@
                 clearTimeout(checkTimeout);
 
                 if (!maleId || !femaleId) {
-                    alert.hide();
+                    inbreedingAlert.hide();
                     return;
                 }
 
@@ -414,9 +414,9 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.risk_level && data.risk_level !== 'none') {
-                            alert.show(data);
+                            inbreedingAlert.show(data);
                         } else {
-                            alert.show({
+                            inbreedingAlert.show({
                                 risk_level: 'success',
                                 message: 'Excellent breeding pair! No close relationships detected. This mating will promote genetic diversity.'
                             });
@@ -424,7 +424,7 @@
                     })
                     .catch(error => {
                         console.error('Error checking compatibility:', error);
-                        alert.hide();
+                        inbreedingAlert.hide();
                     });
                 }, 300);
             }

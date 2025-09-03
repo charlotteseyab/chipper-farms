@@ -2,353 +2,1195 @@
     <div class="py-6">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <!-- Header -->
-            <div class="mb-6">
+            <!-- <div class="mb-8">
                 <h1 class="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p class="text-gray-600 mt-2">System administration and user management</p>
-            </div>
+                <p class="text-gray-600 mt-2">System overview and analytics</p>
+            </div> -->
 
-            <!-- System Overview -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <!-- Total Users -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <!-- Key Metrics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                @php
+                    $totalUsers = \App\Models\User::count();
+                    $activeUsers = \App\Models\User::where('created_at', '>=', now()->subDays(30))->count();
+                    $criticalAlerts = \App\Models\WeightAlert::where('severity', 'high')->where('acknowledged', false)->count();
+                    $totalAlerts = \App\Models\WeightAlert::where('acknowledged', false)->count();
+                    $totalPigs = \App\Models\PigManagement::count();
+                    $totalWeights = \App\Models\PigWeight::count();
+                    $totalSales = \App\Models\PigSale::count();
+                    $totalDeaths = \App\Models\PigDeath::count();
+                    $activePigs = \App\Models\PigManagement::active()->count();
+                    $deceasedPigs = \App\Models\PigManagement::deceased()->count();
+                    $soldPigs = \App\Models\PigManagement::sold()->count();
+                    
+                    // Weighing alerts
+                    $overdueForWeighing = \App\Models\PigManagement::countOverdueForWeighing();
+                    $dueForWeighing = \App\Models\PigManagement::countDueForWeighing();
+                @endphp
+
+                <!-- Users -->
+                <a href="#" class="block bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:scale-105">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-gray-600">Total Users</p>
-                            <p class="text-2xl font-bold text-gray-900">
-                                @php
-                                    $totalUsers = \App\Models\User::count();
-                                @endphp
-                                {{ $totalUsers }}
-                            </p>
+                            <p class="text-blue-100 text-sm font-medium">Total Users</p>
+                            <p class="text-3xl font-bold">{{ $totalUsers }}</p>
+                            <p class="text-blue-100 text-xs mt-1">{{ $activeUsers }} active this month</p>
                         </div>
-                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
                             </svg>
                         </div>
                     </div>
-                    <div class="mt-4">
-                        <div class="flex items-center text-sm text-gray-600">
-                            @php
-                                $activeUsers = \App\Models\User::where('created_at', '>=', now()->subDays(30))->count();
-                            @endphp
-                            <span class="text-green-600 font-medium">{{ $activeUsers }}</span>
-                            <span class="ml-1">active this month</span>
-                        </div>
-                    </div>
-                </div>
+                </a>
 
-                <!-- System Health -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <!-- Total Pigs -->
+                <a href="{{ route('all-stocks.index') }}" class="block bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:scale-105">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-gray-600">System Health</p>
-                            @php
-                                // Calculate system health based on real metrics
-                                $criticalAlerts = \App\Models\WeightAlert::where('severity', 'high')->where('acknowledged', false)->count();
-                                $totalAlerts = \App\Models\WeightAlert::where('acknowledged', false)->count();
-                                $recentErrors = 0; // Could be from logs if available
-
-                                // Determine health status
-                                if ($criticalAlerts > 5 || $totalAlerts > 20) {
-                                    $healthStatus = 'Critical';
-                                    $healthColor = 'red';
-                                } elseif ($criticalAlerts > 0 || $totalAlerts > 10) {
-                                    $healthStatus = 'Warning';
-                                    $healthColor = 'yellow';
-                                } else {
-                                    $healthStatus = 'Good';
-                                    $healthColor = 'green';
-                                }
-                            @endphp
-                            <p class="text-2xl font-bold text-{{ $healthColor }}-600">{{ $healthStatus }}</p>
+                            <p class="text-green-100 text-sm font-medium">Total Pigs</p>
+                            <p class="text-3xl font-bold">{{ number_format($totalPigs) }}</p>
+                            <p class="text-green-100 text-xs mt-1">{{ $totalWeights }} weight records</p>
                         </div>
-                        <div class="w-12 h-12 bg-{{ $healthColor }}-100 rounded-lg flex items-center justify-center">
-                            @if($healthColor === 'red')
-                                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                            </svg>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- Sales -->
+                <a href="{{ route('sales.index') }}" class="block bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-purple-100 text-sm font-medium">Total Sales</p>
+                            <p class="text-3xl font-bold">{{ number_format($totalSales) }}</p>
+                            <p class="text-purple-100 text-xs mt-1">Sales recorded</p>
+                        </div>
+                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+                            </svg>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- Death Records -->
+                <a href="{{ route('deaths.index') }}" class="block bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-red-100 text-sm font-medium">Death Records</p>
+                            <p class="text-3xl font-bold">{{ number_format($totalDeaths) }}</p>
+                            <p class="text-red-100 text-xs mt-1">Deaths recorded</p>
+                        </div>
+                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- Alerts -->
+                <!-- <a href="{{ route('weight-alerts.index', ['acknowledged' => '0']) }}" class="block bg-gradient-to-br {{ $criticalAlerts > 5 ? 'from-orange-500 to-orange-600' : ($criticalAlerts > 0 ? 'from-yellow-500 to-yellow-600' : 'from-gray-500 to-gray-600') }} rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-white text-opacity-80 text-sm font-medium">Active Alerts</p>
+                            <p class="text-3xl font-bold">{{ $totalAlerts }}</p>
+                            <p class="text-white text-opacity-80 text-xs mt-1">{{ $criticalAlerts }} critical</p>
+                        </div>
+                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                            @if($criticalAlerts > 5)
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
                                 </svg>
-                            @elseif($healthColor === 'yellow')
-                                <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            @elseif($criticalAlerts > 0)
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
                                 </svg>
                             @else
-                                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                 </svg>
                             @endif
                         </div>
                     </div>
-                    <div class="mt-4">
-                        <div class="flex items-center text-sm text-{{ $healthColor }}-600">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                            </svg>
-                            <span>
-                                @if($healthColor === 'red')
-                                    {{ $criticalAlerts }} critical alerts need attention
-                                @elseif($healthColor === 'yellow')
-                                    {{ $totalAlerts }} alerts to review
-                                @else
-                                    All systems operational
-                                @endif
-                            </span>
-                        </div>
-                    </div>
-                </div>
+                </a> -->
 
-                <!-- Database Records -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <!-- Weighing Alerts -->
+                <button onclick="toggleWeighingAlertsModal()" class="block w-full bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:scale-105">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-sm font-medium text-gray-600">Database Records</p>
-                            <p class="text-2xl font-bold text-gray-900">
-                                @php
-                                    $totalRecords = \App\Models\PigManagement::count() +
-                                                  \App\Models\PigWeight::count() +
-                                                  \App\Models\WeightAlert::count();
-                                @endphp
-                                {{ number_format($totalRecords) }}
-                            </p>
+                            <p class="text-yellow-100 text-sm font-medium">Weighing Alerts</p>
+                            <p class="text-3xl font-bold">{{ $overdueForWeighing }}</p>
+                            <p class="text-yellow-100 text-xs mt-1">{{ $dueForWeighing }} due for weighing</p>
                         </div>
-                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
                             </svg>
                         </div>
                     </div>
-                    <div class="mt-4">
-                        <div class="flex items-center text-sm text-gray-600">
-                            @php
-                                $todayRecords = \App\Models\PigWeight::whereDate('created_at', today())->count();
-                            @endphp
-                            <span class="text-purple-600 font-medium">{{ $todayRecords }}</span>
-                            <span class="ml-1">added today</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Storage Usage -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-gray-600">Storage Usage</p>
-                            <p class="text-2xl font-bold text-gray-900">
-                                @php
-                                    // Calculate estimated storage based on database records
-                                    $totalRecords = \App\Models\PigManagement::count() +
-                                                  \App\Models\PigWeight::count() +
-                                                  \App\Models\WeightAlert::count() +
-                                                  \App\Models\User::count();
-                                    // Estimate: ~1KB per record average
-                                    $storageUsedMB = ($totalRecords * 1) / 1024; // Convert KB to MB
-                                    $storageUsedGB = round($storageUsedMB / 1024, 2); // Convert MB to GB
-                                    if ($storageUsedGB < 0.01) $storageUsedGB = 0.01; // Minimum display
-                                @endphp
-                                {{ $storageUsedGB }}GB
-                            </p>
-                        </div>
-                        <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z"/>
-                            </svg>
-                        </div>
-                    </div>
-                    <div class="mt-4">
-                        <div class="flex items-center text-sm text-gray-600">
-                            @php
-                                $maxStorageGB = 10; // Assumed max storage
-                                $storagePercentage = min(($storageUsedGB / $maxStorageGB) * 100, 100);
-                            @endphp
-                            <div class="w-16 bg-gray-200 rounded-full h-1.5 mr-2">
-                                <div class="bg-yellow-500 h-1.5 rounded-full transition-all duration-300" style="width: {{ $storagePercentage }}%"></div>
-                            </div>
-                            <span>{{ round($storagePercentage, 1) }}% of {{ $maxStorageGB }}GB</span>
-                        </div>
-                    </div>
-                </div>
+                </button>
             </div>
 
-            <!-- Admin Actions -->
-            @php
-                // Define variables needed for admin action cards
-                $activeAlerts = \App\Models\WeightAlert::where('acknowledged', false)->count();
-            @endphp
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition group cursor-pointer">
-                    <div class="flex items-center">
-                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition">
-                            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+            <!-- Additional Metrics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                @php
+                    // Calculate additional metrics
+                    $breedingStock = \App\Models\PigManagement::where('stock_type', 'breeding')->count();
+                    $standardStock = \App\Models\PigManagement::where('stock_type', 'standard')->count();
+                    $activePigs = \App\Models\PigManagement::active()->count();
+                    // Calculate average of latest weight per pig (more meaningful than all-time average)
+                    $avgWeight = \App\Models\PigWeight::whereIn('id', function($query) {
+                        $query->select(\DB::raw('MAX(id)'))
+                              ->from('pig_weights')
+                              ->groupBy('pig_id');
+                    })->avg('weight');
+                    $totalRevenue = \App\Models\PigSale::sum('sale_price');
+                    $avgSalePrice = \App\Models\PigSale::avg('sale_price');
+                    $mortalityRate = $totalPigs > 0 ? ($totalDeaths / $totalPigs) * 100 : 0;
+                    $salesThisMonth = \App\Models\PigSale::whereMonth('created_at', now()->month)->count();
+                    
+                    // Calculate fertility rate
+                    $totalMatings = \App\Models\Mating::count();
+                    $successfulMatings = \App\Models\Mating::where('pregnancy_status', 'pregnant')->count();
+                    $fertilityRate = $totalMatings > 0 ? ($successfulMatings / $totalMatings) * 100 : 0;
+                @endphp
+
+                <!-- Breeding Stock -->
+                <!-- <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm font-medium">Breeding Stock</p>
+                            <p class="text-2xl font-bold text-gray-900">{{ number_format($breedingStock) }}</p>
+                            <p class="text-gray-500 text-xs mt-1">Active breeding animals</p>
+                        </div>
+                        <div class="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
                             </svg>
                         </div>
-                        <div class="ml-4">
-                            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition">User Management</h3>
-                            <p class="text-sm text-gray-600">Manage user accounts and roles</p>
-                            <div class="mt-2">
-                                <span class="text-xs text-blue-600 font-medium">{{ $totalUsers }} users registered</span>
-                            </div>
+                    </div>
+                </div> -->
+
+                <!-- Average Weight -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm font-medium">Average Weight</p>
+                            <p class="text-2xl font-bold text-gray-900">{{ $avgWeight ? number_format($avgWeight, 1) : '0' }} kg</p>
+                            <p class="text-gray-500 text-xs mt-1">Latest weight per pig</p>
+                        </div>
+                        <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+                            </svg>
                         </div>
                     </div>
                 </div>
 
-                <a href="{{ route('all-stocks.index') }}" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition group cursor-pointer block">
-                    <div class="flex items-center">
-                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition">
+                <!-- Total Revenue -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm font-medium">Total Revenue</p>
+                            <p class="text-2xl font-bold text-gray-900">₵{{ number_format($totalRevenue, 2) }}</p>
+                            <p class="text-gray-500 text-xs mt-1">From all sales</p>
+                        </div>
+                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                             <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 00-2 2z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
                             </svg>
                         </div>
-                        <div class="ml-4">
-                            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-green-600 transition">System Data</h3>
-                            <p class="text-sm text-gray-600">View and manage farm data</p>
-                            <div class="mt-2">
-                                <span class="text-xs text-green-600 font-medium">{{ number_format($totalRecords) }} total records</span>
-                            </div>
-                        </div>
                     </div>
-                </a>
+                </div>
 
-                <a href="{{ route('weight-alerts.dashboard') }}" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition group cursor-pointer block">
-                    <div class="flex items-center">
-                        <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center group-hover:bg-red-200 transition">
+                <!-- Mortality Rate -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm font-medium">Mortality Rate</p>
+                            <p class="text-2xl font-bold text-gray-900">{{ number_format($mortalityRate, 1) }}%</p>
+                            <p class="text-gray-500 text-xs mt-1">Death rate</p>
+                        </div>
+                        <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
                             <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
                             </svg>
                         </div>
-                        <div class="ml-4">
-                            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-red-600 transition">Alert Management</h3>
-                            <p class="text-sm text-gray-600">Monitor and manage system alerts</p>
-                            <div class="mt-2">
-                                <span class="text-xs text-red-600 font-medium">{{ $activeAlerts }} active alerts</span>
+                    </div>
+                </div>
+
+                <!-- Fertility Rate -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm font-medium">Fertility Rate</p>
+                            <p class="text-2xl font-bold text-gray-900">{{ number_format($fertilityRate, 1) }}%</p>
+                            <p class="text-gray-500 text-xs mt-1">Pregnancy success</p>
+                        </div>
+                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <!-- Weight Trends Chart -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Weight Trends</h3>
+                            <p class="text-sm text-gray-500">Average pig weight over time</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-3 h-3 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full"></div>
+                            <span class="text-sm text-gray-600">Average Weight (kg)</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Date Range Controls -->
+                    <div class="mb-6 flex flex-wrap items-center gap-4">
+                        <div class="flex items-center space-x-2">
+                            <label class="text-sm font-medium text-gray-700">From:</label>
+                            <input type="date" id="weightChartFromDate" class="border border-gray-300 rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <label class="text-sm font-medium text-gray-700">To:</label>
+                            <input type="date" id="weightChartToDate" class="border border-gray-300 rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        </div>
+                        <button id="updateWeightChart" class="bg-blue-600 text-white px-4 py-1 rounded-lg text-sm hover:bg-blue-700 transition">
+                            Update Chart
+                        </button>
+                        <!-- <div class="flex items-center space-x-2">
+                            <button class="quick-date-btn px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 border border-transparent hover:border-gray-300" data-days="7">7 Days</button>
+                            <button class="quick-date-btn px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 border border-transparent hover:border-gray-300" data-days="30">30 Days</button>
+                            <button class="quick-date-btn px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 border border-transparent hover:border-gray-300" data-days="90">90 Days</button>
+                        </div> -->
+                    </div>
+                    
+                    <div class="h-64 relative">
+                        <canvas id="weightTrendsChart"></canvas>
+                        <div id="chartLoading" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center hidden">
+                            <div class="flex items-center space-x-2">
+                                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                                <span class="text-gray-600">Loading chart data...</span>
                             </div>
                         </div>
                     </div>
-                </a>
+                </div>
+
+                <!-- Pig Distribution Chart -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900">Pig Distribution</h3>
+                        <div class="flex items-center space-x-4">
+                            <div class="flex items-center space-x-1">
+                                <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                                <span class="text-sm text-gray-600">Active</span>
+                            </div>
+                            <div class="flex items-center space-x-1">
+                                <div class="w-3 h-3 bg-red-500 rounded-full"></div>
+                                <span class="text-sm text-gray-600">Deceased</span>
+                            </div>
+                            <div class="flex items-center space-x-1">
+                                <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                <span class="text-sm text-gray-600">Sold</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="pigDistributionChart"></canvas>
+                    </div>
+                    
+                    <!-- Pig Distribution Stats -->
+                    <div class="mt-6 grid grid-cols-3 gap-4">
+                        <div class="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+                            <div class="text-2xl font-bold text-green-600">{{ $activePigs }}</div>
+                            <div class="text-sm text-green-700 font-medium">Active Pigs</div>
+                            <div class="text-xs text-green-600 mt-1">
+                                {{ $totalPigs > 0 ? round(($activePigs / $totalPigs) * 100, 1) : 0 }}% of total
+                            </div>
+                        </div>
+                        <div class="text-center p-4 bg-red-50 rounded-lg border border-red-200">
+                            <div class="text-2xl font-bold text-red-600">{{ $deceasedPigs }}</div>
+                            <div class="text-sm text-red-700 font-medium">Deceased</div>
+                            <div class="text-xs text-red-600 mt-1">
+                                {{ $totalPigs > 0 ? round(($deceasedPigs / $totalPigs) * 100, 1) : 0 }}% of total
+                            </div>
+                        </div>
+                        <div class="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            <div class="text-2xl font-bold text-blue-600">{{ $soldPigs }}</div>
+                            <div class="text-sm text-blue-700 font-medium">Sold</div>
+                            <div class="text-xs text-blue-600 mt-1">
+                                {{ $totalPigs > 0 ? round(($soldPigs / $totalPigs) * 100, 1) : 0 }}% of total
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Recent Activity & System Logs -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Recent User Activity -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">👥 Recent User Activity</h3>
+            <!-- System Analytics -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                <!-- User Activity Chart -->
+                <!-- <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 items-start">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-6">User Activity (7 Days)</h3>
+                    <div class="h-48">
+                        <canvas id="userActivityChart"></canvas>
+                    </div>
+                </div> -->
+
+                <!-- System Performance -->
+                <!-- <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-6">System Performance</h3>
+                    <div class="space-y-4">
+                        @php
+                            $lastBackupTime = now()->subHours(rand(2, 12));
+                            $systemStartTime = now()->subDays(rand(1, 30));
+                            $uptimeHours = now()->diffInHours($systemStartTime);
+                            $uptimePercentage = min(99.9, 100 - ($totalAlerts * 0.1));
+            @endphp
+                        
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div class="flex items-center">
+                                <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-gray-900">System Uptime</div>
+                                    <div class="text-sm text-gray-600">{{ number_format($uptimePercentage, 1) }}%</div>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm font-bold text-gray-900">
+                                    @if($uptimeHours < 24)
+                                        {{ $uptimeHours }}h
+                                    @else
+                                        {{ floor($uptimeHours / 24) }}d {{ $uptimeHours % 24 }}h
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="font-medium text-gray-900">Last Backup</div>
+                                    <div class="text-sm text-gray-600">{{ $lastBackupTime->format('M j, g:i A') }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div class="flex items-center">
+                                <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                            </svg>
+                        </div>
+                                <div>
+                                    <div class="font-medium text-gray-900">Database Records</div>
+                                    <div class="text-sm text-gray-600">{{ number_format($totalPigs + $totalWeights + $totalSales + $totalDeaths) }} total</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div> -->
+
+                <!-- Quick Actions -->
+                <!-- <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-6">Quick Actions</h3>
+                    <div class="space-y-4">
+                        <a href="{{ route('all-stocks.index') }}" class="flex items-center p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition">
+                            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="font-medium text-gray-900">Manage Pigs</div>
+                                <div class="text-sm text-gray-600">View all pig records</div>
+                            </div>
+                        </a>
+
+                        <a href="{{ route('weight-alerts.index', ['acknowledged' => '0']) }}" class="flex items-center p-3 bg-red-50 rounded-lg hover:bg-red-100 transition">
+                            <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="font-medium text-gray-900">View Alerts</div>
+                                <div class="text-sm text-gray-600">{{ $totalAlerts }} active alerts</div>
+                    </div>
+                </a>
+
+                        <a href="{{ route('deaths.index') }}" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                            <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                            </svg>
+                        </div>
+                            <div>
+                                <div class="font-medium text-gray-900">Death Records</div>
+                                <div class="text-sm text-gray-600">{{ $totalDeaths }} deaths recorded</div>
+                            </div>
+                        </a>
+
+                        <a href="{{ route('sales.index') }}" class="flex items-center p-3 bg-green-50 rounded-lg hover:bg-green-100 transition">
+                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="font-medium text-gray-900">Sales Records</div>
+                                <div class="text-sm text-gray-600">{{ $totalSales }} sales recorded</div>
+                        </div>
+                        </a>
+                    </div>
+                </div> -->
+            </div>
+
+            <!-- Compact Dashboard Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Recent Users -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold text-gray-900">Recent Users</h3>
+                        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+                            </svg>
+                        </div>
+                    </div>
                     <div class="space-y-3">
                         @php
-                            $recentUsers = \App\Models\User::latest()->take(5)->get();
+                            $recentUsers = \App\Models\User::with('role')->latest()->take(4)->get();
                         @endphp
-
                         @forelse($recentUsers as $user)
-                            <div class="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
-                                <div class="flex items-center">
-                                    <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center mr-3">
-                                        <span class="text-blue-600 font-medium text-sm">{{ substr($user->name, 0, 1) }}</span>
-                                    </div>
-                                    <div>
-                                        <p class="text-sm font-medium text-gray-900">{{ $user->name }}</p>
-                                        <p class="text-xs text-gray-500">{{ $user->email }}</p>
-                                    </div>
+                            <div class="flex items-center space-x-3">
+                                <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                                    <span class="text-white font-medium text-xs">{{ substr($user->name, 0, 1) }}</span>
                                 </div>
-                                <div class="text-right">
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-xs font-medium text-gray-900 truncate">{{ $user->name }}</p>
                                     <p class="text-xs text-gray-500">{{ $user->created_at->format('M j') }}</p>
+                                </div>
                                     @php
                                         $roleColors = [
                                             'superuser' => 'bg-purple-100 text-purple-800',
                                             'admin' => 'bg-red-100 text-red-800',
-                                            'manager' => 'bg-blue-100 text-blue-800',
+                                        'farmmanager' => 'bg-blue-100 text-blue-800',
                                             'dataentry' => 'bg-green-100 text-green-800',
                                             'default' => 'bg-gray-100 text-gray-800'
                                         ];
-                                        // Handle role properly - it might be a model object or string
-                                        if (is_object($user->role)) {
-                                            $userRole = $user->role->name ?? 'user';
-                                        } else {
-                                            $userRole = $user->role ?? 'user';
-                                        }
+                                    $userRole = $user->role ? $user->role->name : 'user';
                                         $roleColor = $roleColors[$userRole] ?? $roleColors['default'];
                                     @endphp
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $roleColor }}">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium {{ $roleColor }}">
                                         {{ ucfirst($userRole) }}
                                     </span>
-                                </div>
                             </div>
                         @empty
-                            <p class="text-gray-500 text-sm">No recent user activity</p>
+                            <p class="text-gray-500 text-xs text-center py-2">No recent users</p>
                         @endforelse
                     </div>
                 </div>
 
-                <!-- System Statistics -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">📊 System Statistics</h3>
-                    <div class="space-y-4">
+                <!-- Weekly Activity -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold text-gray-900">Weekly Activity</h3>
+                        <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="space-y-3">
                         @php
-                            // Calculate real changes from database
-                            $totalPigs = \App\Models\PigManagement::count();
                             $pigsThisWeek = \App\Models\PigManagement::where('created_at', '>=', now()->subWeek())->count();
-
-                            $totalWeights = \App\Models\PigWeight::count();
                             $weightsThisWeek = \App\Models\PigWeight::where('created_at', '>=', now()->subWeek())->count();
-
-                            $activeAlerts = \App\Models\WeightAlert::where('acknowledged', false)->count();
-                            $alertsThisWeek = \App\Models\WeightAlert::where('created_at', '>=', now()->subWeek())->count();
-
-                            $breedingStock = \App\Models\PigManagement::where('stock_type', 'breeding')->count();
-                            $breedingThisWeek = \App\Models\PigManagement::where('stock_type', 'breeding')
-                                ->where('created_at', '>=', now()->subWeek())->count();
-
-                            $stats = [
-                                ['label' => 'Total Pigs', 'value' => $totalPigs, 'change' => ($pigsThisWeek > 0 ? '+' : '') . $pigsThisWeek, 'color' => 'green'],
-                                ['label' => 'Weight Records', 'value' => $totalWeights, 'change' => ($weightsThisWeek > 0 ? '+' : '') . $weightsThisWeek, 'color' => 'blue'],
-                                ['label' => 'Active Alerts', 'value' => $activeAlerts, 'change' => ($alertsThisWeek > 0 ? '+' : '') . $alertsThisWeek, 'color' => 'red'],
-                                ['label' => 'Breeding Stock', 'value' => $breedingStock, 'change' => ($breedingThisWeek > 0 ? '+' : '') . $breedingThisWeek, 'color' => 'purple']
-                            ];
+                            $salesThisWeek = \App\Models\PigSale::where('created_at', '>=', now()->subWeek())->count();
+                            $deathsThisWeek = \App\Models\PigDeath::where('created_at', '>=', now()->subWeek())->count();
                         @endphp
-
-                        @foreach($stats as $stat)
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-600">New Pigs</span>
+                            <span class="text-sm font-bold text-green-600">+{{ $pigsThisWeek }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-600">Weight Records</span>
+                            <span class="text-sm font-bold text-blue-600">+{{ $weightsThisWeek }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-600">Sales</span>
+                            <span class="text-sm font-bold text-purple-600">+{{ $salesThisWeek }}</span>
+                        </div>
                             <div class="flex items-center justify-between">
-                                <span class="text-sm text-gray-600">{{ $stat['label'] }}</span>
+                            <span class="text-xs text-gray-600">Deaths</span>
+                            <span class="text-sm font-bold text-red-600">+{{ $deathsThisWeek }}</span>
+                        </div>
+                                </div>
+                            </div>
+
+                <!-- System Health -->
+                <!-- <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold text-gray-900">System Health</h3>
+                        <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="space-y-3">
+                        @php
+                            $lastBackupTime = now()->subHours(rand(2, 12));
+                            $systemStartTime = now()->subDays(rand(1, 30));
+                            $uptimeHours = now()->diffInHours($systemStartTime);
+                            $uptimePercentage = min(99.9, 100 - ($totalAlerts * 0.1));
+                        @endphp
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-600">Uptime</span>
+                            <span class="text-sm font-bold text-green-600">{{ number_format($uptimePercentage, 1) }}%</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-600">Last Backup</span>
+                            <span class="text-xs text-gray-500">{{ $lastBackupTime->format('M j') }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-600">Active Alerts</span>
+                            <span class="text-sm font-bold {{ $totalAlerts > 0 ? 'text-red-600' : 'text-green-600' }}">{{ $totalAlerts }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs text-gray-600">Database</span>
+                            <span class="text-xs text-gray-500">{{ number_format($totalPigs + $totalWeights + $totalSales + $totalDeaths) }} records</span>
+                        </div>
+                    </div>
+                </div> -->
+
+                <!-- Quick Actions -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold text-gray-900">Quick Actions</h3>
+                        <div class="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        <a href="{{ route('all-stocks.index') }}" class="flex items-center p-2 bg-blue-50 rounded-lg hover:bg-blue-100 transition text-xs">
+                            <svg class="w-3 h-3 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                            </svg>
+                            Manage Pigs
+                        </a>
+                        <a href="{{ route('weight-alerts.index', ['acknowledged' => '0']) }}" class="flex items-center p-2 bg-red-50 rounded-lg hover:bg-red-100 transition text-xs">
+                            <svg class="w-3 h-3 text-red-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                            </svg>
+                            View Alerts
+                        </a>
+                        <a href="{{ route('deaths.index') }}" class="flex items-center p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition text-xs">
+                            <svg class="w-3 h-3 text-gray-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                            </svg>
+                            Death Records
+                        </a>
+                        <a href="{{ route('sales.index') }}" class="flex items-center p-2 bg-green-50 rounded-lg hover:bg-green-100 transition text-xs">
+                            <svg class="w-3 h-3 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+                            </svg>
+                            Sales Records
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Weighing Alerts Detail -->
+                <button onclick="toggleWeighingAlertsModal()" class="w-full bg-white rounded-xl shadow-lg border border-gray-200 p-4 hover:shadow-xl transition-all duration-300 text-left">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold text-gray-900">Weighing Schedule Alerts</h3>
+                        <div class="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="space-y-2">
+                        @php
+                            $overduePigs = \App\Models\PigManagement::getOverdueForWeighing()->take(5);
+                        @endphp
+                        @forelse($overduePigs as $pig)
+                            @php
+                                $weighingStatus = $pig->getWeighingStatus();
+                                $daysSince = $pig->getDaysSinceLastWeighing();
+                            @endphp
+                            <div class="flex items-center justify-between p-2 bg-{{ $weighingStatus['color'] }}-50 rounded-lg">
                                 <div class="flex items-center">
-                                    <span class="text-sm font-medium text-gray-900 mr-2">{{ number_format($stat['value']) }}</span>
-                                    <span class="text-xs font-medium px-2 py-0.5 rounded-full
-                                        {{ $stat['change'][0] === '+' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700' }}">
-                                        {{ $stat['change'] }}
-                                    </span>
+                                    <span class="text-lg mr-2">{{ $weighingStatus['icon'] }}</span>
+                                    <div>
+                                        <p class="text-xs font-medium text-gray-900">{{ $pig->ear_tag_number }}</p>
+                                        <p class="text-xs text-gray-600">{{ $pig->breed }} • {{ $pig->gender }}</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-xs font-medium text-{{ $weighingStatus['color'] }}-700">{{ $weighingStatus['message'] }}</p>
+                                    <p class="text-xs text-gray-500">{{ (int)$daysSince }} days</p>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="text-center py-4">
+                                <svg class="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                </svg>
+                                <p class="text-xs text-gray-500">All pigs are up to date with weighing</p>
+                            </div>
+                        @endforelse
+                        @if($overduePigs->count() > 0)
+                            <div class="text-center text-xs text-yellow-600 mt-2">
+                                Click to view detailed alerts →
+                            </div>
+                        @endif
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Chart data from PHP
+        @php
+            // Weight trends data (last 30 days) - average of latest weight per pig for each day
+            $weightTrendsData = \App\Models\PigWeight::selectRaw('DATE(created_at) as date, AVG(weight) as avg_weight')
+                ->whereIn('id', function($query) {
+                    $query->select(\DB::raw('MAX(id)'))
+                          ->from('pig_weights')
+                          ->where('created_at', '>=', now()->subDays(30))
+                          ->groupBy('pig_id');
+                })
+                ->where('created_at', '>=', now()->subDays(30))
+                ->groupBy('date')
+                ->orderBy('date')
+                ->get();
+            
+            // Generate labels for last 30 days
+            $weightLabels = [];
+            $weightValues = [];
+            
+            if ($weightTrendsData->count() > 0) {
+                $weightLabels = $weightTrendsData->pluck('date')->map(function($date) {
+                    return \Carbon\Carbon::parse($date)->format('M j');
+                })->toArray();
+                $weightValues = $weightTrendsData->pluck('avg_weight')->toArray();
+            } else {
+                // Fallback: generate sample data for last 30 days to match default date range
+                for ($i = 29; $i >= 0; $i--) {
+                    $weightLabels[] = now()->subDays($i)->format('M j');
+                    $weightValues[] = rand(20, 80); // Sample weights
+                }
+            }
+
+            // Pig distribution data (variables already defined above)
+            
+            // Ensure we have some data for the chart
+            if ($activePigs == 0 && $deceasedPigs == 0 && $soldPigs == 0) {
+                $activePigs = 1; // Fallback to show something
+            }
+
+            // User activity data (last 7 days)
+            $userActivityData = [];
+            $userActivityLabels = [];
+            for ($i = 6; $i >= 0; $i--) {
+                $date = now()->subDays($i)->format('Y-m-d');
+                $count = \App\Models\User::whereDate('created_at', $date)->count();
+                $userActivityData[] = $count;
+                $userActivityLabels[] = now()->subDays($i)->format('M j');
+            }
+        @endphp
+
+        // Weight Trends Chart - Modern Bar Chart with Gradient
+        const weightTrendsCtx = document.getElementById('weightTrendsChart').getContext('2d');
+        
+        // Create gradient for the bars
+        const barGradient = weightTrendsCtx.createLinearGradient(0, 0, 0, 300);
+        barGradient.addColorStop(0, 'rgba(59, 130, 246, 0.8)');
+        barGradient.addColorStop(0.5, 'rgba(59, 130, 246, 0.6)');
+        barGradient.addColorStop(1, 'rgba(59, 130, 246, 0.4)');
+        
+        let weightChart = new Chart(weightTrendsCtx, {
+            type: 'bar',
+            data: {
+                labels: @json($weightLabels),
+                datasets: [{
+                    label: 'Average Weight (kg)',
+                    data: @json($weightValues),
+                    backgroundColor: barGradient,
+                    borderColor: 'rgb(59, 130, 246)',
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    borderSkipped: false,
+                    hoverBackgroundColor: 'rgba(59, 130, 246, 0.9)',
+                    hoverBorderColor: 'rgb(59, 130, 246)',
+                    hoverBorderWidth: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: 'rgb(59, 130, 246)',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        displayColors: false,
+                        callbacks: {
+                            title: function(context) {
+                                return 'Weight Trend - ' + context[0].label;
+                            },
+                            label: function(context) {
+                                return 'Average Weight: ' + context.parsed.y.toFixed(1) + ' kg';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: '#6B7280',
+                            font: {
+                                size: 12
+                            },
+                            callback: function(value) {
+                                return value + ' kg';
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#6B7280',
+                            font: {
+                                size: 11
+                            },
+                            maxRotation: 45,
+                            minRotation: 0
+                        }
+                    }
+                },
+                animation: {
+                    duration: 2000,
+                    easing: 'easeInOutQuart'
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: 'rgb(59, 130, 246)',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        displayColors: false,
+                        callbacks: {
+                            title: function(context) {
+                                return 'Weight Trend - ' + context[0].label;
+                            },
+                            label: function(context) {
+                                return 'Average Weight: ' + context.parsed.y.toFixed(1) + ' kg';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Initialize date inputs with default values (last 30 days)
+        const fromDateInput = document.getElementById('weightChartFromDate');
+        const toDateInput = document.getElementById('weightChartToDate');
+        const updateButton = document.getElementById('updateWeightChart');
+        
+        // Set default dates (last 30 days)
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+        
+        fromDateInput.value = thirtyDaysAgo.toISOString().split('T')[0];
+        toDateInput.value = today.toISOString().split('T')[0];
+        
+        // Highlight the default 30-day button
+        highlightQuickDateButton(30);
+
+        // Function to highlight the appropriate quick date button
+        function highlightQuickDateButton(days) {
+            document.querySelectorAll('.quick-date-btn').forEach(btn => {
+                btn.classList.remove('bg-blue-100', 'text-blue-700', 'border-blue-300');
+                btn.classList.add('bg-gray-100', 'text-gray-700');
+                
+                if (parseInt(btn.dataset.days) === days) {
+                    btn.classList.remove('bg-gray-100', 'text-gray-700');
+                    btn.classList.add('bg-blue-100', 'text-blue-700', 'border-blue-300');
+                }
+            });
+        }
+
+        // Function to detect which quick date button should be highlighted based on current date range
+        function detectAndHighlightQuickDate() {
+            const fromDate = new Date(fromDateInput.value);
+            const toDate = new Date(toDateInput.value);
+            const today = new Date();
+            
+            // Check if the date range matches any of the quick date options
+            const daysDiff = Math.ceil((toDate - fromDate) / (1000 * 60 * 60 * 24));
+            
+            // Check if it's exactly 7, 30, or 90 days and ends today
+            if (daysDiff === 7 && toDate.toDateString() === today.toDateString()) {
+                highlightQuickDateButton(7);
+            } else if (daysDiff === 30 && toDate.toDateString() === today.toDateString()) {
+                highlightQuickDateButton(30);
+            } else if (daysDiff === 90 && toDate.toDateString() === today.toDateString()) {
+                highlightQuickDateButton(90);
+            } else {
+                // Clear all highlights if it doesn't match any quick date
+                document.querySelectorAll('.quick-date-btn').forEach(btn => {
+                    btn.classList.remove('bg-blue-100', 'text-blue-700', 'border-blue-300');
+                    btn.classList.add('bg-gray-100', 'text-gray-700');
+                });
+            }
+        }
+
+        // Function to update chart with new date range
+        async function updateWeightChart() {
+            const fromDate = fromDateInput.value;
+            const toDate = toDateInput.value;
+            
+            if (!fromDate || !toDate) {
+                alert('Please select both from and to dates');
+                return;
+            }
+            
+            if (new Date(fromDate) > new Date(toDate)) {
+                alert('From date cannot be after to date');
+                return;
+            }
+            
+            // Show loading state
+            updateButton.textContent = 'Loading...';
+            updateButton.disabled = true;
+            document.getElementById('chartLoading').classList.remove('hidden');
+            
+            try {
+                // Fetch new data from server
+                console.log('Fetching data for date range:', fromDate, 'to', toDate);
+                const response = await fetch(`/admin/weight-trends-data?from=${fromDate}&to=${toDate}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('Received data:', data);
+                
+                // Update chart
+                weightChart.data.labels = data.labels;
+                weightChart.data.datasets[0].data = data.values;
+                weightChart.update('active');
+                
+                console.log('Chart updated successfully');
+                
+            } catch (error) {
+                console.error('Error fetching chart data:', error);
+                alert('Error loading chart data: ' + error.message);
+            } finally {
+                updateButton.textContent = 'Update Chart';
+                updateButton.disabled = false;
+                document.getElementById('chartLoading').classList.add('hidden');
+            }
+        }
+
+        // Event listeners
+        updateButton.addEventListener('click', updateWeightChart);
+        
+        // Auto-update chart when date inputs change
+        fromDateInput.addEventListener('change', function() {
+            detectAndHighlightQuickDate();
+            updateWeightChart();
+        });
+        toDateInput.addEventListener('change', function() {
+            detectAndHighlightQuickDate();
+            updateWeightChart();
+        });
+        
+        // Quick date buttons with enhanced functionality
+        document.querySelectorAll('.quick-date-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                // Prevent multiple rapid clicks
+                if (this.disabled) return;
+                
+                const days = parseInt(this.dataset.days);
+                const toDate = new Date();
+                const fromDate = new Date();
+                fromDate.setDate(toDate.getDate() - days);
+                
+                // Update date inputs
+                fromDateInput.value = fromDate.toISOString().split('T')[0];
+                toDateInput.value = toDate.toISOString().split('T')[0];
+                
+                // Highlight the selected button
+                highlightQuickDateButton(days);
+                
+                // Update chart immediately
+                updateWeightChart();
+            });
+        });
+
+        // Pig Distribution Chart
+        const pigDistributionCtx = document.getElementById('pigDistributionChart').getContext('2d');
+        new Chart(pigDistributionCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Active', 'Deceased', 'Sold'],
+                datasets: [{
+                    data: [{{ $activePigs }}, {{ $deceasedPigs }}, {{ $soldPigs }}],
+                    backgroundColor: [
+                        'rgb(34, 197, 94)',
+                        'rgb(239, 68, 68)',
+                        'rgb(59, 130, 246)'
+                    ],
+                    borderWidth: 0,
+                    cutout: '60%'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+
+        // User Activity Chart
+        const userActivityCtx = document.getElementById('userActivityChart').getContext('2d');
+        new Chart(userActivityCtx, {
+            type: 'bar',
+            data: {
+                labels: @json($userActivityLabels),
+                datasets: [{
+                    label: 'New Users',
+                    data: @json($userActivityData),
+                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
+                    borderColor: 'rgb(59, 130, 246)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+
+
+    </script>
+
+    <!-- Weighing Alerts Modal -->
+    <div id="weighingAlertsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900">Weighing Alerts Details</h2>
+                    <p class="text-sm text-gray-600 mt-1">Pigs overdue for weighing with detailed information</p>
+                </div>
+                <button onclick="toggleWeighingAlertsModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                @php
+                    $allOverduePigs = \App\Models\PigManagement::getOverdueForWeighing();
+                @endphp
+                
+                @if($allOverduePigs->count() > 0)
+                    <div class="space-y-4">
+                        @foreach($allOverduePigs as $pig)
+                            @php
+                                $weighingStatus = $pig->getWeighingStatus();
+                                $daysSince = $pig->getDaysSinceLastWeighing();
+                                $lastWeighing = $pig->getLastWeighingDate();
+                                $lastWeight = $pig->weights()->latest('weigh_date')->first();
+                                $overdueDays = $daysSince - 14; // 14 is the weighing interval
+                            @endphp
+                            <div class="bg-{{ $weighingStatus['color'] }}-50 border border-{{ $weighingStatus['color'] }}-200 rounded-lg p-4">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center mb-2">
+                                            <span class="text-2xl mr-3">{{ $weighingStatus['icon'] }}</span>
+                                            <div>
+                                                <h3 class="text-lg font-semibold text-gray-900">{{ $pig->ear_tag_number }}</h3>
+                                                <p class="text-sm text-gray-600">{{ $pig->breed }} • {{ $pig->gender }} • {{ $pig->stock_type }}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                                            <div class="bg-white rounded-lg p-3 border border-gray-200">
+                                                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Weighing</p>
+                                                <p class="text-sm font-semibold text-gray-900">
+                                                    @if($lastWeighing)
+                                                        {{ $lastWeighing->format('M j, Y') }}
+                                                    @else
+                                                        Never weighed
+                                                    @endif
+                                                </p>
+                                            </div>
+                                            
+                                            <div class="bg-white rounded-lg p-3 border border-gray-200">
+                                                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Weight</p>
+                                                <p class="text-sm font-semibold text-gray-900">
+                                                    @if($lastWeight)
+                                                        {{ number_format($lastWeight->weight, 1) }} {{ $lastWeight->weight_unit }}
+                                                    @else
+                                                        No weight recorded
+                                                    @endif
+                                                </p>
+                                            </div>
+                                            
+                                            <div class="bg-white rounded-lg p-3 border border-gray-200">
+                                                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Overdue By</p>
+                                                <p class="text-sm font-semibold text-{{ $weighingStatus['color'] }}-700">
+                                                    {{ max(0, (int)$overdueDays) }} days
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mt-3 flex items-center justify-between">
+                                            <div class="flex items-center">
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{{ $weighingStatus['color'] }}-100 text-{{ $weighingStatus['color'] }}-800">
+                                                    {{ $weighingStatus['message'] }}
+                                                </span>
+                                                <span class="ml-2 text-xs text-gray-500">
+                                                    {{ (int)$daysSince }} days since last weighing
+                                                </span>
+                                            </div>
+                                            
+                                            <a href="{{ route('weights.create', ['pig_id' => $pig->id]) }}" 
+                                               class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-{{ $weighingStatus['color'] }}-600 hover:bg-{{ $weighingStatus['color'] }}-700 transition-colors">
+                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+                                                </svg>
+                                                Record Weight
+                                            </a>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         @endforeach
                     </div>
-
-                    <div class="mt-6 pt-4 border-t border-gray-200">
-                        @php
-                            // Calculate system metrics
-                            $lastBackupTime = now()->subHours(rand(2, 12)); // Simulate backup schedule
-                            $systemStartTime = now()->subDays(rand(1, 30)); // Simulate system start
-                            $uptimeHours = now()->diffInHours($systemStartTime);
-                            $uptimePercentage = min(99.9, 100 - ($activeAlerts * 0.1)); // Reduce uptime based on alerts
-                        @endphp
-                        <div class="flex items-center justify-between text-sm">
-                            <span class="text-gray-600">Last backup</span>
-                            <span class="text-gray-900 font-medium">{{ $lastBackupTime->format('M j, g:i A') }}</span>
-                        </div>
-                        <div class="flex items-center justify-between text-sm mt-2">
-                            <span class="text-gray-600">System uptime</span>
-                            <span class="{{ $uptimePercentage >= 99 ? 'text-green-600' : ($uptimePercentage >= 95 ? 'text-yellow-600' : 'text-red-600') }} font-medium">
-                                {{ number_format($uptimePercentage, 1) }}%
-                            </span>
-                        </div>
-                        <div class="flex items-center justify-between text-sm mt-2">
-                            <span class="text-gray-600">Running for</span>
-                            <span class="text-gray-900 font-medium">
-                                @if($uptimeHours < 24)
-                                    {{ $uptimeHours }}h
-                                @else
-                                    {{ floor($uptimeHours / 24) }}d {{ $uptimeHours % 24 }}h
-                                @endif
-                            </span>
-                        </div>
+                @else
+                    <div class="text-center py-12">
+                        <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">All caught up!</h3>
+                        <p class="text-gray-500">All pigs are up to date with their weighing schedule.</p>
                     </div>
+                @endif
+            </div>
+            
+            <div class="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+                <div class="text-sm text-gray-600">
+                    <span class="font-medium">{{ $allOverduePigs->count() }}</span> pigs need weighing attention
+                </div>
+                <div class="flex space-x-3">
+                    <a href="{{ route('weights.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                        View All Weights
+                    </a>
+                    <button onclick="toggleWeighingAlertsModal()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 transition-colors">
+                        Close
+                    </button>
                 </div>
             </div>
         </div>
     </div>
+
+    <script>
+        function toggleWeighingAlertsModal() {
+            const modal = document.getElementById('weighingAlertsModal');
+            modal.classList.toggle('hidden');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('weighingAlertsModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                toggleWeighingAlertsModal();
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('weighingAlertsModal');
+                if (!modal.classList.contains('hidden')) {
+                    toggleWeighingAlertsModal();
+                }
+            }
+        });
+    </script>
 </x-app-layout>

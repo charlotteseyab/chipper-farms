@@ -3,15 +3,29 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Carbon\Carbon;
 
 class PigSale extends Model
 {
+    // Price rates per kg
+    // Get pricing from settings, fallback to defaults
+    public static function getLiveWeightRate()
+    {
+        return \App\Models\Setting::get('sales.pricing.live_weight_price', 30.00);
+    }
+    
+    public static function getCarcassWeightRate()
+    {
+        return \App\Models\Setting::get('sales.pricing.carcass_weight_price', 50.00);
+    }
     protected $fillable = [
         'pig_id',
         'sale_date',
         'sale_price',
         'sale_weight',
+        'weight_type',
+        'price_per_kg',
         'buyer_name',
         'buyer_contact',
         'buyer_address',
@@ -22,21 +36,46 @@ class PigSale extends Model
         'sold_by',
         'transport_cost',
         'transport_method',
-        'sale_documents'
+        'sale_documents',
+        'destination',
+        'sale_method',
+        'transport_details',
+        'final_weight',
+        'sale_notes'
     ];
 
     protected $casts = [
         'sale_date' => 'date',
         'sale_price' => 'decimal:2',
         'sale_weight' => 'decimal:2',
+        'price_per_kg' => 'decimal:2',
         'transport_cost' => 'decimal:2',
         'sale_documents' => 'array'
     ];
 
+    // Boot method to auto-calculate price
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::saving(function ($sale) {
+            // Auto-calculate price if weight and weight_type are set
+            if ($sale->sale_weight && $sale->weight_type) {
+                $sale->price_per_kg = $sale->price_rate;
+                $sale->sale_price = $sale->calculateTotalPrice();
+            }
+        });
+    }
+
     // Relationships
-    public function pig()
+    public function pig(): BelongsTo
     {
         return $this->belongsTo(PigManagement::class, 'pig_id');
+    }
+
+    public function soldBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'sold_by');
     }
 
     // Scopes
@@ -63,7 +102,29 @@ class PigSale extends Model
     // Accessors
     public function getFormattedSalePriceAttribute(): string
     {
-        return '$' . number_format($this->sale_price, 2);
+        return number_format($this->sale_price, 2);
+    }
+
+    public function getPriceRateAttribute(): float
+    {
+        return match($this->weight_type) {
+            'live' => self::getLiveWeightRate(),
+            'carcass' => self::getCarcassWeightRate(),
+            default => self::getLiveWeightRate()
+        };
+    }
+
+    public function getFormattedPriceRateAttribute(): string
+    {
+        return '₵' . number_format($this->price_rate, 2) . '/kg';
+    }
+
+    public function calculateTotalPrice(): float
+    {
+        if (!$this->sale_weight || $this->sale_weight <= 0) {
+            return 0;
+        }
+        return $this->sale_weight * $this->price_rate;
     }
 
     public function getFormattedSaleWeightAttribute(): string
@@ -73,16 +134,14 @@ class PigSale extends Model
 
     public function getPricePerKgAttribute(): ?float
     {
-        if (!$this->sale_weight || $this->sale_weight <= 0) {
-            return null;
-        }
-        return $this->sale_price / $this->sale_weight;
+        // Return the stored price per kg rate, not calculated from total price
+        return $this->price_per_kg ?? $this->price_rate;
     }
 
     public function getFormattedPricePerKgAttribute(): string
     {
         $pricePerKg = $this->price_per_kg;
-        return $pricePerKg ? '$' . number_format($pricePerKg, 2) . '/kg' : 'N/A';
+        return $pricePerKg ? '₵' . number_format($pricePerKg, 2) . '/kg' : 'N/A';
     }
 
     public function getDaysAgoAttribute(): int

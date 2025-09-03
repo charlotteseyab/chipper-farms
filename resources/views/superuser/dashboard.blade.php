@@ -2,15 +2,18 @@
     <div class="py-6">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <!-- Header -->
-            <div class="mb-6">
+            <!-- <div class="mb-6">
                 <h1 class="text-3xl font-bold text-gray-900">Superuser Dashboard</h1>
                 <p class="text-gray-600 mt-2">Complete system overview and advanced controls</p>
-            </div>
+            </div> -->
 
+            <!-- Weight Analytics Cards -->
+            <x-weight-analytics-cards />
+            
             <!-- Executive Summary -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
                 <!-- Farm Overview -->
-                <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-sm p-6 text-white">
+                <a href="{{ route('all-stocks.index', ['stock_type' => null]) }}" class="block bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-sm p-6 text-white hover:shadow-md transition">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-green-100 text-sm font-medium">Total Farm Value</p>
@@ -29,10 +32,10 @@
                             </svg>
                         </div>
                     </div>
-                </div>
+                </a>
 
                 <!-- Production Efficiency -->
-                <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-sm p-6 text-white">
+                <a href="{{ route('all-stocks.index', ['has_weights' => 'false']) }}" class="block bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-sm p-6 text-white hover:shadow-md transition">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-blue-100 text-sm font-medium">Data Completeness</p>
@@ -51,10 +54,10 @@
                             </svg>
                         </div>
                     </div>
-                </div>
+                </a>
 
                 <!-- Growth Rate -->
-                <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-sm p-6 text-white">
+                <a href="{{ route('all-stocks.index', ['created_from' => now()->startOfMonth()->toDateString(), 'created_to' => now()->toDateString()]) }}" class="block bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-sm p-6 text-white hover:shadow-md transition">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-purple-100 text-sm font-medium">Monthly Growth</p>
@@ -76,10 +79,10 @@
                             </svg>
                         </div>
                     </div>
-                </div>
+                </a>
 
                 <!-- System Health -->
-                <div class="bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow-sm p-6 text-white">
+                <a href="{{ route('weight-alerts.index', ['acknowledged' => '0']) }}" class="block bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow-sm p-6 text-white hover:shadow-md transition">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-yellow-100 text-sm font-medium">System Health</p>
@@ -113,10 +116,10 @@
                             </svg>
                         </div>
                     </div>
-                </div>
+                </a>
 
                 <!-- Critical Issues -->
-                <div class="bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-sm p-6 text-white">
+                <a href="{{ route('weight-alerts.index', ['severity' => 'high', 'acknowledged' => '0']) }}" class="block bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-sm p-6 text-white hover:shadow-md transition">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-red-100 text-sm font-medium">Critical Issues</p>
@@ -134,7 +137,27 @@
                             </svg>
                         </div>
                     </div>
-                </div>
+                </a>
+
+                <!-- Weighing Alerts -->
+                <a href="{{ route('weights.index') }}" class="block bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow-sm p-6 text-white hover:shadow-md transition">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-yellow-100 text-sm font-medium">Weighing Alerts</p>
+                            <p class="text-2xl font-bold">
+                                @php
+                                    $overdueForWeighing = \App\Models\PigManagement::countOverdueForWeighing();
+                                @endphp
+                                {{ $overdueForWeighing }}
+                            </p>
+                        </div>
+                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+                            </svg>
+                        </div>
+                    </div>
+                </a>
             </div>
 
             <!-- Advanced Controls -->

@@ -3,7 +3,7 @@
 <div class="container mx-auto px-4 py-2">
     <div class="flex justify-between items-center mb-8">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">🔄 In Progress - Weaning to Maturity</h1>
+            <h1 class="text-3xl font-bold text-gray-900">In Progress - Weaning to Maturity</h1>
             <p class="text-gray-600 mt-2">Pigs that have been weaned and are growing toward maturity (180 days)</p>
         </div>
     </div>
@@ -130,8 +130,8 @@
                                             </div>
                                         </div>
                                         <div class="ml-4">
-                                            <div class="text-sm font-medium text-gray-900">{{ $pig->code }}</div>
-                                            <div class="text-sm text-gray-500">{{ $pig->ear_tag_number }}</div>
+                                            <div class="text-sm font-medium text-gray-500">{{ $pig->ear_tag_number }}</div>
+                                            <div class="text-sm  text-gray-900">{{ $pig->code }}</div>
                                         </div>
                                     </div>
                                 </td>
@@ -186,30 +186,30 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     @if($pig->mother)
                                         <a href="{{ route('pigs.show', $pig->mother->id) }}" class="text-blue-600 hover:text-blue-800">
-                                            {{ $pig->mother->code }}
+                                            {{ $pig->mother->ear_tag_number }}
                                         </a>
                                     @else
-                                        <span class="text-gray-400">Unknown</span>
+                                        <span class="text-gray-400">N/A</span>
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <div class="relative" x-data="{ open: false }">
-                                        <button @click="open = !open" class="flex items-center text-gray-600 hover:text-gray-900">
+                                    <div class="relative inline-block text-left" x-data="{ open: false, place: 'down', toggle(){ this.open = !this.open; if(!this.open){ return; } this.$nextTick(() => { const menu = this.$refs.menu; const trigger = this.$refs.trigger; if(!menu || !trigger) return; const mr = menu.getBoundingClientRect(); const tr = trigger.getBoundingClientRect(); const below = window.innerHeight - tr.bottom; const above = tr.top; this.place = (below < mr.height + 16 && above > mr.height) ? 'up' : 'down'; }); } }">
+                                        <button x-ref="trigger" @click="toggle()" class="flex items-center text-gray-600 hover:text-gray-900">
                                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
                                             </svg>
                                         </button>
-                                        <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
+                                        <div x-ref="menu" x-show="open" @click.away="open = false" x-transition :class="place === 'down' ? 'origin-top-right mt-2 top-full' : 'origin-bottom-right mb-2 bottom-full'" class="absolute right-0 w-48 bg-white rounded-md shadow-lg z-50 border">
                                             <div class="py-1">
                                                 @if(isset($pig->days_until_mature) && $pig->days_until_mature <= 0)
-                                                    <button onclick="openMaturityModal({{ $pig->id }}, '{{ $pig->code }}', {{ $pig->date_of_birth->diffInDays(now()) }})" class="flex items-center w-full px-4 py-2 text-sm text-green-600 hover:bg-green-50">
+                                                    <button onclick="openMaturityModal({{ $pig->id }}, '{{ $pig->ear_tag_number }}', {{ $pig->date_of_birth->diffInDays(now()) }})" class="flex items-center w-full px-4 py-2 text-sm text-green-600 hover:bg-green-50">
                                                         <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                                         </svg>
-                                                        Complete Maturity
+                                                        Complete
                                                     </button>
                                                 @elseif(isset($pig->days_until_mature) && $pig->days_until_mature <= 7)
-                                                    <button onclick="openMaturityModal({{ $pig->id }}, '{{ $pig->code }}', {{ $pig->date_of_birth->diffInDays(now()) }})" class="flex items-center w-full px-4 py-2 text-sm text-orange-600 hover:bg-orange-50">
+                                                    <button onclick="openMaturityModal({{ $pig->id }}, '{{ $pig->ear_tag_number }}', {{ $pig->date_of_birth->diffInDays(now()) }})" class="flex items-center w-full px-4 py-2 text-sm text-orange-600 hover:bg-orange-50">
                                                         <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                                         </svg>
@@ -220,10 +220,10 @@
                                                         <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                                                         </svg>
-                                                        Complete Maturity
+                                                        Complete
                                                     </div>
                                                 @endif
-                                                <button onclick="openWeightModal({{ $pig->id }}, '{{ $pig->code }}')" class="flex items-center w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50">
+                                                <button onclick="openWeightModal({{ $pig->id }}, '{{ $pig->ear_tag_number }}')" class="flex items-center w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50">
                                                     <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
                                                     </svg>
@@ -248,7 +248,14 @@
 
             <!-- Pagination -->
             <div class="px-6 py-4 border-t border-gray-200">
-                {{ $inProgressPigs->links() }}
+                <div class="flex items-center justify-between">
+                    <div class="text-sm text-gray-700">
+                        Showing {{ $inProgressPigs->firstItem() }} to {{ $inProgressPigs->lastItem() }} of {{ $inProgressPigs->total() }} results
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <x-simple-pagination :paginator="$inProgressPigs" />
+                    </div>
+                </div>
             </div>
         @else
             <div class="px-6 py-12 text-center">
@@ -296,7 +303,7 @@
                     <div class="mt-4">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Growth Stage</label>
                         <select name="growth_stage" required class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                            <option value="">Select growth stage...</option>
+                            <option value="" disabled selected>-- Select growth stage --</option>
                             @for($week = 8; $week <= 20; $week++)
                                 <option value="{{ $week }}">Week {{ $week }} ({{ 8 + ($week-8)*2 }}-{{ 10 + ($week-8)*2 }}kg expected)</option>
                             @endfor
@@ -313,7 +320,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Growth Rate</label>
                             <select name="growth_rate" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500">
-                                <option value="">Select rate...</option>
+                                <option value="" disabled selected>-- Select rate --</option>
                                 <option value="slow">Slow (< 0.5kg/week)</option>
                                 <option value="normal">Normal (0.5-1kg/week)</option>
                                 <option value="fast">Fast (1-1.5kg/week)</option>
@@ -324,7 +331,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Maturity Progress</label>
                             <select name="maturity_progress" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500">
-                                <option value="">Select progress...</option>
+                                <option value="" disabled selected>-- Select progress --</option>
                                 <option value="early_growth">Early Growth (< 25kg)</option>
                                 <option value="mid_growth">Mid Growth (25-35kg)</option>
                                 <option value="late_growth">Late Growth (35-45kg)</option>
@@ -349,14 +356,14 @@
                 </div>
 
                 <!-- Feed & Behavior Section -->
-                <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <!-- <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
                     <h4 class="text-md font-medium text-gray-900 mb-3">🌾 Feed & Behavior</h4>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Feed Type</label>
                             <select name="feed_type" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                                <option value="">Select feed...</option>
+                                <option value="" disabled selected>-- Select feed --</option>
                                 <option value="starter">Starter Feed</option>
                                 <option value="grower">Grower Feed</option>
                                 <option value="developer">Developer Feed</option>
@@ -367,7 +374,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Appetite</label>
                             <select name="appetite" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                                <option value="">Select appetite...</option>
+                                <option value="" disabled selected>-- Select appetite --</option>
                                 <option value="poor">Poor</option>
                                 <option value="fair">Fair</option>
                                 <option value="good">Good</option>
@@ -378,7 +385,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Social Behavior</label>
                             <select name="social_behavior" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                                <option value="">Select behavior...</option>
+                                <option value="" disabled selected>-- Select behavior --</option>
                                 <option value="shy">Shy</option>
                                 <option value="normal">Normal</option>
                                 <option value="social">Social</option>
@@ -386,7 +393,7 @@
                             </select>
                         </div>
                     </div>
-                </div>
+                </div> -->
 
                 <!-- Health & Condition Section -->
                 <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
@@ -396,7 +403,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Body Condition Score</label>
                             <select name="body_condition_score" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                                <option value="">Select condition...</option>
+                                <option value="" disabled selected>-- Select condition --</option>
                                 <option value="1">1 - Very Thin</option>
                                 <option value="2">2 - Thin</option>
                                 <option value="3">3 - Ideal</option>
@@ -408,7 +415,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Health Status</label>
                             <select name="health_status" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                                <option value="">Select status...</option>
+                                <option value="" disabled selected>-- Select status --</option>
                                 <option value="excellent">Excellent</option>
                                 <option value="good">Good</option>
                                 <option value="fair">Fair</option>
@@ -478,8 +485,9 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1">Health Status</label>
                             <select name="health_status" required
                                     class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 text-sm">
+                                    <option value="" disabled selected>-- Select --</option>   
                                 <option value="excellent">Excellent</option>
-                                <option value="good" selected>Good</option>
+                                <option value="good">Good</option>
                                 <option value="fair">Fair</option>
                                 <option value="poor">Poor</option>
                             </select>
@@ -489,10 +497,11 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1">Body Condition Score (1-5)</label>
                             <select name="body_condition_score"
                                     class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 text-sm">
+                                    <option value="" disabled selected>-- Select --</option>    
                                 <option value="">Not assessed</option>
                                 <option value="1">1 - Very thin</option>
                                 <option value="2">2 - Thin</option>
-                                <option value="3" selected>3 - Ideal</option>
+                                <option value="3">3 - Ideal</option>
                                 <option value="4">4 - Fat</option>
                                 <option value="5">5 - Very fat</option>
                             </select>
@@ -507,10 +516,11 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1">Next Destination</label>
                             <select name="next_destination" required
                                     class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 text-sm">
+                                    <option value="" disabled selected>-- Select --</option> 
                                 <option value="breeding">Breeding Stock</option>
                                 <option value="market">Market Ready</option>
                                 <option value="monitoring">Continued Monitoring</option>
-                                <option value="other">Other</option>
+                                <!-- <option value="other">Other</option> -->
                             </select>
                         </div>
 
@@ -518,8 +528,9 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1">Growth Performance</label>
                             <select name="growth_performance"
                                     class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 text-sm">
+                                    <option value="" disabled selected>-- Select --</option> 
                                 <option value="excellent">Excellent</option>
-                                <option value="good" selected>Good</option>
+                                <option value="good">Good</option>
                                 <option value="average">Average</option>
                                 <option value="poor">Poor</option>
                             </select>
@@ -556,8 +567,8 @@
 </div>
 
 <script>
-function openMaturityModal(pigId, pigCode, ageInDays) {
-    document.getElementById('maturityModalTitle').textContent = `Complete Maturity - ${pigCode}`;
+function openMaturityModal(pigId, pigEarTag, ageInDays) {
+    document.getElementById('maturityModalTitle').textContent = `Complete Maturity - ${pigEarTag}`;
     document.getElementById('maturityForm').action = `/weaning/${pigId}/complete-maturity`;
     document.getElementById('maturityModal').classList.remove('hidden');
 
@@ -572,7 +583,7 @@ function openMaturityModal(pigId, pigCode, ageInDays) {
     pigInfo.innerHTML = `
         <div class="text-sm text-green-800">
             <strong>🎉 MATURITY COMPLETION</strong><br>
-            <strong>Pig:</strong> ${pigCode}<br>
+            <strong>Ear Tag:</strong> ${pigEarTag}<br>
             <strong>Current Age:</strong> ${Math.floor(ageInDays)} days<br>
             <strong>Target Maturity:</strong> {{ config('breeding.cycle.birth_to_maturity_days', 180) }} days<br>
             <strong>Status:</strong> Ready for completion
@@ -599,11 +610,11 @@ document.getElementById('maturityModal').addEventListener('click', function(e) {
 });
 
 // Weight Modal Functions
-function openWeightModal(pigId, pigCode) {
+function openWeightModal(pigId, pigEarTag) {
     document.getElementById('weightForm').action = `/weaning/${pigId}/update-weight`;
     document.getElementById('weightInfo').innerHTML = `
         <div class="text-sm">
-            <div class="font-medium text-gray-900 mb-2">In-Progress Piglet: ${pigCode}</div>
+            <div class="font-medium text-gray-900 mb-2">In-Progress Piglet: ${pigEarTag}</div>
             <div class="text-gray-600">Update the current weight for this growing piglet</div>
             <div class="text-yellow-600 mt-1">📈 Track growth progress during maturation period</div>
         </div>

@@ -80,7 +80,8 @@ class WeightStandardsController extends Controller
         ]);
 
         $data['created_by'] = auth()->id();
-        $data['is_active'] = $request->boolean('is_active', true);
+        // Handle checkbox properly - unchecked checkboxes don't send any value
+        $data['is_active'] = $request->has('is_active');
 
         // Check if standard already exists
         $existing = ExpectedWeightStandard::where('breed', $data['breed'])
@@ -133,7 +134,8 @@ class WeightStandardsController extends Controller
             'is_active' => 'boolean'
         ]);
 
-        $data['is_active'] = $request->boolean('is_active', true);
+        // Handle checkbox properly - unchecked checkboxes don't send any value
+        $data['is_active'] = $request->has('is_active');
 
         $weightStandard->update($data);
 

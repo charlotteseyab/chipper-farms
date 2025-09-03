@@ -17,6 +17,17 @@
                         </div>
                     </div>
                     <div class="flex items-center space-x-3">
+                        @if(!$pig->deaths()->exists())
+                            <a href="{{ route('pigs.death-form', $pig->id) }}" class="inline-flex items-center px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition"
+                               onclick="return confirm('Record death for {{ $pig->ear_tag_number }}?');">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m2 8H7a2 2 0 01-2-2V7a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                Record Death
+                            </a>
+                        @else
+                            <span class="inline-flex items-center px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-md">Deceased</span>
+                        @endif
                         @if($pig->stock_type === 'standard' && in_array($breedingReadiness['age_status'], ['minimum_met', 'optimal']) && $breedingReadiness['factors']['weight']['status'] !== 'too_light')
                             <form action="{{ route('pigs.promote-to-breeding', $pig->id) }}" method="POST" onsubmit="return confirm('Promote {{ $pig->ear_tag_number }} to breeding stock?');">
                                 @csrf
@@ -134,33 +145,47 @@
                             <h2 class="text-lg font-semibold text-gray-900">Basic Information</h2>
                         </div>
                         <div class="p-6">
-                            <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <dl class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <dt class="text-sm font-medium text-gray-500">Ear Tag Number</dt>
-                                    <dd class="mt-1 text-sm text-gray-900 font-mono">{{ $pig->ear_tag_number }}</dd>
+                                    <dt class="text-sm font-medium text-gray-900">Ear Tag Number</dt>
+                                    <dd class="mt-1 text-sm text-gray-700 font-mono">{{ $pig->ear_tag_number }}</dd>
                                 </div>
                                 <div>
-                                    <dt class="text-sm font-medium text-gray-500">Pig Code</dt>
-                                    <dd class="mt-1 text-sm text-gray-900 font-mono">{{ $pig->code }}</dd>
+                                    <dt class="text-sm font-medium text-gray-900">Pig Code</dt>
+                                    <dd class="mt-1 text-sm text-gray-700 font-mono">{{ $pig->code }}</dd>
                                 </div>
                                 <div>
-                                    <dt class="text-sm font-medium text-gray-500">Breed</dt>
-                                    <dd class="mt-1 text-sm text-gray-900">{{ $pig->breed }}</dd>
+                                    <dt class="text-sm font-medium text-gray-900">Breed</dt>
+                                    <dd class="mt-1 text-sm text-gray-700">{{ $pig->breed }}</dd>
                                 </div>
                                 <div>
-                                    <dt class="text-sm font-medium text-gray-500">Gender</dt>
+                                    <dt class="text-sm font-medium text-gray-900">Gender</dt>
                                     <dd class="mt-1 text-sm text-gray-900">{{ $pig->gender === 'M' ? 'Male' : 'Female' }}</dd>
                                 </div>
                                 <div>
-                                    <dt class="text-sm font-medium text-gray-500">Date of Birth</dt>
-                                    <dd class="mt-1 text-sm text-gray-900">{{ $pig->date_of_birth ? $pig->date_of_birth->format('M d, Y') : 'Not set' }}</dd>
+                                    <dt class="text-sm font-medium text-gray-900">Date of Birth</dt>
+                                    <dd class="mt-1 text-sm text-gray-700">{{ $pig->date_of_birth ? $pig->date_of_birth->format('M d, Y') : 'Not set' }}</dd>
                                 </div>
                                 <div>
-                                    <dt class="text-sm font-medium text-gray-500">Stock Type</dt>
+                                    <dt class="text-sm font-medium text-gray-900">Stock Type</dt>
                                     <dd class="mt-1">
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $pig->stock_type === 'breeding' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800' }}">
                                             {{ ucfirst($pig->stock_type) }} Stock
                                         </span>
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-900">Location</dt>
+                                    <dd class="mt-1 text-sm text-gray-700">
+                                        @if($pig->room)
+                                            <span class="font-medium">{{ $pig->room->structure->name }}</span>
+                                            <span class="text-gray-400">/</span>
+                                            <span>{{ $pig->room->name }}</span>
+                                        @elseif($pig->pen)
+                                            <span>{{ $pig->pen->name }}</span>
+                                        @else
+                                            <span class="text-gray-400">Not assigned</span>
+                                        @endif
                                     </dd>
                                 </div>
                             </dl>
@@ -349,12 +374,10 @@
                 </div>
             </div>
 
-            <!-- Additional Sections -->
-            @if($pig->weights->count() > 0 || $pig->maleMatings->count() > 0 || $pig->femaleMatings->count() > 0 || $offspring->count() > 0)
-                <div class="mt-8 space-y-8">
+
                     <!-- Weight History -->
                     @if($pig->weights->count() > 0)
-                        <div class="bg-white rounded-lg shadow border border-gray-200">
+                        <div class="bg-white rounded-lg shadow border border-gray-200 mt-8">
                             <div class="px-6 py-4 border-b border-gray-200">
                                 <h2 class="text-lg font-semibold text-gray-900">Recent Weight History</h2>
                             </div>
@@ -365,6 +388,8 @@
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Health</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Body Condition</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
                                         </tr>
@@ -383,11 +408,116 @@
                                                         {{ $weight->purpose_icon }} {{ ucfirst(str_replace('_', ' ', $weight->purpose ?? 'routine')) }}
                                                     </span>
                                                 </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    @if($weight->health_status)
+                                                        @php
+                                                            $healthConfig = [
+                                                                'excellent' => ['color' => 'text-green-600', 'bg' => 'bg-green-100', 'icon' => '🟢'],
+                                                                'good' => ['color' => 'text-blue-600', 'bg' => 'bg-blue-100', 'icon' => '🔵'],
+                                                                'fair' => ['color' => 'text-yellow-600', 'bg' => 'bg-yellow-100', 'icon' => '🟡'],
+                                                                'poor' => ['color' => 'text-red-600', 'bg' => 'bg-red-100', 'icon' => '🔴']
+                                                            ];
+                                                            $config = $healthConfig[$weight->health_status] ?? $healthConfig['good'];
+                                                        @endphp
+                                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $config['bg'] }} {{ $config['color'] }}">
+                                                            {{ $config['icon'] }} {{ ucfirst($weight->health_status) }}
+                                                        </span>
+                                                    @else
+                                                        <span class="text-gray-400">-</span>
+                                                    @endif
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    @if($weight->body_condition_score)
+                                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
+                                                            {{ $weight->body_condition_score <= 2 ? 'bg-red-100 text-red-800' : 
+                                                            ($weight->body_condition_score == 3 ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800') }}">
+                                                            {{ $weight->body_condition_score }}/5
+                                                        </span>
+                                                    @else
+                                                        <span class="text-gray-400">-</span>
+                                                    @endif
+                                                </td>
                                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                     {{ $weight->age_at_weighing }} days
                                                 </td>
                                                 <td class="px-6 py-4 text-sm text-gray-500">
                                                     {{ $weight->notes ?? '-' }}
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    @endif
+
+            <!-- Additional Sections -->
+            @if($pig->weights->count() > 0 || $pig->maleMatings->count() > 0 || $pig->femaleMatings->count() > 0 || $offspring->count() > 0)
+                <div class="mt-8 space-y-8">
+                    @if(!empty($analytics) && !empty($analytics['growth_periods']))
+                        <div class="bg-white rounded-lg shadow border border-gray-200">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h2 class="text-lg font-semibold text-gray-900">Growth Periods Analysis</h2>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight Range</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phase</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Gain</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Daily Gain</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performance</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        @foreach($analytics['growth_periods'] as $period)
+                                            <tr>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {{ $period['from_date']->format('M d') }} - {{ $period['to_date']->format('M d, Y') }}
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {{ $period['days'] }} days
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {{ number_format($period['from_weight'], 1) }} → {{ number_format($period['to_weight'], 1) }} kg
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    @php
+                                                        $endWeight = $period['to_weight'];
+                                                        if ($endWeight < 25) {
+                                                            $phase = 'Starter';
+                                                            $badge = 'bg-blue-100 text-blue-800';
+                                                        } elseif ($endWeight < 60) {
+                                                            $phase = 'Grower';
+                                                            $badge = 'bg-yellow-100 text-yellow-800';
+                                                        } else {
+                                                            $phase = 'Finisher';
+                                                            $badge = 'bg-green-100 text-green-800';
+                                                        }
+                                                    @endphp
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $badge }}">{{ $phase }}</span>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    <span class="{{ $period['weight_gain'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                                                        {{ $period['weight_gain'] >= 0 ? '+' : '' }}{{ number_format($period['weight_gain'], 1) }} kg
+                                                    </span>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    {{ number_format($period['daily_gain'], 3) }} kg/day
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    @if($period['daily_gain'] >= 0.5)
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Excellent</span>
+                                                    @elseif($period['daily_gain'] >= 0.3)
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Good</span>
+                                                    @elseif($period['daily_gain'] >= 0.1)
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Average</span>
+                                                    @else
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">Poor</span>
+                                                    @endif
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -490,7 +620,7 @@
                                         @foreach($offspring as $child)
                                             <tr>
                                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                    {{ $child->code }}
+                                                    {{ $child->ear_tag_number }}
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                                     {{ $child->ear_tag_number }}
@@ -543,7 +673,7 @@
                                         @foreach($siblings as $sibling)
                                             <tr>
                                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                    {{ $sibling->code }}
+                                                        {{ $sibling->ear_tag_number }}
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                                     {{ $sibling->ear_tag_number }}

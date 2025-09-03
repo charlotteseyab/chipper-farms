@@ -25,7 +25,7 @@ class DatabaseSeeder extends Seeder
         
         $users = [
             [
-                'name' => 'Admin User',
+                'name' => 'Admin',
                 'email' => 'admin@chipperfarms.com',
                 'password' => 'Adm!n#2025$Xy7',
                 'role_id' => $roles['admin'],
@@ -64,5 +64,17 @@ class DatabaseSeeder extends Seeder
                 ]
             );
         }
+
+        // Seed structures and rooms
+        $this->call(StructureSeeder::class);
+        
+        // Seed expected weight standards
+        $this->call(ExpectedWeightStandardSeeder::class);
+        
+        // Seed pig management data
+        $this->call(PigManagementSeeder::class);
+        
+        // Seed pig weight data
+        $this->call(PigWeightSeeder::class);
     }
 }

@@ -3,8 +3,8 @@
 <div class="container mx-auto px-4 py-2">
     <div class="flex justify-between items-center mb-8">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">🎓 Completed Pigs</h1>
-            <p class="text-gray-600 mt-2">Pigs that have successfully completed the full weaning-to-maturity journey</p>
+            <h1 class="text-3xl font-bold text-gray-900">Finished Weaning Process</h1>
+            <p class="text-gray-600 mt-2">Pigs that have successfully completed the full weaning journey</p>
         </div>
     </div>
 
@@ -38,7 +38,7 @@
             </div>
         </div>
 
-        <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
+        <!-- <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
             <div class="flex items-center">
                 <div class="p-2 bg-purple-100 rounded-lg">
                     <svg class="h-5 w-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -50,7 +50,7 @@
                     <p class="text-xl font-semibold text-gray-900">{{ $stats['breeding_destination'] }}</p>
                 </div>
             </div>
-        </div>
+        </div> -->
 
         <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
             <div class="flex items-center">
@@ -90,7 +90,7 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age at Maturity</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Final Weight</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Health Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destination</th>
+                            <!-- <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destination</th> -->
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
@@ -107,8 +107,8 @@
                                             </div>
                                         </div>
                                         <div class="ml-4">
+                                                <div class="text-sm text-gray-500">{{ $completion->pig->ear_tag_number }}</div>
                                             <div class="text-sm font-medium text-gray-900">{{ $completion->pig->code }}</div>
-                                            <div class="text-sm text-gray-500">{{ $completion->pig->ear_tag_number }}</div>
                                         </div>
                                     </div>
                                 </td>
@@ -139,7 +139,7 @@
                                         {{ ucfirst($completion->health_status_at_maturity) }}
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
+                                <!-- <td class="px-6 py-4 whitespace-nowrap">
                                     @php
                                         $destinationBadge = match($completion->next_destination) {
                                             'breeding' => 'bg-purple-100 text-purple-800',
@@ -152,17 +152,17 @@
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $destinationBadge }}">
                                         {{ ucfirst($completion->next_destination) }}
                                     </span>
-                                </td>
+                                </td> -->
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <div class="relative" x-data="{ open: false }">
-                                        <button @click="open = !open" class="flex items-center text-gray-600 hover:text-gray-900">
+                                    <div class="relative inline-block text-left" x-data="{ open: false, place: 'down', toggle(){ this.open = !this.open; if(!this.open){ return; } this.$nextTick(() => { const menu = this.$refs.menu; const trigger = this.$refs.trigger; if(!menu || !trigger) return; const mr = menu.getBoundingClientRect(); const tr = trigger.getBoundingClientRect(); const below = window.innerHeight - tr.bottom; const above = tr.top; this.place = (below < mr.height + 16 && above > mr.height) ? 'up' : 'down'; }); } }">
+                                        <button x-ref="trigger" @click="toggle()" class="flex items-center text-gray-600 hover:text-gray-900">
                                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
                                             </svg>
                                         </button>
-                                        <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
+                                        <div x-ref="menu" x-show="open" @click.away="open = false" x-transition :class="place === 'down' ? 'origin-top-right mt-2 top-full' : 'origin-bottom-right mb-2 bottom-full'" class="absolute right-0 w-48 bg-white rounded-md shadow-lg z-50 border">
                                             <div class="py-1">
-                                                <button onclick="openWeightModal({{ $completion->pig->id }}, '{{ $completion->pig->code }}')" class="flex items-center w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50">
+                                                <button onclick="openWeightModal({{ $completion->pig->id }}, '{{ $completion->pig->ear_tag_number }}')" class="flex items-center w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50">
                                                     <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
                                                     </svg>
@@ -187,7 +187,7 @@
 
             <!-- Pagination -->
             <div class="px-6 py-4 border-t border-gray-200">
-                {{ $completedPigs->links() }}
+                <x-simple-pagination :paginator="$completedPigs" />
             </div>
         @else
             <div class="px-6 py-12 text-center">
@@ -235,7 +235,7 @@
                     <div class="mt-4">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Target Week</label>
                         <select name="target_week" required class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                            <option value="">Select target week...</option>
+                            <option value="" disabled selected>-- Select target week --</option>
                             @for($week = 1; $week <= 52; $week++)
                                 <option value="{{ $week }}">Week {{ $week }}</option>
                             @endfor
@@ -292,7 +292,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Body Condition Score</label>
                             <select name="body_condition_score" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                                <option value="">Select condition...</option>
+                                <option value="" disabled selected>-- Select condition --</option>
                                 <option value="1">1 - Very Thin</option>
                                 <option value="2">2 - Thin</option>
                                 <option value="3">3 - Ideal</option>
@@ -304,7 +304,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Health Status</label>
                             <select name="health_status" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                                <option value="">Select status...</option>
+                                <option value="" disabled selected>-- Select status --</option>
                                 <option value="excellent">Excellent</option>
                                 <option value="good">Good</option>
                                 <option value="fair">Fair</option>
@@ -338,11 +338,11 @@
 
 <script>
 // Weight Modal Functions
-function openWeightModal(pigId, pigCode) {
+function openWeightModal(pigId, pigEarTag) {
     document.getElementById('weightForm').action = `/weaning/${pigId}/update-weight`;
     document.getElementById('weightInfo').innerHTML = `
         <div class="text-sm">
-            <div class="font-medium text-gray-900 mb-2">Weaned Piglet: ${pigCode}</div>
+            <div class="font-medium text-gray-900 mb-2">Weaned Piglet: ${pigEarTag}</div>
             <div class="text-gray-600">Update the current weight for this successfully weaned piglet</div>
             <div class="text-green-600 mt-1">✅ Monitor post-weaning growth and development</div>
         </div>

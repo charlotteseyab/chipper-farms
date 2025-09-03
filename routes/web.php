@@ -16,11 +16,19 @@ Route::middleware([
     })->name('dashboard');
 });
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware([
+    'auth:sanctum',
+    config('jetstream.auth_session'),
+    'verified',
+])->group(function () {
     Route::view('/admin/dashboard', 'admin.dashboard')->name('admin.dashboard');
     Route::view('/manager/dashboard', 'manager.dashboard')->name('manager.dashboard');
     Route::view('/superuser/dashboard', 'superuser.dashboard')->name('superuser.dashboard');
     Route::view('/dataentry/dashboard', 'dataentry.dashboard')->name('dataentry.dashboard');
+    
+    // Admin API routes
+    Route::get('/admin/weight-trends-data', [App\Http\Controllers\AdminController::class, 'getWeightTrendsData'])->name('admin.weight-trends-data');
+    Route::get('/api/daily-weights-data', [App\Http\Controllers\DataEntryController::class, 'getDailyWeightsData'])->name('api.daily-weights-data');
     // All Stock Routes
     Route::get('all-stocks', [App\Http\Controllers\PigManagementController::class, 'allIndex'])->name('all-stocks.index');
     Route::get('all-stocks/create', [App\Http\Controllers\PigManagementController::class, 'allCreate'])->name('all-stocks.create');
@@ -44,12 +52,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('mating/manage', [App\Http\Controllers\PigManagementController::class, 'matingManage'])->name('mating.manage');
     Route::post('mating/{id}/pregnancy-check', [App\Http\Controllers\PigManagementController::class, 'recordPregnancyCheck'])->name('mating.pregnancy-check');
     Route::post('mating/{id}/complete', [App\Http\Controllers\PigManagementController::class, 'completeMating'])->name('mating.complete');
+    Route::post('mating/{id}/cancel', [App\Http\Controllers\PigManagementController::class, 'cancelMating'])->name('mating.cancel');
 
     // Gestation Period Management Routes
     Route::get('gestation', [App\Http\Controllers\PigManagementController::class, 'gestationIndex'])->name('gestation.index');
 
     // Farrowing routes
     Route::get('farrowing', [App\Http\Controllers\FarrowingController::class, 'index'])->name('farrowing.index');
+    Route::get('farrowing/{farrowing}', [App\Http\Controllers\FarrowingController::class, 'show'])->name('farrowing.show');
     Route::post('gestation/{id}/farrowing', [App\Http\Controllers\PigManagementController::class, 'recordFarrowing'])->name('gestation.farrowing');
     Route::post('gestation/{id}/update-status', [App\Http\Controllers\PigManagementController::class, 'updateGestationStatus'])->name('gestation.update-status');
 
@@ -66,15 +76,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('weaning/{id}/update-status', [App\Http\Controllers\PigManagementController::class, 'updateWeaningStatus'])->name('weaning.update-status');
     Route::post('weaning/{id}/update-weight', [App\Http\Controllers\PigManagementController::class, 'updateWeaningWeight'])->name('weaning.update-weight');
 
-    // Finisher Management Routes
-    Route::get('finishers', [App\Http\Controllers\PigManagementController::class, 'finishersIndex'])->name('finishers.index');
-    Route::get('finishers/ready', [App\Http\Controllers\PigManagementController::class, 'finishersReady'])->name('finishers.ready');
-    Route::get('finishers/growing', [App\Http\Controllers\PigManagementController::class, 'finishersGrowing'])->name('finishers.growing');
-    Route::get('finishers/market-ready', [App\Http\Controllers\PigManagementController::class, 'finishersMarketReady'])->name('finishers.market-ready');
-    Route::post('finishers/{id}/update-weight', [App\Http\Controllers\PigManagementController::class, 'updateFinisherWeight'])->name('finishers.update-weight');
-    Route::post('finishers/{id}/mark-market-ready', [App\Http\Controllers\PigManagementController::class, 'markMarketReady'])->name('finishers.mark-market-ready');
-    Route::get('finishers-export/csv', [App\Http\Controllers\PigManagementController::class, 'finishersExportCsv'])->name('finishers.export.csv');
-    Route::get('finishers-export/pdf', [App\Http\Controllers\PigManagementController::class, 'finishersExportPdf'])->name('finishers.export.pdf');
 
     // Stock Type Management Routes
     Route::post('pigs/{id}/promote-to-breeding', [App\Http\Controllers\PigManagementController::class, 'promoteToBreeding'])->name('pigs.promote-to-breeding');
@@ -82,6 +83,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Pig Detail View Route
     Route::get('pigs/{id}', [App\Http\Controllers\PigManagementController::class, 'show'])->name('pigs.show');
+    Route::delete('pigs/{id}', [App\Http\Controllers\PigManagementController::class, 'destroy'])->name('pigs.destroy');
 
     // Sale Management Routes
     Route::get('pigs/{id}/sale', [App\Http\Controllers\PigManagementController::class, 'saleForm'])->name('pigs.sale-form');
@@ -89,6 +91,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('sales', [App\Http\Controllers\PigManagementController::class, 'salesIndex'])->name('sales.index');
     Route::get('sales/{id}', [App\Http\Controllers\PigManagementController::class, 'saleShow'])->name('sales.show');
     Route::post('sales/{id}/payment-status', [App\Http\Controllers\PigManagementController::class, 'updatePaymentStatus'])->name('sales.update-payment-status');
+    Route::get('sales-export/csv', [App\Http\Controllers\PigManagementController::class, 'salesExportCsv'])->name('sales.export.csv');
+    Route::get('sales-export/pdf', [App\Http\Controllers\PigManagementController::class, 'salesExportPdf'])->name('sales.export.pdf');
 
     // Standard Stock Routes
     Route::get('standard-stocks', [App\Http\Controllers\PigManagementController::class, 'standardIndex'])->name('standard-stocks.index');
@@ -99,8 +103,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Weight Management Routes
     Route::get('weights', [App\Http\Controllers\WeightManagementController::class, 'index'])->name('weights.index');
     Route::get('weights/create', [App\Http\Controllers\WeightManagementController::class, 'create'])->name('weights.create');
-    Route::post('weights', [App\Http\Controllers\WeightManagementController::class, 'store'])->name('weights.store');
-    Route::get('weights/reports', [App\Http\Controllers\WeightManagementController::class, 'reports'])->name('weights.reports');
+Route::post('weights', [App\Http\Controllers\WeightManagementController::class, 'store'])->name('weights.store');
+Route::get('weights/{weight}/edit', [App\Http\Controllers\WeightManagementController::class, 'edit'])->name('weights.edit');
+Route::put('weights/{weight}', [App\Http\Controllers\WeightManagementController::class, 'update'])->name('weights.update');
+Route::get('weights/reports', [App\Http\Controllers\WeightManagementController::class, 'reports'])->name('weights.reports');
+Route::get('api/pigs/{pig}/previous-weight', [App\Http\Controllers\WeightManagementController::class, 'getPreviousWeight'])->name('api.pigs.previous-weight');
+Route::get('api/pigs/{pig}/expected-weight', [App\Http\Controllers\WeightManagementController::class, 'getExpectedWeight'])->name('api.pigs.expected-weight');
     Route::get('weights/reports/export-pdf', [App\Http\Controllers\WeightManagementController::class, 'exportPDF'])->name('weights.reports.export-pdf');
 
     // Weight Standards Routes (Admin, Manager and Superuser only)
@@ -120,4 +128,32 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('weight-demo', function () {
         return view('weight-demo');
     })->name('weight-demo');
+
+
+
+    // Structure and Room Management Routes
+    Route::resource('structures', App\Http\Controllers\StructureController::class);
+    Route::post('structures/{structure}/rooms', [App\Http\Controllers\RoomController::class, 'store'])->name('structures.rooms.store');
+    Route::delete('structures/{structure}/rooms/{room}', [App\Http\Controllers\RoomController::class, 'destroy'])->name('structures.rooms.destroy');
+    Route::get('rooms/{room}', [App\Http\Controllers\RoomController::class, 'show'])->name('rooms.show');
+    Route::post('rooms', [App\Http\Controllers\RoomController::class, 'storeGlobal'])->name('rooms.store');
+    Route::get('api/structures/{structure}/rooms', [App\Http\Controllers\RoomController::class, 'listByStructure'])->name('api.structures.rooms');
+
+    // Settings Routes
+    Route::get('settings/setup', [App\Http\Controllers\SettingsController::class, 'setup'])->name('settings.setup');
+    Route::post('settings/setup/breeding', [App\Http\Controllers\SettingsController::class, 'saveBreeding'])->name('settings.setup.breeding.save');
+    Route::post('settings/setup/breeding/reset', [App\Http\Controllers\SettingsController::class, 'resetBreeding'])->name('settings.setup.breeding.reset');
+    
+    // System Reports Routes
+    Route::get('settings/reports', [App\Http\Controllers\SettingsController::class, 'systemReports'])->name('settings.reports');
+    Route::get('settings/reports/export/pdf', [App\Http\Controllers\SettingsController::class, 'exportSystemReportsPdf'])->name('settings.reports.export.pdf');
+    Route::get('settings/reports/export/csv', [App\Http\Controllers\SettingsController::class, 'exportSystemReportsCsv'])->name('settings.reports.export.csv');
+
+    // Death Management Routes
+    Route::get('pigs/{id}/death', [App\Http\Controllers\PigManagementController::class, 'deathForm'])->name('pigs.death-form');
+    Route::post('pigs/{id}/death', [App\Http\Controllers\PigManagementController::class, 'recordDeath'])->name('pigs.record-death');
+    Route::get('deaths', [App\Http\Controllers\PigManagementController::class, 'deathsIndex'])->name('deaths.index');
+    Route::get('deaths/{id}', [App\Http\Controllers\PigManagementController::class, 'deathShow'])->name('deaths.show');
+    Route::get('deaths-export/csv', [App\Http\Controllers\PigManagementController::class, 'deathsExportCsv'])->name('deaths.export.csv');
+    Route::get('deaths-export/pdf', [App\Http\Controllers\PigManagementController::class, 'deathsExportPdf'])->name('deaths.export.pdf');
 });

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PigManagement;
 use App\Models\PigWeight;
 use App\Models\PigSale;
+use App\Models\PigDeath;
 use App\Models\Mating;
 use App\Models\Weaning;
 use App\Models\Farrowing;
@@ -19,7 +20,7 @@ class PigManagementController extends Controller {
 
     // All Stock Management
     public function allIndex(Request $request) {
-        $query = PigManagement::query();
+        $query = PigManagement::active();
 
         if ($request->breed) {
             $query->where('breed', $request->breed);
@@ -37,12 +38,69 @@ class PigManagementController extends Controller {
             $query->where('stock_type', $request->stock_type);
         }
 
+        // New: filter by presence/absence of weight records
+        if ($request->has('has_weights')) {
+            $hasWeights = filter_var($request->get('has_weights'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            if ($hasWeights === true) {
+                $query->whereHas('weights');
+            } elseif ($hasWeights === false) {
+                $query->whereDoesntHave('weights');
+            }
+        }
+
+        // New: filter by created_at date range
+        if ($request->created_from) {
+            $query->whereDate('created_at', '>=', $request->created_from);
+        }
+        if ($request->created_to) {
+            $query->whereDate('created_at', '<=', $request->created_to);
+        }
+
+        // New: filter by minimum age in days (date_of_birth <= today - X days)
+        if ($request->min_age_days && is_numeric($request->min_age_days)) {
+            $query->whereDate('date_of_birth', '<=', now()->subDays((int) $request->min_age_days));
+        }
+
+        // New: filter by recent weight activity within N days
+        // Example: has_recent_weight=false&recent_weight_days=7 → pigs without weights in last 7 days
+        if ($request->has('has_recent_weight') && $request->recent_weight_days) {
+            $hasRecent = filter_var($request->get('has_recent_weight'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            $days = (int) $request->recent_weight_days;
+            if ($hasRecent === true) {
+                $query->whereHas('weights', function($q) use ($days) {
+                    $q->where('created_at', '>=', now()->subDays($days));
+                });
+            } elseif ($hasRecent === false) {
+                $query->whereDoesntHave('weights', function($q) use ($days) {
+                    $q->where('created_at', '>=', now()->subDays($days));
+                });
+            }
+        }
+
+        // New: filter by recent weigh_date activity within N days
+        // Example: has_recent_weigh_date=false&recent_weigh_days=7 → pigs without weigh_date in last 7 days
+        if ($request->has('has_recent_weigh_date') && $request->recent_weigh_days) {
+            $hasRecent = filter_var($request->get('has_recent_weigh_date'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+            $days = (int) $request->recent_weigh_days;
+            if ($hasRecent === true) {
+                $query->whereHas('weights', function($q) use ($days) {
+                    $q->where('weigh_date', '>=', now()->subDays($days));
+                });
+            } elseif ($hasRecent === false) {
+                $query->whereDoesntHave('weights', function($q) use ($days) {
+                    $q->where('weigh_date', '>=', now()->subDays($days));
+                });
+                // Also add age requirement: pig must be old enough to be weighed
+                $query->where('date_of_birth', '<=', now()->subDays($days));
+            }
+        }
+
         // Add pagination with 10 records per page
         $pigmanagement = $query->with(['recentWeightAlerts' => function($query) {
             $query->where('acknowledged', false)
                   ->orderBy('created_at', 'desc')
                   ->limit(1);
-        }])->orderBy('created_at', 'desc')->paginate(10);
+        }, 'room.structure'])->orderBy('created_at', 'desc')->paginate(10);
 
         // Append query parameters to pagination links
         $pigmanagement->appends($request->query());
@@ -52,7 +110,7 @@ class PigManagementController extends Controller {
 
     // Breeding Stock Management (existing functionality)
     public function index(Request $request) {
-        $query = PigManagement::where('stock_type', 'breeding');
+        $query = PigManagement::active()->where('stock_type', 'breeding');
 
         if ($request->breed) {
             $query->where('breed', $request->breed);
@@ -77,7 +135,7 @@ class PigManagementController extends Controller {
 
     // Standard Stock Management
     public function standardIndex(Request $request) {
-        $query = PigManagement::where('stock_type', 'standard');
+        $query = PigManagement::active()->where('stock_type', 'standard');
 
         if ($request->breed) {
             $query->where('breed', $request->breed);
@@ -102,7 +160,7 @@ class PigManagementController extends Controller {
 
     public function exportCsv(Request $request)
     {
-        $query = PigManagement::where('stock_type', 'breeding')->with(['latestWeight', 'sale']);
+        $query = PigManagement::active()->where('stock_type', 'breeding')->with(['latestWeight', 'sale']);
 
         if ($request->breed) {
             $query->where('breed', $request->breed);
@@ -158,7 +216,7 @@ class PigManagementController extends Controller {
 
     public function exportPdf(Request $request)
     {
-        $query = PigManagement::where('stock_type', 'breeding')->with(['latestWeight', 'sale', 'father', 'mother']);
+        $query = PigManagement::active()->where('stock_type', 'breeding')->with(['latestWeight', 'sale', 'father', 'mother']);
 
         if ($request->breed) {
             $query->where('breed', $request->breed);
@@ -180,22 +238,25 @@ class PigManagementController extends Controller {
     }
 
     public function create() {
-        $males = PigManagement::where('gender', 'M')->get();
-        $females = PigManagement::where('gender', 'F')->get();
+        $males = PigManagement::active()->where('gender', 'M')->get();
+        $females = PigManagement::active()->where('gender', 'F')->get();
         return view('breeding_stocks.create', compact('males', 'females'));
     }
 
     public function standardCreate() {
-        $males = PigManagement::where('gender', 'M')->get();
-        $females = PigManagement::where('gender', 'F')->get();
+        $males = PigManagement::active()->where('gender', 'M')->get();
+        $females = PigManagement::active()->where('gender', 'F')->get();
         return view('stocks.standard.create', compact('males', 'females'));
     }
 
     public function allCreate() {
-        $males = PigManagement::where('gender', 'M')->get();
-        $females = PigManagement::where('gender', 'F')->get();
-        return view('stocks.all.create', compact('males', 'females'));
+        $males = PigManagement::active()->where('gender', 'M')->get();
+        $females = PigManagement::active()->where('gender', 'F')->get();
+        $structures = \App\Models\Structure::orderBy('name')->get();
+    
+        return view('stocks.all.create', compact('males', 'females', 'structures'));
     }
+    
 
     public function store(Request $request) {
         try {
@@ -207,7 +268,21 @@ class PigManagementController extends Controller {
                 'ear_tag_number' => 'required|string|max:50|unique:pigs_management,ear_tag_number',
                 'father_id' => 'nullable|exists:pigs_management,id',
                 'mother_id' => 'nullable|exists:pigs_management,id',
+                'room_id' => 'nullable|exists:rooms,id',
             ]);
+
+            // under_weight alerts are treated as high priority
+
+            // Validate room capacity if a room is chosen
+            if (!empty($data['room_id'])) {
+                $room = \App\Models\Room::find($data['room_id']);
+                if (!$room) {
+                    return back()->withErrors(['room_id' => 'Selected room not found. Please choose another room.'])->withInput();
+                }
+                if ($room->capacity && $room->pigs()->count() >= $room->capacity) {
+                    return back()->withErrors(['room_id' => 'Selected room is full. Please choose another room.'])->withInput();
+                }
+            }
 
             // Trim and format the ear tag number
             $data['ear_tag_number'] = trim($data['ear_tag_number']);
@@ -452,6 +527,12 @@ class PigManagementController extends Controller {
     {
         $pig = PigManagement::findOrFail($id);
         $pig->delete();
+        
+        // Redirect back to the previous page if available, otherwise to breeding stocks
+        if (request()->headers->get('referer')) {
+            return redirect()->back()->with('success', 'Pig deleted successfully.');
+        }
+        
         return redirect()->route('breeding-stocks.index')->with('success', 'Pig deleted successfully.');
     }
 
@@ -460,10 +541,12 @@ class PigManagementController extends Controller {
         $pig = PigManagement::findOrFail($id);
         $males = PigManagement::where('gender', 'M')->get();
         $females = PigManagement::where('gender', 'F')->get();
+        $rooms = \App\Models\Room::with('structure')->orderBy('name')->get();
         return view('breeding_stocks.edit', [
             'breedingStock' => $pig,
             'males' => $males,
             'females' => $females,
+            'rooms' => $rooms,
         ]);
     }
 
@@ -479,11 +562,23 @@ class PigManagementController extends Controller {
             'ear_tag_number' => 'required|string|max:50|unique:pigs_management,ear_tag_number,' . $pig->id,
             'father_id' => 'nullable|exists:pigs_management,id',
             'mother_id' => 'nullable|exists:pigs_management,id',
+            'room_id' => 'nullable|exists:rooms,id',
         ]);
 
         // Inbreeding check - exclude current pig from ancestry check
         if ($this->hasInbreedingRiskForUpdate($data['father_id'] ?? null, $data['mother_id'] ?? null, $pig->id)) {
             return back()->withErrors(['inbreeding' => 'Inbreeding risk detected.']);
+        }
+
+        // Validate room capacity if changing/setting room
+        if (!empty($data['room_id'])) {
+            $room = \App\Models\Room::find($data['room_id']);
+            if (!$room) {
+                return back()->withErrors(['room_id' => 'Selected room not found or inactive.'])->withInput();
+            }
+            if ($room->capacity && $room->pigs()->count() >= $room->capacity) {
+                return back()->withErrors(['room_id' => 'Selected room is full. Please choose another room.'])->withInput();
+            }
         }
 
         // Trim and format the ear tag number
@@ -516,7 +611,7 @@ class PigManagementController extends Controller {
     // All Stock Export Methods
     public function allExportCsv(Request $request)
     {
-        $query = PigManagement::with(['latestWeight', 'sale']);
+        $query = PigManagement::active()->with(['latestWeight', 'sale']);
 
         if ($request->breed) {
             $query->where('breed', $request->breed);
@@ -579,7 +674,7 @@ class PigManagementController extends Controller {
 
     public function allExportPdf(Request $request)
     {
-        $query = PigManagement::with(['latestWeight', 'sale', 'father', 'mother']);
+        $query = PigManagement::active()->with(['latestWeight', 'sale', 'father', 'mother']);
 
         if ($request->breed) {
             $query->where('breed', $request->breed);
@@ -607,7 +702,7 @@ class PigManagementController extends Controller {
     // Standard Stock Export Methods
     public function standardExportCsv(Request $request)
     {
-        $query = PigManagement::where('stock_type', 'standard')->with(['latestWeight', 'sale']);
+        $query = PigManagement::active()->where('stock_type', 'standard')->with(['latestWeight', 'sale']);
 
         if ($request->breed) {
             $query->where('breed', $request->breed);
@@ -667,7 +762,7 @@ class PigManagementController extends Controller {
 
     public function standardExportPdf(Request $request)
     {
-        $query = PigManagement::where('stock_type', 'standard')->with(['latestWeight', 'sale', 'father', 'mother']);
+        $query = PigManagement::active()->where('stock_type', 'standard')->with(['latestWeight', 'sale', 'father', 'mother']);
 
         if ($request->breed) {
             $query->where('breed', $request->breed);
@@ -692,8 +787,8 @@ class PigManagementController extends Controller {
     public function matingIndex()
     {
         // Get all pigs first
-        $allMales = PigManagement::where('gender', 'M')->get();
-        $allFemales = PigManagement::where('gender', 'F')->get();
+        $allMales = PigManagement::active()->where('gender', 'M')->get();
+        $allFemales = PigManagement::active()->where('gender', 'F')->get();
 
         // Filter available pigs using the same logic as dropdown (availability_status)
         $availableMales = $allMales->filter(function($pig) {
@@ -717,7 +812,7 @@ class PigManagementController extends Controller {
                 'readiness_message' => $pig->breeding_readiness_message,
                 'readiness_badge' => $pig->breeding_readiness_badge
             ];
-        });
+        })->values();
 
         $females = $availableFemales->map(function($pig) {
             $readiness = $pig->breeding_readiness;
@@ -732,7 +827,7 @@ class PigManagementController extends Controller {
                 'readiness_message' => $pig->breeding_readiness_message,
                 'readiness_badge' => $pig->breeding_readiness_badge
             ];
-        });
+        })->values();
 
         return view('mating.index', compact('males', 'females', 'allMales', 'allFemales', 'availableMales', 'availableFemales'));
     }
@@ -811,6 +906,7 @@ class PigManagementController extends Controller {
             'total' => Mating::count(),
             'planned' => Mating::planned()->count(),
             'completed' => Mating::completed()->count(),
+            'cancelled' => Mating::where('status', 'cancelled')->count(),
             'overdue' => Mating::overdue()->count(),
             'upcoming' => Mating::upcoming()->count(),
             'pregnancy_checks_due' => Mating::pregnancyCheckDue()->count(),
@@ -883,6 +979,33 @@ class PigManagementController extends Controller {
         }
 
         return back()->withErrors(['mating' => 'Failed to complete mating.']);
+    }
+
+    public function cancelMating(Request $request, $id)
+    {
+        $mating = Mating::findOrFail($id);
+
+        // Only allow cancellation of planned matings
+        if ($mating->status !== 'planned') {
+            return back()->withErrors(['mating' => 'Only planned matings can be cancelled.']);
+        }
+
+        // Get pig information before cancellation for success message
+        $male = $mating->male;
+        $female = $mating->female;
+        $plannedDate = $mating->planned_date->format('M d, Y');
+
+        // Mark the mating as cancelled instead of deleting
+        $success = $mating->markAsCancelled('Cancelled by user');
+
+        if ($success) {
+            return back()->with('success', 
+                "Mating cancelled for {$male->code} × {$female->code} planned for {$plannedDate}. " .
+                "Both pigs are now available for breeding."
+            );
+        }
+
+        return back()->withErrors(['mating' => 'Failed to cancel mating.']);
     }
 
     // Gestation Period Management Methods
@@ -1063,7 +1186,7 @@ class PigManagementController extends Controller {
         ];
 
         // Get pigs that haven't been weaned yet
-        $unweaned = PigManagement::whereNotNull('date_of_birth')
+        $unweaned = PigManagement::active()->whereNotNull('date_of_birth')
             ->whereDoesntHave('weaning')
             ->with(['mother', 'father'])
             ->get();
@@ -1113,7 +1236,7 @@ class PigManagementController extends Controller {
 
         // Get pigs that are not yet ready for weaning OR ready but not overdue
         // This includes pigs from 0 days up to 6 days past weaning age (before they become overdue)
-        $pendingPigs = PigManagement::whereNotNull('date_of_birth')
+        $pendingPigs = PigManagement::active()->whereNotNull('date_of_birth')
             ->whereRaw('DATEDIFF(NOW(), date_of_birth) < ?', [$weaningAge + 7]) // Under 52 days (not overdue)
             ->whereDoesntHave('weaning')
             ->with(['mother', 'father'])
@@ -1121,15 +1244,15 @@ class PigManagementController extends Controller {
             ->paginate(10);
 
         $stats = [
-            'total_pending' => PigManagement::whereNotNull('date_of_birth')
+            'total_pending' => PigManagement::active()->whereNotNull('date_of_birth')
                 ->whereRaw('DATEDIFF(NOW(), date_of_birth) < ?', [$weaningAge + 7])
                 ->whereDoesntHave('weaning')
                 ->count(),
-            'ready_soon' => PigManagement::whereNotNull('date_of_birth')
+            'ready_soon' => PigManagement::active()->whereNotNull('date_of_birth')
                 ->whereRaw('DATEDIFF(NOW(), date_of_birth) BETWEEN ? AND ?', [$weaningAge - 7, $weaningAge - 1])
                 ->whereDoesntHave('weaning')
                 ->count(),
-            'ready_for_weaning' => PigManagement::whereNotNull('date_of_birth')
+            'ready_for_weaning' => PigManagement::active()->whereNotNull('date_of_birth')
                 ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$weaningAge])
                 ->whereRaw('DATEDIFF(NOW(), date_of_birth) < ?', [$weaningAge + 7])
                 ->whereDoesntHave('weaning')
@@ -1145,7 +1268,7 @@ class PigManagementController extends Controller {
 
         // Get pigs that have been weaned but haven't completed maturity yet
         // Show ALL weaned pigs regardless of age until they're manually completed
-        $inProgressPigs = PigManagement::whereNotNull('date_of_birth')
+        $inProgressPigs = PigManagement::active()->whereNotNull('date_of_birth')
             ->whereHas('weaning', function($query) {
                 $query->where('maturity_completed', false); // Not yet completed
             })
@@ -1165,24 +1288,24 @@ class PigManagementController extends Controller {
         });
 
         $stats = [
-            'total_in_progress' => PigManagement::whereNotNull('date_of_birth')
+            'total_in_progress' => PigManagement::active()->whereNotNull('date_of_birth')
                 ->whereHas('weaning', function($query) {
                     $query->where('maturity_completed', false);
                 })
                 ->count(),
-            'recently_weaned' => PigManagement::whereNotNull('date_of_birth')
+            'recently_weaned' => PigManagement::active()->whereNotNull('date_of_birth')
                 ->whereHas('weaning', function($query) {
                     $query->where('weaning_date', '>=', now()->subDays(7))
                           ->where('maturity_completed', false);
                 })
                 ->count(),
-            'near_maturity' => PigManagement::whereNotNull('date_of_birth')
+            'near_maturity' => PigManagement::active()->whereNotNull('date_of_birth')
                 ->whereRaw('DATEDIFF(NOW(), date_of_birth) BETWEEN ? AND ?', [$maturityAge - 14, $maturityAge - 1])
                 ->whereHas('weaning', function($query) {
                     $query->where('maturity_completed', false);
                 })
                 ->count(),
-            'ready_for_completion' => PigManagement::whereNotNull('date_of_birth')
+            'ready_for_completion' => PigManagement::active()->whereNotNull('date_of_birth')
                 ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$maturityAge])
                 ->whereHas('weaning', function($query) {
                     $query->where('maturity_completed', false);
@@ -1224,7 +1347,7 @@ class PigManagementController extends Controller {
     {
         $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
 
-        $overduePigs = PigManagement::whereNotNull('date_of_birth')
+        $overduePigs = PigManagement::active()->whereNotNull('date_of_birth')
             ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$weaningAge + 7]) // 7+ days overdue
             ->whereDoesntHave('weaning')
             ->with(['mother', 'father'])
@@ -1232,11 +1355,11 @@ class PigManagementController extends Controller {
             ->paginate(10);
 
         $stats = [
-            'total_overdue' => PigManagement::whereNotNull('date_of_birth')
+            'total_overdue' => PigManagement::active()->whereNotNull('date_of_birth')
                 ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$weaningAge + 7])
                 ->whereDoesntHave('weaning')
                 ->count(),
-            'critically_overdue' => PigManagement::whereNotNull('date_of_birth')
+            'critically_overdue' => PigManagement::active()->whereNotNull('date_of_birth')
                 ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$weaningAge + 14]) // 14+ days overdue
                 ->whereDoesntHave('weaning')
                 ->count(),
@@ -1530,13 +1653,47 @@ class PigManagementController extends Controller {
             'days_since_last_weight' => $pig->latestWeight ? $pig->latestWeight->days_ago : null,
         ];
 
+        // Calculate weight analytics (growth periods) similar to weights reports
+        $analytics = [];
+        $allWeightsAsc = $pig->weights()->orderBy('weigh_date', 'asc')->get();
+        if ($allWeightsAsc->count() >= 2) {
+            $analytics['total_records'] = $allWeightsAsc->count();
+            $analytics['first_weight'] = $allWeightsAsc->first();
+            $analytics['latest_weight'] = $allWeightsAsc->last();
+            $analytics['weight_gain'] = $analytics['latest_weight']->weight - $analytics['first_weight']->weight;
+
+            $daysBetween = $analytics['first_weight']->weigh_date->diffInDays($analytics['latest_weight']->weigh_date);
+            $analytics['avg_daily_gain'] = $daysBetween > 0 ? $analytics['weight_gain'] / $daysBetween : 0;
+
+            $analytics['growth_periods'] = [];
+            for ($i = 1; $i < $allWeightsAsc->count(); $i++) {
+                $current = $allWeightsAsc->values()[$i];
+                $previous = $allWeightsAsc->values()[$i - 1];
+
+                $days = $previous->weigh_date->diffInDays($current->weigh_date);
+                $gain = $current->weight - $previous->weight;
+                $dailyGain = $days > 0 ? $gain / $days : 0;
+
+                $analytics['growth_periods'][] = [
+                    'from_date' => $previous->weigh_date,
+                    'to_date' => $current->weigh_date,
+                    'days' => $days,
+                    'weight_gain' => $gain,
+                    'daily_gain' => $dailyGain,
+                    'from_weight' => $previous->weight,
+                    'to_weight' => $current->weight,
+                ];
+            }
+        }
+
         return view('pigs.show', compact(
             'pig',
             'breedingReadiness',
             'availabilityStatus',
             'offspring',
             'siblings',
-            'stats'
+            'stats',
+            'analytics'
         ));
     }
 
@@ -1545,10 +1702,17 @@ class PigManagementController extends Controller {
     {
         $pig = PigManagement::findOrFail($id);
 
-        // Check if pig is eligible for sale
-        $eligibility = $pig->sale_eligibility;
-        if (!$eligibility['eligible']) {
-            return back()->withErrors(['sale' => $eligibility['reason']]);
+        // Check if pig is already sold
+        if ($pig->sales()->exists()) {
+            return back()->withErrors(['sale' => 'This pig has already been sold.']);
+        }
+
+        // Allow selling deceased pigs, but check eligibility for live pigs
+        if (!$pig->deaths()->exists()) {
+            $eligibility = $pig->sale_eligibility;
+            if (!$eligibility['eligible']) {
+                return back()->withErrors(['sale' => $eligibility['reason']]);
+            }
         }
 
         return view('pigs.sale', compact('pig'));
@@ -1558,21 +1722,30 @@ class PigManagementController extends Controller {
     {
         $pig = PigManagement::findOrFail($id);
 
-        // Check if pig is eligible for sale
-        $eligibility = $pig->sale_eligibility;
-        if (!$eligibility['eligible']) {
-            return back()->withErrors(['sale' => $eligibility['reason']]);
+        // Check if pig is already sold
+        if ($pig->sales()->exists()) {
+            return back()->withErrors(['sale' => 'This pig has already been sold.']);
+        }
+
+        // Allow selling deceased pigs, but check eligibility for live pigs
+        if (!$pig->deaths()->exists()) {
+            $eligibility = $pig->sale_eligibility;
+            if (!$eligibility['eligible']) {
+                return back()->withErrors(['sale' => $eligibility['reason']]);
+            }
         }
 
         $data = $request->validate([
             'sale_date' => 'required|date|before_or_equal:today',
-            'sale_price' => 'required|numeric|min:0',
-            'sale_weight' => 'nullable|numeric|min:0',
+            'sale_weight' => 'required|numeric|min:0',
+            'weight_type' => 'required|in:live,carcass',
             'buyer_name' => 'required|string|max:255',
             'buyer_contact' => 'nullable|string|max:255',
             'buyer_address' => 'nullable|string|max:1000',
             'sale_purpose' => 'required|in:market,breeding,slaughter,export,other',
+            'sale_purpose_other' => 'required_if:sale_purpose,other|string|max:255',
             'payment_method' => 'nullable|in:cash,check,bank_transfer,mobile_money,other',
+            'payment_method_other' => 'required_if:payment_method,other|string|max:255',
             'payment_status' => 'required|in:pending,paid,partial',
             'notes' => 'nullable|string|max:1000',
             'sold_by' => 'nullable|string|max:255',
@@ -1581,6 +1754,22 @@ class PigManagementController extends Controller {
         ]);
 
         $data['pig_id'] = $pig->id;
+        $data['sold_by'] = auth()->user()->name; // Set the current user as the person who sold the pig
+
+        // Set price rate based on weight type
+        if ($data['weight_type'] === 'live') {
+            $data['price_rate'] = \App\Models\Setting::get('sales.pricing.live_weight_price', 30.00);
+        } elseif ($data['weight_type'] === 'carcass') {
+            $data['price_rate'] = \App\Models\Setting::get('sales.pricing.carcass_weight_price', 50.00);
+        }
+
+        // Handle "other" values
+        if (isset($data['sale_purpose']) && $data['sale_purpose'] === 'other') {
+            $data['sale_purpose'] = $data['sale_purpose_other'];
+        }
+        if (isset($data['payment_method']) && $data['payment_method'] === 'other') {
+            $data['payment_method'] = $data['payment_method_other'];
+        }
 
         // Create sale record
         PigSale::create($data);
@@ -1652,224 +1841,77 @@ class PigManagementController extends Controller {
         return back()->with('success', 'Payment status updated successfully!');
     }
 
-    // Finisher Management Methods
-    public function finishersIndex()
+    // Sales Export Methods
+    public function salesExportCsv(Request $request)
     {
-        // Get pigs with their latest weights (50kg+ = finisher stage)
-        $finishers = PigManagement::select('pigs_management.*', 'latest_weights.weight as current_weight', 'latest_weights.weigh_date')
-            ->join(DB::raw('(SELECT pig_id, weight, weigh_date, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
-                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
-                     ->where('latest_weights.rn', '=', 1);
-            })
-            ->where('stock_type', 'standard')
-            ->where('latest_weights.weight', '>=', 50)
-            ->with(['mother', 'father'])
-            ->orderBy('latest_weights.weight', 'desc')
-            ->paginate(10);
+        $query = PigSale::with(['pig']);
 
-        // Calculate statistics
-        $allFinishers = PigManagement::select('pigs_management.id', 'latest_weights.weight')
-            ->join(DB::raw('(SELECT pig_id, weight, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
-                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
-                     ->where('latest_weights.rn', '=', 1);
-            })
-            ->where('stock_type', 'standard')
-            ->where('latest_weights.weight', '>=', 50)
-            ->get();
-
-        $stats = [
-            'total_finishers' => $allFinishers->count(),
-            'growing' => $allFinishers->whereBetween('weight', [50, 79.99])->count(),
-            'near_market' => $allFinishers->whereBetween('weight', [80, 99.99])->count(),
-            'market_ready' => $allFinishers->where('weight', '>=', 100)->count(),
-            'average_weight' => $allFinishers->avg('weight'),
-        ];
-
-        return view('finishers.index', compact('finishers', 'stats'));
-    }
-
-    public function finishersGrowing()
-    {
-        // Get growing finishers (50-80kg)
-        $finishers = PigManagement::select('pigs_management.*', 'latest_weights.weight as current_weight', 'latest_weights.weigh_date')
-            ->join(DB::raw('(SELECT pig_id, weight, weigh_date, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
-                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
-                     ->where('latest_weights.rn', '=', 1);
-            })
-            ->where('stock_type', 'standard')
-            ->whereBetween('latest_weights.weight', [50, 79.99])
-            ->with(['mother', 'father'])
-            ->orderBy('latest_weights.weight', 'desc')
-            ->paginate(10);
-
-        // Calculate statistics for growing finishers
-        $growingFinishers = PigManagement::select('latest_weights.weight')
-            ->join(DB::raw('(SELECT pig_id, weight, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
-                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
-                     ->where('latest_weights.rn', '=', 1);
-            })
-            ->where('stock_type', 'standard')
-            ->whereBetween('latest_weights.weight', [50, 79.99])
-            ->get();
-
-        $stats = [
-            'total_growing' => $growingFinishers->count(),
-            'average_weight' => $growingFinishers->avg('weight'),
-            'expected_market_ready' => $growingFinishers->whereBetween('weight', [70, 79.99])->count(), // Pigs close to 80kg threshold
-        ];
-
-        return view('finishers.growing', compact('finishers', 'stats'));
-    }
-
-    public function finishersReady()
-    {
-        // Get near market ready finishers (80-100kg)
-        $finishers = PigManagement::select('pigs_management.*', 'latest_weights.weight as current_weight', 'latest_weights.weigh_date')
-            ->join(DB::raw('(SELECT pig_id, weight, weigh_date, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
-                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
-                     ->where('latest_weights.rn', '=', 1);
-            })
-            ->where('stock_type', 'standard')
-            ->whereBetween('latest_weights.weight', [80, 99.99])
-            ->with(['mother', 'father'])
-            ->orderBy('latest_weights.weight', 'desc')
-            ->paginate(10);
-
-        // Calculate statistics for near market ready finishers
-        $nearMarketFinishers = PigManagement::select('latest_weights.weight')
-            ->join(DB::raw('(SELECT pig_id, weight, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
-                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
-                     ->where('latest_weights.rn', '=', 1);
-            })
-            ->where('stock_type', 'standard')
-            ->whereBetween('latest_weights.weight', [80, 99.99])
-            ->get();
-
-        $stats = [
-            'total_near_market' => $nearMarketFinishers->count(),
-            'average_weight' => $nearMarketFinishers->avg('weight'),
-            'days_to_market' => 14, // Estimated days to reach market weight
-        ];
-
-        return view('finishers.ready', compact('finishers', 'stats'));
-    }
-
-    public function finishersMarketReady()
-    {
-        // Get market ready finishers (100kg+)
-        $finishers = PigManagement::select('pigs_management.*', 'latest_weights.weight as current_weight', 'latest_weights.weigh_date')
-            ->join(DB::raw('(SELECT pig_id, weight, weigh_date, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
-                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
-                     ->where('latest_weights.rn', '=', 1);
-            })
-            ->where('stock_type', 'standard')
-            ->where('latest_weights.weight', '>=', 100)
-            ->with(['mother', 'father'])
-            ->orderBy('latest_weights.weight', 'desc')
-            ->paginate(10);
-
-        // Calculate statistics for market ready finishers
-        $marketReadyFinishers = PigManagement::select('latest_weights.weight')
-            ->join(DB::raw('(SELECT pig_id, weight, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
-                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
-                     ->where('latest_weights.rn', '=', 1);
-            })
-            ->where('stock_type', 'standard')
-            ->where('latest_weights.weight', '>=', 100)
-            ->get();
-
-        $stats = [
-            'total_market_ready' => $marketReadyFinishers->count(),
-            'average_weight' => $marketReadyFinishers->avg('weight'),
-            'total_value' => $marketReadyFinishers->sum('weight') * 8, // Estimated at $8/kg
-        ];
-
-        return view('finishers.market-ready', compact('finishers', 'stats'));
-    }
-
-    public function updateFinisherWeight(Request $request, $id)
-    {
-        $pig = PigManagement::findOrFail($id);
-
-        $data = $request->validate([
-            'weight' => 'required|numeric|min:0|max:300',
-            'weigh_date' => 'required|date|before_or_equal:today',
-            'notes' => 'nullable|string|max:500'
-        ]);
-
-        // Use database transaction to ensure data consistency
-        DB::transaction(function () use ($pig, $data) {
-            // Create weight record
-            PigWeight::create([
-                'pig_id' => $pig->id,
-                'weight' => $data['weight'],
-                'weigh_date' => $data['weigh_date'],
-                'notes' => $data['notes'],
-                'weighed_by' => auth()->user()->name,
-                'purpose' => 'finisher_tracking',
-                'weight_unit' => 'kg',
-                'is_estimated' => false
-            ]);
-        });
-
-        // Force a small delay to ensure database commit
-        usleep(100000); // 0.1 second
-
-        return back()->with('success', "Weight updated for pig {$pig->code}! New weight: {$data['weight']}kg");
-    }
-
-    public function markMarketReady(Request $request, $id)
-    {
-        $pig = PigManagement::findOrFail($id);
-
-        // Get the latest weight for this pig
-        $latestWeight = PigWeight::where('pig_id', $pig->id)
-            ->orderBy('weigh_date', 'desc')
-            ->first();
-
-        if (!$latestWeight || $latestWeight->weight < 100) {
-            return back()->withErrors(['weight' => 'Pig must weigh at least 100kg to be marked as market ready.']);
+        // Apply same filters as index method
+        if ($request->buyer_name) {
+            $query->where('buyer_name', 'like', '%' . $request->buyer_name . '%');
+        }
+        if ($request->sale_purpose) {
+            $query->where('sale_purpose', $request->sale_purpose);
+        }
+        if ($request->payment_status) {
+            $query->where('payment_status', $request->payment_status);
+        }
+        if ($request->date_from) {
+            $query->where('sale_date', '>=', $request->date_from);
+        }
+        if ($request->date_to) {
+            $query->where('sale_date', '<=', $request->date_to);
         }
 
-        // Redirect to sales form
-        return redirect()->route('pigs.sale-form', $pig->id);
-    }
+        $sales = $query->orderBy('sale_date', 'desc')->get();
 
-    public function finishersExportCsv()
-    {
-        // Get all finishers with their latest weights
-        $finishers = PigManagement::select('pigs_management.*', 'latest_weights.weight as current_weight', 'latest_weights.weigh_date')
-            ->join(DB::raw('(SELECT pig_id, weight, weigh_date, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
-                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
-                     ->where('latest_weights.rn', '=', 1);
-            })
-            ->where('stock_type', 'standard')
-            ->where('latest_weights.weight', '>=', 50)
-            ->with(['mother', 'father'])
-            ->get();
-
-        $filename = 'finishers_' . date('Y-m-d') . '.csv';
+        $filename = 'sales_records_' . now()->format('Y-m-d_H-i-s') . '.csv';
 
         $headers = [
             'Content-Type' => 'text/csv',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ];
 
-        $callback = function() use ($finishers) {
+        $callback = function() use ($sales) {
             $file = fopen('php://output', 'w');
-            fputcsv($file, ['Code', 'Gender', 'Date of Birth', 'Age (Days)', 'Current Weight (kg)', 'Weigh Date', 'Mother', 'Father', 'Status']);
+            
+            // CSV Headers
+            fputcsv($file, [
+                'Pig Code',
+                'Ear Tag',
+                'Sale Date',
+                'Buyer Name',
+                'Buyer Contact',
+                'Sale Weight (kg)',
+                'Weight Type',
+                'Sale Price (₵)',
+                'Price per kg (₵)',
+                'Sale Purpose',
+                'Payment Status',
+                'Payment Method',
+                'Sold By',
+                'Transport Cost (₵)',
+                'Notes'
+            ]);
 
-            foreach ($finishers as $pig) {
+            // CSV Data
+            foreach ($sales as $sale) {
                 fputcsv($file, [
-                    $pig->code,
-                    $pig->gender === 'M' ? 'Male' : 'Female',
-                    $pig->date_of_birth ? $pig->date_of_birth->format('Y-m-d') : 'N/A',
-                    $pig->age_in_days,
-                    $pig->current_weight ?? 'N/A',
-                    $pig->weigh_date ?? 'N/A',
-                    $pig->mother ? $pig->mother->code : 'N/A',
-                    $pig->father ? $pig->father->code : 'N/A',
-                    $pig->current_weight >= 100 ? 'Market Ready' : ($pig->current_weight >= 80 ? 'Near Market' : 'Growing')
+                    $sale->pig->code ?? 'N/A',
+                    $sale->pig->ear_tag_number ?? 'N/A',
+                    $sale->sale_date->format('Y-m-d'),
+                    $sale->buyer_name,
+                    $sale->buyer_contact ?? '',
+                    $sale->sale_weight ?? '',
+                    ucfirst($sale->weight_type ?? 'live'),
+                    number_format($sale->sale_price, 2),
+                    $sale->price_per_kg ? number_format($sale->price_per_kg, 2) : '',
+                    ucfirst($sale->sale_purpose),
+                    ucfirst($sale->payment_status),
+                    $sale->payment_method ? ucfirst(str_replace('_', ' ', $sale->payment_method)) : '',
+                    $sale->sold_by ?? '',
+                    $sale->transport_cost ? number_format($sale->transport_cost, 2) : '',
+                    $sale->notes ?? ''
                 ]);
             }
 
@@ -1879,42 +1921,313 @@ class PigManagementController extends Controller {
         return response()->stream($callback, 200, $headers);
     }
 
-    public function finishersExportPdf()
+    public function salesExportPdf(Request $request)
     {
-        // Get all finishers with their latest weights
-        $finishers = PigManagement::select('pigs_management.*', 'latest_weights.weight as current_weight', 'latest_weights.weigh_date')
-            ->join(DB::raw('(SELECT pig_id, weight, weigh_date, ROW_NUMBER() OVER (PARTITION BY pig_id ORDER BY weigh_date DESC, created_at DESC) as rn FROM pig_weights) as latest_weights'), function($join) {
-                $join->on('pigs_management.id', '=', 'latest_weights.pig_id')
-                     ->where('latest_weights.rn', '=', 1);
-            })
-            ->where('stock_type', 'standard')
-            ->where('latest_weights.weight', '>=', 50)
-            ->with(['mother', 'father'])
-            ->orderBy('latest_weights.weight', 'desc')
-            ->get();
+        $query = PigSale::with(['pig']);
 
+        // Apply same filters as index method
+        if ($request->buyer_name) {
+            $query->where('buyer_name', 'like', '%' . $request->buyer_name . '%');
+        }
+        if ($request->sale_purpose) {
+            $query->where('sale_purpose', $request->sale_purpose);
+        }
+        if ($request->payment_status) {
+            $query->where('payment_status', $request->payment_status);
+        }
+        if ($request->date_from) {
+            $query->where('sale_date', '>=', $request->date_from);
+        }
+        if ($request->date_to) {
+            $query->where('sale_date', '<=', $request->date_to);
+        }
+
+        $sales = $query->orderBy('sale_date', 'desc')->get();
+
+        // Calculate statistics
         $stats = [
-            'total_finishers' => $finishers->count(),
-            'growing' => $finishers->whereBetween('current_weight', [50, 79.99])->count(),
-            'near_market' => $finishers->whereBetween('current_weight', [80, 99.99])->count(),
-            'market_ready' => $finishers->where('current_weight', '>=', 100)->count(),
-            'average_weight' => $finishers->avg('current_weight'),
+            'total_sales' => $sales->count(),
+            'total_value' => $sales->sum('sale_price'),
+            'average_price' => $sales->avg('sale_price'),
+            'average_weight' => $sales->where('sale_weight', '>', 0)->avg('sale_weight')
         ];
 
-        // Generate PDF using the finishers.pdf view
-        $pdf = PDF::loadView('finishers.pdf', compact('finishers', 'stats'));
+        $pdf = \PDF::loadView('exports.sales-pdf', compact('sales', 'stats'));
+        $filename = 'sales_records_' . now()->format('Y-m-d_H-i-s') . '.pdf';
+        
+        return $pdf->download($filename);
+    }
 
-        // Set PDF options for better formatting
-        $pdf->setPaper('A4', 'landscape');
-        $pdf->setOptions([
-            'isHtml5ParserEnabled' => true,
-            'isRemoteEnabled' => true,
-            'defaultFont' => 'Arial'
+    // Death Management Methods
+    public function deathForm($id)
+    {
+        $pig = PigManagement::findOrFail($id);
+
+        // Prevent recording death if pig already marked as deceased
+        if ($pig->deaths()->exists()) {
+            return back()->withErrors(['death' => 'This pig is already recorded as deceased.']);
+        }
+
+        return view('pigs.death', compact('pig'));
+    }
+
+    public function recordDeath(Request $request, $id)
+    {
+        $pig = PigManagement::findOrFail($id);
+
+        if ($pig->deaths()->exists()) {
+            return back()->withErrors(['death' => 'This pig is already recorded as deceased.']);
+        }
+
+        $data = $request->validate([
+            'death_date' => 'required|date|before_or_equal:today',
+            'death_cause' => 'required|in:disease,accident,natural,stillbirth,crushing,starvation,hypothermia,dehydration,congenital,unknown,other',
+            'death_cause_other' => 'required_if:death_cause,other|string|max:255',
+            'final_weight' => 'nullable|numeric|min:0|max:1000',
+            'death_location' => 'nullable|string|max:255',
+            'veterinary_notes' => 'nullable|string|max:2000',
+            'disposal_method' => 'required|in:burial,incineration,rendering,other',
+            'disposal_method_other' => 'required_if:disposal_method,other|string|max:255',
+            'disposal_date' => 'nullable|date|after_or_equal:death_date',
+            'death_notes' => 'nullable|string|max:2000',
         ]);
 
-        // Return PDF download
-        return $pdf->download('finishers_report_' . date('Y-m-d_H-i-s') . '.pdf');
+        // Handle "other" values
+        $deathCause = $data['death_cause'] === 'other' ? $data['death_cause_other'] : $data['death_cause'];
+        $disposalMethod = $data['disposal_method'] === 'other' ? $data['disposal_method_other'] : $data['disposal_method'];
+
+        // Create death record with pig relationship loaded for age calculation
+        $death = new \App\Models\PigDeath([
+            'pig_id' => $pig->id,
+            'death_date' => $data['death_date'],
+            'death_cause' => $deathCause,
+            'final_weight' => $data['final_weight'] ?? null,
+            'death_location' => $data['death_location'] ?? null,
+            'veterinary_notes' => $data['veterinary_notes'] ?? null,
+            'disposal_method' => $disposalMethod,
+            'disposal_date' => $data['disposal_date'] ?? null,
+            'death_notes' => $data['death_notes'] ?? null,
+            'recorded_by' => auth()->id(),
+        ]);
+        
+        // Load the pig relationship for age calculation
+        $death->setRelation('pig', $pig);
+        $death->save();
+
+        return redirect()->route('deaths.index')->with('success', "Death of pig {$pig->code} recorded successfully.");
     }
+
+    public function deathsIndex(Request $request)
+    {
+        // Adult pig deaths (pigs 60+ days old)
+        $adultQuery = \App\Models\PigDeath::with(['pig'])
+            ->whereHas('pig', function($q) {
+                $q->whereRaw('DATEDIFF(death_date, date_of_birth) >= 60');
+            });
+
+        if ($request->death_cause) {
+            $adultQuery->where('death_cause', $request->death_cause);
+        }
+
+        if ($request->date_from) {
+            $adultQuery->where('death_date', '>=', $request->date_from);
+        }
+
+        if ($request->date_to) {
+            $adultQuery->where('death_date', '<=', $request->date_to);
+        }
+
+        $deaths = $adultQuery->orderBy('death_date', 'desc')->paginate(10);
+        $deaths->appends($request->query());
+
+        // Piglet deaths (pigs under 60 days old)
+        $pigletQuery = \App\Models\PigDeath::with(['pig'])
+            ->whereHas('pig', function($q) {
+                $q->whereRaw('DATEDIFF(death_date, date_of_birth) < 60');
+            });
+
+        if ($request->death_cause) {
+            $pigletQuery->where('death_cause', $request->death_cause);
+        }
+
+        if ($request->date_from) {
+            $pigletQuery->where('death_date', '>=', $request->date_from);
+        }
+
+        if ($request->date_to) {
+            $pigletQuery->where('death_date', '<=', $request->date_to);
+        }
+
+        $pigletDeaths = $pigletQuery->orderBy('death_date', 'desc')->paginate(10);
+        $pigletDeaths->appends($request->query());
+
+        // Enhanced stats
+        $stats = [
+            'total_deaths' => \App\Models\PigDeath::count(),
+            'recent_deaths' => \App\Models\PigDeath::recent(30)->count(),
+            'total_piglet_deaths' => \App\Models\PigDeath::whereHas('pig', function($q) {
+                $q->whereRaw('DATEDIFF(death_date, date_of_birth) < 60');
+            })->count(),
+            'recent_piglet_deaths' => \App\Models\PigDeath::recent(30)->whereHas('pig', function($q) {
+                $q->whereRaw('DATEDIFF(death_date, date_of_birth) < 60');
+            })->count(),
+            'total_adult_deaths' => \App\Models\PigDeath::whereHas('pig', function($q) {
+                $q->whereRaw('DATEDIFF(death_date, date_of_birth) >= 60');
+            })->count(),
+            'recent_adult_deaths' => \App\Models\PigDeath::recent(30)->whereHas('pig', function($q) {
+                $q->whereRaw('DATEDIFF(death_date, date_of_birth) >= 60');
+            })->count(),
+        ];
+
+        return view('deaths.index', compact('deaths', 'pigletDeaths', 'stats'));
+    }
+
+    public function deathShow($id)
+    {
+        $death = \App\Models\PigDeath::with(['pig', 'recordedBy'])->findOrFail($id);
+        return view('deaths.show', compact('death'));
+    }
+
+    // Death Export Methods
+    public function deathsExportCsv(Request $request)
+    {
+        // Adult deaths query (60+ days)
+        $adultQuery = PigDeath::with(['pig', 'recordedBy'])
+            ->whereHas('pig', function($q) {
+                $q->whereRaw('DATEDIFF(death_date, date_of_birth) >= 60');
+            });
+
+        // Piglet deaths query (under 60 days)
+        $pigletQuery = PigDeath::with(['pig', 'recordedBy'])
+            ->whereHas('pig', function($q) {
+                $q->whereRaw('DATEDIFF(death_date, date_of_birth) < 60');
+            });
+
+        // Apply filters to both queries
+        if ($request->death_cause) {
+            $adultQuery->where('death_cause', $request->death_cause);
+            $pigletQuery->where('death_cause', $request->death_cause);
+        }
+        if ($request->date_from) {
+            $adultQuery->where('death_date', '>=', $request->date_from);
+            $pigletQuery->where('death_date', '>=', $request->date_from);
+        }
+        if ($request->date_to) {
+            $adultQuery->where('death_date', '<=', $request->date_to);
+            $pigletQuery->where('death_date', '<=', $request->date_to);
+        }
+
+        $adultDeaths = $adultQuery->orderBy('death_date', 'desc')->get();
+        $pigletDeaths = $pigletQuery->orderBy('death_date', 'desc')->get();
+
+        $filename = 'death_records_' . now()->format('Y-m-d_H-i-s') . '.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ];
+
+        $callback = function() use ($adultDeaths, $pigletDeaths) {
+            $file = fopen('php://output', 'w');
+            
+            // CSV Headers
+            fputcsv($file, [
+                'Category',
+                'Pig Code',
+                'Ear Tag',
+                'Death Date',
+                'Age at Death',
+                'Death Cause',
+                'Final Weight (kg)',
+                'Disposal Method',
+                'Recorded By',
+                'Notes'
+            ]);
+
+            // Adult Deaths Data
+            foreach ($adultDeaths as $death) {
+                fputcsv($file, [
+                    'Adult (60+ days)',
+                    $death->pig->code ?? 'N/A',
+                    $death->pig->ear_tag_number ?? 'N/A',
+                    $death->death_date->format('Y-m-d'),
+                    $death->age_at_death_display ?? 'Unknown',
+                    $death->death_cause_display,
+                    $death->final_weight ? number_format($death->final_weight, 2) : '',
+                    $death->disposal_method_display,
+                    $death->recordedBy->name ?? 'System',
+                    $death->death_notes ?? ''
+                ]);
+            }
+
+            // Piglet Deaths Data
+            foreach ($pigletDeaths as $death) {
+                fputcsv($file, [
+                    'Piglet (< 60 days)',
+                    $death->pig->code ?? 'N/A',
+                    $death->pig->ear_tag_number ?? 'N/A',
+                    $death->death_date->format('Y-m-d'),
+                    $death->age_at_death_display ?? 'Unknown',
+                    $death->death_cause_display,
+                    $death->final_weight ? number_format($death->final_weight, 2) : '',
+                    $death->disposal_method_display,
+                    $death->recordedBy->name ?? 'System',
+                    $death->death_notes ?? ''
+                ]);
+            }
+
+            fclose($file);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function deathsExportPdf(Request $request)
+    {
+        // Adult deaths query (60+ days)
+        $adultQuery = PigDeath::with(['pig', 'recordedBy'])
+            ->whereHas('pig', function($q) {
+                $q->whereRaw('DATEDIFF(death_date, date_of_birth) >= 60');
+            });
+
+        // Piglet deaths query (under 60 days)
+        $pigletQuery = PigDeath::with(['pig', 'recordedBy'])
+            ->whereHas('pig', function($q) {
+                $q->whereRaw('DATEDIFF(death_date, date_of_birth) < 60');
+            });
+
+        // Apply filters to both queries
+        if ($request->death_cause) {
+            $adultQuery->where('death_cause', $request->death_cause);
+            $pigletQuery->where('death_cause', $request->death_cause);
+        }
+        if ($request->date_from) {
+            $adultQuery->where('death_date', '>=', $request->date_from);
+            $pigletQuery->where('death_date', '>=', $request->date_from);
+        }
+        if ($request->date_to) {
+            $adultQuery->where('death_date', '<=', $request->date_to);
+            $pigletQuery->where('death_date', '<=', $request->date_to);
+        }
+
+        $adultDeaths = $adultQuery->orderBy('death_date', 'desc')->get();
+        $pigletDeaths = $pigletQuery->orderBy('death_date', 'desc')->get();
+
+        // Calculate accurate statistics
+        $stats = [
+            'total_deaths' => $adultDeaths->count() + $pigletDeaths->count(),
+            'adult_deaths' => $adultDeaths->count(),
+            'piglet_deaths' => $pigletDeaths->count(),
+            'recent_deaths' => $adultDeaths->where('death_date', '>=', now()->subDays(30))->count() + 
+                              $pigletDeaths->where('death_date', '>=', now()->subDays(30))->count()
+        ];
+
+        $pdf = \PDF::loadView('exports.deaths-pdf', compact('adultDeaths', 'pigletDeaths', 'stats'));
+        $filename = 'death_records_' . now()->format('Y-m-d_H-i-s') . '.pdf';
+        
+        return $pdf->download($filename);
+    }
+
 
     // Weaning Weight Update Methods
     public function updateWeaningWeight(Request $request, $id)
@@ -1929,23 +2242,48 @@ class PigManagementController extends Controller {
 
         // Use database transaction to ensure data consistency
         DB::transaction(function () use ($pig, $data) {
-            // Create weight record
-            PigWeight::create([
+            // Create or update weight record for the date (upsert)
+            $weighDate = \Carbon\Carbon::parse($data['weigh_date'])->toDateString();
+            $weight = PigWeight::where('pig_id', $pig->id)
+                ->whereDate('weigh_date', $weighDate)
+                ->first();
+
+            if ($weight) {
+                $weight->update([
+                'weight' => $data['weight'],
+                    'weigh_date' => $weighDate,
+                'notes' => $data['notes'],
+                'weighed_by' => auth()->user()->name,
+                    'purpose' => 'weaning_tracking',
+                'weight_unit' => 'kg',
+                'is_estimated' => false
+            ]);
+            } else {
+                $weight = PigWeight::create([
                 'pig_id' => $pig->id,
                 'weight' => $data['weight'],
-                'weigh_date' => $data['weigh_date'],
+                    'weigh_date' => $weighDate,
                 'notes' => $data['notes'],
                 'weighed_by' => auth()->user()->name,
                 'purpose' => 'weaning_tracking',
                 'weight_unit' => 'kg',
                 'is_estimated' => false
             ]);
+            }
+
+            // Generate or regenerate alert immediately using standards
+            // Prefer target week if pig has weaning record with target_week, else compute actual age in weeks
+            $targetWeek = null;
+            if ($pig->weaning) {
+                $targetWeek = $pig->weaning->target_week ?? null;
+            }
+
+            // Delete any existing alerts for this weight record to avoid duplicates
+            \App\Models\WeightAlert::where('weight_record_id', $weight->id)->delete();
+            \App\Models\WeightAlert::createFromWeight($weight, $pig);
         });
 
-        // Force a small delay to ensure database commit
-        usleep(100000); // 0.1 second
-
-        return back()->with('success', "Weight updated for piglet {$pig->code}! New weight: {$data['weight']}kg");
+        return back()->with('success', "Weight updated for piglet {$pig->ear_tag_number}! New weight: {$data['weight']}kg");
     }
 
     /**

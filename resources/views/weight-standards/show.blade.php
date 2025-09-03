@@ -43,13 +43,13 @@
                         <label class="block text-sm font-medium text-gray-500 mb-1">Gender</label>
                         <div class="flex items-center">
                             <div class="flex-shrink-0 h-8 w-8 bg-{{ $weightStandard->gender === 'M' ? 'blue' : 'pink' }}-100 rounded-full flex items-center justify-center mr-3">
-                                <svg class="h-4 w-4 text-{{ $weightStandard->gender === 'M' ? 'blue' : 'pink' }}-600" fill="currentColor" viewBox="0 0 20 20">
+                                <!-- <svg class="h-4 w-4 text-{{ $weightStandard->gender === 'M' ? 'blue' : 'pink' }}-600" fill="currentColor" viewBox="0 0 20 20">
                                     @if($weightStandard->gender === 'M')
                                         <path fill-rule="evenodd" d="M14.243 5.757a6 6 0 10-.986 9.284 1 1 0 111.087 1.678A8 8 0 1118 4a1 1 0 01-1 1h-2a1 1 0 110-2h2a3 3 0 013 3v2a1 1 0 11-2 0V6.757z" clip-rule="evenodd"/>
                                     @else
                                         <path fill-rule="evenodd" d="M10 2a6 6 0 100 12 6 6 0 000-12zM4 8a6 6 0 1112 0A6 6 0 014 8z" clip-rule="evenodd"/>
                                     @endif
-                                </svg>
+                                </svg> -->
                             </div>
                             <span class="text-sm font-medium text-gray-900">{{ $weightStandard->gender_display }}</span>
                         </div>

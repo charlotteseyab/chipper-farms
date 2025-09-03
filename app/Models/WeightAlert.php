@@ -208,6 +208,31 @@ class WeightAlert extends Model
         }
 
         if (!$standard) {
+            // Try alternate exact week candidates (target vs actual)
+            $candidates = array_values(array_unique(array_filter([$targetWeek, $actualAgeWeeks], function ($w) {
+                return $w !== null;
+            })));
+            foreach ($candidates as $candidateWeek) {
+                $standard = ExpectedWeightStandard::active()
+                    ->forPigType($pig->breed, $pig->gender, $pig->stock_type)
+                    ->where('week_number', $candidateWeek)
+                    ->first();
+                if ($standard) {
+                    break;
+                }
+            }
+        }
+
+        if (!$standard) {
+            // Fallback: nearest available week standard for this pig type
+            $weekToUse = $targetWeek ?? $actualAgeWeeks ?? 0;
+            $standard = ExpectedWeightStandard::active()
+                ->forPigType($pig->breed, $pig->gender, $pig->stock_type)
+                ->orderByRaw('ABS(week_number - ?)', [$weekToUse])
+                ->first();
+        }
+
+        if (!$standard) {
             $weekReference = $targetWeek ? "target Week {$targetWeek}" : "{$actualAgeWeeks} weeks old";
             return self::create([
                 'pig_id' => $pig->id,
@@ -224,6 +249,15 @@ class WeightAlert extends Model
         $alertType = $standard->determineAlertType($weightRecord->weight);
         $severity = $standard->determineSeverity($weightRecord->weight);
         $deviation = $standard->calculateDeviation($weightRecord->weight);
+
+        // under_weight alerts are treated as high priority
+        if ($alertType === 'under_weight') {
+            $severity = 'high';
+        }
+        // over_weight alerts are treated as medium priority
+        elseif ($alertType === 'over_weight') {
+            $severity = 'medium';
+        }
 
         $message = self::generateAlertMessage($pig, $weightRecord->weight, $standard, $alertType, $deviation);
 

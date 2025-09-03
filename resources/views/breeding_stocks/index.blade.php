@@ -3,7 +3,7 @@
         <div class="max-w-6xl mx-auto">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold">Breeding Stock Management</h2>
-                <a href="{{ route('breeding-stocks.create') }}" class="px-4 py-2 bg-[#1C6C51] text-white rounded-lg font-semibold hover:bg-green-700">Add New</a>
+                <!-- <a href="{{ route('breeding-stocks.create') }}" class="px-4 py-2 bg-[#1C6C51] text-white rounded-lg font-semibold hover:bg-green-700">Add New</a> -->
             </div>
 
             <div class="bg-white shadow-xl rounded-lg">
@@ -166,12 +166,12 @@
                                     @if(!request()->hasAny(['breed', 'gender', 'age']))
                                     <div class="space-y-3">
                                         <p class="text-sm text-gray-600">Pigs are promoted to breeding stock from standard stock when they meet age and weight requirements.</p>
-                                        <a href="{{ route('standard-stocks.index') }}" class="inline-flex items-center px-4 py-2 bg-[#1C6C51] text-white rounded-lg font-semibold hover:bg-green-700">
+                                        <!-- <a href="{{ route('standard-stocks.index') }}" class="inline-flex items-center px-4 py-2 bg-[#1C6C51] text-white rounded-lg font-semibold hover:bg-green-700">
                                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
                                             </svg>
                                             View Standard Stock
-                                        </a>
+                                        </a> -->
                                     </div>
                                     @endif
                                 </div>
@@ -189,7 +189,7 @@
                             Showing {{ $pigmanagement->firstItem() }} to {{ $pigmanagement->lastItem() }} of {{ $pigmanagement->total() }} results
                         </div>
                         <div class="flex items-center space-x-2">
-                            {{ $pigmanagement->links('pagination::tailwind') }}
+                            <x-simple-pagination :paginator="$pigmanagement" />
                         </div>
                     </div>
                 </div>

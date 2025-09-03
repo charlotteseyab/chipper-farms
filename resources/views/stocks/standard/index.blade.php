@@ -3,7 +3,7 @@
         <div class="max-w-6xl mx-auto">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-blue-700">Standard Stock Management</h2>
-                <a href="{{ route('standard-stocks.create') }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">Add New</a>
+                <!-- <a href="{{ route('standard-stocks.create') }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">Add New</a> -->
             </div>
 
             <div class="bg-white shadow-xl rounded-lg">
@@ -68,9 +68,9 @@
                             @endif
                         </div>
                         @if($pigmanagement->hasPages())
-                        <div class="text-sm text-blue-700">
+                        <!-- <div class="text-sm text-blue-700">
                             Page {{ $pigmanagement->currentPage() }} of {{ $pigmanagement->lastPage() }}
-                        </div>
+                        </div> -->
                         @endif
                     </div>
                 </div>
@@ -222,9 +222,9 @@
                                         @endif
                                     </p>
                                     @if(!request()->hasAny(['breed', 'gender', 'age']))
-                                    <a href="#" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">
+                                    <!-- <a href="#" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700">
                                         Add First Standard Stock
-                                    </a>
+                                    </a> -->
                                     @endif
                                 </div>
                             </td>
@@ -241,7 +241,7 @@
                             Showing {{ $pigmanagement->firstItem() }} to {{ $pigmanagement->lastItem() }} of {{ $pigmanagement->total() }} results
                         </div>
                         <div class="flex items-center space-x-2">
-                            {{ $pigmanagement->links('pagination::tailwind') }}
+                            <x-simple-pagination :paginator="$pigmanagement" />
                         </div>
                     </div>
                 </div>

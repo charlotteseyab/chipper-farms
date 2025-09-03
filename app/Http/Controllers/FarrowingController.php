@@ -30,4 +30,16 @@ class FarrowingController extends Controller
 
         return view('farrowing.index', compact('farrowingRecords', 'stats'));
     }
+
+    public function show(Farrowing $farrowing)
+    {
+        $farrowing->load(['sow', 'boar', 'recordedBy']);
+
+        $genderDistribution = $farrowing->gender_distribution;
+
+        return view('farrowing.show', [
+            'farrowing' => $farrowing,
+            'genderDistribution' => $genderDistribution,
+        ]);
+    }
 }

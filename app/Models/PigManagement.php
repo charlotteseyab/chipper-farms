@@ -10,11 +10,11 @@ use App\Helpers\BreedingCalculator;
 
 class PigManagement extends Model 
 {
-    protected $table = 'pigs_management'; // Make sure this matches your actual table name
+    protected $table = 'pigs_management'; // Pigs Management table name
 
     protected $fillable = [
         'ear_tag_number', 'breed', 'gender', 'stock_type', 'date_of_birth',
-        'code', 'age_in_days', 'father_id', 'mother_id'
+        'code', 'age_in_days', 'father_id', 'mother_id', 'room_id'
     ];
 
     protected $casts = [
@@ -87,6 +87,15 @@ class PigManagement extends Model
             return 0;
         }
         return (int) $this->date_of_birth->diffInDays(now());
+    }
+
+    // Accessor to get current age in weeks (dynamically calculated)
+    public function getCurrentAgeInWeeksAttribute()
+    {
+        if (!$this->date_of_birth) {
+            return 0;
+        }
+        return (int) $this->date_of_birth->diffInWeeks(now());
     }
 
 
@@ -400,6 +409,24 @@ class PigManagement extends Model
         return $this->hasOne(PigSale::class, 'pig_id');
     }
 
+
+
+    public function room(): BelongsTo
+    {
+        return $this->belongsTo(Room::class, 'room_id');
+    }
+
+    // Sales and Death relationships
+    public function sales(): HasMany
+    {
+        return $this->hasMany(PigSale::class, 'pig_id');
+    }
+
+    public function deaths(): HasMany
+    {
+        return $this->hasMany(PigDeath::class, 'pig_id');
+    }
+
     // Scopes for availability
     public function scopeAvailableForBreeding($query)
     {
@@ -475,6 +502,73 @@ class PigManagement extends Model
                          ->whereBetween('date_of_birth', [$minDate, $maleMaxDate]);
             });
         });
+    }
+
+    // Status scopes
+    public function scopeActive($query)
+    {
+        return $query->whereDoesntHave('sales')->whereDoesntHave('deaths');
+    }
+
+    public function scopeSold($query)
+    {
+        return $query->whereHas('sales');
+    }
+
+    public function scopeDeceased($query)
+    {
+        return $query->whereHas('deaths');
+    }
+
+    public function scopeInactive($query)
+    {
+        return $query->where(function($q) {
+            $q->whereHas('sales')->orWhereHas('deaths');
+        });
+    }
+
+    // Status accessors
+    public function getStatusAttribute(): string
+    {
+        if ($this->deaths()->exists()) {
+            return 'deceased';
+        }
+        if ($this->sales()->exists()) {
+            return 'sold';
+        }
+        return 'active';
+    }
+
+    public function getStatusDisplayAttribute(): string
+    {
+        return match($this->status) {
+            'active' => 'Active',
+            'sold' => 'Sold',
+            'deceased' => 'Deceased',
+            default => 'Unknown'
+        };
+    }
+
+    public function getStatusBadgeAttribute(): string
+    {
+        return match($this->status) {
+            'active' => 'bg-green-100 text-green-800',
+            'sold' => 'bg-blue-100 text-blue-800',
+            'deceased' => 'bg-red-100 text-red-800',
+            default => 'bg-gray-100 text-gray-800'
+        };
+    }
+
+    public function getIsActiveAttribute(): bool
+    {
+        return $this->status === 'active';
+    }
+
+    
+
+    public function getIsDeceasedAttribute(): bool
+    {
+        return $this->status === 'deceased';
     }
 
     // Breeding readiness assessment
@@ -680,5 +774,106 @@ class PigManagement extends Model
             'reason' => 'Eligible for sale',
             'icon' => '💰'
         ];
+    }
+
+    // Weighing schedule methods
+    public function getLastWeighingDate()
+    {
+        $lastWeight = $this->weights()->latest('weigh_date')->first();
+        return $lastWeight ? $lastWeight->weigh_date : null;
+    }
+
+    public function getDaysSinceLastWeighing()
+    {
+        $lastWeighing = $this->getLastWeighingDate();
+        if (!$lastWeighing) {
+            // If never weighed, use birth date
+            return $this->date_of_birth ? $this->date_of_birth->diffInDays(now()) : 0;
+        }
+        return $lastWeighing->diffInDays(now());
+    }
+
+    public function isOverdueForWeighing($weighingIntervalDays = 14)
+    {
+        return $this->getDaysSinceLastWeighing() > $weighingIntervalDays;
+    }
+
+    public function getWeighingStatus()
+    {
+        $daysSince = $this->getDaysSinceLastWeighing();
+        
+        if ($daysSince <= 7) {
+            return [
+                'status' => 'current',
+                'message' => 'Up to date',
+                'color' => 'green',
+                'icon' => '✅'
+            ];
+        } elseif ($daysSince <= 14) {
+            return [
+                'status' => 'due_soon',
+                'message' => 'Due soon',
+                'color' => 'yellow',
+                'icon' => '⚠️'
+            ];
+        } elseif ($daysSince <= 21) {
+            return [
+                'status' => 'overdue',
+                'message' => 'Overdue',
+                'color' => 'orange',
+                'icon' => '🔶'
+            ];
+        } else {
+            return [
+                'status' => 'critical',
+                'message' => 'Critically overdue',
+                'color' => 'red',
+                'icon' => '🚨'
+            ];
+        }
+    }
+
+    public function getNextWeighingDate($weighingIntervalDays = 14)
+    {
+        $lastWeighing = $this->getLastWeighingDate();
+        if (!$lastWeighing) {
+            // If never weighed, next weighing should be 2 weeks from birth
+            return $this->date_of_birth ? $this->date_of_birth->addDays($weighingIntervalDays) : null;
+        }
+        return $lastWeighing->addDays($weighingIntervalDays);
+    }
+
+    // Static methods for weighing alerts (more reliable than scopes)
+    public static function getOverdueForWeighing($weighingIntervalDays = 14)
+    {
+        $pigs = static::whereDoesntHave('deaths')
+                     ->whereDoesntHave('sales')
+                     ->get();
+        
+        return $pigs->filter(function($pig) use ($weighingIntervalDays) {
+            return $pig->isOverdueForWeighing($weighingIntervalDays);
+        });
+    }
+
+    public static function getDueForWeighing($weighingIntervalDays = 14)
+    {
+        $pigs = static::whereDoesntHave('deaths')
+                     ->whereDoesntHave('sales')
+                     ->get();
+        
+        return $pigs->filter(function($pig) use ($weighingIntervalDays) {
+            $daysSince = $pig->getDaysSinceLastWeighing();
+            return $daysSince >= $weighingIntervalDays;
+        });
+    }
+
+    public static function countOverdueForWeighing($weighingIntervalDays = 14)
+    {
+        return static::getOverdueForWeighing($weighingIntervalDays)->count();
+    }
+
+    public static function countDueForWeighing($weighingIntervalDays = 14)
+    {
+        return static::getDueForWeighing($weighingIntervalDays)->count();
     }
 }

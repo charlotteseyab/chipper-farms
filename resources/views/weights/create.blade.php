@@ -1,6 +1,6 @@
 <x-app-layout>
     <main class="flex-1 pl-8 pr-4 pt-8 pb-8">
-        <div class="max-w-2xl mx-auto bg-white shadow-xl rounded-lg p-8">
+        <div class="max-w-3xl mx-auto bg-white shadow-xl rounded-lg p-8">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-green-600">Weekly Weight Recording</h2>
                 <div class="flex gap-2">
@@ -94,6 +94,13 @@
                                 <div id="no-standard-message" class="text-sm text-gray-500 hidden">
                                     No weight standard set for this pig type/age
                                 </div>
+                                <div id="standard-loading" class="text-sm text-green-600 hidden">
+                                    <svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Loading standards...
+                                </div>
                             </div>
 
                             <!-- Previous Weight -->
@@ -106,6 +113,13 @@
                                 </div>
                                 <div id="no-previous-message" class="text-sm text-gray-500 hidden">
                                     No previous weight recorded
+                                </div>
+                                <div id="previous-loading" class="text-sm text-yellow-600 hidden">
+                                    <svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Loading history...
                                 </div>
                             </div>
                         </div>
@@ -144,9 +158,9 @@
 
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-1">Purpose</label>
-                            <select name="purpose" required class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-600 focus:border-green-600">
+                            <select name="purpose" id="purpose" required class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-600 focus:border-green-600">
                                 <option value="" disabled selected>-- Select Purpose --</option>
-                                <option value="routine" {{ old('purpose') == 'routine' ? 'selected' : '' }} selected>📅 Weekly Routine</option>
+                                <option value="routine" {{ old('purpose') == 'routine' ? 'selected' : '' }} >📅 Weekly Routine</option>
                                 <option value="breeding" {{ old('purpose') == 'breeding' ? 'selected' : '' }}>💕 Breeding Assessment</option>
                                 <option value="health" {{ old('purpose') == 'health' ? 'selected' : '' }}>🏥 Health Check</option>
                                 <option value="sale" {{ old('purpose') == 'sale' ? 'selected' : '' }}>💰 Pre-Sale</option>
@@ -155,6 +169,9 @@
                                 <option value="maturity" {{ old('purpose') == 'maturity' ? 'selected' : '' }}>🎯 Maturity Weight</option>
                                 <option value="other" {{ old('purpose') == 'other' ? 'selected' : '' }}>📝 Other</option>
                             </select>
+                            <div id="purpose-other" class="mt-2 hidden">
+                                <input type="text" name="purpose_other" placeholder="Please specify the purpose..." class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-600 focus:border-green-600">
+                            </div>
                             <p class="text-xs text-gray-500 mt-1">Most common: Weekly Routine for growth tracking</p>
                         </div>
                     </div>
@@ -188,10 +205,16 @@
 
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-1">Weighing Time (optional)</label>
-                            <input type="time" name="weigh_time"
-                                   value="{{ old('weigh_time') }}"
-                                   class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-600 focus:border-green-600">
-                            <p class="text-xs text-gray-500 mt-1">Time of weighing</p>
+                            <div class="flex gap-2">
+                                <input type="time" name="weigh_time" id="weigh_time"
+                                       value="{{ old('weigh_time', now()->format('H:i')) }}"
+                                       class="flex-1 border-gray-300 rounded-lg shadow-sm focus:ring-green-600 focus:border-green-600">
+                                <!-- <button type="button" onclick="setCurrentTime()" 
+                                        class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 border border-gray-300">
+                                    🕐 Now
+                                </button> -->
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Time of weighing (auto-filled with current time)</p>
                         </div>
                     </div>
 
@@ -217,7 +240,7 @@
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Body Condition Score (optional)</label>
                         <select name="body_condition_score" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-600 focus:border-green-600">
-                            <option value="">-- Not Assessed --</option>
+                            <option value="" disabled selected>-- Not Assessed --</option>
                             <option value="1" {{ old('body_condition_score') == '1' ? 'selected' : '' }}>1 - Very Thin</option>
                             <option value="2" {{ old('body_condition_score') == '2' ? 'selected' : '' }}>2 - Thin</option>
                             <option value="3" {{ old('body_condition_score') == '3' ? 'selected' : '' }}>3 - Ideal</option>
@@ -229,7 +252,7 @@
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1">Health Status (optional)</label>
                         <select name="health_status" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-600 focus:border-green-600">
-                            <option value="">-- Not Assessed --</option>
+                            <option value="" disabled selected>-- Not Assessed --</option>
                             <option value="excellent" {{ old('health_status') == 'excellent' ? 'selected' : '' }}>Excellent</option>
                             <option value="good" {{ old('health_status') == 'good' ? 'selected' : '' }}>Good</option>
                             <option value="fair" {{ old('health_status') == 'fair' ? 'selected' : '' }}>Fair</option>
@@ -334,6 +357,11 @@
                     // Load expected weight standards and previous weight
                     loadWeightStandards(selectedOption.value);
                     loadPreviousWeight(selectedOption.value);
+                    
+                    // Clear any previous weight feedback
+                    weightFeedback.classList.add('hidden');
+                    window.currentWeightStandard = null;
+                    window.previousWeight = null;
                 } else {
                     // Hide pig info
                     pigInfo.classList.add('hidden');
@@ -346,13 +374,36 @@
                 document.getElementById('expected-range').textContent = 'Loading...';
                 document.getElementById('expected-optimal').textContent = 'Loading...';
                 document.getElementById('no-standard-message').classList.add('hidden');
+                document.getElementById('standard-loading').classList.remove('hidden');
 
-                // In a real implementation, this would be an AJAX call
-                // For demo purposes, showing sample data
-                setTimeout(() => {
-                    document.getElementById('expected-range').textContent = '45-55 kg';
-                    document.getElementById('expected-optimal').textContent = '50 kg';
-                }, 300);
+                // Make AJAX call to get expected weight standards
+                fetch(`/api/pigs/${pigId}/expected-weight`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.data) {
+                            const standard = data.data;
+                            document.getElementById('expected-range').textContent = 
+                                `${standard.min_weight} - ${standard.max_weight} kg`;
+                            document.getElementById('expected-optimal').textContent = 
+                                `${standard.optimal_weight} kg`;
+                            
+                            // Store the standard data for weight feedback
+                            window.currentWeightStandard = standard;
+                        } else {
+                            document.getElementById('expected-range').textContent = 'N/A';
+                            document.getElementById('expected-optimal').textContent = 'N/A';
+                            document.getElementById('no-standard-message').classList.remove('hidden');
+                            window.currentWeightStandard = null;
+                        }
+                        document.getElementById('standard-loading').classList.add('hidden');
+                    })
+                    .catch(error => {
+                        console.error('Error loading weight standards:', error);
+                        document.getElementById('expected-range').textContent = 'Error';
+                        document.getElementById('expected-optimal').textContent = 'Error';
+                        window.currentWeightStandard = null;
+                        document.getElementById('standard-loading').classList.add('hidden');
+                    });
             }
 
             function loadPreviousWeight(pigId) {
@@ -361,14 +412,41 @@
                 document.getElementById('previous-date').textContent = 'Loading...';
                 document.getElementById('days-since').textContent = 'Loading...';
                 document.getElementById('no-previous-message').classList.add('hidden');
+                document.getElementById('previous-loading').classList.remove('hidden');
 
-                // In a real implementation, this would be an AJAX call
-                // For demo purposes, showing sample data
-                setTimeout(() => {
-                    document.getElementById('previous-weight').textContent = '42.5 kg';
-                    document.getElementById('previous-date').textContent = '2025-07-31';
-                    document.getElementById('days-since').textContent = '7';
-                }, 300);
+                // Make AJAX call to get previous weight
+                fetch(`/api/pigs/${pigId}/previous-weight`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.data) {
+                            const previous = data.data;
+                            document.getElementById('previous-weight').textContent = 
+                                `${previous.weight} kg`;
+                            document.getElementById('previous-date').textContent = 
+                                previous.date;
+                            document.getElementById('days-since').textContent = 
+                                Math.floor(previous.days_since); // Always rounds down
+
+                            
+                            // Store the previous weight data for comparison
+                            window.previousWeight = previous;
+                        } else {
+                            document.getElementById('previous-weight').textContent = 'N/A';
+                            document.getElementById('previous-date').textContent = 'N/A';
+                            document.getElementById('days-since').textContent = 'N/A';
+                            document.getElementById('no-previous-message').classList.remove('hidden');
+                            window.previousWeight = null;
+                        }
+                        document.getElementById('previous-loading').classList.add('hidden');
+                    })
+                    .catch(error => {
+                        console.error('Error loading previous weight:', error);
+                        document.getElementById('previous-weight').textContent = 'Error';
+                        document.getElementById('previous-date').textContent = 'Error';
+                        document.getElementById('days-since').textContent = 'Error';
+                        window.previousWeight = null;
+                        document.getElementById('previous-loading').classList.add('hidden');
+                    });
             }
 
             function updateWeekComparison() {
@@ -438,41 +516,61 @@
                 const weightLbs = (weight * 2.20462).toFixed(1);
                 document.getElementById('weight-lbs-display').textContent = `≈ ${weightLbs} lbs`;
 
-                // Show feedback based on target week standards
+                // Show feedback based on weight standards
                 weightFeedback.classList.remove('hidden');
 
-                // Get expected weight for target week (in real implementation, this would be from database)
-                const expectedWeights = getExpectedWeightForWeek(targetWeek);
+                // Use the loaded weight standard data
+                if (window.currentWeightStandard) {
+                    const standard = window.currentWeightStandard;
+                    
+                    if (weight < standard.min_weight) {
+                        document.getElementById('weight-icon').textContent = '⬇️';
+                        document.getElementById('weight-message').textContent = `Under expected weight for Week ${standard.week_number}`;
+                        document.getElementById('weight-message').className = 'text-blue-600 font-medium';
+                        const deviation = ((standard.min_weight - weight) / standard.min_weight * 100).toFixed(1);
+                        document.getElementById('weight-comparison').textContent = `${deviation}% below minimum (${standard.min_weight} kg)`;
+                    } else if (weight > standard.max_weight) {
+                        document.getElementById('weight-icon').textContent = '⬆️';
+                        document.getElementById('weight-message').textContent = `Over expected weight for Week ${standard.week_number}`;
+                        document.getElementById('weight-message').className = 'text-orange-600 font-medium';
+                        const deviation = ((weight - standard.max_weight) / standard.max_weight * 100).toFixed(1);
+                        document.getElementById('weight-comparison').textContent = `${deviation}% above maximum (${standard.max_weight} kg)`;
+                    } else {
+                        document.getElementById('weight-icon').textContent = '✅';
+                        document.getElementById('weight-message').textContent = `Good weight for Week ${standard.week_number}`;
+                        document.getElementById('weight-message').className = 'text-green-600 font-medium';
+                        document.getElementById('weight-comparison').textContent = `Within expected range (${standard.min_weight}-${standard.max_weight} kg)`;
+                    }
 
-                if (weight < expectedWeights.min) {
-                    document.getElementById('weight-icon').textContent = '⬇️';
-                    document.getElementById('weight-message').textContent = `Under Week ${targetWeek} expected weight`;
-                    document.getElementById('weight-message').className = 'text-blue-600 font-medium';
-                    document.getElementById('weight-comparison').textContent = `${((expectedWeights.min - weight) / expectedWeights.min * 100).toFixed(1)}% below minimum for Week ${targetWeek}`;
-                } else if (weight > expectedWeights.max) {
-                    document.getElementById('weight-icon').textContent = '⬆️';
-                    document.getElementById('weight-message').textContent = `Over Week ${targetWeek} expected weight`;
-                    document.getElementById('weight-message').className = 'text-orange-600 font-medium';
-                    document.getElementById('weight-comparison').textContent = `${((weight - expectedWeights.max) / expectedWeights.max * 100).toFixed(1)}% above maximum for Week ${targetWeek}`;
+                    // Add note if using closest standard
+                    if (standard.note && standard.note.includes('closest')) {
+                        document.getElementById('weight-comparison').textContent += ` - ${standard.note}`;
+                    }
                 } else {
-                    document.getElementById('weight-icon').textContent = '✅';
-                    document.getElementById('weight-message').textContent = `Good weight for Week ${targetWeek}`;
-                    document.getElementById('weight-message').className = 'text-green-600 font-medium';
-                    document.getElementById('weight-comparison').textContent = `Within expected range for Week ${targetWeek}`;
+                    // Fallback if no standard data available
+                    document.getElementById('weight-icon').textContent = '❓';
+                    document.getElementById('weight-message').textContent = 'No weight standard available';
+                    document.getElementById('weight-message').className = 'text-gray-600 font-medium';
+                    document.getElementById('weight-comparison').textContent = 'Weight standard not set for this pig type/age';
                 }
-            }
 
-            function getExpectedWeightForWeek(week) {
-                // Sample weight progression (in real implementation, this would come from database)
-                const baseWeight = 2; // Birth weight
-                const weeklyGain = 2.2; // kg per week
-                const optimal = baseWeight + (week * weeklyGain);
-
-                return {
-                    min: optimal * 0.9,  // 10% below optimal
-                    max: optimal * 1.1,  // 10% above optimal
-                    optimal: optimal
-                };
+                // Compare with previous weight if available
+                if (window.previousWeight) {
+                    const previous = window.previousWeight;
+                    const weightChange = weight - previous.weight;
+                    const changePercent = ((weightChange / previous.weight) * 100).toFixed(1);
+                    
+                    let changeText = '';
+                    if (weightChange > 0) {
+                        changeText = `📈 +${weightChange.toFixed(1)} kg (+${changePercent}%) since last weigh`;
+                    } else if (weightChange < 0) {
+                        changeText = `📉 ${weightChange.toFixed(1)} kg (${changePercent}%) since last weigh`;
+                    } else {
+                        changeText = `➡️ No change since last weigh`;
+                    }
+                    
+                    document.getElementById('weight-comparison').textContent += ` | ${changeText}`;
+                }
             }
 
             // Event listeners
@@ -522,6 +620,51 @@
                 updatePigInfo();
                 autoSuggestWeek();
             }
+
+            // Set current time when form loads
+            function setCurrentTime() {
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const currentTime = `${hours}:${minutes}`;
+                
+                const weighTimeInput = document.getElementById('weigh_time');
+                if (weighTimeInput && !weighTimeInput.value) {
+                    weighTimeInput.value = currentTime;
+                }
+            }
+
+            // Set time on page load
+            setCurrentTime();
+            
+            // Handle "other" dropdown functionality
+            function handleOtherDropdown(selectId, otherDivId) {
+                const select = document.getElementById(selectId);
+                const otherDiv = document.getElementById(otherDivId);
+                
+                if (select && otherDiv) {
+                    select.addEventListener('change', function() {
+                        if (this.value === 'other') {
+                            otherDiv.classList.remove('hidden');
+                            const input = otherDiv.querySelector('input');
+                            if (input) {
+                                input.required = true;
+                                input.focus();
+                            }
+                        } else {
+                            otherDiv.classList.add('hidden');
+                            const input = otherDiv.querySelector('input');
+                            if (input) {
+                                input.required = false;
+                                input.value = '';
+                            }
+                        }
+                    });
+                }
+            }
+            
+            // Initialize other dropdowns
+            handleOtherDropdown('purpose', 'purpose-other');
         });
     </script>
 </x-app-layout>

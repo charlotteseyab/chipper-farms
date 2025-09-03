@@ -2,7 +2,7 @@
     <main class="flex-1 p-8">
         <div class="max-w-6xl mx-auto">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-3xl font-bold text-gray-800">📋 Manage Matings</h2>
+                <h2 class="text-3xl font-bold text-gray-800">Manage Matings</h2>
                 <a href="{{ route('mating.index') }}" class="px-4 py-2 bg-pink-600 text-white rounded-lg font-semibold hover:bg-pink-700">
                     Plan New Mating
                 </a>
@@ -11,7 +11,7 @@
             <!-- Stats Cards -->
             <div class="space-y-6 mb-8">
                 <!-- Primary Mating Status -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div class="bg-white p-4 rounded-lg shadow-sm border">
                         <div class="flex items-center">
                             <div class="p-2 bg-blue-100 rounded-lg">
@@ -64,6 +64,20 @@
                             <div class="ml-3">
                                 <p class="text-xs font-medium text-gray-600">Overdue</p>
                                 <p class="text-xl font-semibold text-gray-900">{{ $stats['overdue'] }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-4 rounded-lg shadow-sm border">
+                        <div class="flex items-center">
+                            <div class="p-2 bg-gray-100 rounded-lg">
+                                <svg class="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-xs font-medium text-gray-600">Cancelled</p>
+                                <p class="text-xl font-semibold text-gray-900">{{ $stats['cancelled'] }}</p>
                             </div>
                         </div>
                     </div>
@@ -153,7 +167,19 @@
             <!-- Matings Table -->
             <div class="bg-white shadow-lg rounded-lg overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-800">Planned Matings</h3>
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-semibold text-gray-800">All Matings</h3>
+                        <div class="flex items-center space-x-4">
+                            <label for="status-filter" class="text-sm font-medium text-gray-700">Filter by Status:</label>
+                            <select id="status-filter" class="border-gray-300 rounded-md shadow-sm text-sm focus:ring-pink-500 focus:border-pink-500">
+                                <option value="">All Statuses</option>
+                                <option value="planned">Planned</option>
+                                <option value="completed">Completed</option>
+                                <option value="cancelled">Cancelled</option>
+                                <option value="failed">Failed</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
                 @if($matings->count() > 0)
@@ -175,11 +201,11 @@
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center">
                                                 <div>
-                                                    <div class="text-sm font-medium text-gray-900">
-                                                        {{ $mating->male->code }} × {{ $mating->female->code }}
-                                                    </div>
                                                     <div class="text-sm text-gray-500">
                                                         {{ $mating->male->ear_tag_number }} × {{ $mating->female->ear_tag_number }}
+                                                    </div>
+                                                    <div class="text-sm font-medium text-gray-900">
+                                                        {{ $mating->male->code }} × {{ $mating->female->code }}
                                                     </div>
                                                     @if($mating->status === 'completed')
                                                         @if($mating->pregnancy_status === 'not_pregnant')
@@ -238,7 +264,7 @@
                                                     <div class="text-xs text-red-600 mt-1">Check overdue!</div>
                                                 @endif
                                             @else
-                                                <span class="text-xs text-gray-400">Not applicable</span>
+                                                <span class="text-xs text-gray-400">N/A</span>
                                             @endif
                                         </td>
                                         <td class="px-6 py-4">
@@ -248,16 +274,25 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             @if($mating->status === 'planned')
-                                                <button onclick="openCompleteMatingModal({{ $mating->id }}, '{{ $mating->male->code }}', '{{ $mating->female->code }}', '{{ $mating->planned_date->format('Y-m-d') }}')"
+                                                <button onclick="openCompleteMatingModal({{ $mating->id }}, '{{ $mating->male->ear_tag_number }}', '{{ $mating->female->ear_tag_number }}', '{{ $mating->planned_date->format('Y-m-d') }}')"
                                                         class="text-green-600 hover:text-green-900 mr-3">
                                                     Complete
                                                 </button>
-                                                <button class="text-red-600 hover:text-red-900">Cancel</button>
+                                                <form action="{{ route('mating.cancel', $mating->id) }}" method="POST" class="inline">
+                                                    @csrf
+                                                    <button type="submit" 
+                                                            onclick="return confirm('Are you sure you want to cancel this planned mating? This action cannot be undone.')"
+                                                            class="text-red-600 hover:text-red-900">
+                                                        Cancel
+                                                    </button>
+                                                </form>
                                             @elseif($mating->status === 'completed' && $mating->pregnancy_status === 'pending')
-                                                <button onclick="openPregnancyCheckModal({{ $mating->id }}, '{{ $mating->male->code }}', '{{ $mating->female->code }}', '{{ $mating->actual_date->format('M d, Y') }}', {{ $mating->days_since_mating }})"
+                                                <button onclick="openPregnancyCheckModal({{ $mating->id }}, '{{ $mating->male->ear_tag_number }}', '{{ $mating->female->ear_tag_number }}', '{{ $mating->actual_date->format('M d, Y') }}', {{ $mating->days_since_mating }})"
                                                         class="text-blue-600 hover:text-blue-900 mr-3">
                                                     Record Check
                                                 </button>
+                                            @elseif($mating->status === 'cancelled')
+                                                <span class="text-gray-400">Cancelled</span>
                                             @elseif($mating->pregnancy_status !== 'pending')
                                                 <span class="text-gray-400">Check completed</span>
                                             @else
@@ -272,7 +307,14 @@
 
                     <!-- Pagination -->
                     <div class="px-6 py-4 border-t border-gray-200">
-                        {{ $matings->links() }}
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-gray-700">
+                                Showing {{ $matings->firstItem() }} to {{ $matings->lastItem() }} of {{ $matings->total() }} results
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <x-simple-pagination :paginator="$matings" />
+                            </div>
+                        </div>
                     </div>
                 @else
                     <div class="px-6 py-12 text-center">
@@ -494,7 +536,7 @@
     </div>
 
     <script>
-        function openCompleteMatingModal(matingId, maleCode, femaleCode, plannedDate) {
+        function openCompleteMatingModal(matingId, maleEarTag, femaleEarTag, plannedDate) {
             // Update form action
             document.getElementById('completeMatingForm').action = `/mating/${matingId}/complete`;
 
@@ -504,7 +546,7 @@
             // Update mating info
             document.getElementById('completeMatingInfo').innerHTML = `
                 <div class="text-sm">
-                    <div class="font-medium text-gray-900 mb-2">Breeding Pair: ${maleCode} × ${femaleCode}</div>
+                    <div class="font-medium text-gray-900 mb-2">Breeding Pair: ${maleEarTag} × ${femaleEarTag}</div>
                     <div class="text-gray-600">Planned Date: ${new Date(plannedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
                     <div class="text-green-600 mt-2">✓ Ready to mark as completed</div>
                 </div>
@@ -519,14 +561,14 @@
             document.getElementById('completeMatingForm').reset();
         }
 
-        function openPregnancyCheckModal(matingId, maleCode, femaleCode, matingDate, daysSince) {
+        function openPregnancyCheckModal(matingId, maleEarTag, femaleEarTag, matingDate, daysSince) {
             // Update form action
             document.getElementById('pregnancyCheckForm').action = `/mating/${matingId}/pregnancy-check`;
 
             // Update mating info
             document.getElementById('matingInfo').innerHTML = `
                 <div class="text-sm">
-                    <div class="font-medium text-gray-900 mb-2">Breeding Pair: ${maleCode} × ${femaleCode}</div>
+                    <div class="font-medium text-gray-900 mb-2">Breeding Pair: ${maleEarTag} × ${femaleEarTag}</div>
                     <div class="text-gray-600">Mating Date: ${matingDate}</div>
                     <div class="text-gray-600">Days Since Mating: ${daysSince} days</div>
                     <div class="text-blue-600 mt-2">
@@ -555,6 +597,24 @@
             if (e.target === this) {
                 closePregnancyCheckModal();
             }
+        });
+
+        // Status filter functionality
+        document.getElementById('status-filter').addEventListener('change', function() {
+            const selectedStatus = this.value;
+            const rows = document.querySelectorAll('tbody tr');
+            
+            rows.forEach(row => {
+                const statusCell = row.querySelector('td:nth-child(3)'); // Status column
+                if (statusCell) {
+                    const statusText = statusCell.textContent.toLowerCase();
+                    if (selectedStatus === '' || statusText.includes(selectedStatus.toLowerCase())) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                }
+            });
         });
     </script>
 </x-app-layout>

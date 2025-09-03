@@ -22,6 +22,9 @@
             {{ $slot }}
         </div>
 
+        <!-- Copyright Footer -->
+        <!-- <x-copyright-minimal /> -->
+
         @livewireScripts
     </body>
 </html>

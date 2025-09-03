@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="flex justify-between items-center mb-6">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">📊 Expected Weights</h1>
+            <h1 class="text-2xl font-bold text-gray-900">Expected Weights</h1>
             <p class="text-gray-600 mt-1">Set expected weights for each pig type and age - system will automatically check weekly weights</p>
         </div>
         <div class="flex gap-3">
@@ -26,7 +26,7 @@
                 <div class="mt-2 text-sm text-blue-700">
                     <p>1. Set expected weight ranges for each pig type (breed + gender) at different ages</p>
                     <p>2. When you record weekly weights, system automatically compares against these standards</p>
-                    <p>3. See instant alerts: <span class="text-red-600">⬇️ Under Weight</span> | <span class="text-green-600">✅ Normal</span> | <span class="text-orange-600">⬆️ Over Weight</span></p>
+                    <p>3. See instant alerts: <span class="text-red-600">⬇️ Under Weight</span> | <span class="text-green-600">✅ Normal</span> | <span class="text-black">⬆️ Over Weight</span></p>
                 </div>
             </div>
         </div>
@@ -163,7 +163,14 @@
 
             <!-- Pagination -->
             <div class="px-6 py-4 border-t border-gray-200">
-                {{ $standards->links() }}
+                <div class="flex items-center justify-between">
+                    <div class="text-sm text-gray-700">
+                        Showing {{ $standards->firstItem() }} to {{ $standards->lastItem() }} of {{ $standards->total() }} results
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <x-simple-pagination :paginator="$standards" />
+                    </div>
+                </div>
             </div>
         @else
             <div class="text-center py-12">

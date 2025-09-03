@@ -45,7 +45,11 @@ class WeightAlertsController extends Controller
             $query->whereDate('created_at', '<=', $request->date_to);
         }
 
-        $alerts = $query->orderBy('created_at', 'desc')->paginate(15);
+        // Prioritize under_weight alerts at the top, then order by newest
+        $alerts = $query
+            ->orderByRaw("CASE WHEN alert_type = 'under_weight' THEN 0 ELSE 1 END")
+            ->orderBy('created_at', 'desc')
+            ->paginate(15);
         $alerts->appends($request->query());
 
         // Get data for filters

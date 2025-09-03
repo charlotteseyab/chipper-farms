@@ -51,11 +51,47 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Current Values Summary -->
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <h3 class="text-sm font-medium text-blue-800 mb-3">📊 Current Values</h3>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-blue-600 mb-1">Weight Range</label>
+                        <div class="text-sm font-semibold text-blue-900">{{ $weightStandard->weight_range_display }}</div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-blue-600 mb-1">Optimal Weight</label>
+                        <div class="text-sm font-semibold text-blue-900">{{ number_format($weightStandard->optimal_weight, 1) }} kg</div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-blue-600 mb-1">Tolerance</label>
+                        <div class="text-sm font-semibold text-blue-900">±{{ number_format(($weightStandard->expected_max_weight - $weightStandard->expected_min_weight) / 2, 1) }} kg</div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-blue-600 mb-1">Status</label>
+                        <div class="text-sm font-semibold text-blue-900">
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $weightStandard->is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }}">
+                                {{ $weightStandard->is_active ? 'Active' : 'Inactive' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                @if($weightStandard->notes)
+                    <div class="mt-3">
+                        <label class="block text-xs font-medium text-blue-600 mb-1">Current Notes</label>
+                        <div class="text-sm text-blue-900">{{ $weightStandard->notes }}</div>
+                    </div>
+                @endif
+            </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Expected Min Weight -->
                 <div>
-                    <label for="expected_min_weight" class="block text-sm font-medium text-gray-700 mb-1">Minimum Weight (kg) *</label>
+                    <label for="expected_min_weight" class="block text-sm font-medium text-gray-700 mb-1">
+                        Minimum Weight (kg) *
+                        <span id="min-weight-indicator" class="ml-2 text-xs font-normal text-gray-500">(Current: {{ number_format($weightStandard->expected_min_weight, 1) }} kg)</span>
+                    </label>
                     <input type="number" name="expected_min_weight" id="expected_min_weight" step="0.1" min="0.1" max="500" required
                            value="{{ old('expected_min_weight', $weightStandard->expected_min_weight) }}" placeholder="e.g., 15.0"
                            class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 @error('expected_min_weight') border-red-300 @enderror">
@@ -66,7 +102,10 @@
 
                 <!-- Expected Max Weight -->
                 <div>
-                    <label for="expected_max_weight" class="block text-sm font-medium text-gray-700 mb-1">Maximum Weight (kg) *</label>
+                    <label for="expected_max_weight" class="block text-sm font-medium text-gray-700 mb-1">
+                        Maximum Weight (kg) *
+                        <span id="max-weight-indicator" class="ml-2 text-xs font-normal text-gray-500">(Current: {{ number_format($weightStandard->expected_max_weight, 1) }} kg)</span>
+                    </label>
                     <input type="number" name="expected_max_weight" id="expected_max_weight" step="0.1" min="0.1" max="500" required
                            value="{{ old('expected_max_weight', $weightStandard->expected_max_weight) }}" placeholder="e.g., 20.0"
                            class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 @error('expected_max_weight') border-red-300 @enderror">
@@ -77,7 +116,10 @@
 
                 <!-- Optimal Weight -->
                 <div>
-                    <label for="optimal_weight" class="block text-sm font-medium text-gray-700 mb-1">Optimal Weight (kg) *</label>
+                    <label for="optimal_weight" class="block text-sm font-medium text-gray-700 mb-1">
+                        Optimal Weight (kg) *
+                        <span id="optimal-weight-indicator" class="ml-2 text-xs font-normal text-gray-500">(Current: {{ number_format($weightStandard->optimal_weight, 1) }} kg)</span>
+                    </label>
                     <input type="number" name="optimal_weight" id="optimal_weight" step="0.1" min="0.1" max="500" required
                            value="{{ old('optimal_weight', $weightStandard->optimal_weight) }}" placeholder="e.g., 17.5"
                            class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 @error('optimal_weight') border-red-300 @enderror">
@@ -89,7 +131,12 @@
 
                 <!-- Active Status -->
                 <div>
-                    <label for="is_active" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <label for="is_active" class="block text-sm font-medium text-gray-700 mb-1">
+                        Status
+                        <span id="active-status-indicator" class="ml-2 text-xs font-normal text-gray-500">
+                            (Current: {{ $weightStandard->is_active ? 'Active' : 'Inactive' }})
+                        </span>
+                    </label>
                     <div class="flex items-center mt-3">
                         <input type="checkbox" name="is_active" id="is_active" value="1" 
                                {{ old('is_active', $weightStandard->is_active) ? 'checked' : '' }}
@@ -98,6 +145,9 @@
                             Active (use this standard for weight checking)
                         </label>
                     </div>
+                    <p class="mt-1 text-xs text-gray-500">
+                        When unchecked, this standard will not be used for weight evaluations
+                    </p>
                 </div>
             </div>
 
@@ -116,6 +166,19 @@
                 <h3 class="text-sm font-medium text-blue-800 mb-2">Weight Range Preview</h3>
                 <div id="weight-preview" class="text-sm text-blue-700">
                     Current range: {{ $weightStandard->weight_range_display }}, Optimal: {{ number_format($weightStandard->optimal_weight, 1) }}kg
+                </div>
+            </div>
+
+            <!-- Changes Summary -->
+            <div id="changes-summary" class="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg hidden">
+                <h3 class="text-sm font-medium text-green-800 mb-2">
+                    <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Changes Summary
+                </h3>
+                <div id="changes-content" class="text-sm text-green-700">
+                    <!-- Changes will be populated by JavaScript -->
                 </div>
             </div>
 
@@ -150,6 +213,15 @@
 </div>
 
 <script>
+    // Store original values for comparison
+    const originalValues = {
+        minWeight: {{ $weightStandard->expected_min_weight }},
+        maxWeight: {{ $weightStandard->expected_max_weight }},
+        optimalWeight: {{ $weightStandard->optimal_weight }},
+        isActive: {{ $weightStandard->is_active ? 'true' : 'false' }},
+        notes: '{{ $weightStandard->notes ?? '' }}'
+    };
+
     // Weight range preview
     function updateWeightPreview() {
         const minWeight = document.getElementById('expected_min_weight').value;
@@ -179,12 +251,83 @@
             preview.innerHTML = 'Current range: {{ $weightStandard->weight_range_display }}, Optimal: {{ number_format($weightStandard->optimal_weight, 1) }}kg';
             preview.className = 'text-sm text-blue-700';
         }
+        
+        // Update changes summary
+        updateChangesSummary();
+    }
+
+    // Update changes summary
+    function updateChangesSummary() {
+        const minWeight = parseFloat(document.getElementById('expected_min_weight').value) || 0;
+        const maxWeight = parseFloat(document.getElementById('expected_max_weight').value) || 0;
+        const optimalWeight = parseFloat(document.getElementById('optimal_weight').value) || 0;
+        const isActive = document.getElementById('is_active').checked;
+        const notes = document.getElementById('notes').value;
+        
+        const changes = [];
+        
+        // Check for changes and update field indicators
+        if (minWeight !== originalValues.minWeight) {
+            changes.push(`Min weight: ${originalValues.minWeight} → ${minWeight.toFixed(1)} kg`);
+            document.getElementById('min-weight-indicator').className = 'ml-2 text-xs font-normal text-orange-600 font-semibold';
+            document.getElementById('min-weight-indicator').textContent = `(Changed from ${originalValues.minWeight} kg)`;
+        } else {
+            document.getElementById('min-weight-indicator').className = 'ml-2 text-xs font-normal text-gray-500';
+            document.getElementById('min-weight-indicator').textContent = `(Current: ${originalValues.minWeight} kg)`;
+        }
+        
+        if (maxWeight !== originalValues.maxWeight) {
+            changes.push(`Max weight: ${originalValues.maxWeight} → ${maxWeight.toFixed(1)} kg`);
+            document.getElementById('max-weight-indicator').className = 'ml-2 text-xs font-normal text-orange-600 font-semibold';
+            document.getElementById('max-weight-indicator').textContent = `(Changed from ${originalValues.maxWeight} kg)`;
+        } else {
+            document.getElementById('max-weight-indicator').className = 'ml-2 text-xs font-normal text-gray-500';
+            document.getElementById('max-weight-indicator').textContent = `(Current: ${originalValues.maxWeight} kg)`;
+        }
+        
+        if (optimalWeight !== originalValues.optimalWeight) {
+            changes.push(`Optimal weight: ${originalValues.optimalWeight} → ${optimalWeight.toFixed(1)} kg`);
+            document.getElementById('optimal-weight-indicator').className = 'ml-2 text-xs font-normal text-orange-600 font-semibold';
+            document.getElementById('optimal-weight-indicator').textContent = `(Changed from ${originalValues.optimalWeight} kg)`;
+        } else {
+            document.getElementById('optimal-weight-indicator').className = 'ml-2 text-xs font-normal text-gray-500';
+            document.getElementById('optimal-weight-indicator').textContent = `(Current: ${originalValues.optimalWeight} kg)`;
+        }
+        
+        if (isActive !== originalValues.isActive) {
+            changes.push(`Status: ${originalValues.isActive ? 'Active' : 'Inactive'} → ${isActive ? 'Active' : 'Inactive'}`);
+            document.getElementById('active-status-indicator').className = 'ml-2 text-xs font-normal text-orange-600 font-semibold';
+            document.getElementById('active-status-indicator').textContent = `(Changed from ${originalValues.isActive ? 'Active' : 'Inactive'})`;
+        } else {
+            document.getElementById('active-status-indicator').className = 'ml-2 text-xs font-normal text-gray-500';
+            document.getElementById('active-status-indicator').textContent = `(Current: ${originalValues.isActive ? 'Active' : 'Inactive'})`;
+        }
+        
+        if (notes !== originalValues.notes) {
+            changes.push(`Notes: ${originalValues.notes || 'None'} → ${notes || 'None'}`);
+        }
+        
+        const changesSummary = document.getElementById('changes-summary');
+        const changesContent = document.getElementById('changes-content');
+        
+        if (changes.length > 0) {
+            changesSummary.classList.remove('hidden');
+            changesContent.innerHTML = `
+                <div class="space-y-1">
+                    ${changes.map(change => `<div>• ${change}</div>`).join('')}
+                </div>
+            `;
+        } else {
+            changesSummary.classList.add('hidden');
+        }
     }
     
     // Add event listeners
     document.getElementById('expected_min_weight').addEventListener('input', updateWeightPreview);
     document.getElementById('expected_max_weight').addEventListener('input', updateWeightPreview);
     document.getElementById('optimal_weight').addEventListener('input', updateWeightPreview);
+    document.getElementById('is_active').addEventListener('change', updateChangesSummary);
+    document.getElementById('notes').addEventListener('input', updateChangesSummary);
     
     // Initial preview update
     updateWeightPreview();

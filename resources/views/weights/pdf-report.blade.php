@@ -241,6 +241,7 @@
                         <th>Period</th>
                         <th>Duration</th>
                         <th>Weight Range</th>
+                        <th>Phase</th>
                         <th>Total Gain</th>
                         <th>Daily Gain</th>
                         <th>Performance</th>
@@ -252,6 +253,7 @@
                             <td>{{ $period['from_date']->format('M d') }} - {{ $period['to_date']->format('M d, Y') }}</td>
                             <td>{{ $period['days'] }} days</td>
                             <td>{{ number_format($period['from_weight'], 1) }} → {{ number_format($period['to_weight'], 1) }} kg</td>
+                            <td>{{ $period['phase'] }}</td>
                             <td style="color: {{ $period['weight_gain'] >= 0 ? '#059669' : '#dc2626' }}">
                                 {{ $period['weight_gain'] >= 0 ? '+' : '' }}{{ number_format($period['weight_gain'], 1) }} kg
                             </td>

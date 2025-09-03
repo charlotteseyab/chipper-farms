@@ -14,7 +14,7 @@
                 </svg>
                 Weight Alerts
             </h3>
-            <a href="{{ route('weight-alerts.dashboard') }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+            <a href="{{ route('weight-alerts.index') }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
                 View All →
             </a>
         </div>
@@ -37,7 +37,7 @@
             <!-- Under Weight -->
             @if($underWeightAlerts > 0)
                 <div class="text-center">
-                    <div class="text-2xl font-bold text-blue-600">{{ $underWeightAlerts }}</div>
+                    <div class="text-2xl font-bold text-red-600">{{ $underWeightAlerts }}</div>
                     <div class="text-xs text-gray-500">Under Weight</div>
                 </div>
             @endif

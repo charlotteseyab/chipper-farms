@@ -3,7 +3,7 @@
 <div class="container mx-auto px-6 py-6">
     <div class="flex justify-between items-center mb-8">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">🐷 Farrowing Records</h1>
+            <h1 class="text-3xl font-bold text-gray-900">Farrowing Records</h1>
             <p class="text-gray-600 mt-2">Complete farrowing history and birth records</p>
         </div>
     </div>
@@ -156,8 +156,8 @@
                                             </div>
                                         </div>
                                         <div class="ml-4">
-                                            <div class="text-sm font-medium text-gray-900">{{ $farrowing->sow->code }}</div>
                                             <div class="text-sm text-gray-500">{{ $farrowing->sow->ear_tag_number }}</div>
+                                            <div class="text-sm font-medium text-gray-900">{{ $farrowing->sow->code }}</div>
                                         </div>
                                     </div>
                                 </td>
@@ -202,7 +202,7 @@
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <a href="{{ route('pigs.show', $farrowing->sow->id) }}" class="text-blue-600 hover:text-blue-900">
+                                    <a href="{{ route('farrowing.show', $farrowing->id) }}" class="text-blue-600 hover:text-blue-900">
                                         View Details
                                     </a>
                                 </td>
@@ -214,7 +214,14 @@
 
             <!-- Pagination -->
             <div class="px-6 py-4 border-t border-gray-200">
-                {{ $farrowingRecords->links() }}
+                <div class="flex items-center justify-between">
+                    <div class="text-sm text-gray-700">
+                        Showing {{ $farrowingRecords->firstItem() }} to {{ $farrowingRecords->lastItem() }} of {{ $farrowingRecords->total() }} results
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <x-simple-pagination :paginator="$farrowingRecords" />
+                    </div>
+                </div>
             </div>
         @else
             <div class="px-6 py-12 text-center">

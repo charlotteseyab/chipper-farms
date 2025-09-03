@@ -2,15 +2,16 @@
     <div class="py-6">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <!-- Header -->
-            <div class="mb-6">
-                <h1 class="text-3xl font-bold text-gray-900">👨‍💼 Manager Dashboard</h1>
+            <!-- <div class="mb-6">
+                <h1 class="text-3xl font-bold text-gray-900">Manager Dashboard</h1>
                 <p class="text-gray-600 mt-2">Farm operations overview and management tools</p>
-            </div>
+            </div> -->
+
 
             <!-- Key Metrics -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
                 <!-- Total Stock -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <a href="{{ route('all-stocks.index') }}" class="block bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-gray-600">Total Stock</p>
@@ -39,10 +40,10 @@
                             <span class="ml-1">standard</span>
                         </div>
                     </div>
-                </div>
+                </a>
 
                 <!-- Monthly Revenue -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <!-- <a href="{{ route('all-stocks.index', ['created_from' => now()->startOfMonth()->toDateString(), 'created_to' => now()->toDateString()]) }}" class="block bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-gray-600">Monthly Activity</p>
@@ -76,10 +77,10 @@
                             <span>{{ $monthlyNewPigs }} new pigs, {{ $monthlyWeightRecords }} weights</span>
                         </div>
                     </div>
-                </div>
+                </a> -->
 
                 <!-- Active Breeding -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <a href="{{ route('breeding-stocks.index') }}" class="block bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-gray-600">Active Breeding</p>
@@ -108,10 +109,10 @@
                             <span class="ml-1">males</span>
                         </div>
                     </div>
-                </div>
+                </a>
 
                 <!-- Critical Alerts -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <a href="{{ route('weight-alerts.index', ['severity' => 'high', 'acknowledged' => '0']) }}" class="block bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-sm font-medium text-gray-600">Critical Alerts</p>
@@ -137,7 +138,219 @@
                             <span>Require immediate attention</span>
                         </div>
                     </div>
+                </a>
+            </div>
+
+            <!-- Additional Key Metrics -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-8">
+                <!-- Mortality Rate -->
+                <a href="{{ route('deaths.index') }}" class="block bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Mortality Rate</p>
+                            <p class="text-2xl font-bold text-gray-900">
+                                @php
+                                    $totalPigs = \App\Models\PigManagement::count();
+                                    $totalDeaths = \App\Models\PigDeath::count();
+                                    $mortalityRate = $totalPigs > 0 ? ($totalDeaths / $totalPigs) * 100 : 0;
+                                @endphp
+                                {{ number_format($mortalityRate, 1) }}%
+                            </p>
+                        </div>
+                        <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex items-center text-sm text-red-600">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span>{{ $totalDeaths }} total deaths</span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- Fertility Rate -->
+                <a href="{{ route('mating.index') }}" class="block bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Fertility Rate</p>
+                            <p class="text-2xl font-bold text-gray-900">
+                                @php
+                                    $totalMatings = \App\Models\Mating::count();
+                                    $successfulMatings = \App\Models\Mating::where('pregnancy_status', 'pregnant')->count();
+                                    $fertilityRate = $totalMatings > 0 ? ($successfulMatings / $totalMatings) * 100 : 0;
+                                @endphp
+                                {{ number_format($fertilityRate, 1) }}%
+                            </p>
+                        </div>
+                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex items-center text-sm text-purple-600">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                            </svg>
+                            <span>{{ $successfulMatings }}/{{ $totalMatings }} successful</span>
+                        </div>
+                    </div>
+                </a>
+
+                <!-- Weighing Alerts -->
+                <a href="{{ route('weights.index') }}" class="block bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-gray-600">Weighing Alerts</p>
+                            <p class="text-2xl font-bold text-gray-900">
+                                @php
+                                    $overdueForWeighing = \App\Models\PigManagement::countOverdueForWeighing();
+                                @endphp
+                                {{ $overdueForWeighing }}
+                            </p>
+                        </div>
+                        <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="flex items-center text-sm text-yellow-600">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span>Overdue for weighing</span>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Charts and Analytics Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Stock Distribution Pie Chart -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">Stock Distribution</h3>
+                        <a href="{{ route('all-stocks.index') }}" class="text-sm text-blue-600 hover:text-blue-800">View All</a>
+                    </div>
+                    <div class="relative h-64">
+                        <canvas id="stockDistributionChart"></canvas>
+                    </div>
+                    <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
+                        @php
+                            $totalStock = \App\Models\PigManagement::count();
+                            $breedingStock = \App\Models\PigManagement::where('stock_type', 'breeding')->count();
+                            $standardStock = \App\Models\PigManagement::where('stock_type', 'standard')->count();
+                        @endphp
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                            <span class="text-gray-600">Breeding: </span>
+                            <span class="font-semibold text-gray-900 ml-1">{{ $breedingStock }}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-blue-500 rounded-full mr-2"></div>
+                            <span class="text-gray-600">Standard: </span>
+                            <span class="font-semibold text-gray-900 ml-1">{{ $standardStock }}</span>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- Weight Alerts Bar Chart -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">Weight Alerts by Severity</h3>
+                        <a href="{{ route('weight-alerts.index') }}" class="text-sm text-blue-600 hover:text-blue-800">View All</a>
+                    </div>
+                    <div class="relative h-64">
+                        <canvas id="weightAlertsChart"></canvas>
+                    </div>
+                    <div class="mt-4 grid grid-cols-3 gap-2 text-xs">
+                        @php
+                            $highAlerts = \App\Models\WeightAlert::where('severity', 'high')->where('acknowledged', false)->count();
+                            $mediumAlerts = \App\Models\WeightAlert::where('severity', 'medium')->where('acknowledged', false)->count();
+                            $lowAlerts = \App\Models\WeightAlert::where('severity', 'low')->where('acknowledged', false)->count();
+                        @endphp
+                        <div class="text-center">
+                            <div class="w-3 h-3 bg-red-500 rounded-full mx-auto mb-1"></div>
+                            <div class="font-semibold text-gray-900">{{ $highAlerts }}</div>
+                            <div class="text-gray-600">High</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="w-3 h-3 bg-yellow-500 rounded-full mx-auto mb-1"></div>
+                            <div class="font-semibold text-gray-900">{{ $mediumAlerts }}</div>
+                            <div class="text-gray-600">Medium</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="w-3 h-3 bg-green-500 rounded-full mx-auto mb-1"></div>
+                            <div class="font-semibold text-gray-900">{{ $lowAlerts }}</div>
+                            <div class="text-gray-600">Low</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Weight Trends Line Chart -->
+                <!-- <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">Weight Records Trend</h3>
+                        <a href="{{ route('weights.index') }}" class="text-sm text-blue-600 hover:text-blue-800">View All</a>
+                    </div>
+                    <div class="relative h-64">
+                        <canvas id="weightTrendsChart"></canvas>
+                    </div>
+                    <div class="mt-4 text-sm text-gray-600">
+                        @php
+                            $totalWeightRecords = \App\Models\PigWeight::count();
+                            $recentWeightRecords = \App\Models\PigWeight::where('created_at', '>=', now()->subDays(30))->count();
+                        @endphp
+                        <div class="flex justify-between">
+                            <span>Total Records: <span class="font-semibold text-gray-900">{{ $totalWeightRecords }}</span></span>
+                            <span>Last 30 days: <span class="font-semibold text-gray-900">{{ $recentWeightRecords }}</span></span>
+                        </div>
+                    </div>
+                </div> -->
+
+                <!-- Breed Distribution Doughnut Chart -->
+                <!-- <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900">Breed Distribution</h3>
+                        <a href="{{ route('all-stocks.index') }}" class="text-sm text-blue-600 hover:text-blue-800">View All</a>
+                    </div>
+                    <div class="relative h-64">
+                        <canvas id="breedDistributionChart"></canvas>
+                    </div>
+                    <div class="mt-4 grid grid-cols-3 gap-2 text-xs">
+                        @php
+                            $lwCount = \App\Models\PigManagement::where('breed', 'LW')->count();
+                            $drCount = \App\Models\PigManagement::where('breed', 'DR')->count();
+                            $lwdrCount = \App\Models\PigManagement::where('breed', 'LWDR')->count();
+                        @endphp
+                        <div class="text-center">
+                            <div class="w-3 h-3 bg-blue-500 rounded-full mx-auto mb-1"></div>
+                            <div class="font-semibold text-gray-900">{{ $lwCount }}</div>
+                            <div class="text-gray-600">Large White</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="w-3 h-3 bg-green-500 rounded-full mx-auto mb-1"></div>
+                            <div class="font-semibold text-gray-900">{{ $drCount }}</div>
+                            <div class="text-gray-600">Duroc</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="w-3 h-3 bg-purple-500 rounded-full mx-auto mb-1"></div>
+                            <div class="font-semibold text-gray-900">{{ $lwdrCount }}</div>
+                            <div class="text-gray-600">LWDR</div>
+                        </div>
+                    </div>
+                </div> -->
             </div>
 
             <!-- Quick Actions -->
@@ -219,7 +432,12 @@
 
                             <div class="flex items-center justify-between">
                                 <span class="text-sm text-gray-600">Avg Weight Records</span>
-                                <span class="text-sm font-medium text-gray-900">{{ $breedingStats['avg_weight_records'] }}</span>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-20 bg-gray-200 rounded-full h-2">
+                                        <div class="bg-yellow-500 h-2 rounded-full transition-all duration-300" style="width: {{ min($breedingStats['avg_weight_records'], 100) }}%"></div>
+                                    </div>
+                                    <span class="text-sm font-medium text-gray-900 w-10 text-right">{{ $breedingStats['avg_weight_records'] }}%</span>
+                                </div>
                             </div>
 
                             <div class="flex items-center justify-between">
@@ -356,4 +574,181 @@
             </div>
         </div>
     </div>
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Chart.js configuration
+            Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+            Chart.defaults.font.size = 12;
+            Chart.defaults.color = '#6B7280';
+
+            // Stock Distribution Pie Chart
+            const stockCtx = document.getElementById('stockDistributionChart').getContext('2d');
+            new Chart(stockCtx, {
+                type: 'pie',
+                data: {
+                    labels: ['Breeding Stock', 'Standard Stock'],
+                    datasets: [{
+                        data: [{{ $breedingStock }}, {{ $standardStock }}],
+                        backgroundColor: ['#10B981', '#3B82F6'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                    return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Weight Alerts Bar Chart
+            const alertsCtx = document.getElementById('weightAlertsChart').getContext('2d');
+            new Chart(alertsCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['High', 'Medium', 'Low'],
+                    datasets: [{
+                        data: [{{ $highAlerts }}, {{ $mediumAlerts }}, {{ $lowAlerts }}],
+                        backgroundColor: ['#EF4444', '#F59E0B', '#10B981'],
+                        borderWidth: 0,
+                        borderRadius: 8,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            },
+                            grid: {
+                                display: false
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Weight Trends Line Chart
+            const trendsCtx = document.getElementById('weightTrendsChart').getContext('2d');
+            
+            // Generate last 7 days data
+            const last7Days = [];
+            const weightData = [];
+            for (let i = 6; i >= 0; i--) {
+                const date = new Date();
+                date.setDate(date.getDate() - i);
+                last7Days.push(date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+                
+                // This would need to be passed from the controller for real data
+                weightData.push(Math.floor(Math.random() * 10) + 5); // Placeholder data
+            }
+
+            new Chart(trendsCtx, {
+                type: 'line',
+                data: {
+                    labels: last7Days,
+                    datasets: [{
+                        label: 'Weight Records',
+                        data: weightData,
+                        borderColor: '#3B82F6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#3B82F6',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2,
+                        pointRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Breed Distribution Doughnut Chart
+            const breedCtx = document.getElementById('breedDistributionChart').getContext('2d');
+            new Chart(breedCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Large White', 'Duroc', 'LWDR'],
+                    datasets: [{
+                        data: [{{ $lwCount }}, {{ $drCount }}, {{ $lwdrCount }}],
+                        backgroundColor: ['#3B82F6', '#10B981', '#8B5CF6'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff',
+                        cutout: '60%'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                    return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
 </x-app-layout>

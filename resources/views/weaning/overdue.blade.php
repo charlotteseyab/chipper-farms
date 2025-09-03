@@ -122,8 +122,8 @@
                                             </div>
                                         </div>
                                         <div class="ml-4">
-                                            <div class="text-sm font-medium text-gray-900">{{ $pig->code }}</div>
                                             <div class="text-sm text-gray-500">{{ $pig->ear_tag_number }}</div>
+                                            <div class="text-sm font-medium text-gray-900">{{ $pig->code }}</div>
                                         </div>
                                     </div>
                                 </td>
@@ -154,10 +154,10 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     @if($pig->mother)
                                         <a href="{{ route('pigs.show', $pig->mother->id) }}" class="text-blue-600 hover:text-blue-800">
-                                            {{ $pig->mother->code }}
+                                            {{ $pig->mother->ear_tag_number }}
                                         </a>
                                     @else
-                                        <span class="text-gray-400">Unknown</span>
+                                        <span class="text-gray-400">N/A</span>
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
@@ -172,21 +172,21 @@
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <div class="relative" x-data="{ open: false }">
-                                        <button @click="open = !open" class="flex items-center text-gray-600 hover:text-gray-900">
+                                    <div class="relative inline-block text-left" x-data="{ open: false, place: 'down', toggle(){ this.open = !this.open; if(!this.open){ return; } this.$nextTick(() => { const menu = this.$refs.menu; const trigger = this.$refs.trigger; if(!menu || !trigger) return; const mr = menu.getBoundingClientRect(); const tr = trigger.getBoundingClientRect(); const below = window.innerHeight - tr.bottom; const above = tr.top; this.place = (below < mr.height + 16 && above > mr.height) ? 'up' : 'down'; }); } }">
+                                        <button x-ref="trigger" @click="toggle()" class="flex items-center text-gray-600 hover:text-gray-900">
                                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
                                             </svg>
                                         </button>
-                                        <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
+                                        <div x-ref="menu" x-show="open" @click.away="open = false" x-transition :class="place === 'down' ? 'origin-top-right mt-2 top-full' : 'origin-bottom-right mb-2 bottom-full'" class="absolute right-0 w-48 bg-white rounded-md shadow-lg z-50 border">
                                             <div class="py-1">
-                                                <button onclick="openWeaningModal({{ $pig->id }}, '{{ $pig->code }}', {{ $currentAge }})" class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                                                <button onclick="openWeaningModal({{ $pig->id }}, '{{ $pig->ear_tag_number }}', {{ $currentAge }})" class="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50">
                                                     <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                                                     </svg>
                                                     Wean Now
                                                 </button>
-                                                <button onclick="openWeightModal({{ $pig->id }}, '{{ $pig->code }}')" class="flex items-center w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50">
+                                                <button onclick="openWeightModal({{ $pig->id }}, '{{ $pig->ear_tag_number }}')" class="flex items-center w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50">
                                                     <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
                                                     </svg>
@@ -211,7 +211,14 @@
 
             <!-- Pagination -->
             <div class="px-6 py-4 border-t border-gray-200">
-                {{ $overduePigs->links() }}
+                <div class="flex items-center justify-between">
+                    <div class="text-sm text-gray-700">
+                        Showing {{ $overduePigs->firstItem() }} to {{ $overduePigs->lastItem() }} of {{ $overduePigs->total() }} results
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <x-simple-pagination :paginator="$overduePigs" />
+                    </div>
+                </div>
             </div>
         @else
             <div class="px-6 py-12 text-center">
@@ -262,7 +269,7 @@
                     <div class="mt-4">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Target Week</label>
                         <select name="target_week" required class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                            <option value="">Select target week...</option>
+                            <option value="" disabled selected>Select target week...</option>
                             @for($week = 1; $week <= 52; $week++)
                                 <option value="{{ $week }}">Week {{ $week }}</option>
                             @endfor
@@ -319,7 +326,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Body Condition Score</label>
                             <select name="body_condition_score" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                                <option value="">Select condition...</option>
+                                <option value="" disabled selected>Select condition...</option>
                                 <option value="1">1 - Very Thin</option>
                                 <option value="2">2 - Thin</option>
                                 <option value="3">3 - Ideal</option>
@@ -331,7 +338,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Health Status</label>
                             <select name="health_status" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                                <option value="">Select status...</option>
+                                <option value="" disabled selected>Select status...</option>
                                 <option value="excellent">Excellent</option>
                                 <option value="good">Good</option>
                                 <option value="fair">Fair</option>
@@ -364,8 +371,8 @@
 </div>
 
 <script>
-function openWeaningModal(pigId, pigCode, ageInDays) {
-    document.getElementById('modalTitle').textContent = `Record Weaning - ${pigCode}`;
+function openWeaningModal(pigId, pigEarTag, ageInDays) {
+    document.getElementById('modalTitle').textContent = `Record Weaning - ${pigEarTag}`;
     document.getElementById('weaningForm').action = `/weaning/${pigId}/wean`;
     document.getElementById('weaningModal').classList.remove('hidden');
     
@@ -383,7 +390,7 @@ function openWeaningModal(pigId, pigCode, ageInDays) {
     ageInfo.innerHTML = `
         <div class="text-sm text-red-800">
             <strong>⚠️ OVERDUE WEANING</strong><br>
-            <strong>Pig:</strong> ${pigCode}<br>
+            <strong>Pig:</strong> ${pigEarTag}<br>
             <strong>Current Age:</strong> ${ageInteger} days<br>
             <strong>Target Weaning Age:</strong> {{ config('breeding.cycle.birth_to_weaning_days', 45) }} days<br>
             <strong>Days Overdue:</strong> ${ageInteger - {{ config('breeding.cycle.birth_to_weaning_days', 45) }}} days
@@ -410,11 +417,11 @@ document.getElementById('weaningModal').addEventListener('click', function(e) {
 });
 
 // Weight Modal Functions
-function openWeightModal(pigId, pigCode) {
+function openWeightModal(pigId, pigEarTag) {
     document.getElementById('weightForm').action = `/weaning/${pigId}/update-weight`;
     document.getElementById('weightInfo').innerHTML = `
         <div class="text-sm">
-            <div class="font-medium text-gray-900 mb-2">Piglet: ${pigCode}</div>
+            <div class="font-medium text-gray-900 mb-2">Piglet (Ear Tag): ${pigEarTag}</div>
             <div class="text-gray-600">Update the current weight for this weaned piglet</div>
             <div class="text-blue-600 mt-1">💡 Regular weight monitoring helps track growth progress</div>
         </div>

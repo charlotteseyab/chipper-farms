@@ -90,35 +90,115 @@ class WeightManagementController extends Controller
         // Get pig for age calculation
         $pig = PigManagement::findOrFail($data['pig_id']);
 
+        		// Calculate actual age in weeks on weigh date
+		$weighDate = Carbon::parse($data['weigh_date']);
+		$actualAgeWeeks = $pig->date_of_birth ? $pig->date_of_birth->diffInWeeks($weighDate) : null;
+
+		// Ensure we use date-only to match DB column type
+		$dateOnly = $weighDate->toDateString();
+
+		// Prepare data for model (match model field names)
+		$weightData = [
+			'pig_id' => $data['pig_id'],
+			'weight' => $data['weight_kg'],
+			'weight_unit' => 'kg',
+			'weigh_date' => $dateOnly,
+			'target_week' => $data['target_week'],
+			'actual_age_weeks' => $actualAgeWeeks,
+			'purpose' => $data['purpose'],
+			'body_condition_score' => $data['body_condition_score'] ?? null,
+			'health_status' => $data['health_status'] ?? null,
+			'notes' => $data['notes'] ?? null,
+			'week_notes' => $data['week_notes'] ?? null,
+			'weighed_by' => auth()->user()->name ?? 'System',
+			'is_estimated' => false,
+		];
+
+		// Upsert by (pig_id, weigh_date)
+		$existing = PigWeight::where('pig_id', $data['pig_id'])
+			->whereDate('weigh_date', $dateOnly)
+			->first();
+
+		if ($existing) {
+			$existing->fill($weightData);
+			$existing->save();
+			$message = 'Weight record updated successfully!';
+		} else {
+			PigWeight::create($weightData);
+			$message = 'Weight record added successfully!';
+		}
+
+		return FlashHelper::successAndRedirect(
+			$message,
+			'weights.index'
+		);
+	}
+
+    /**
+     * Show the form for editing the specified weight record
+     */
+    public function edit(PigWeight $weight)
+    {
+        $pigs = PigManagement::orderBy('ear_tag_number')->get();
+        $selectedPig = $weight->pig;
+
+        return view('weights.edit', compact('weight', 'pigs', 'selectedPig'));
+    }
+
+    /**
+     * Update the specified weight record
+     */
+    public function update(Request $request, PigWeight $weight)
+    {
+        $data = $request->validate([
+            'pig_id' => 'required|exists:pigs_management,id',
+            'weight_kg' => 'required|numeric|min:0.1|max:500',
+            'weigh_date' => 'required|date|before_or_equal:today',
+            'target_week' => 'required|integer|min:1|max:104',
+            'weigh_time' => 'nullable|date_format:H:i',
+            'purpose' => 'required|in:routine,breeding,health,sale,birth,weaning,maturity,other',
+            'body_condition_score' => 'nullable|numeric|min:1|max:5',
+            'health_status' => 'nullable|in:excellent,good,fair,poor',
+            'notes' => 'nullable|string|max:1000',
+            'week_notes' => 'nullable|string|max:500',
+        ]);
+
+        // Get pig for age calculation
+        $pig = PigManagement::findOrFail($data['pig_id']);
+
         // Calculate actual age in weeks on weigh date
         $weighDate = Carbon::parse($data['weigh_date']);
         $actualAgeWeeks = $pig->date_of_birth ? $pig->date_of_birth->diffInWeeks($weighDate) : null;
+
+        // Ensure we use date-only to match DB column type
+        $dateOnly = $weighDate->toDateString();
 
         // Prepare data for model (match model field names)
         $weightData = [
             'pig_id' => $data['pig_id'],
             'weight' => $data['weight_kg'],
             'weight_unit' => 'kg',
-            'weigh_date' => $data['weigh_date'],
+            'weigh_date' => $dateOnly,
             'target_week' => $data['target_week'],
             'actual_age_weeks' => $actualAgeWeeks,
             'purpose' => $data['purpose'],
             'body_condition_score' => $data['body_condition_score'] ?? null,
+            'health_status' => $data['health_status'] ?? null,
             'notes' => $data['notes'] ?? null,
             'week_notes' => $data['week_notes'] ?? null,
             'weighed_by' => auth()->user()->name ?? 'System',
             'is_estimated' => false,
         ];
 
-        // Combine date and time
-        if ($data['weigh_time']) {
-            $weightData['weigh_date'] = Carbon::parse($data['weigh_date'])->format('Y-m-d') . ' ' . $data['weigh_time'];
-        }
+        // Update the weight record
+        $weight->fill($weightData);
+        $weight->save();
 
-        PigWeight::create($weightData);
+        // Regenerate weight alerts for this weight
+        $weight->regenerateAlerts();
 
         return FlashHelper::successAndRedirect(
-            'Weight record added successfully!',
+            'Weight record updated successfully!',
             'weights.index'
         );
     }
@@ -218,6 +298,26 @@ class WeightManagementController extends Controller
             $analytics = $this->calculateWeightAnalytics($weights);
         }
 
+        if ($weights->count() >= 2) {
+            $analytics = $this->calculateWeightAnalytics($weights);
+        
+            // Add phase info to each growth period
+            $analytics['growth_periods'] = collect($analytics['growth_periods'])->map(function ($period) {
+                $endWeight = $period['to_weight'];
+        
+                if ($endWeight < 25) {
+                    $period['phase'] = 'Starter';
+                } elseif ($endWeight < 60) {
+                    $period['phase'] = 'Grower';
+                } else {
+                    $period['phase'] = 'Finisher';
+                }
+        
+                return $period;
+            })->toArray();
+        }
+        
+
         // Generate PDF
         $pdf = Pdf::loadView('weights.pdf-report', compact('pig', 'weights', 'analytics'));
 
@@ -232,5 +332,99 @@ class WeightManagementController extends Controller
         $filename = 'weight-report-' . $pig->ear_tag_number . '-' . now()->format('Y-m-d') . '.pdf';
 
         return $pdf->download($filename);
+    }
+
+    /**
+     * Get previous weight for a pig
+     */
+    public function getPreviousWeight($pigId)
+    {
+        $pig = PigManagement::findOrFail($pigId);
+        
+        $previousWeight = PigWeight::where('pig_id', $pigId)
+            ->orderBy('weigh_date', 'desc')
+            ->first();
+
+        if (!$previousWeight) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No previous weight found',
+                'data' => null
+            ]);
+        }
+
+        $daysSince = $previousWeight->weigh_date->diffInDays(now());
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'weight' => $previousWeight->weight,
+                'date' => $previousWeight->weigh_date->format('Y-m-d'),
+                'days_since' => $daysSince,
+                'purpose' => $previousWeight->purpose,
+                'target_week' => $previousWeight->target_week
+            ]
+        ]);
+    }
+
+    /**
+     * Get expected weight for a pig based on age and breed
+     */
+    public function getExpectedWeight($pigId)
+    {
+        $pig = PigManagement::findOrFail($pigId);
+        
+        // Calculate pig's current age in weeks
+        $ageInWeeks = $pig->current_age_in_weeks;
+        
+        // Get weight standards for this pig's breed, gender, stock type and age
+        $weightStandard = \App\Models\ExpectedWeightStandard::where('breed', $pig->breed)
+            ->where('gender', $pig->gender)
+            ->where('stock_type', $pig->stock_type)
+            ->where('week_number', $ageInWeeks)
+            ->where('is_active', true)
+            ->first();
+
+        if (!$weightStandard) {
+            // Try to find the closest week standard
+            $closestStandard = \App\Models\ExpectedWeightStandard::where('breed', $pig->breed)
+                ->where('gender', $pig->gender)
+                ->where('stock_type', $pig->stock_type)
+                ->where('is_active', true)
+                ->orderByRaw('ABS(week_number - ?)', [$ageInWeeks])
+                ->first();
+
+            if ($closestStandard) {
+                            return response()->json([
+                'success' => true,
+                'data' => [
+                    'min_weight' => $closestStandard->expected_min_weight,
+                    'max_weight' => $closestStandard->expected_max_weight,
+                    'optimal_weight' => $closestStandard->optimal_weight,
+                    'week_number' => $closestStandard->week_number,
+                    'pig_age_weeks' => $ageInWeeks,
+                    'note' => 'Using standard for week ' . $closestStandard->week_number . ' (closest to pig\'s age)'
+                ]
+            ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'No weight standards found for this breed',
+                'data' => null
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'min_weight' => $weightStandard->expected_min_weight,
+                'max_weight' => $weightStandard->expected_max_weight,
+                'optimal_weight' => $weightStandard->optimal_weight,
+                'week_number' => $weightStandard->week_number,
+                'pig_age_weeks' => $ageInWeeks,
+                'note' => 'Exact match for pig\'s age'
+            ]
+        ]);
     }
 }

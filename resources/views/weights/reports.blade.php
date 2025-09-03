@@ -23,15 +23,25 @@
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
                 <form method="GET" class="flex items-end gap-4">
                     <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Select Pig for Analysis</label>
-                        <select name="pig_id" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" onchange="this.form.submit()">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Select Pig</label>
+                        <select name="pig_id" id="pigSelect" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" onchange="this.form.submit()">
                             <option value="">-- Select a Pig --</option>
                             @foreach($pigs as $pigOption)
-                                <option value="{{ $pigOption->id }}" {{ request('pig_id') == $pigOption->id ? 'selected' : '' }}>
+                                <option value="{{ $pigOption->id }}" 
+                                        data-ear="{{ $pigOption->ear_tag_number }}"
+                                        data-code="{{ $pigOption->code }}"
+                                        data-breed="{{ $pigOption->breed }}"
+                                        data-gender="{{ $pigOption->gender === 'M' ? 'Male' : 'Female' }}"
+                                        {{ request('pig_id') == $pigOption->id ? 'selected' : '' }}>
                                     {{ $pigOption->ear_tag_number }} - {{ $pigOption->code }} ({{ $pigOption->breed }}, {{ $pigOption->gender === 'M' ? 'Male' : 'Female' }})
                                 </option>
                             @endforeach
                         </select>
+                    </div>
+                    
+                    <div class="flex-shrink-0">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Quick Search</label>
+                        <input type="text" id="pigSearch" placeholder="Search pigs..." class="w-64 border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
                     </div>
 
                     @if($pig)
@@ -145,6 +155,7 @@
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight Range</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phase</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Gain</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Daily Gain</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performance</th>
@@ -162,6 +173,26 @@
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 {{ number_format($period['from_weight'], 1) }} → {{ number_format($period['to_weight'], 1) }} kg
                                             </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                 @php
+                                                 $endWeight = $period['to_weight'];
+                                                 if ($endWeight < 25) {
+                                                 $phase = 'Starter';
+                                                 $badge = 'bg-blue-100 text-blue-800';
+                                                 } elseif ($endWeight < 60) {
+                                                 $phase = 'Grower';
+                                                $badge = 'bg-yellow-100 text-yellow-800';
+                                                } else {
+                                                 $phase = 'Finisher';
+                                                    $badge = 'bg-green-100 text-green-800';
+                                                }
+                                                     @endphp
+
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $badge }}">
+                                                   {{ $phase }}
+                                                </span>
+                                            </td>
+
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 <span class="{{ $period['weight_gain'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
                                                     {{ $period['weight_gain'] >= 0 ? '+' : '' }}{{ number_format($period['weight_gain'], 1) }} kg
@@ -290,5 +321,56 @@
                 window.open(`{{ route('weights.reports.export-pdf') }}?pig_id=${pigId}`, '_blank');
             @endif
         }
+
+        // Quick search functionality for pig selection
+        document.addEventListener('DOMContentLoaded', function() {
+            const searchInput = document.getElementById('pigSearch');
+            const selectElement = document.getElementById('pigSelect');
+            
+            if (!searchInput || !selectElement) return;
+            
+            function debounce(fn, wait) {
+                let t;
+                return function() {
+                    const ctx = this, args = arguments;
+                    clearTimeout(t);
+                    t = setTimeout(function(){ fn.apply(ctx, args); }, wait);
+                };
+            }
+            
+            const searchHandler = debounce(function() {
+                const searchTerm = searchInput.value.toLowerCase().trim();
+                const options = selectElement.querySelectorAll('option');
+                
+                options.forEach(function(option) {
+                    if (option.value === '') return; // Skip the placeholder option
+                    
+                    const ear = option.dataset.ear || '';
+                    const code = option.dataset.code || '';
+                    const breed = option.dataset.breed || '';
+                    const gender = option.dataset.gender || '';
+                    
+                    const searchText = (ear + ' ' + code + ' ' + breed + ' ' + gender).toLowerCase();
+                    
+                    if (searchText.includes(searchTerm)) {
+                        option.style.display = '';
+                    } else {
+                        option.style.display = 'none';
+                    }
+                });
+            }, 150);
+            
+            searchInput.addEventListener('input', searchHandler);
+            
+            // Clear search when form is submitted
+            selectElement.addEventListener('change', function() {
+                searchInput.value = '';
+                // Show all options again
+                const options = selectElement.querySelectorAll('option');
+                options.forEach(function(option) {
+                    option.style.display = '';
+                });
+            });
+        });
     </script>
 </x-app-layout>

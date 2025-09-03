@@ -3,7 +3,7 @@
 <div class="container mx-auto px-4 py-2">
     <div class="flex justify-between items-center mb-8">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">⏳ Pending Weaning</h1>
+            <h1 class="text-3xl font-bold text-gray-900">Pending Weaning</h1>
             <p class="text-gray-600 mt-2">Pigs not yet ready for weaning (under {{ config('breeding.cycle.birth_to_weaning_days', 45) }} days old)</p>
         </div>
     </div>
@@ -137,8 +137,8 @@
                                             </div>
                                         </div>
                                         <div class="ml-4">
-                                            <div class="text-sm font-medium text-gray-900">{{ $pig->code }}</div>
-                                            <div class="text-sm text-gray-500">{{ $pig->ear_tag_number }}</div>
+                                            <div class="text-sm font-medium text-gray-900">{{ $pig->ear_tag_number }}</div>
+                                            <div class="text-xs text-gray-500">{{ $pig->code }}</div>
                                         </div>
                                     </div>
                                 </td>
@@ -175,10 +175,10 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     @if($pig->mother)
                                         <a href="{{ route('pigs.show', $pig->mother->id) }}" class="text-blue-600 hover:text-blue-800">
-                                            {{ $pig->mother->code }}
+                                            {{ $pig->mother->ear_tag_number }}
                                         </a>
                                     @else
-                                        <span class="text-gray-400">Unknown</span>
+                                        <span class="text-gray-400">N/A</span>
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
@@ -197,13 +197,13 @@
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <div class="relative" x-data="{ open: false }">
-                                        <button @click="open = !open" class="flex items-center text-gray-600 hover:text-gray-900">
+                                    <div class="relative inline-block text-left" x-data="{ open: false, place: 'down', toggle(){ this.open = !this.open; if(!this.open){ return; } this.$nextTick(() => { const menu = this.$refs.menu; const trigger = this.$refs.trigger; if(!menu || !trigger) return; const mr = menu.getBoundingClientRect(); const tr = trigger.getBoundingClientRect(); const below = window.innerHeight - tr.bottom; const above = tr.top; this.place = (below < mr.height + 16 && above > mr.height) ? 'up' : 'down'; }); } }">
+                                        <button x-ref="trigger" @click="toggle()" class="flex items-center text-gray-600 hover:text-gray-900">
                                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
                                             </svg>
                                         </button>
-                                        <div x-show="open" @click.away="open = false" x-transition class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 border">
+                                        <div x-ref="menu" x-show="open" @click.away="open = false" x-transition :class="place === 'down' ? 'origin-top-right mt-2 top-full' : 'origin-bottom-right mb-2 bottom-full'" class="absolute right-0 w-48 bg-white rounded-md shadow-lg z-50 border">
                                             <div class="py-1">
                                                 @if($isReadyForWeaning)
                                                     <button onclick="openWeaningModal({{ $pig->id }}, '{{ $pig->code }}', {{ $currentAge }})" class="flex items-center w-full px-4 py-2 text-sm text-green-600 hover:bg-green-50">
@@ -245,7 +245,14 @@
 
             <!-- Pagination -->
             <div class="px-6 py-4 border-t border-gray-200">
-                {{ $pendingPigs->links() }}
+                <div class="flex items-center justify-between">
+                    <div class="text-sm text-gray-700">
+                        Showing {{ $pendingPigs->firstItem() }} to {{ $pendingPigs->lastItem() }} of {{ $pendingPigs->total() }} results
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <x-simple-pagination :paginator="$pendingPigs" />
+                    </div>
+                </div>
             </div>
         @else
             <div class="px-6 py-12 text-center">
@@ -296,7 +303,7 @@
                     <div class="mt-4">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Age Week</label>
                         <select name="age_week" required class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                            <option value="">Select age week...</option>
+                            <option value="" disabled selected>Select age week...</option>
                             @for($week = 1; $week <= 12; $week++)
                                 <option value="{{ $week }}">Week {{ $week }} ({{ 1 + ($week-1)*0.5 }}-{{ 2 + ($week-1)*0.5 }}kg expected)</option>
                             @endfor
@@ -313,7 +320,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Weaning Readiness</label>
                             <select name="weaning_readiness" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                                <option value="">Select readiness...</option>
+                                <option value="" disabled selected>Select readiness...</option>
                                 <option value="not_ready">Not Ready (< 6kg)</option>
                                 <option value="developing">Developing (6-8kg)</option>
                                 <option value="nearly_ready">Nearly Ready (8-10kg)</option>
@@ -324,7 +331,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Feeding Behavior</label>
                             <select name="feeding_behavior" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                                <option value="">Select behavior...</option>
+                                <option value="" disabled selected>Select behavior...</option>
                                 <option value="milk_only">Milk Only</option>
                                 <option value="starting_solids">Starting Solids</option>
                                 <option value="eating_well">Eating Well</option>
@@ -335,7 +342,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Activity Level</label>
                             <select name="activity_level" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                                <option value="">Select activity...</option>
+                                <option value="" disabled selected>Select activity...</option>
                                 <option value="low">Low</option>
                                 <option value="moderate">Moderate</option>
                                 <option value="active">Active</option>
@@ -360,7 +367,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Body Condition</label>
                             <select name="body_condition" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                                <option value="">Select condition...</option>
+                                <option value="" disabled selected>Select condition...</option>
                                 <option value="thin">Thin</option>
                                 <option value="ideal">Ideal</option>
                                 <option value="chubby">Chubby</option>
@@ -371,7 +378,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Health Status</label>
                             <select name="health_status" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                                <option value="">Select status...</option>
+                                <option value="" disabled selected>Select status...</option>
                                 <option value="excellent">Excellent</option>
                                 <option value="good">Good</option>
                                 <option value="fair">Fair</option>

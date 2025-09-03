@@ -288,6 +288,9 @@
 
         @stack('modals')
 
+        <!-- Copyright Footer -->
+        <!-- <x-copyright-minimal /> -->
+
         @livewireScripts
     </body>
 </html>

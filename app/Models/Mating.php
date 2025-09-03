@@ -98,7 +98,7 @@ class Mating extends Model
             'completed' => '✅',
             'cancelled' => '❌',
             'failed' => '⚠️',
-            default => '❓'
+            default => ''
         };
     }
 
@@ -154,7 +154,7 @@ class Mating extends Model
             'farrowed' => '🐷',
             'lost_pregnancy' => '💔',
             'aborted' => '🚫',
-            default => '❓'
+            default => ''
         };
     }
 
@@ -167,15 +167,22 @@ class Mating extends Model
     // Gestation-related accessors
     public function getDaysToFarrowingAttribute(): int
     {
-        if (!$this->expected_farrowing_date) return 0;
-        return max(0, $this->expected_farrowing_date->diffInDays(now(), false));
+    if (!$this->expected_farrowing_date) return 0;
+    // Expected date minus today
+    return now()->diffInDays($this->expected_farrowing_date, false);
     }
+
 
     public function getIsOverdueForFarrowingAttribute(): bool
     {
-        if (!$this->expected_farrowing_date) return false;
-        return $this->expected_farrowing_date->isPast() && $this->pregnancy_status === 'pregnant';
+    if (!$this->expected_farrowing_date) {
+        return false;
     }
+
+    return $this->days_to_farrowing < 0 
+        && $this->pregnancy_status === 'pregnant';
+    }
+
 
     public function getGestationDaysAttribute(): int
     {

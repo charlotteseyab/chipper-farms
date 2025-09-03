@@ -43,10 +43,33 @@
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Date of Birth</label>
                     <input type="date" name="date_of_birth" required max="{{ now()->toDateString() }}" value="{{ old('date_of_birth', $breedingStock->date_of_birth->format('Y-m-d')) }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-[#1C6C51] focus:border-[#1C6C51]">
                 </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Room (optional)</label>
+                    <select name="room_id" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-[#1C6C51] focus:border-[#1C6C51]">
+                        <option value="" selected>-- No Room --</option>
+                        @isset($rooms)
+                            @foreach ($rooms as $room)
+                                @php
+                                    $label = ($room->structure?->name ? $room->structure->name . ' / ' : '') . $room->name;
+                                    if ($room->capacity) {
+                                        $label .= " (" . ($room->pigs()->count()) . "/" . $room->capacity . ")";
+                                    }
+                                @endphp
+                                <option value="{{ $room->id }}" @if(old('room_id', $breedingStock->room_id) == $room->id) selected @endif>{{ $label }}</option>
+                            @endforeach
+                        @endisset
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">Select a room to assign location. Capacity limits are enforced.</p>
+                    @error('room_id')
+                        <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                    @enderror
+                </div>
+
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Father (optional)</label>
                     <select name="father_id" id="father_id" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-[#1C6C51] focus:border-[#1C6C51]">
-                        <option value="">-- None --</option>
+                        <option value="" disabled selected>-- None --</option>
                         @foreach ($males as $male)
                             <option value="{{ $male->id }}" @if(old('father_id', $breedingStock->father_id) == $male->id) selected @endif>{{ $male->ear_tag_number }} - {{ $male->code }}</option>
                         @endforeach
@@ -55,7 +78,7 @@
                 <div>
                     <label class="block text-sm font-semibold text-gray-700 mb-1">Mother (optional)</label>
                     <select name="mother_id" id="mother_id" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-[#1C6C51] focus:border-[#1C6C51]">
-                        <option value="">-- None --</option>
+                        <option value="" disabled selected>-- None --</option>
                         @foreach ($females as $female)
                             <option value="{{ $female->id }}" @if(old('mother_id', $breedingStock->mother_id) == $female->id) selected @endif>{{ $female->ear_tag_number }} - {{ $female->code }}</option>
                         @endforeach
@@ -214,8 +237,6 @@
                     submitButton.className = 'w-full py-3 px-6 bg-blue-600 text-white font-bold rounded-lg shadow hover:bg-blue-700 transition';
                 }
             }
-
-
 
             // Event listeners
             fatherSelect.addEventListener('change', checkInbreeding);

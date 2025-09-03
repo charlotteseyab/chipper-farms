@@ -187,14 +187,14 @@
 
                 <!-- CTA Buttons -->
                 <div class="flex flex-col sm:flex-row gap-3 justify-center items-center mb-8">
-                    <a href="{{ route('login') }}" class="btn-primary px-6 py-3 rounded-lg font-semibold text-white shadow-lg text-base group relative overflow-hidden">
+                    <!-- <a href="{{ route('login') }}" class="btn-primary px-6 py-3 rounded-lg font-semibold text-white shadow-lg text-base group relative overflow-hidden">
                         <span class="relative z-10 flex items-center gap-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
                             </svg>
                             Access Dashboard
                         </span>
-                    </a>
+                    </a> -->
                     <a href="#features" class="px-6 py-3 rounded-lg font-semibold text-green-700 bg-white/80 backdrop-blur-sm border-2 border-green-200 hover:border-green-300 shadow-lg hover:shadow-xl transition-all duration-300 text-base group">
                         <span class="flex items-center gap-2">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -416,12 +416,12 @@
                             </div>
                             <div>
                                 <h3 class="font-bold text-gray-800">Email Support</h3>
-                                <p class="text-gray-600">Get help from our team</p>
+                                <p class="text-gray-600">support@chipperfarms.com</p>
                             </div>
                         </div>
-                        <a href="mailto:support@chipperfarms.com" class="text-green-600 hover:text-green-700 font-medium">
+                        <!-- <a href="mailto:support@chipperfarms.com" class="text-green-600 hover:text-green-700 font-medium">
                             support@chipperfarms.com
-                        </a>
+                        </a> -->
                     </div>
 
                     <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-blue-100">
@@ -433,12 +433,12 @@
                             </div>
                             <div>
                                 <h3 class="font-bold text-gray-800">Phone Support</h3>
-                                <p class="text-gray-600">Speak with our experts</p>
+                                <p class="text-gray-600">(555) 123-4567</p>
                             </div>
                         </div>
-                        <a href="tel:+15551234567" class="text-blue-600 hover:text-blue-700 font-medium">
+                        <!-- <a href="tel:+15551234567" class="text-blue-600 hover:text-blue-700 font-medium">
                             (555) 123-4567
-                        </a>
+                        </a> -->
                     </div>
 
                     <div class="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-purple-100">
@@ -454,10 +454,10 @@
                                 <p class="text-gray-600">Farm location</p>
                             </div>
                         </div>
-                        <p class="text-purple-600 font-medium">
+                        <!-- <p class="text-purple-600 font-medium">
                             123 Farm Lane<br>
                             Countryside, USA 12345
-                        </p>
+                        </p> -->
                     </div>
                 </div>
 
@@ -475,9 +475,9 @@
                             for their breeding management needs.
                         </p>
                         <div class="space-y-3">
-                            <a href="{{ route('login') }}" class="btn-primary w-full px-5 py-2.5 rounded-lg font-semibold text-white shadow-lg text-base inline-block">
+                            <!-- <a href="{{ route('login') }}" class="btn-primary w-full px-5 py-2.5 rounded-lg font-semibold text-white shadow-lg text-base inline-block">
                                 Access Dashboard
-                            </a>
+                            </a> -->
                             <a href="mailto:demo@chipperfarms.com" class="w-full px-5 py-2.5 rounded-lg font-semibold text-green-700 bg-green-50 border-2 border-green-200 hover:border-green-300 shadow-lg hover:shadow-xl transition-all duration-300 text-base inline-block">
                                 Request Demo
                             </a>

@@ -5,9 +5,9 @@
                 Weight Alerts Management
             </h2>
             <div class="flex space-x-2">
-                <a href="{{ route('weight-alerts.dashboard') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
+                <!-- <a href="{{ route('weight-alerts.dashboard') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
                     📊 Dashboard
-                </a>
+                </a> -->
                 <a href="{{ route('weights.index') }}" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
                     ⚖️ Weight Records
                 </a>
@@ -234,8 +234,15 @@
 
                 <!-- Pagination -->
                 @if($alerts->hasPages())
-                    <div class="px-6 py-4 border-t border-gray-200">
-                        {{ $alerts->links() }}
+                <div class="px-6 py-4 border-t border-gray-200 bg-white">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-gray-700">
+                                Showing {{ $alerts->firstItem() }} to {{ $alerts->lastItem() }} of {{ $alerts->total() }} results
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <x-simple-pagination :paginator="$alerts" />
+                            </div>
+                        </div>
                     </div>
                 @endif
             </div>
