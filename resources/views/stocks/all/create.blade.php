@@ -45,26 +45,66 @@
 
                             <!-- Stock Type Selection -->
                             <div class="mb-6">
-                                <label class="block text-sm font-semibold text-gray-700 mb-3">🐷 Stock Type</label>
-                                <div class="grid grid-cols-2 gap-3">
-                                    <label class="relative cursor-pointer">
-                                        <input type="radio" name="stock_type" value="standard" {{ old('stock_type') == 'standard' ? 'checked' : '' }} class="sr-only" required>
-                                        <div class="border-2 border-gray-200 rounded-lg p-4 text-center transition-all hover:border-blue-300 stock-type-option" data-type="standard">
-                                            <div class="text-2xl mb-2">🐖</div>
-                                            <div class="font-semibold text-gray-800">Standard Stock</div>
-                                            <div class="text-xs text-gray-600 mt-1">For fattening & Sale</div>
-                                        </div>
-                                    </label>
-                                    <label class="relative cursor-pointer">
-                                        <input type="radio" name="stock_type" value="breeding" {{ old('stock_type') == 'breeding' ? 'checked' : '' }} class="sr-only" required>
-                                        <div class="border-2 border-gray-200 rounded-lg p-4 text-center transition-all hover:border-green-300 stock-type-option" data-type="breeding">
-                                            <div class="text-2xl mb-2">👑</div>
-                                            <div class="font-semibold text-gray-800">Breeding Stock</div>
-                                            <div class="text-xs text-gray-600 mt-1">For reproduction</div>
-                                        </div>
-                                    </label>
-                                </div>
-                            </div>
+  <label class="block text-sm font-semibold text-gray-700 mb-3">🐷 Stock Type</label>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+	<!-- Standard -->
+	<label class="relative cursor-pointer">
+  	<input
+    	type="radio"
+    	name="stock_type"
+    	value="standard"
+    	class="peer sr-only"
+    	{{ old('stock_type') == 'standard' ? 'checked' : '' }}
+    	required
+  	>
+  	<div
+    	class="border-2 border-gray-200 rounded-lg p-4 text-center transition
+           	hover:border-blue-300 peer-checked:border-blue-500
+           	peer-checked:bg-blue-50 peer-focus-visible:ring-2
+           	peer-focus-visible:ring-blue-300"
+  	>
+    	<div class="text-2xl mb-2">🐖</div>
+    	<div class="font-semibold text-gray-800">Standard Stock</div>
+    	<div class="text-xs text-gray-600 mt-1">For fattening & Sale</div>
+
+    	<!-- Tick shown only when selected -->
+    	<span class="hidden peer-checked:inline-block absolute top-2 right-2
+                 	bg-blue-500 text-white text-[10px] px-2 py-0.5 rounded-full">
+      	Selected
+    	</span>
+  	</div>
+	</label>
+
+	<!-- Breeding -->
+	<label class="relative cursor-pointer">
+  	<input
+    	type="radio"
+    	name="stock_type"
+    	value="breeding"
+    	class="peer sr-only"
+    	{{ old('stock_type') == 'breeding' ? 'checked' : '' }}
+    	required
+  	>
+  	<div
+    	class="border-2 border-gray-200 rounded-lg p-4 text-center transition
+           	hover:border-green-300 peer-checked:border-green-500
+           	peer-checked:bg-green-50 peer-focus-visible:ring-2
+           	peer-focus-visible:ring-green-300"
+  	>
+    	<div class="text-2xl mb-2">👑</div>
+    	<div class="font-semibold text-gray-800">Breeding Stock</div>
+    	<div class="text-xs text-gray-600 mt-1">For reproduction</div>
+
+    	<span class="hidden peer-checked:inline-block absolute top-2 right-2
+                 	bg-green-600 text-white text-[10px] px-2 py-0.5 rounded-full">
+      	Selected
+    	</span>
+  	</div>
+	</label>
+  </div>
+</div>
+
 
                             <!-- Basic Details -->
                             <div class="space-y-4">
