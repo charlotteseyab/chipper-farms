@@ -252,7 +252,7 @@ class PigManagementController extends Controller {
     public function allCreate() {
         $males = PigManagement::active()->where('gender', 'M')->get();
         $females = PigManagement::active()->where('gender', 'F')->get();
-        $structures = \App\Models\Structure::orderBy('name')->get();
+        $structures = \App\Models\Structure::orderBy('name')->where('status','active')->get();
     
         return view('stocks.all.create', compact('males', 'females', 'structures'));
     }
