@@ -279,7 +279,7 @@ class PigManagementController extends Controller {
                 if (!$room) {
                     return back()->withErrors(['room_id' => 'Selected room not found. Please choose another room.'])->withInput();
                 }
-                if ($room->capacity && $room->pigs()->count() >= $room->capacity) {
+                if (!$room->canAccommodatePig()) {
                     return back()->withErrors(['room_id' => 'Selected room is full. Please choose another room.'])->withInput();
                 }
             }
@@ -576,7 +576,9 @@ class PigManagementController extends Controller {
             if (!$room) {
                 return back()->withErrors(['room_id' => 'Selected room not found or inactive.'])->withInput();
             }
-            if ($room->capacity && $room->pigs()->count() >= $room->capacity) {
+            
+            // Check if room can accommodate the pig, excluding the current pig if it's already in this room
+            if (!$room->canAccommodatePig($pig->id)) {
                 return back()->withErrors(['room_id' => 'Selected room is full. Please choose another room.'])->withInput();
             }
         }

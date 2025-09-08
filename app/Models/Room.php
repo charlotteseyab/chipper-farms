@@ -21,6 +21,28 @@ class Room extends Model
     {
         return $this->hasMany(PigManagement::class, 'room_id');
     }
+
+    /**
+     * Determine if the room can accommodate a pig, optionally excluding a pig by ID
+     */
+    public function canAccommodatePig(?int $excludePigId = null): bool
+    {
+        // Unlimited capacity if null or zero/negative
+        if (is_null($this->capacity) || (int)$this->capacity <= 0) {
+            return true;
+        }
+
+        $activePigsQuery = $this->pigs()
+            ->whereDoesntHave('sales')
+            ->whereDoesntHave('deaths');
+
+        if (!is_null($excludePigId)) {
+            $activePigsQuery->where('id', '!=', $excludePigId);
+        }
+
+        $currentActive = (int) $activePigsQuery->count();
+        return $currentActive < (int) $this->capacity;
+    }
 }
 
 

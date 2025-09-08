@@ -19,11 +19,16 @@
                             <p class="text-green-100 text-sm font-medium">Total Farm Value</p>
                             <p class="text-2xl font-bold">
                                 @php
-                                    $totalPigs = \App\Models\PigManagement::count();
-                                    $avgPigValue = 800; // Estimated average pig value
-                                    $estimatedValue = $totalPigs * $avgPigValue;
+                                    // Align with admin dashboard: total weight (latest per pig) × live weight price
+                                    $totalWeight = \App\Models\PigWeight::whereIn('id', function($query) {
+                                        $query->select(\DB::raw('MAX(id)'))
+                                              ->from('pig_weights')
+                                              ->groupBy('pig_id');
+                                    })->sum('weight');
+                                    $liveWeightPrice = \App\Models\Setting::get('sales.pricing.live_weight_price', 30.00);
+                                    $estimatedValue = $totalWeight * $liveWeightPrice;
                                 @endphp
-                                ₵{{ number_format($estimatedValue, 0) }}
+                                ₵{{ number_format($estimatedValue, 2) }}
                             </p>
                         </div>
                         <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">

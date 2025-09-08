@@ -9,6 +9,10 @@ use App\Helpers\NavigationHelper;
 use App\Models\PigWeight;
 use App\Observers\PigWeightObserver;
 use App\Models\Setting;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
+use App\Models\ActivityLog;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -56,5 +60,30 @@ class AppServiceProvider extends ServiceProvider
         } catch (\Throwable $e) {
             // Swallow exceptions (e.g., during install before migrations)
         }
+
+        // Login/Logout activity logging
+        Event::listen(Login::class, function (Login $event) {
+            try {
+                ActivityLog::create([
+                    'user_id' => $event->user->id,
+                    'action' => 'login',
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                    'metadata' => [ 'guard' => $event->guard ],
+                ]);
+            } catch (\Throwable $e) {}
+        });
+
+        Event::listen(Logout::class, function (Logout $event) {
+            try {
+                ActivityLog::create([
+                    'user_id' => optional($event->user)->id,
+                    'action' => 'logout',
+                    'ip_address' => request()->ip(),
+                    'user_agent' => request()->userAgent(),
+                    'metadata' => [ 'guard' => $event->guard ],
+                ]);
+            } catch (\Throwable $e) {}
+        });
     }
 }

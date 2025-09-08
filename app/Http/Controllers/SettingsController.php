@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Helpers\FlashHelper;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use App\Models\ActivityLog;
 
 class SettingsController extends Controller
 {
@@ -223,6 +224,34 @@ class SettingsController extends Controller
             'weightAnalytics',
             'structureStats'
         ));
+    }
+
+    /**
+     * Activity log list (login/logout)
+     */
+    public function activityLog(Request $request)
+    {
+        // Restrict to superuser only
+        abort_unless(auth()->check() && auth()->user()->isSuperuser(), 403);
+
+        $query = ActivityLog::with('user')->latest();
+
+        // By default, show login, logout and login_attempt without requiring filters
+        if (!$request->filled('action')) {
+            $query->whereIn('action', ['login', 'logout', 'login_attempt']);
+        } else {
+            $query->where('action', $request->string('action'));
+        }
+        if ($request->filled('user')) {
+            $query->whereHas('user', function($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->string('user') . '%')
+                  ->orWhere('email', 'like', '%' . $request->string('user') . '%');
+            });
+        }
+
+        $logs = $query->paginate(20);
+
+        return view('settings.activity-log', compact('logs'));
     }
 
     /**

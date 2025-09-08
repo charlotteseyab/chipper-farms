@@ -50,15 +50,8 @@ class AdminController extends Controller
                 return Carbon::parse($date)->format('M j');
             })->toArray();
             $values = $weightTrendsData->pluck('avg_weight')->toArray();
-        } else {
-            // Generate fallback data for the date range
-            $current = $from->copy();
-            while ($current->lte($to)) {
-                $labels[] = $current->format('M j');
-                $values[] = rand(20, 80); // Sample weights
-                $current->addDay();
-            }
         }
+        // If no data, return empty arrays - no fallback data
         
         return response()->json([
             'labels' => $labels,

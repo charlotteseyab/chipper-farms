@@ -96,12 +96,30 @@ class WeightStandardsController extends Controller
             ])->withInput();
         }
 
-        ExpectedWeightStandard::create($data);
+        $weightStandard = ExpectedWeightStandard::create($data);
 
-        return FlashHelper::successAndRedirect(
-            'Weight standard created successfully!',
-            'weight-standards.index'
-        );
+        // Reprocess existing weight records for this pig type to generate new alerts
+        try {
+            $processedCount = \App\Models\PigWeight::reprocessAlertsForPigType(
+                $data['breed'],
+                $data['gender'],
+                $data['stock_type']
+            );
+
+            $message = "Weight standard created successfully!";
+            if ($processedCount > 0) {
+                $message .= " {$processedCount} existing weight record(s) have been re-evaluated against the new standard.";
+            }
+
+            return FlashHelper::successAndRedirect($message, 'weight-standards.index');
+        } catch (\Exception $e) {
+            \Log::error("Failed to reprocess weight alerts after creating standard: " . $e->getMessage());
+            
+            return FlashHelper::successAndRedirect(
+                'Weight standard created successfully! (Note: Some existing weight records may need manual review)',
+                'weight-standards.index'
+            );
+        }
     }
 
     /**
@@ -137,12 +155,35 @@ class WeightStandardsController extends Controller
         // Handle checkbox properly - unchecked checkboxes don't send any value
         $data['is_active'] = $request->has('is_active');
 
+        // Store the original values for reprocessing
+        $originalBreed = $weightStandard->breed;
+        $originalGender = $weightStandard->gender;
+        $originalStockType = $weightStandard->stock_type;
+
         $weightStandard->update($data);
 
-        return FlashHelper::successAndRedirect(
-            'Weight standard updated successfully!',
-            'weight-standards.index'
-        );
+        // Reprocess existing weight records for this pig type to generate new alerts
+        try {
+            $processedCount = \App\Models\PigWeight::reprocessAlertsForPigType(
+                $originalBreed,
+                $originalGender,
+                $originalStockType
+            );
+
+            $message = "Weight standard updated successfully!";
+            if ($processedCount > 0) {
+                $message .= " {$processedCount} existing weight record(s) have been re-evaluated against the updated standard.";
+            }
+
+            return FlashHelper::successAndRedirect($message, 'weight-standards.index');
+        } catch (\Exception $e) {
+            \Log::error("Failed to reprocess weight alerts after updating standard: " . $e->getMessage());
+            
+            return FlashHelper::successAndRedirect(
+                'Weight standard updated successfully! (Note: Some existing weight records may need manual review)',
+                'weight-standards.index'
+            );
+        }
     }
 
     /**

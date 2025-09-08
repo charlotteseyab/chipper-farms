@@ -7,6 +7,20 @@
                 </a>
             </div>
             <x-validation-errors class="mb-4" />
+            @if ($errors->has('email'))
+                @php
+                    $message = $errors->first('email');
+                    $retryAfter = null;
+                    if (preg_match('/(available in|seconds:?)\s*(\d+)/i', $message, $m)) {
+                        $retryAfter = (int) ($m[2] ?? 0);
+                    }
+                @endphp
+                @if(!empty($retryAfter) && $retryAfter > 0)
+                    <div x-data="{ s: {{ $retryAfter }} }" x-init="const t=setInterval(()=>{ if(s>0){ s-- } },1000)" class="mb-4 p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm">
+                        Too many attempts. Please wait <span x-text="s"></span> seconds before trying again.
+                    </div>
+                @endif
+            @endif
 
             @session('status')
                 <div class="mb-4 font-medium text-sm text-green-600">

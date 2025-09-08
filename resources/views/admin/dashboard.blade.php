@@ -49,7 +49,7 @@
                         <div>
                             <p class="text-green-100 text-sm font-medium">Total Pigs</p>
                             <p class="text-3xl font-bold">{{ number_format($totalPigs) }}</p>
-                            <p class="text-green-100 text-xs mt-1">{{ $totalWeights }} weight records</p>
+                            <p class="text-green-100 text-xs mt-1">{{ \App\Models\PigManagement::where('gender', 'M')->count() }} males • {{ \App\Models\PigManagement::where('gender', 'F')->count() }} females</p>
                         </div>
                         <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -152,10 +152,20 @@
                     $mortalityRate = $totalPigs > 0 ? ($totalDeaths / $totalPigs) * 100 : 0;
                     $salesThisMonth = \App\Models\PigSale::whereMonth('created_at', now()->month)->count();
                     
-                    // Calculate fertility rate
+                    // Calculate farrowing rate
                     $totalMatings = \App\Models\Mating::count();
-                    $successfulMatings = \App\Models\Mating::where('pregnancy_status', 'pregnant')->count();
-                    $fertilityRate = $totalMatings > 0 ? ($successfulMatings / $totalMatings) * 100 : 0;
+                    $femalesThatFarrowed = \App\Models\Farrowing::count();
+                    $farrowingRate = $totalMatings > 0 ? ($femalesThatFarrowed / $totalMatings) * 100 : 0;
+                    
+                    // Calculate total weight and farm value
+                    $totalWeight = \App\Models\PigWeight::whereIn('id', function($query) {
+                        $query->select(\DB::raw('MAX(id)'))
+                              ->from('pig_weights')
+                              ->groupBy('pig_id');
+                    })->sum('weight');
+                    
+                    $liveWeightPrice = \App\Models\Setting::get('sales.pricing.live_weight_price', 30.00);
+                    $totalFarmValue = $totalWeight * $liveWeightPrice;
                 @endphp
 
                 <!-- Breeding Stock -->
@@ -210,9 +220,9 @@
                 <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-gray-600 text-sm font-medium">Mortality Rate</p>
-                            <p class="text-2xl font-bold text-gray-900">{{ number_format($mortalityRate, 1) }}%</p>
-                            <p class="text-gray-500 text-xs mt-1">Death rate</p>
+                            <p class="text-gray-600 text-sm font-medium">Farrowing Rate</p>
+                            <p class="text-2xl font-bold text-gray-900">{{ number_format($farrowingRate, 1) }}%</p>
+                            <p class="text-gray-500 text-xs mt-1">Females that farrowed</p>
                         </div>
                         <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
                             <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -222,13 +232,13 @@
                     </div>
                 </div>
 
-                <!-- Fertility Rate -->
+                <!-- Farrowing Rate -->
                 <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-gray-600 text-sm font-medium">Fertility Rate</p>
-                            <p class="text-2xl font-bold text-gray-900">{{ number_format($fertilityRate, 1) }}%</p>
-                            <p class="text-gray-500 text-xs mt-1">Pregnancy success</p>
+                            <p class="text-gray-600 text-sm font-medium">Mortality Rate</p>
+                            <p class="text-2xl font-bold text-gray-900">{{ number_format($mortalityRate, 1) }}%</p>
+                            <p class="text-gray-500 text-xs mt-1">Death rate</p>
                         </div>
                         <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
                             <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -239,10 +249,45 @@
                 </div>
             </div>
 
+            <!-- Weight and Value Metrics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Total Weight -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm font-medium">Total Weight</p>
+                            <p class="text-2xl font-bold text-gray-900">{{ number_format($totalWeight, 1) }} kg</p>
+                            <p class="text-gray-500 text-xs mt-1">Latest weight of all pigs</p>
+                        </div>
+                        <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Total Farm Value -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-gray-600 text-sm font-medium">Total Farm Value</p>
+                            <p class="text-2xl font-bold text-gray-900">₵{{ number_format($totalFarmValue, 2) }}</p>
+                            <p class="text-gray-500 text-xs mt-1">At ₵{{ number_format($liveWeightPrice, 2) }}/kg live weight</p>
+                        </div>
+                        <div class="w-12 h-12 bg-emerald-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Charts Section -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
                 <!-- Weight Trends Chart -->
-                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 lg:col-span-2 order-3">
                     <div class="flex items-center justify-between mb-6">
                         <div>
                             <h3 class="text-lg font-semibold text-gray-900">Weight Trends</h3>
@@ -285,8 +330,46 @@
                     </div>
                 </div>
 
+                <!-- Gender Distribution Chart (moved here) -->
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 order-1">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-gray-900">Gender Distribution</h3>
+                        <div class="flex items-center space-x-4">
+                            <div class="flex items-center space-x-1">
+                                <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                <span class="text-sm text-gray-600">Male</span>
+                            </div>
+                            <div class="flex items-center space-x-1">
+                                <div class="w-3 h-3 bg-pink-500 rounded-full"></div>
+                                <span class="text-sm text-gray-600">Female</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="h-64">
+                        <canvas id="genderDistributionChart"></canvas>
+                    </div>
+                    <div class="mt-6 grid grid-cols-2 gap-4">
+                        <div class="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                            @php $maleCountGD = \App\Models\PigManagement::where('gender', 'M')->count(); @endphp
+                            <div class="text-2xl font-bold text-blue-600">{{ $maleCountGD }}</div>
+                            <div class="text-sm text-blue-700 font-medium">Males</div>
+                            <div class="text-xs text-blue-600 mt-1">
+                                {{ $totalPigs > 0 ? round(($maleCountGD / $totalPigs) * 100, 1) : 0 }}% of total
+                            </div>
+                        </div>
+                        <div class="text-center p-4 bg-pink-50 rounded-lg border border-pink-200">
+                            @php $femaleCountGD = \App\Models\PigManagement::where('gender', 'F')->count(); @endphp
+                            <div class="text-2xl font-bold text-pink-600">{{ $femaleCountGD }}</div>
+                            <div class="text-sm text-pink-700 font-medium">Females</div>
+                            <div class="text-xs text-pink-600 mt-1">
+                                {{ $totalPigs > 0 ? round(($femaleCountGD / $totalPigs) * 100, 1) : 0 }}% of total
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Pig Distribution Chart -->
-                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 order-2">
                     <div class="flex items-center justify-between mb-6">
                         <h3 class="text-lg font-semibold text-gray-900">Pig Distribution</h3>
                         <div class="flex items-center space-x-4">
@@ -333,135 +416,8 @@
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- System Analytics -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-                <!-- User Activity Chart -->
-                <!-- <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 items-start">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-6">User Activity (7 Days)</h3>
-                    <div class="h-48">
-                        <canvas id="userActivityChart"></canvas>
-                    </div>
-                </div> -->
-
-                <!-- System Performance -->
-                <!-- <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-6">System Performance</h3>
-                    <div class="space-y-4">
-                        @php
-                            $lastBackupTime = now()->subHours(rand(2, 12));
-                            $systemStartTime = now()->subDays(rand(1, 30));
-                            $uptimeHours = now()->diffInHours($systemStartTime);
-                            $uptimePercentage = min(99.9, 100 - ($totalAlerts * 0.1));
-            @endphp
-                        
-                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div class="flex items-center">
-                                <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
-                                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                                </div>
-                                <div>
-                                    <div class="font-medium text-gray-900">System Uptime</div>
-                                    <div class="text-sm text-gray-600">{{ number_format($uptimePercentage, 1) }}%</div>
-                                </div>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-sm font-bold text-gray-900">
-                                    @if($uptimeHours < 24)
-                                        {{ $uptimeHours }}h
-                                    @else
-                                        {{ floor($uptimeHours / 24) }}d {{ $uptimeHours % 24 }}h
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                            <div class="flex items-center">
-                                <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <div class="font-medium text-gray-900">Last Backup</div>
-                                    <div class="text-sm text-gray-600">{{ $lastBackupTime->format('M j, g:i A') }}</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div class="flex items-center">
-                                <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
-                                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
-                            </svg>
-                        </div>
-                                <div>
-                                    <div class="font-medium text-gray-900">Database Records</div>
-                                    <div class="text-sm text-gray-600">{{ number_format($totalPigs + $totalWeights + $totalSales + $totalDeaths) }} total</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div> -->
-
-                <!-- Quick Actions -->
-                <!-- <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-6">Quick Actions</h3>
-                    <div class="space-y-4">
-                        <a href="{{ route('all-stocks.index') }}" class="flex items-center p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition">
-                            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                                </svg>
-                            </div>
-                            <div>
-                                <div class="font-medium text-gray-900">Manage Pigs</div>
-                                <div class="text-sm text-gray-600">View all pig records</div>
-                            </div>
-                        </a>
-
-                        <a href="{{ route('weight-alerts.index', ['acknowledged' => '0']) }}" class="flex items-center p-3 bg-red-50 rounded-lg hover:bg-red-100 transition">
-                            <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mr-3">
-                                <svg class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-                                </svg>
-                            </div>
-                            <div>
-                                <div class="font-medium text-gray-900">View Alerts</div>
-                                <div class="text-sm text-gray-600">{{ $totalAlerts }} active alerts</div>
-                    </div>
-                </a>
-
-                        <a href="{{ route('deaths.index') }}" class="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-                            <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center mr-3">
-                                <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-                            </svg>
-                        </div>
-                            <div>
-                                <div class="font-medium text-gray-900">Death Records</div>
-                                <div class="text-sm text-gray-600">{{ $totalDeaths }} deaths recorded</div>
-                            </div>
-                        </a>
-
-                        <a href="{{ route('sales.index') }}" class="flex items-center p-3 bg-green-50 rounded-lg hover:bg-green-100 transition">
-                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
-                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
-                                </svg>
-                            </div>
-                            <div>
-                                <div class="font-medium text-gray-900">Sales Records</div>
-                                <div class="text-sm text-gray-600">{{ $totalSales }} sales recorded</div>
-                        </div>
-                        </a>
-                    </div>
-                </div> -->
+                <!-- Weight Trends Chart moved below as full width is already set by col-span-2 above -->
             </div>
 
             <!-- Compact Dashboard Cards -->
@@ -545,42 +501,6 @@
                         </div>
                                 </div>
                             </div>
-
-                <!-- System Health -->
-                <!-- <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-4">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-sm font-semibold text-gray-900">System Health</h3>
-                        <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                            <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                        </div>
-                    </div>
-                    <div class="space-y-3">
-                        @php
-                            $lastBackupTime = now()->subHours(rand(2, 12));
-                            $systemStartTime = now()->subDays(rand(1, 30));
-                            $uptimeHours = now()->diffInHours($systemStartTime);
-                            $uptimePercentage = min(99.9, 100 - ($totalAlerts * 0.1));
-                        @endphp
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs text-gray-600">Uptime</span>
-                            <span class="text-sm font-bold text-green-600">{{ number_format($uptimePercentage, 1) }}%</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs text-gray-600">Last Backup</span>
-                            <span class="text-xs text-gray-500">{{ $lastBackupTime->format('M j') }}</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs text-gray-600">Active Alerts</span>
-                            <span class="text-sm font-bold {{ $totalAlerts > 0 ? 'text-red-600' : 'text-green-600' }}">{{ $totalAlerts }}</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs text-gray-600">Database</span>
-                            <span class="text-xs text-gray-500">{{ number_format($totalPigs + $totalWeights + $totalSales + $totalDeaths) }} records</span>
-                        </div>
-                    </div>
-                </div> -->
 
                 <!-- Quick Actions -->
                 <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-4">
@@ -668,6 +588,22 @@
                     </div>
                 </button>
             </div>
+            <!-- Weight & Value Trends (Monthly/Annual) -->
+            <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-8 mt-8">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Weight & Value Trends</h3>
+                        <p class="text-sm text-gray-500">Total weight and total farm value over time</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="wvMonthlyBtn" class="px-3 py-1 rounded-lg text-sm bg-blue-600 text-white">Monthly</button>
+                        <button id="wvAnnualBtn" class="px-3 py-1 rounded-lg text-sm bg-gray-100 text-gray-700">Annual</button>
+                    </div>
+                </div>
+                <div class="h-80">
+                    <canvas id="weightValueTrends"></canvas>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -721,6 +657,42 @@
                 $count = \App\Models\User::whereDate('created_at', $date)->count();
                 $userActivityData[] = $count;
                 $userActivityLabels[] = now()->subDays($i)->format('M j');
+            }
+
+            // Weight & Value trends (monthly last 12 months, annual last 5 years)
+            $chartLiveWeightPrice = \App\Models\Setting::get('sales.pricing.live_weight_price', 30.00);
+            $wvMonthlyWeight = [];
+            $wvMonthlyValue = [];
+            $wvMonthlyLabels = [];
+            for ($i = 11; $i >= 0; $i--) {
+                $monthDate = now()->subMonths($i);
+                $monthEnd = $monthDate->copy()->endOfMonth();
+                $monthWeight = \App\Models\PigWeight::whereIn('id', function($q) use ($monthEnd) {
+                    $q->select(\DB::raw('MAX(id)'))
+                      ->from('pig_weights')
+                      ->where('created_at', '<=', $monthEnd)
+                      ->groupBy('pig_id');
+                })->sum('weight');
+                $wvMonthlyWeight[] = round($monthWeight, 1);
+                $wvMonthlyValue[] = round($monthWeight * $chartLiveWeightPrice, 2);
+                $wvMonthlyLabels[] = $monthDate->format('M Y');
+            }
+
+            $wvAnnualWeight = [];
+            $wvAnnualValue = [];
+            $wvAnnualLabels = [];
+            for ($i = 4; $i >= 0; $i--) {
+                $year = now()->subYears($i)->year;
+                $yearEnd = \Carbon\Carbon::create($year, 12, 31)->endOfYear();
+                $yearWeight = \App\Models\PigWeight::whereIn('id', function($q) use ($yearEnd) {
+                    $q->select(\DB::raw('MAX(id)'))
+                      ->from('pig_weights')
+                      ->where('created_at', '<=', $yearEnd)
+                      ->groupBy('pig_id');
+                })->sum('weight');
+                $wvAnnualWeight[] = round($yearWeight, 1);
+                $wvAnnualValue[] = round($yearWeight * $chartLiveWeightPrice, 2);
+                $wvAnnualLabels[] = (string) $year;
             }
         @endphp
 
@@ -985,7 +957,7 @@
             data: {
                 labels: ['Active', 'Deceased', 'Sold'],
                 datasets: [{
-                    data: [{{ $activePigs }}, {{ $deceasedPigs }}, {{ $soldPigs }}],
+                    data: [{{ $activePigs }}, {{ $deceasedPigs }}, {{ $soldPigs }}],    
                     backgroundColor: [
                         'rgb(34, 197, 94)',
                         'rgb(239, 68, 68)',
@@ -1006,45 +978,92 @@
             }
         });
 
-        // User Activity Chart
-        const userActivityCtx = document.getElementById('userActivityChart').getContext('2d');
-        new Chart(userActivityCtx, {
-            type: 'bar',
-            data: {
-                labels: @json($userActivityLabels),
-                datasets: [{
-                    label: 'New Users',
-                    data: @json($userActivityData),
-                    backgroundColor: 'rgba(59, 130, 246, 0.8)',
-                    borderColor: 'rgb(59, 130, 246)',
-                    borderWidth: 1,
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
+        // Gender Distribution Chart
+        (function initGender(){
+            const canvas = document.getElementById('genderDistributionChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const male = {{ \App\Models\PigManagement::where('gender','M')->count() }};
+            const female = {{ \App\Models\PigManagement::where('gender','F')->count() }};
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Male','Female'],
+                    datasets: [{
+                        data: [male, female],
+                        backgroundColor: ['rgb(59, 130, 246)','rgb(236, 72, 153)'],
+                        borderWidth: 0,
+                        cutout: '60%'
+                    }]
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.05)'
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false
-                        }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        })();
+
+        // Weight & Value Trends Chart (ensure DOM ready)
+        document.addEventListener('DOMContentLoaded', function initWV(){
+            const el = document.getElementById('weightValueTrends');
+            if (!el) { return; }
+            const ctx = el.getContext('2d');
+            const wGrad = ctx.createLinearGradient(0,0,0,300);
+            wGrad.addColorStop(0,'rgba(59,130,246,0.8)');
+            wGrad.addColorStop(1,'rgba(59,130,246,0.15)');
+            const vGrad = ctx.createLinearGradient(0,0,0,300);
+            vGrad.addColorStop(0,'rgba(16,185,129,0.8)');
+            vGrad.addColorStop(1,'rgba(16,185,129,0.15)');
+
+            // Debug: ensure Chart and data present
+            try {
+            console.log('WV Chart.js present?', typeof Chart !== 'undefined');
+            console.log('WV monthly labels', @json($wvMonthlyLabels ?? []));
+            console.log('WV monthly weight', @json($wvMonthlyWeight ?? []));
+            console.log('WV monthly value', @json($wvMonthlyValue ?? []));
+            } catch (e) {}
+
+            let chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: @json($wvMonthlyLabels ?? []),
+                    datasets: [
+                        { label: 'Total Weight (kg)', data: @json($wvMonthlyWeight ?? []), borderColor: 'rgb(59,130,246)', backgroundColor: wGrad, borderWidth: 2, fill: true, tension: 0.35, yAxisID: 'y' },
+                        { label: 'Farm Value (₵)', data: @json($wvMonthlyValue ?? []), borderColor: 'rgb(16,185,129)', backgroundColor: vGrad, borderWidth: 2, fill: true, tension: 0.35, yAxisID: 'y1' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { intersect: false, mode: 'index' },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { callback: v => v + ' kg' } },
+                        y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => '₵' + Number(v).toLocaleString('en-US') } }
                     }
                 }
-            }
-        });
+            });
 
+            const mBtn = document.getElementById('wvMonthlyBtn');
+            const aBtn = document.getElementById('wvAnnualBtn');
+            if (mBtn) mBtn.addEventListener('click', () => {
+                mBtn.classList.remove('bg-gray-100','text-gray-700');
+                mBtn.classList.add('bg-blue-600','text-white');
+                aBtn.classList.remove('bg-blue-600','text-white');
+                aBtn.classList.add('bg-gray-100','text-gray-700');
+                chart.data.labels = @json($wvMonthlyLabels ?? []);
+                chart.data.datasets[0].data = @json($wvMonthlyWeight ?? []);
+                chart.data.datasets[1].data = @json($wvMonthlyValue ?? []);
+                chart.update('active');
+            });
+            if (aBtn) aBtn.addEventListener('click', () => {
+                aBtn.classList.remove('bg-gray-100','text-gray-700');
+                aBtn.classList.add('bg-blue-600','text-white');
+                mBtn.classList.remove('bg-blue-600','text-white');
+                mBtn.classList.add('bg-gray-100','text-gray-700');
+                chart.data.labels = @json($wvAnnualLabels ?? []);
+                chart.data.datasets[0].data = @json($wvAnnualWeight ?? []);
+                chart.data.datasets[1].data = @json($wvAnnualValue ?? []);
+                chart.update('active');
+            });
+        });
 
     </script>
 
@@ -1193,4 +1212,4 @@
             }
         });
     </script>
-</x-app-layout>
+</x-app-layout> 

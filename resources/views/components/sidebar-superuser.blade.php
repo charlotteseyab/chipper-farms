@@ -226,6 +226,12 @@
                     </svg>
                     System Reports
                 </a>
+                <a href="{{ route('settings.activity-log') }}" class="flex items-center gap-3 px-4 py-2 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition text-sm @if(request()->is('settings/activity-log')) bg-[#218c6a] text-white @endif">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    Activity Log
+                </a>
             </div>
         </div>
 

@@ -186,7 +186,7 @@
                             <label class="block text-sm font-semibold text-gray-700 mb-1">Target Week</label>
                             <select name="target_week" id="target_week" required class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-600 focus:border-green-600">
                                 <option value="" disabled selected>-- Select Week --</option>
-                                @for($week = 1; $week <= 104; $week++)
+                                @for($week = 1; $week <= 200; $week++)
                                     <option value="{{ $week }}" {{ old('target_week') == $week ? 'selected' : '' }}>
                                         Week {{ $week }} ({{ $week * 7 }} days)
                                     </option>

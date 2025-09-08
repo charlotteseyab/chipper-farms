@@ -44,36 +44,24 @@
                     <h2 class="text-lg font-semibold text-gray-900">Rooms</h2>
                 </div>
                 <div class="p-6">
-                    @if($structure->is_full)
-                        <div class="bg-red-50 border border-red-200 text-red-700 rounded p-4 mb-6">
-                            <div class="flex items-center">
-                                <svg class="h-5 w-5 text-red-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                                </svg>
-                                <span class="font-medium">Structure is at full capacity</span>
-                            </div>
-                            <p class="mt-1 text-sm">This structure has reached its maximum room capacity ({{ $structure->capacity }} rooms). Cannot add more rooms.</p>
+                    <form method="POST" action="{{ route('structures.rooms.store', $structure) }}" class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
+                        @csrf
+                        <input type="text" name="name" placeholder="Room name" class="border-gray-300 rounded-lg" required>
+                        <input type="text" name="code" placeholder="Code" class="border-gray-300 rounded-lg" required>
+                        <input type="number" name="capacity" min="0" placeholder="Capacity" class="border-gray-300 rounded-lg">
+                        <select name="type" class="border-gray-300 rounded-lg">
+                            <option value="general">General</option>
+                            <option value="maternity">Maternity</option>
+                            <option value="gestation">Gestation</option>
+                            <option value="weaning">Weaning</option>
+                            <option value="finisher">Finisher</option>
+                            <option value="quarantine">Quarantine</option>
+                        </select>
+                        <button type="submit" class="px-3 py-2 bg-green-600 text-white rounded-lg">Add Room</button>
+                        <div class="md:col-span-5">
+                            <textarea name="notes" rows="2" placeholder="Notes (optional)" class="w-full border-gray-300 rounded-lg"></textarea>
                         </div>
-                    @else
-                        <form method="POST" action="{{ route('structures.rooms.store', $structure) }}" class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">
-                            @csrf
-                            <input type="text" name="name" placeholder="Room name" class="border-gray-300 rounded-lg" required>
-                            <input type="text" name="code" placeholder="Code" class="border-gray-300 rounded-lg" required>
-                            <input type="number" name="capacity" min="0" placeholder="Capacity" class="border-gray-300 rounded-lg">
-                            <select name="type" class="border-gray-300 rounded-lg">
-                                <option value="general">General</option>
-                                <option value="maternity">Maternity</option>
-                                <option value="gestation">Gestation</option>
-                                <option value="weaning">Weaning</option>
-                                <option value="finisher">Finisher</option>
-                                <option value="quarantine">Quarantine</option>
-                            </select>
-                            <button type="submit" class="px-3 py-2 bg-green-600 text-white rounded-lg">Add Room</button>
-                            <div class="md:col-span-5">
-                                <textarea name="notes" rows="2" placeholder="Notes (optional)" class="w-full border-gray-300 rounded-lg"></textarea>
-                            </div>
-                        </form>
-                    @endif
+                    </form>
 
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">

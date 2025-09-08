@@ -151,4 +151,86 @@ class PigWeight extends Model
 
         return $query->avg('weight');
     }
+
+    /**
+     * Regenerate weight alerts for this weight record
+     * This is useful when weight standards are added or updated
+     */
+    public function regenerateAlerts(): void
+    {
+        try {
+            // Delete existing alerts for this weight record
+            $this->weightAlerts()->delete();
+
+            // Get the pig associated with this weight record
+            $pig = $this->pig;
+            
+            if (!$pig || !$pig->date_of_birth) {
+                \Log::warning("Cannot regenerate weight alert: Pig not found or missing birth date for weight record ID {$this->id}");
+                return;
+            }
+
+            // Calculate pig's age in weeks at the time of weighing
+            $ageInWeeks = $pig->date_of_birth->diffInWeeks($this->weigh_date);
+
+            // Find matching weight standard
+            $standard = \App\Models\ExpectedWeightStandard::active()
+                ->forPigType($pig->breed, $pig->gender, $pig->stock_type)
+                ->where('week_number', $ageInWeeks)
+                ->first();
+
+            // Generate new weight alert
+            $alert = \App\Models\WeightAlert::createFromWeight($this, $pig, $standard);
+
+            \Log::info("Weight alert regenerated", [
+                'pig_id' => $pig->id,
+                'ear_tag' => $pig->ear_tag_number,
+                'weight_record_id' => $this->id,
+                'alert_id' => $alert->id,
+                'alert_type' => $alert->alert_type,
+                'severity' => $alert->severity,
+                'actual_weight' => $this->weight,
+                'age_weeks' => $ageInWeeks,
+                'has_standard' => $standard ? 'yes' : 'no'
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error("Failed to regenerate weight alert for weight record ID {$this->id}: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Reprocess all weight records for a specific pig type (breed, gender, stock type)
+     * This is useful when new weight standards are added
+     */
+    public static function reprocessAlertsForPigType(string $breed, string $gender, string $stockType): int
+    {
+        $count = 0;
+        
+        try {
+            // Get all weight records for this pig type
+            $weightRecords = static::whereHas('pig', function($query) use ($breed, $gender, $stockType) {
+                $query->where('breed', $breed)
+                      ->where('gender', $gender)
+                      ->where('stock_type', $stockType);
+            })->get();
+
+            foreach ($weightRecords as $weightRecord) {
+                $weightRecord->regenerateAlerts();
+                $count++;
+            }
+
+            \Log::info("Reprocessed weight alerts for pig type", [
+                'breed' => $breed,
+                'gender' => $gender,
+                'stock_type' => $stockType,
+                'records_processed' => $count
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error("Failed to reprocess weight alerts for pig type {$breed} {$gender} {$stockType}: " . $e->getMessage());
+        }
+
+        return $count;
+    }
 }
