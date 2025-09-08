@@ -56,14 +56,14 @@ return [
 
         // Minimum weights for breeding (in kg) - for future weight integration
         'minimum_breeding_weight' => [
-            'female' => 113, // ~250 lbs
-            'male' => 136,   // ~300 lbs
+            'female' => 100, 
+            'male' => 90,   
         ],
 
         // Optimal breeding weights (in kg) - for future weight integration
         'optimal_breeding_weight' => [
-            'female' => 136, // ~300 lbs
-            'male' => 159,   // ~350 lbs
+            'female' => 100, 
+            'male' => 90,   
         ],
 
         // Rest period between weaning and next mating (days)
