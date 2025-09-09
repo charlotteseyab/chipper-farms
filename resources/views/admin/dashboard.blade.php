@@ -65,7 +65,7 @@
                         <div>
                             <p class="text-purple-100 text-sm font-medium">Total Sales</p>
                             <p class="text-3xl font-bold">{{ number_format($totalSales) }}</p>
-                            <p class="text-purple-100 text-xs mt-1">Sales recorded</p>
+                            <p class="text-purple-100 text-xs mt-1">Sales recorded(No)</p>
                         </div>
                         <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
