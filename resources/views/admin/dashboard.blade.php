@@ -412,10 +412,10 @@
                             <div class="text-sm text-blue-700 font-medium">Sold</div>
                             <div class="text-xs text-blue-600 mt-1">
                                 {{ $totalPigs > 0 ? round(($soldPigs / $totalPigs) * 100, 1) : 0 }}% of total
-                            </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
                 <!-- Weight Trends Chart moved below as full width is already set by col-span-2 above -->
             </div>
@@ -957,7 +957,7 @@
             data: {
                 labels: ['Active', 'Deceased', 'Sold'],
                 datasets: [{
-                    data: [{{ $activePigs }}, {{ $deceasedPigs }}, {{ $soldPigs }}],    
+                    data: [{{ $activePigs }}, {{ $deceasedPigs }}, {{ $soldPigs }}],
                     backgroundColor: [
                         'rgb(34, 197, 94)',
                         'rgb(239, 68, 68)',
@@ -987,9 +987,9 @@
             const female = {{ \App\Models\PigManagement::where('gender','F')->count() }};
             new Chart(ctx, {
                 type: 'doughnut',
-                data: {
+            data: {
                     labels: ['Male','Female'],
-                    datasets: [{
+                datasets: [{
                         data: [male, female],
                         backgroundColor: ['rgb(59, 130, 246)','rgb(236, 72, 153)'],
                         borderWidth: 0,
@@ -1029,17 +1029,17 @@
                         { label: 'Farm Value (₵)', data: @json($wvMonthlyValue ?? []), borderColor: 'rgb(16,185,129)', backgroundColor: vGrad, borderWidth: 2, fill: true, tension: 0.35, yAxisID: 'y1' }
                     ]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
                     interaction: { intersect: false, mode: 'index' },
                     plugins: { legend: { display: false } },
-                    scales: {
+                scales: {
                         y: { beginAtZero: true, ticks: { callback: v => v + ' kg' } },
                         y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => '₵' + Number(v).toLocaleString('en-US') } }
-                    }
                 }
-            });
+            }
+        });
 
             const mBtn = document.getElementById('wvMonthlyBtn');
             const aBtn = document.getElementById('wvAnnualBtn');
@@ -1212,4 +1212,4 @@
             }
         });
     </script>
-</x-app-layout> 
+</x-app-layout>

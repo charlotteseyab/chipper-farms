@@ -839,7 +839,7 @@ class PigManagementController extends Controller {
         $data = $request->validate([
             'male_id' => 'required|exists:pigs_management,id',
             'female_id' => 'required|exists:pigs_management,id',
-            'planned_date' => 'required|date|after_or_equal:today',
+            'planned_date' => 'required|date',
             'notes' => 'nullable|string|max:1000'
         ]);
 

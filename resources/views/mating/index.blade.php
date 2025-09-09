@@ -57,9 +57,10 @@
 
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Planned Mating Date</label>
-                            <input type="date" name="planned_date" value="{{ old('planned_date', now()->addDays(7)->toDateString()) }}" 
-                                   min="{{ now()->toDateString() }}" required 
+                            <input type="date" name="planned_date" value="{{ old('planned_date', now()->toDateString()) }}" 
+                                   required 
                                    class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-pink-500 focus:border-pink-500">
+                            <p class="mt-1 text-xs text-gray-500">You can select past dates to backdate plans.</p>
                         </div>
 
                         <div>
