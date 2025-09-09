@@ -202,9 +202,14 @@
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <a href="{{ route('farrowing.show', $farrowing->id) }}" class="text-blue-600 hover:text-blue-900">
-                                        View Details
-                                    </a>
+                                    <div class="flex items-center space-x-3">
+                                        <a href="{{ route('farrowing.show', $farrowing->id) }}" class="text-blue-600 hover:text-blue-900">
+                                            View Details
+                                        </a>
+                                        <a href="{{ route('farrowing.edit', $farrowing->id) }}" class="text-green-600 hover:text-green-900">
+                                            Edit
+                                        </a>
+                                    </div>
                                 </td>
                             </tr>
                         @endforeach

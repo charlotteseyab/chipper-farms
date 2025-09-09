@@ -42,4 +42,72 @@ class FarrowingController extends Controller
             'genderDistribution' => $genderDistribution,
         ]);
     }
+
+    public function edit(Farrowing $farrowing)
+    {
+        $farrowing->load(['sow', 'boar']);
+        
+        // Get all sows and boars for dropdowns
+        $sows = \App\Models\PigManagement::where('gender', 'F')
+            ->where('stock_type', 'breeding')
+            ->orderBy('ear_tag_number')
+            ->get();
+            
+        $boars = \App\Models\PigManagement::where('gender', 'M')
+            ->where('stock_type', 'breeding')
+            ->orderBy('ear_tag_number')
+            ->get();
+
+        return view('farrowing.edit', compact('farrowing', 'sows', 'boars'));
+    }
+
+    public function update(Request $request, Farrowing $farrowing)
+    {
+        $data = $request->validate([
+            'sow_id' => 'required|exists:pigs_management,id',
+            'boar_id' => 'required|exists:pigs_management,id',
+            'farrowing_date' => 'required|date|before_or_equal:today',
+            'farrowing_time' => 'nullable|date_format:H:i',
+            'total_piglets_born' => 'required|integer|min:0|max:25',
+            'live_births' => 'required|integer|min:0|max:25',
+            'stillbirths' => 'required|integer|min:0|max:25',
+            'number_of_males' => 'required|integer|min:0|max:25',
+            'number_of_females' => 'required|integer|min:0|max:25',
+            'average_birth_weight' => 'nullable|numeric|min:0.1|max:5.0',
+            'total_litter_weight' => 'nullable|numeric|min:0.1|max:100.0',
+            'farrowing_type' => 'required|in:natural,assisted,cesarean',
+            'farrowing_difficulty' => 'required|in:easy,moderate,difficult',
+            'gestation_length_days' => 'nullable|integer|min:100|max:130',
+            'complications' => 'nullable|string|max:1000',
+            'notes' => 'nullable|string|max:1000',
+            'sow_condition' => 'required|in:excellent,good,fair,poor',
+            'colostrum_available' => 'boolean',
+            'functional_teats' => 'nullable|integer|min:0|max:20',
+            'sow_weight_after_farrowing' => 'nullable|numeric|min:50|max:500',
+            'follow_up_date' => 'nullable|date|after:farrowing_date',
+            'status' => 'required|in:active,inactive,archived',
+        ]);
+
+        // Validate that live births + stillbirths = total piglets born
+        if (($data['live_births'] + $data['stillbirths']) !== $data['total_piglets_born']) {
+            return back()->withErrors([
+                'total_piglets_born' => 'Total piglets born must equal live births + stillbirths.'
+            ])->withInput();
+        }
+
+        // Validate that males + females = live births
+        if (($data['number_of_males'] + $data['number_of_females']) !== $data['live_births']) {
+            return back()->withErrors([
+                'live_births' => 'Live births must equal number of males + females.'
+            ])->withInput();
+        }
+
+        // Handle checkbox properly
+        $data['colostrum_available'] = $request->has('colostrum_available');
+
+        $farrowing->update($data);
+
+        return redirect()->route('farrowing.show', $farrowing)
+            ->with('success', 'Farrowing record updated successfully!');
+    }
 }

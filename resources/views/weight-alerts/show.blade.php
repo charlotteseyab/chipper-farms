@@ -115,12 +115,52 @@
 
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Breed & Gender</label>
-                            <div class="text-sm text-gray-900">{{ $weightAlert->pig->breed_display }} {{ $weightAlert->pig->gender_display }}</div>
+                            <div class="text-sm text-gray-900">
+                                <span class="inline-flex items-center">
+                                    @if($weightAlert->pig->breed)
+                                        {{ ucfirst($weightAlert->pig->breed) }}
+                                    @else
+                                        <span class="text-gray-400">No breed set</span>
+                                    @endif
+                                    @if($weightAlert->pig->gender)
+                                        <span class="mx-2 text-gray-400">•</span>
+                                        @if($weightAlert->pig->gender === 'M')
+                                            <svg class="w-4 h-4 text-blue-600 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                                                <circle cx="9" cy="15" r="6" stroke="currentColor" stroke-width="2" fill="none"/>
+                                                <path d="M15 9L21 3M21 3h-5M21 3v5" stroke="currentColor" stroke-width="2" fill="none"/>
+                                            </svg>
+                                            Male
+                                        @else
+                                            <svg class="w-4 h-4 text-pink-600 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                                                <circle cx="12" cy="8" r="5" stroke="currentColor" stroke-width="2" fill="none"/>
+                                                <path d="M12 13v8M9 18h6" stroke="currentColor" stroke-width="2" fill="none"/>
+                                            </svg>
+                                            Female
+                                        @endif
+                                    @else
+                                        <span class="text-gray-400">• No gender set</span>
+                                    @endif
+                                </span>
+                            </div>
                         </div>
 
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Stock Type</label>
-                            <div class="text-sm text-gray-900">{{ $weightAlert->pig->stock_type_display }}</div>
+                            <div class="text-sm text-gray-900">
+                                @if($weightAlert->pig->stock_type)
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                        @if($weightAlert->pig->stock_type === 'breeding') bg-purple-100 text-purple-800
+                                        @elseif($weightAlert->pig->stock_type === 'finisher') bg-green-100 text-green-800
+                                        @elseif($weightAlert->pig->stock_type === 'grower') bg-blue-100 text-blue-800
+                                        @elseif($weightAlert->pig->stock_type === 'weaner') bg-yellow-100 text-yellow-800
+                                        @else bg-gray-100 text-gray-800
+                                        @endif">
+                                        {{ ucfirst($weightAlert->pig->stock_type) }}
+                                    </span>
+                                @else
+                                    <span class="text-gray-400">No stock type set</span>
+                                @endif
+                            </div>
                         </div>
 
                         <div>

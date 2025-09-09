@@ -150,12 +150,42 @@
                                     <dd class="mt-1 text-sm text-gray-900">{{ $farrowing->gestation_length_days ? $farrowing->gestation_length_days . ' days' : 'Not set' }}</dd>
                                 </div>
                                 <div>
+                                    <dt class="text-sm font-medium text-gray-700">Male Piglets</dt>
+                                    <dd class="mt-1 text-sm text-gray-900">
+                                        <span class="inline-flex items-center">
+                                            <svg class="w-4 h-4 text-blue-600 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                                                <circle cx="9" cy="15" r="6" stroke="currentColor" stroke-width="2" fill="none"/>
+                                                <path d="M15 9L21 3M21 3h-5M21 3v5" stroke="currentColor" stroke-width="2" fill="none"/>
+                                            </svg>
+                                            {{ $farrowing->number_of_males ?? 0 }}
+                                        </span>
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-700">Female Piglets</dt>
+                                    <dd class="mt-1 text-sm text-gray-900">
+                                        <span class="inline-flex items-center">
+                                            <svg class="w-4 h-4 text-pink-600 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                                                <circle cx="12" cy="8" r="5" stroke="currentColor" stroke-width="2" fill="none"/>
+                                                <path d="M12 13v8M9 18h6" stroke="currentColor" stroke-width="2" fill="none"/>
+                                            </svg>
+                                            {{ $farrowing->number_of_females ?? 0 }}
+                                        </span>
+                                    </dd>
+                                </div>
+                                <div>
                                     <dt class="text-sm font-medium text-gray-700">Recorded By</dt>
                                     <dd class="mt-1 text-sm text-gray-900">{{ optional($farrowing->recordedBy)->name ?? 'Unknown' }}</dd>
                                 </div>
                                 <div>
                                     <dt class="text-sm font-medium text-gray-700">Status</dt>
                                     <dd class="mt-1 text-sm text-gray-900">{{ ucfirst($farrowing->status ?? 'active') }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-700">Gender Distribution</dt>
+                                    <dd class="mt-1 text-sm text-gray-900">
+                                        {{ $genderDistribution['male_percentage'] }}% male • {{ $genderDistribution['female_percentage'] }}% female
+                                    </dd>
                                 </div>
                             </dl>
                         </div>

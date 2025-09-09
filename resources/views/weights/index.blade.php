@@ -93,12 +93,13 @@
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pig</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight & Status</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age at Weighing</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Health Status</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Body Condition</th>
+                                    <!-- <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Body Condition</th> -->
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
@@ -112,6 +113,27 @@
                                                     <div class="text-sm text-gray-500">{{ $weight->pig->code }}</div>
                                                 </div>
                                             </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            @if($weight->pig->gender)
+                                                <span class="inline-flex items-center">
+                                                    @if($weight->pig->gender === 'M')
+                                                        <svg class="w-4 h-4 text-blue-600 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                                                            <circle cx="9" cy="15" r="6" stroke="currentColor" stroke-width="2" fill="none"/>
+                                                            <path d="M15 9L21 3M21 3h-5M21 3v5" stroke="currentColor" stroke-width="2" fill="none"/>
+                                                        </svg>
+                                                        <span class="text-sm font-medium text-blue-600">Male</span>
+                                                    @else
+                                                        <svg class="w-4 h-4 text-pink-600 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                                                            <circle cx="12" cy="8" r="5" stroke="currentColor" stroke-width="2" fill="none"/>
+                                                            <path d="M12 13v8M9 18h6" stroke="currentColor" stroke-width="2" fill="none"/>
+                                                        </svg>
+                                                        <span class="text-sm font-medium text-pink-600">Female</span>
+                                                    @endif
+                                                </span>
+                                            @else
+                                                <span class="text-sm text-gray-400">-</span>
+                                            @endif
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center gap-2">
@@ -202,7 +224,7 @@
                                                 <span class="text-gray-400">-</span>
                                             @endif
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <!-- <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                             @if($weight->body_condition_score)
                                                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
                                                     {{ $weight->body_condition_score <= 2 ? 'text-red-800' : 
@@ -212,7 +234,7 @@
                                             @else
                                                 <span class="text-gray-400">-</span>
                                             @endif
-                                        </td>
+                                        </td> -->
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div class="flex gap-2">
                                                 <a href="{{ route('weights.edit', $weight) }}" class="text-green-600 hover:text-green-900">Edit</a>

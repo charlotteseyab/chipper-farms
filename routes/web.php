@@ -56,10 +56,14 @@ Route::middleware([
 
     // Gestation Period Management Routes
     Route::get('gestation', [App\Http\Controllers\PigManagementController::class, 'gestationIndex'])->name('gestation.index');
+    Route::get('gestation/{mating}/edit', [App\Http\Controllers\PigManagementController::class, 'editGestation'])->name('gestation.edit');
+    Route::put('gestation/{mating}', [App\Http\Controllers\PigManagementController::class, 'updateGestation'])->name('gestation.update');
 
     // Farrowing routes
     Route::get('farrowing', [App\Http\Controllers\FarrowingController::class, 'index'])->name('farrowing.index');
     Route::get('farrowing/{farrowing}', [App\Http\Controllers\FarrowingController::class, 'show'])->name('farrowing.show');
+    Route::get('farrowing/{farrowing}/edit', [App\Http\Controllers\FarrowingController::class, 'edit'])->name('farrowing.edit');
+    Route::put('farrowing/{farrowing}', [App\Http\Controllers\FarrowingController::class, 'update'])->name('farrowing.update');
     Route::post('gestation/{id}/farrowing', [App\Http\Controllers\PigManagementController::class, 'recordFarrowing'])->name('gestation.farrowing');
     Route::post('gestation/{id}/update-status', [App\Http\Controllers\PigManagementController::class, 'updateGestationStatus'])->name('gestation.update-status');
 

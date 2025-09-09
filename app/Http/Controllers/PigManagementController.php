@@ -1173,6 +1173,37 @@ class PigManagementController extends Controller {
         return back()->withErrors(['status' => 'Failed to update gestation status.']);
     }
 
+    public function editGestation(Mating $mating)
+    {
+        $mating->load(['male', 'female', 'createdBy', 'checkedBy']);
+        
+        return view('gestation.edit', compact('mating'));
+    }
+
+    public function updateGestation(Request $request, Mating $mating)
+    {
+        $data = $request->validate([
+            'actual_date' => 'required|date|before_or_equal:today',
+            'expected_farrowing_date' => 'required|date|after:actual_date',
+            'pregnancy_status' => 'required|in:pregnant,not_pregnant,uncertain,pending,lost_pregnancy,aborted,farrowed',
+            'pregnancy_check_date' => 'nullable|date|before_or_equal:today',
+            'pregnancy_check_method' => 'nullable|in:ultrasound,manual,blood_test,other',
+            'pregnancy_check_notes' => 'nullable|string|max:1000',
+            'pregnancy_confidence' => 'nullable|in:high,medium,low',
+            'pregnancy_status_date' => 'nullable|date|before_or_equal:today',
+            'pregnancy_status_notes' => 'nullable|string|max:1000',
+            'expected_piglets' => 'nullable|integer|min:1|max:25',
+            'notes' => 'nullable|string|max:1000',
+            'outcome_notes' => 'nullable|string|max:1000',
+        ]);
+
+        // Update the mating record
+        $mating->update($data);
+
+        return redirect()->route('gestation.index')
+            ->with('success', 'Gestation record updated successfully!');
+    }
+
     // Weaning Period Management Methods
 
     private function getWeaningAlerts()
