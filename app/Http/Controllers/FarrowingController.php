@@ -71,8 +71,8 @@ class FarrowingController extends Controller
             'total_piglets_born' => 'required|integer|min:0|max:25',
             'live_births' => 'required|integer|min:0|max:25',
             'stillbirths' => 'required|integer|min:0|max:25',
-            'number_of_males' => 'required|integer|min:0|max:25',
-            'number_of_females' => 'required|integer|min:0|max:25',
+            'number_of_males' => 'nullable|integer|min:0|max:25',
+            'number_of_females' => 'nullable|integer|min:0|max:25',
             'average_birth_weight' => 'nullable|numeric|min:0.1|max:5.0',
             'total_litter_weight' => 'nullable|numeric|min:0.1|max:100.0',
             'farrowing_type' => 'required|in:natural,assisted,cesarean',
@@ -95,15 +95,26 @@ class FarrowingController extends Controller
             ])->withInput();
         }
 
-        // Validate that males + females = live births
-        if (($data['number_of_males'] + $data['number_of_females']) !== $data['live_births']) {
-            return back()->withErrors([
-                'live_births' => 'Live births must equal number of males + females.'
-            ])->withInput();
+        // Validate that males + females = live births (only if at least one is provided and not empty)
+        // Skip validation if both values are 0 (likely means fields were left empty)
+        $males = (int) $data['number_of_males'];
+        $females = (int) $data['number_of_females'];
+        
+        if ($males > 0 || $females > 0) {
+            // At least one field has a non-zero value, validate the math
+            if (($males + $females) !== $data['live_births']) {
+                return back()->withErrors([
+                    'live_births' => 'Live births must equal number of males + females.'
+                ])->withInput();
+            }
         }
 
         // Handle checkbox properly
         $data['colostrum_available'] = $request->has('colostrum_available');
+
+        // Ensure gender fields have default values when empty
+        $data['number_of_males'] = $data['number_of_males'] ?: 0;
+        $data['number_of_females'] = $data['number_of_females'] ?: 0;
 
         $farrowing->update($data);
 

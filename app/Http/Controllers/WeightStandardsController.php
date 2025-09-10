@@ -265,9 +265,24 @@ class WeightStandardsController extends Controller
             $createdCount++;
         }
 
+        // Reprocess existing weight records for this pig type to generate new alerts
+        $processedCount = 0;
+        try {
+            $processedCount = \App\Models\PigWeight::reprocessAlertsForPigType(
+                $data['breed'],
+                $data['gender'],
+                $data['stock_type']
+            );
+        } catch (\Exception $e) {
+            \Log::error("Failed to reprocess weight alerts after bulk creating standards: " . $e->getMessage());
+        }
+
         $message = "Created {$createdCount} weight standards.";
         if ($skippedCount > 0) {
             $message .= " Skipped {$skippedCount} existing standards.";
+        }
+        if ($processedCount > 0) {
+            $message .= " {$processedCount} existing weight record(s) have been re-evaluated against the new standards.";
         }
 
         return FlashHelper::successAndRedirect($message, 'weight-standards.index');

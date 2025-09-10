@@ -1053,8 +1053,8 @@ class PigManagementController extends Controller {
             'total_piglets_born' => 'required|integer|min:0|max:20',
             'live_births' => 'required|integer|min:0|max:20',
             'stillbirths' => 'required|integer|min:0|max:20',
-            'number_of_males' => 'required|integer|min:0|max:20',
-            'number_of_females' => 'required|integer|min:0|max:20',
+            'number_of_males' => 'nullable|integer|min:0|max:20',
+            'number_of_females' => 'nullable|integer|min:0|max:20',
             'farrowing_type' => 'required|in:natural,assisted,cesarean',
             'farrowing_difficulty' => 'required|in:easy,moderate,difficult,complicated',
             'average_birth_weight' => 'nullable|numeric|min:0|max:5',
@@ -1081,13 +1081,16 @@ class PigManagementController extends Controller {
             ])->withInput();
         }
 
-        // Validate that gender distribution matches live births
-        $genderTotal = $males + $females;
-        if ($genderTotal !== $liveBirths) {
-
-            return back()->withErrors([
-                'gender' => "Number of males ({$males}) + females ({$females}) = {$genderTotal} must equal live births ({$liveBirths})."
-            ])->withInput();
+        // Validate that gender distribution matches live births (only if both are provided and not empty)
+        // Skip validation if both values are 0 (likely means fields were left empty)
+        if ($males > 0 || $females > 0) {
+            // At least one field has a non-zero value, validate the math
+            $genderTotal = $males + $females;
+            if ($genderTotal !== $liveBirths) {
+                return back()->withErrors([
+                    'gender' => "Number of males ({$males}) + females ({$females}) = {$genderTotal} must equal live births ({$liveBirths})."
+                ])->withInput();
+            }
         }
 
         // Calculate gestation length
@@ -1105,8 +1108,8 @@ class PigManagementController extends Controller {
             'total_piglets_born' => $data['total_piglets_born'],
             'live_births' => $data['live_births'],
             'stillbirths' => $data['stillbirths'],
-            'number_of_males' => $data['number_of_males'],
-            'number_of_females' => $data['number_of_females'],
+            'number_of_males' => $data['number_of_males'] ?: 0,
+            'number_of_females' => $data['number_of_females'] ?: 0,
             'average_birth_weight' => $data['average_birth_weight'],
             'farrowing_type' => $data['farrowing_type'],
             'farrowing_difficulty' => $data['farrowing_difficulty'],

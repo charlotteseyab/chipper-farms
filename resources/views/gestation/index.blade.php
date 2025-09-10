@@ -187,36 +187,69 @@
                                         {{ $mating->gestation_days }} days
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <div class="flex items-center space-x-3">
-                                            @if($mating->pregnancy_status === 'pregnant')
-                                                <button onclick="openFarrowingModal({{ $mating->id }}, '{{ $mating->female->ear_tag_number }}', '{{ $mating->expected_farrowing_date->format('Y-m-d') }}')"
-                                                        class="text-green-600 hover:text-green-900">
-                                                    Record Farrowing
-                                                </button>
-                                                <button onclick="openStatusModal({{ $mating->id }}, '{{ $mating->female->ear_tag_number }}')"
-                                                        class="text-blue-600 hover:text-blue-900">
-                                                    Update Status
-                                                </button>
-                                            @elseif($mating->pregnancy_status === 'farrowed')
-                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Farrowed</span>
-                                                @if($mating->actual_farrowing_date && $mating->expected_farrowing_date)
-                                                    @php $delta = $mating->expected_farrowing_date->diffInDays($mating->actual_farrowing_date, false);
-                                                    @endphp
-                                                    @if($delta < 0)
-                                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 ml-2">Early by {{ abs($delta) }}d</span>
-                                                    @elseif($delta === 0)
-                                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">On time</span>
-                                                    @else
-                                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 ml-2">Late by {{ $delta }}d</span>
-                                                    @endif
-                                                    <span class="text-xs text-gray-500 ml-2">{{ $mating->actual_farrowing_date->format('M d, Y') }}</span>
-                                                @endif
-                                            @else
-                                                <span class="text-gray-400">Completed</span>
-                                            @endif
-                                            <a href="{{ route('gestation.edit', $mating->id) }}" class="text-purple-600 hover:text-purple-900">
-                                                Edit
-                                            </a>
+                                        <div class="flex items-center justify-center">
+                                            <!-- Actions Dropdown -->
+                                            <div class="relative inline-block text-left">
+                                                <div>
+                                                    <button type="button" class="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1.5 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" id="actions-menu-{{ $mating->id }}" onclick="toggleDropdown({{ $mating->id }})">
+                                                        Actions
+                                                        <svg class="-mr-1 ml-2 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                                <div class="origin-top-right absolute right-0 mt-2 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 hidden z-50" id="dropdown-menu-{{ $mating->id }}">
+                                                    <div class="py-1" role="menu">
+                                                        <!-- Status Information -->
+                                                        <div class="px-4 py-2 border-b border-gray-100">
+                                                            @if($mating->pregnancy_status === 'pregnant')
+                                                                <div class="flex items-center space-x-2">
+                                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Pregnant</span>
+                                                                </div>
+                                                            @elseif($mating->pregnancy_status === 'farrowed')
+                                                                <div class="space-y-1">
+                                                                    <div class="flex items-center space-x-2">
+                                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Farrowed</span>
+                                                                    </div>
+                                                                    @if($mating->actual_farrowing_date && $mating->expected_farrowing_date)
+                                                                        @php $delta = $mating->expected_farrowing_date->diffInDays($mating->actual_farrowing_date, false);
+                                                                        @endphp
+                                                                        <div class="flex items-center space-x-2">
+                                                                            @if($delta < 0)
+                                                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Early by {{ abs($delta) }}d</span>
+                                                                            @elseif($delta === 0)
+                                                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">On time</span>
+                                                                            @else
+                                                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">Late by {{ $delta }}d</span>
+                                                                            @endif
+                                                                        </div>
+                                                                        <div class="text-xs text-gray-500">
+                                                                            {{ $mating->actual_farrowing_date->format('M d, Y') }}
+                                                                        </div>
+                                                                    @endif
+                                                                </div>
+                                                            @else
+                                                                <div class="flex items-center space-x-2">
+                                                                    <span class="text-gray-400 text-sm">Completed</span>
+                                                                </div>
+                                                            @endif
+                                                        </div>
+                                                        
+                                                        <!-- Action Buttons -->
+                                                        @if($mating->pregnancy_status === 'pregnant')
+                                                            <button onclick="openFarrowingModal({{ $mating->id }}, '{{ $mating->female->ear_tag_number }}', '{{ $mating->expected_farrowing_date->format('Y-m-d') }}')" class="block w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50" role="menuitem">
+                                                                Record Farrowing
+                                                            </button>
+                                                            <button onclick="openStatusModal({{ $mating->id }}, '{{ $mating->female->ear_tag_number }}')" class="block w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50" role="menuitem">
+                                                                Update Status
+                                                            </button>
+                                                        @endif
+                                                        <a href="{{ route('gestation.edit', $mating->id) }}" class="block w-full text-left px-4 py-2 text-sm text-purple-600 hover:bg-purple-50" role="menuitem">
+                                                            Edit Gestation
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
@@ -339,17 +372,17 @@
 
                             <div class="bg-blue-50 p-3 rounded-lg">
                                 <h5 class="text-sm font-medium text-blue-800 mb-2">Gender Distribution</h5>
-                                <p class="text-xs text-blue-600 mb-2">💡 Males + Females must equal Total Born</p>
+                                <p class="text-xs text-blue-600 mb-2">💡 Optional: Males + Females must equal Total Born if provided</p>
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
                                         <label class="block text-xs font-medium text-gray-700 mb-1">Males</label>
-                                        <input type="number" name="number_of_males" min="0" max="20" required
+                                        <input type="number" name="number_of_males" min="0" max="20"
                                                class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 text-sm"
                                                onchange="updateTotals()">
                                     </div>
                                     <div>
                                         <label class="block text-xs font-medium text-gray-700 mb-1">Females</label>
-                                        <input type="number" name="number_of_females" min="0" max="20" required
+                                        <input type="number" name="number_of_females" min="0" max="20"
                                                class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 text-sm"
                                                onchange="updateTotals()">
                                     </div>
@@ -687,6 +720,58 @@
             }
         }
 
+        // Dropdown toggle function
+        function toggleDropdown(matingId) {
+            const dropdown = document.getElementById('dropdown-menu-' + matingId);
+            const button = document.getElementById('actions-menu-' + matingId);
+            
+            if (dropdown) {
+                const isHidden = dropdown.classList.contains('hidden');
+                
+                // Close other dropdowns first
+                document.querySelectorAll('[id^="dropdown-menu-"]').forEach(menu => {
+                    menu.classList.add('hidden');
+                    menu.classList.remove('origin-top-right', 'origin-bottom-right');
+                    menu.style.bottom = 'auto';
+                    menu.style.top = '100%';
+                });
+                
+                if (isHidden) {
+                    // Show this dropdown
+                    dropdown.classList.remove('hidden');
+                    
+                    // Check if there's enough space below
+                    const rect = button.getBoundingClientRect();
+                    const dropdownHeight = 200; // Approximate dropdown height
+                    const spaceBelow = window.innerHeight - rect.bottom;
+                    const spaceAbove = rect.top;
+                    
+                    if (spaceBelow < dropdownHeight && spaceAbove > dropdownHeight) {
+                        // Open upward
+                        dropdown.classList.remove('origin-top-right');
+                        dropdown.classList.add('origin-bottom-right');
+                        dropdown.style.bottom = '100%';
+                        dropdown.style.top = 'auto';
+                    } else {
+                        // Open downward (default)
+                        dropdown.classList.remove('origin-bottom-right');
+                        dropdown.classList.add('origin-top-right');
+                        dropdown.style.bottom = 'auto';
+                        dropdown.style.top = '100%';
+                    }
+                }
+            }
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.relative')) {
+                document.querySelectorAll('[id^="dropdown-menu-"]').forEach(menu => {
+                    menu.classList.add('hidden');
+                });
+            }
+        });
+
         // Form submission validation
         function validateFarrowingForm() {
             try {
@@ -714,8 +799,8 @@
                     return false;
                 }
 
-                // Check if gender distribution is correct
-                if (liveBirths > 0 && (males + females) !== liveBirths) {
+                // Check if gender distribution is correct (only if at least one gender field has a value > 0)
+                if ((males > 0 || females > 0) && (males + females) !== liveBirths) {
                     alert('Error: Number of males (' + males + ') + females (' + females + ') must equal live births (' + liveBirths + ')');
                     return false;
                 }

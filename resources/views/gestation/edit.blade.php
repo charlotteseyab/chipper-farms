@@ -35,7 +35,7 @@
             </div>
         </div> -->
 
-        <main class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
+        <main class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
             <form method="POST" action="{{ route('gestation.update', $mating) }}" class="space-y-8">
                 @csrf
                 @method('PUT')
@@ -230,7 +230,7 @@
                 </div>
 
                 <!-- Form Actions -->
-                <div class="flex items-center justify-end space-x-4">
+                <div class="flex items-center justify-end space-x-4 mb-8">
                     <a href="{{ route('gestation.index') }}" 
                        class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                         Cancel

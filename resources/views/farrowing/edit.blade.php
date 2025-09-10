@@ -19,7 +19,7 @@
             </div>
         </div> -->
 
-        <main class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
+        <main class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
             <form method="POST" action="{{ route('farrowing.update', $farrowing) }}" class="space-y-8">
                 @csrf
                 @method('PUT')
@@ -123,7 +123,7 @@
 
                             <div>
                                 <label for="number_of_males" class="block text-sm font-medium text-gray-700 mb-2">Number of Males</label>
-                                <input type="number" name="number_of_males" id="number_of_males" required min="0" max="25"
+                                <input type="number" name="number_of_males" id="number_of_males" min="0" max="25"
                                        value="{{ old('number_of_males', $farrowing->number_of_males) }}"
                                        class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600">
                                 @error('number_of_males')
@@ -133,7 +133,7 @@
 
                             <div>
                                 <label for="number_of_females" class="block text-sm font-medium text-gray-700 mb-2">Number of Females</label>
-                                <input type="number" name="number_of_females" id="number_of_females" required min="0" max="25"
+                                <input type="number" name="number_of_females" id="number_of_females" min="0" max="25"
                                        value="{{ old('number_of_females', $farrowing->number_of_females) }}"
                                        class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600">
                                 @error('number_of_females')

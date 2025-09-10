@@ -404,7 +404,7 @@
                                                     {{ $weight->formatted_weight }}
                                                 </td>
                                                 <td class="px-6 py-4 whitespace-nowrap">
-                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $weight->purpose_badge }}">
+                                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ">
                                                         {{ $weight->purpose_icon }} {{ ucfirst(str_replace('_', ' ', $weight->purpose ?? 'routine')) }}
                                                     </span>
                                                 </td>
@@ -412,14 +412,14 @@
                                                     @if($weight->health_status)
                                                         @php
                                                             $healthConfig = [
-                                                                'excellent' => ['color' => 'text-green-600', 'bg' => 'bg-green-100', 'icon' => '🟢'],
-                                                                'good' => ['color' => 'text-blue-600', 'bg' => 'bg-blue-100', 'icon' => '🔵'],
-                                                                'fair' => ['color' => 'text-yellow-600', 'bg' => 'bg-yellow-100', 'icon' => '🟡'],
-                                                                'poor' => ['color' => 'text-red-600', 'bg' => 'bg-red-100', 'icon' => '🔴']
+                                                                'excellent' => ['color' => 'text-black','icon' => '🟢'],
+                                                                'good' => ['color' => 'text-black', 'icon' => '🔵'],
+                                                                'fair' => ['color' => 'text-black','icon' => '🟡'],
+                                                                'poor' => ['color' => 'text-black','icon' => '🔴']
                                                             ];
                                                             $config = $healthConfig[$weight->health_status] ?? $healthConfig['good'];
                                                         @endphp
-                                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $config['bg'] }} {{ $config['color'] }}">
+                                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $config['color'] }}">
                                                             {{ $config['icon'] }} {{ ucfirst($weight->health_status) }}
                                                         </span>
                                                     @else

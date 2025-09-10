@@ -157,7 +157,7 @@
                                                 <circle cx="9" cy="15" r="6" stroke="currentColor" stroke-width="2" fill="none"/>
                                                 <path d="M15 9L21 3M21 3h-5M21 3v5" stroke="currentColor" stroke-width="2" fill="none"/>
                                             </svg>
-                                            {{ $farrowing->number_of_males ?? 0 }}
+                                            {{ $farrowing->number_of_males > 0 ? $farrowing->number_of_males : 'N/A' }}
                                         </span>
                                     </dd>
                                 </div>
@@ -169,7 +169,7 @@
                                                 <circle cx="12" cy="8" r="5" stroke="currentColor" stroke-width="2" fill="none"/>
                                                 <path d="M12 13v8M9 18h6" stroke="currentColor" stroke-width="2" fill="none"/>
                                             </svg>
-                                            {{ $farrowing->number_of_females ?? 0 }}
+                                            {{ $farrowing->number_of_females > 0 ? $farrowing->number_of_females : 'N/A' }}
                                         </span>
                                     </dd>
                                 </div>
