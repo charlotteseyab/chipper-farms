@@ -56,14 +56,14 @@ return [
 
         // Minimum weights for breeding (in kg) - for future weight integration
         'minimum_breeding_weight' => [
-            'female' => 100, 
-            'male' => 90,   
+            'female' => 90, 
+            'male' => 80,   
         ],
 
         // Optimal breeding weights (in kg) - for future weight integration
         'optimal_breeding_weight' => [
-            'female' => 100, 
-            'male' => 90,   
+            'female' => 90, 
+            'male' => 80,   
         ],
 
         // Rest period between weaning and next mating (days)

@@ -850,12 +850,22 @@ class PigManagementController extends Controller {
         $maleReadiness = $male->breeding_readiness;
         $femaleReadiness = $female->breeding_readiness;
 
-        if (!$maleReadiness['ready']) {
+        // Only block for age issues, not weight issues
+        if ($maleReadiness['age_status'] === 'too_young' || $maleReadiness['age_status'] === 'too_old') {
             return back()->withErrors(['mating' => "Male {$male->code} is not ready for breeding: {$maleReadiness['age_message']}"]);
         }
 
-        if (!$femaleReadiness['ready']) {
+        if ($femaleReadiness['age_status'] === 'too_young' || $femaleReadiness['age_status'] === 'too_old') {
             return back()->withErrors(['mating' => "Female {$female->code} is not ready for breeding: {$femaleReadiness['age_message']}"]);
+        }
+
+        // Collect weight warnings for later display
+        $warnings = [];
+        if ($maleReadiness['factors']['weight']['status'] === 'too_light') {
+            $warnings[] = "Male {$male->code}: {$maleReadiness['factors']['weight']['message']}";
+        }
+        if ($femaleReadiness['factors']['weight']['status'] === 'too_light') {
+            $warnings[] = "Female {$female->code}: {$femaleReadiness['factors']['weight']['message']}";
         }
 
         // Check relationship before planning
@@ -891,8 +901,14 @@ class PigManagementController extends Controller {
         $successMessage = "Mating successfully planned for {$male->code} × {$female->code} on " .
                          Carbon::parse($data['planned_date'])->format('M d, Y');
 
+        // Add relationship warnings
         if ($relationship['risk_level'] !== 'none') {
             $successMessage .= ' ⚠️ Note: ' . $relationship['message'];
+        }
+
+        // Add weight warnings
+        if (!empty($warnings)) {
+            $successMessage .= ' ⚖️ Weight Warning: ' . implode('; ', $warnings);
         }
 
         return back()->with('success', $successMessage);

@@ -14,41 +14,43 @@ class WeightAlertsController extends Controller
      */
     public function index(Request $request)
     {
-        $query = WeightAlert::with(['pig', 'weightRecord']);
+        // Subquery: get latest alert id for each pig_id
+        $latestSub = \DB::table('weight_alerts as wa2')
+            ->selectRaw('MAX(id) as max_id, pig_id')
+            ->groupBy('pig_id');
 
-        // Filter by alert type
+        // Main query: join on id to get only latest per pig
+        $query = WeightAlert::with(['pig', 'weightRecord'])
+            ->joinSub($latestSub, 'latest', function($join) {
+                $join->on('weight_alerts.id', '=', 'latest.max_id');
+            });
+
+        // Apply filters (only those that make sense for latest alerts)
         if ($request->alert_type) {
-            $query->where('alert_type', $request->alert_type);
+            $query->where('weight_alerts.alert_type', $request->alert_type);
         }
-
-        // Filter by severity
         if ($request->severity) {
-            $query->where('severity', $request->severity);
+            $query->where('weight_alerts.severity', $request->severity);
         }
-
-        // Filter by pig
         if ($request->pig_id) {
-            $query->where('pig_id', $request->pig_id);
+            $query->where('weight_alerts.pig_id', $request->pig_id);
         }
-
-        // Filter by acknowledgment status
         if ($request->has('acknowledged')) {
             $acknowledged = $request->boolean('acknowledged');
-            $query->where('acknowledged', $acknowledged);
+            $query->where('weight_alerts.acknowledged', $acknowledged);
         }
-
-        // Filter by date range
         if ($request->date_from) {
-            $query->whereDate('created_at', '>=', $request->date_from);
+            $query->whereDate('weight_alerts.created_at', '>=', $request->date_from);
         }
         if ($request->date_to) {
-            $query->whereDate('created_at', '<=', $request->date_to);
+            $query->whereDate('weight_alerts.created_at', '<=', $request->date_to);
         }
 
         // Prioritize under_weight alerts at the top, then order by newest
         $alerts = $query
-            ->orderByRaw("CASE WHEN alert_type = 'under_weight' THEN 0 ELSE 1 END")
-            ->orderBy('created_at', 'desc')
+            ->orderByRaw("CASE WHEN weight_alerts.alert_type = 'under_weight' THEN 0 ELSE 1 END")
+            ->orderBy('weight_alerts.created_at', 'desc')
+            ->select('weight_alerts.*') // select only columns from weight_alerts
             ->paginate(15);
         $alerts->appends($request->query());
 

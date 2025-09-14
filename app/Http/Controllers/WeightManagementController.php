@@ -16,35 +16,41 @@ class WeightManagementController extends Controller
      */
     public function index(Request $request)
     {
-        $query = PigWeight::with(['pig', 'weightAlerts']);
+        // Subquery: get latest weigh_date for each pig_id
+        $latestSub = \DB::table('pig_weights as pw2')
+            ->selectRaw('MAX(weigh_date) as max_date, pig_id')
+            ->groupBy('pig_id');
 
-        // Filter by pig
+        // Main query: join on pig_id and weigh_date to get only latest per pig
+        $query = PigWeight::with(['pig', 'weightAlerts'])
+            ->joinSub($latestSub, 'latest', function($join) {
+                $join->on('pig_weights.pig_id', '=', 'latest.pig_id')
+                     ->on('pig_weights.weigh_date', '=', 'latest.max_date');
+            });
+
+        // Apply filters (only those that make sense for latest weights)
         if ($request->pig_id) {
-            $query->where('pig_id', $request->pig_id);
+            $query->where('pig_weights.pig_id', $request->pig_id);
         }
-
-        // Filter by date range
         if ($request->date_from) {
-            $query->whereDate('weigh_date', '>=', $request->date_from);
+            $query->whereDate('pig_weights.weigh_date', '>=', $request->date_from);
         }
         if ($request->date_to) {
-            $query->whereDate('weigh_date', '<=', $request->date_to);
+            $query->whereDate('pig_weights.weigh_date', '<=', $request->date_to);
         }
-
-        // Filter by purpose
         if ($request->purpose) {
-            $query->where('purpose', $request->purpose);
+            $query->where('pig_weights.purpose', $request->purpose);
         }
-
-        // Filter by weight range
         if ($request->weight_from) {
-            $query->where('weight', '>=', $request->weight_from);
+            $query->where('pig_weights.weight', '>=', $request->weight_from);
         }
         if ($request->weight_to) {
-            $query->where('weight', '<=', $request->weight_to);
+            $query->where('pig_weights.weight', '<=', $request->weight_to);
         }
 
-        $weights = $query->orderBy('weigh_date', 'desc')->paginate(10);
+        $weights = $query->orderBy('pig_weights.weigh_date', 'desc')
+                        ->select('pig_weights.*') // select only columns from pig_weights
+                        ->paginate(10);
         $weights->appends($request->query());
 
         // Get data for filters

@@ -23,10 +23,13 @@
                                 @foreach($allMales as $male)
                                     @php $availability = $male->availability_status; @endphp
                                     <option value="{{ $male->id }}" {{ old('male_id') == $male->id ? 'selected' : '' }}
-                                            @if(!$availability['available']) disabled class="text-gray-400" @endif>
+                                            @if(!$availability['available']) disabled class="text-gray-400" 
+                                            @elseif($availability['warning'] ?? false) class="text-orange-600 font-medium" @endif>
                                         {{ $availability['icon'] }} {{ $male->ear_tag_number }} - {{ $male->code }}
                                         ({{ $male->breed }}, {{ $male->current_age_in_days }} days)
                                         @if(!$availability['available'])
+                                            - {{ $availability['reason'] }}
+                                        @elseif($availability['warning'] ?? false)
                                             - {{ $availability['reason'] }}
                                         @endif
                                     </option>
@@ -41,10 +44,13 @@
                                 @foreach($allFemales as $female)
                                     @php $availability = $female->availability_status; @endphp
                                     <option value="{{ $female->id }}" {{ old('female_id') == $female->id ? 'selected' : '' }}
-                                            @if(!$availability['available']) disabled class="text-gray-400" @endif>
+                                            @if(!$availability['available']) disabled class="text-gray-400" 
+                                            @elseif($availability['warning'] ?? false) class="text-orange-600 font-medium" @endif>
                                             {{ $availability['icon'] }} {{ $female->ear_tag_number }} - {{ $female->code }}
                                         ({{ $female->breed }}, {{ $female->current_age_in_days }} days)
                                         @if(!$availability['available'])
+                                            - {{ $availability['reason'] }}
+                                        @elseif($availability['warning'] ?? false)
                                             - {{ $availability['reason'] }}
                                         @endif
                                     </option>
@@ -317,6 +323,12 @@
                     const maleReadinessBadge = getMaleReadinessBadge(selectedMale.breeding_readiness);
                     const femaleReadinessBadge = getFemaleReadinessBadge(selectedFemale.breeding_readiness);
 
+                    // Check for weight warning
+                    const maleWeightWarning = selectedMale.breeding_readiness.factors?.weight?.status === 'too_light' ? 
+                        `<div class="mt-2 p-2 bg-orange-100 border border-orange-200 rounded text-xs text-orange-700">
+                            ⚠️ Weight Warning: ${selectedMale.breeding_readiness.factors.weight.message}
+                        </div>` : '';
+
                     maleDetails.innerHTML = `
                         <div class="flex items-center justify-between mb-2">
                             <div><strong>${selectedMale.ear_tag_number}</strong> - ${selectedMale.code}</div>
@@ -326,7 +338,14 @@
                         <div class="text-sm text-gray-600">Age: ${Math.floor(selectedMale.current_age_in_days / 30)} months (${selectedMale.current_age_in_days} days)</div>
                         <div class="text-sm text-gray-600">Type: ${selectedMale.stock_type}</div>
                         ${selectedMale.breeding_readiness.age_status !== 'optimal' ? `<div class="text-xs text-gray-500 mt-2">${selectedMale.readiness_message}</div>` : ''}
+                        ${maleWeightWarning}
                     `;
+
+                    // Check for weight warning
+                    const femaleWeightWarning = selectedFemale.breeding_readiness.factors?.weight?.status === 'too_light' ? 
+                        `<div class="mt-2 p-2 bg-orange-100 border border-orange-200 rounded text-xs text-orange-700">
+                            ⚠️ Weight Warning: ${selectedFemale.breeding_readiness.factors.weight.message}
+                        </div>` : '';
 
                     femaleDetails.innerHTML = `
                         <div class="flex items-center justify-between mb-2">
@@ -337,6 +356,7 @@
                         <div class="text-sm text-gray-600">Age: ${Math.floor(selectedFemale.current_age_in_days / 30)} months (${selectedFemale.current_age_in_days} days)</div>
                         <div class="text-sm text-gray-600">Type: ${selectedFemale.stock_type}</div>
                         ${selectedFemale.breeding_readiness.age_status !== 'optimal' ? `<div class="text-xs text-gray-500 mt-2">${selectedFemale.readiness_message}</div>` : ''}
+                        ${femaleWeightWarning}
                     `;
                     
                     pairInfo.classList.remove('hidden');

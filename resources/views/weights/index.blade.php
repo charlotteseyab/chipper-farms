@@ -49,15 +49,15 @@
                         </select>
                     </div>
 
-                    <div>
+                    <!-- <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Date From</label>
                         <input type="date" name="date_from" value="{{ request('date_from') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500 auto-debounce">
-                    </div>
+                    </div> -->
 
-                    <div>
+                    <!-- <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Date To</label>
                         <input type="date" name="date_to" value="{{ request('date_to') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500 auto-debounce">
-                    </div>
+                    </div> -->
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Weight From (kg)</label>

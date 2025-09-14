@@ -71,7 +71,7 @@ class WeightStandardsController extends Controller
             'breed' => 'required|in:LW,DR,LWDR',
             'gender' => 'required|in:M,F',
             'stock_type' => 'required|in:standard,breeding',
-            'week_number' => 'required|integer|min:1|max:104', // Up to 2 years
+            'week_number' => 'required|integer|min:1|max:200', // Up to 2 years
             'expected_min_weight' => 'required|numeric|min:0.1|max:500',
             'expected_max_weight' => 'required|numeric|min:0.1|max:500|gt:expected_min_weight',
             'optimal_weight' => 'required|numeric|min:0.1|max:500|gte:expected_min_weight|lte:expected_max_weight',
@@ -191,12 +191,27 @@ class WeightStandardsController extends Controller
      */
     public function destroy(ExpectedWeightStandard $weightStandard)
     {
+        // Capture pig type before delete
+        $breed = $weightStandard->breed;
+        $gender = $weightStandard->gender;
+        $stockType = $weightStandard->stock_type;
+
         $weightStandard->delete();
 
-        return FlashHelper::successAndRedirect(
-            'Weight standard deleted successfully!',
-            'weight-standards.index'
-        );
+        // Reprocess affected weights so alerts reflect missing standards immediately
+        $processedCount = 0;
+        try {
+            $processedCount = \App\Models\PigWeight::reprocessAlertsForPigType($breed, $gender, $stockType);
+        } catch (\Exception $e) {
+            \Log::error("Failed to reprocess weight alerts after deleting standard: " . $e->getMessage());
+        }
+
+        $message = 'Weight standard deleted successfully!';
+        if ($processedCount > 0) {
+            $message .= " {$processedCount} existing weight record(s) have been re-evaluated against the updated standards.";
+        }
+
+        return FlashHelper::successAndRedirect($message, 'weight-standards.index');
     }
 
     /**
@@ -216,8 +231,8 @@ class WeightStandardsController extends Controller
             'breed' => 'required|in:LW,DR,LWDR',
             'gender' => 'required|in:M,F',
             'stock_type' => 'required|in:standard,breeding',
-            'week_from' => 'required|integer|min:1|max:104',
-            'week_to' => 'required|integer|min:1|max:104|gte:week_from',
+            'week_from' => 'required|integer|min:1|max:200',
+            'week_to' => 'required|integer|min:1|max:200|gte:week_from',
             'min_weight_start' => 'required|numeric|min:0.1|max:500',
             'max_weight_start' => 'required|numeric|min:0.1|max:500|gt:min_weight_start',
             'optimal_weight_start' => 'required|numeric|min:0.1|max:500|gte:min_weight_start|lte:max_weight_start',
@@ -226,19 +241,19 @@ class WeightStandardsController extends Controller
         ]);
 
         $createdCount = 0;
-        $skippedCount = 0;
+        $overwrittenCount = 0;
 
         for ($week = $data['week_from']; $week <= $data['week_to']; $week++) {
-            // Check if standard already exists
+            // If a standard already exists for this combination, delete it so we overwrite
             $existing = ExpectedWeightStandard::where('breed', $data['breed'])
                                              ->where('gender', $data['gender'])
                                              ->where('stock_type', $data['stock_type'])
                                              ->where('week_number', $week)
-                                             ->exists();
+                                             ->first();
 
             if ($existing) {
-                $skippedCount++;
-                continue;
+                $existing->delete();
+                $overwrittenCount++;
             }
 
             // Calculate weights for this week
@@ -278,8 +293,8 @@ class WeightStandardsController extends Controller
         }
 
         $message = "Created {$createdCount} weight standards.";
-        if ($skippedCount > 0) {
-            $message .= " Skipped {$skippedCount} existing standards.";
+        if ($overwrittenCount > 0) {
+            $message .= " Overwrote {$overwrittenCount} existing standards.";
         }
         if ($processedCount > 0) {
             $message .= " {$processedCount} existing weight record(s) have been re-evaluated against the new standards.";

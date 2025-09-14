@@ -161,4 +161,15 @@ Route::get('api/pigs/{pig}/expected-weight', [App\Http\Controllers\WeightManagem
     Route::get('deaths/{id}', [App\Http\Controllers\PigManagementController::class, 'deathShow'])->name('deaths.show');
     Route::get('deaths-export/csv', [App\Http\Controllers\PigManagementController::class, 'deathsExportCsv'])->name('deaths.export.csv');
     Route::get('deaths-export/pdf', [App\Http\Controllers\PigManagementController::class, 'deathsExportPdf'])->name('deaths.export.pdf');
+
+    // Feed Management Routes
+    Route::get('feeds', [App\Http\Controllers\FeedController::class, 'index'])->name('feeds.index');
+    Route::get('feeds/create', [App\Http\Controllers\FeedController::class, 'create'])->name('feeds.create');
+    Route::post('feeds', [App\Http\Controllers\FeedController::class, 'store'])->name('feeds.store');
+    Route::get('feeds/{feed}', [App\Http\Controllers\FeedController::class, 'show'])->name('feeds.show');
+    Route::get('feeds/{feed}/edit', [App\Http\Controllers\FeedController::class, 'edit'])->name('feeds.edit');
+    Route::put('feeds/{feed}', [App\Http\Controllers\FeedController::class, 'update'])->name('feeds.update');
+    Route::delete('feeds/{feed}', [App\Http\Controllers\FeedController::class, 'destroy'])->name('feeds.destroy');
+    Route::get('feeds/schedule', [App\Http\Controllers\FeedController::class, 'schedule'])->name('feeds.schedule');
+    Route::get('feeds/reports', [App\Http\Controllers\FeedController::class, 'reports'])->name('feeds.reports');
 });

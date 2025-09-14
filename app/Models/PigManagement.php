@@ -247,14 +247,16 @@ class PigManagement extends Model
                 ];
             }
 
-            // Check weight readiness
+            // Check weight readiness - allow selection but show warning
             $weightStatus = $readiness['factors']['weight']['status'];
             if ($weightStatus === 'too_light') {
                 return [
-                    'available' => false,
+                    'available' => true, // Allow selection
                     'reason' => $readiness['factors']['weight']['message'],
-                    'status' => 'underweight',
-                    'icon' => '⚖️'
+                    'status' => 'underweight_warning',
+                    'icon' => '⚠️',
+                    'warning' => true,
+                    'warning_message' => 'Underweight for breeding - proceed with caution'
                 ];
             }
         }
