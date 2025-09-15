@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FeedInventory extends Model
 {
     protected $fillable = [
-        'feed_type',
+        'feed_type_id',
         'quantity',
         'unit',
         'last_updated',
@@ -18,8 +19,8 @@ class FeedInventory extends Model
         'last_updated' => 'date',
     ];
 
-    public function scopeOfType($query, $type)
+    public function feedType(): BelongsTo
     {
-        return $query->where('feed_type', $type);
+        return $this->belongsTo(FeedType::class);
     }
 }

@@ -936,6 +936,12 @@ class PigManagementController extends Controller {
         return view('mating.manage', compact('matings', 'stats'));
     }
 
+    public function destroyMating(Mating $mating)
+    {
+        $mating->delete();
+        return redirect()->route('mating.manage')->with('success', 'Mating deleted successfully.');
+    }
+
     public function recordPregnancyCheck(Request $request, $id)
     {
         $mating = Mating::findOrFail($id);
@@ -1057,6 +1063,12 @@ class PigManagementController extends Controller {
         ];
 
         return view('gestation.index', compact('pregnantMatings', 'stats'));
+    }
+
+    public function destroyGestation(Mating $mating)
+    {
+        $mating->delete();
+        return redirect()->route('gestation.index')->with('success', 'Gestation record deleted successfully.');
     }
 
     public function recordFarrowing(Request $request, $id)

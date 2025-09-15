@@ -298,6 +298,13 @@
                                             @else
                                                 <span class="text-gray-400">No actions</span>
                                             @endif
+                                            <form method="POST" action="{{ route('mating.destroy', $mating->id) }}" onsubmit="return confirm('Are you sure you want to delete this mating?');">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="text-red-600 hover:text-red-900">
+                                                    Delete Mating
+                                                </button>
+                                            </form>
                                         </td>
                                     </tr>
                                 @endforeach

@@ -11,7 +11,7 @@
                     <a href="{{ route('weight-alerts.index') }}" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
                         ← Back to Alerts
                     </a>
-                    @if(!$weightAlert->acknowledged)
+                    @if(!$weightAlert->acknowledged && Auth::user() && (Auth::user()->isAdmin() || Auth::user()->isSuperuser()))
                         <form method="POST" action="{{ route('weight-alerts.acknowledge', $weightAlert) }}" class="inline">
                             @csrf
                             <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">

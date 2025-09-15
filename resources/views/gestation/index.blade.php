@@ -247,6 +247,11 @@
                                                         <a href="{{ route('gestation.edit', $mating->id) }}" class="block w-full text-left px-4 py-2 text-sm text-purple-600 hover:bg-purple-50" role="menuitem">
                                                             Edit Gestation
                                                         </a>
+                                                        <form method="POST" action="{{ route('gestation.destroy', $mating->id) }}" onsubmit="return confirm('Are you sure you want to delete this gestation record?');">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50" role="menuitem">Delete</button>
+                                                        </form>
                                                     </div>
                                                 </div>
                                             </div>

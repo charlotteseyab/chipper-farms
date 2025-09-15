@@ -134,7 +134,7 @@
                 <div class="px-6 py-4 border-b border-gray-200">
                     <div class="flex justify-between items-center">
                         <h3 class="text-lg font-medium text-gray-900">Weight Alerts ({{ $alerts->total() }})</h3>
-                        @if($alerts->where('acknowledged', false)->count() > 0)
+                        @if(Auth::user() && (Auth::user()->isAdmin() || Auth::user()->isSuperuser()) && $alerts->where('acknowledged', false)->count() > 0)
                             <button onclick="openBulkAcknowledgeModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
                                 ✅ Bulk Acknowledge
                             </button>
@@ -163,7 +163,7 @@
                             @forelse($alerts as $alert)
                                 <tr class="hover:bg-gray-50 {{ $alert->severity == 'high' ? 'bg-red-50' : '' }}">
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        @if(!$alert->acknowledged)
+                                        @if(!$alert->acknowledged && Auth::user() && (Auth::user()->isAdmin() || Auth::user()->isSuperuser()))
                                             <input type="checkbox" name="alert_ids[]" value="{{ $alert->id }}" class="alert-checkbox rounded border-gray-300">
                                         @endif
                                     </td>
@@ -214,7 +214,7 @@
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                         <div class="flex space-x-2">
                                             <a href="{{ route('weight-alerts.show', $alert) }}" class="text-blue-600 hover:text-blue-900">View</a>
-                                            @if(!$alert->acknowledged)
+                                            @if(!$alert->acknowledged && Auth::user() && (Auth::user()->isAdmin() || Auth::user()->isSuperuser()))
                                                 <button onclick="acknowledgeAlert({{ $alert->id }})" class="text-green-600 hover:text-green-900">Acknowledge</button>
                                             @endif
                                         </div>
