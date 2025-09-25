@@ -1,11 +1,19 @@
 <x-app-layout>
-<div class="container mx-auto py-6 max-w-5xl">
+<div class="container mx-auto py-6 max-w-6xl">
     <!-- <h1 class="text-2xl font-bold mb-4">Add Feed Stock</h1> -->
     <form method="POST" action="{{ route('feed-inventory.store') }}" class="bg-white p-6 rounded shadow">
         @csrf
         <div class="mb-4">
             <label class="block font-medium mb-1">Feed Type</label>
-            <input type="text" name="feed_type" class="w-full border rounded px-3 py-2" required value="{{ old('feed_type') }}">
+            <select name="feed_type_id" class="w-full border rounded px-3 py-2" required>
+                <option value="">Select feed type</option>
+                @foreach($feedTypes as $type)
+                    <option value="{{ $type->id }}" {{ old('feed_type_id') == $type->id ? 'selected' : '' }}>{{ $type->name }}</option>
+                @endforeach
+            </select>
+            @error('feed_type_id')
+                <div class="text-red-600 text-sm mt-1">{{ $message }}</div>
+            @enderror
         </div>
         <div class="mb-4">
             <label class="block font-medium mb-1">Quantity</label>

@@ -1,6 +1,6 @@
 <x-app-layout>
-    <main class="flex-1 p-6 bg-gray-50 min-h-screen">
-        <div class="max-w-6xl mx-auto">
+    <main class="flex-1 p-6 min-h-screen">
+        <div class="max-w-7xl mx-auto">
             <!-- Header -->
             <!-- <div class="mb-8">
                 <h1 class="text-3xl font-bold text-gray-900 mb-2">System Configuration</h1>
@@ -81,8 +81,8 @@
                                     </svg>
                                 </div>
                                 <div>
-                                    <h3 class="text-lg font-semibold text-gray-900">Breeding Age Requirements</h3>
-                                    <p class="text-gray-500 text-sm">Set minimum and optimal breeding ages for your pigs</p>
+                                    <h3 class="text-lg font-semibold text-gray-900">Breeding Age and Weight Requirements</h3>
+                                    <p class="text-gray-500 text-sm">Set minimum and optimal breeding ages and weights for your pigs</p>
                                 </div>
                             </div>
                             
@@ -100,6 +100,18 @@
                                         <input name="optimal_first_breeding_age_female" type="number" value="{{ old('optimal_first_breeding_age_female', $breeding['optimal_first_breeding_age_female'] ?? config('breeding.parameters.optimal_first_breeding_age.female')) }}" min="200" max="365" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors">
                                         <p class="text-xs text-gray-500 mt-1">~8 months optimal</p>
                                     </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Minimum Breeding Weight (kg)</label>
+                                        <input name="minimum_breeding_weight_female" type="number" value="{{ old('minimum_breeding_weight_female', $breeding['minimum_breeding_weight_female'] ?? config('breeding.parameters.minimum_breeding_weight.female')) }}" min="90" max="150" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors">
+                                        <p class="text-xs text-gray-500 mt-1">~90 kg minimum</p>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Optimal Breeding Weight (kg)</label>
+                                        <input name="optimal_breeding_weight_female" type="number" value="{{ old('optimal_breeding_weight_female', $breeding['optimal_breeding_weight_female'] ?? config('breeding.parameters.optimal_breeding_weight.female')) }}" min="90" max="150" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors">
+                                        <p class="text-xs text-gray-500 mt-1">~90 kg optimal</p>
+                                    </div>
                                 </div>
                                 
                                 <div class="space-y-4">
@@ -114,6 +126,18 @@
                                         <label class="block text-sm font-medium text-gray-700 mb-2">Optimal First Breeding (Days)</label>
                                         <input name="optimal_first_breeding_age_male" type="number" value="{{ old('optimal_first_breeding_age_male', $breeding['optimal_first_breeding_age_male'] ?? config('breeding.parameters.optimal_first_breeding_age.male')) }}" min="240" max="365" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors">
                                         <p class="text-xs text-gray-500 mt-1">~10 months optimal</p>
+                                    </div>
+
+                                    <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-2">Minimum Breeding Weight (kg)</label>
+                                        <input name="minimum_breeding_weight_male" type="number" value="{{ old('minimum_breeding_weight_male', $breeding['minimum_breeding_weight_male'] ?? config('breeding.parameters.minimum_breeding_weight.male')) }}" min="80" max="150" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors">
+                                        <p class="text-xs text-gray-500 mt-1">~80 kg minimum</p>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Optimal Breeding Weight (kg)</label>
+                                        <input name="optimal_breeding_weight_male" type="number" value="{{ old('optimal_breeding_weight_male', $breeding['optimal_breeding_weight_male'] ?? config('breeding.parameters.optimal_breeding_weight.male')) }}" min="80" max="150" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-colors">
+                                        <p class="text-xs text-gray-500 mt-1">~80 kg optimal</p>
                                     </div>
                                 </div>
                             </div>

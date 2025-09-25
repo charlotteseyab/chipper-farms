@@ -2,12 +2,14 @@
 namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Group extends Model
 {
     protected $fillable = [
         'name',
         'type',
+        'structure_id',
         'description',
     ];
 
@@ -19,5 +21,10 @@ class Group extends Model
     public function groupFeedings(): HasMany
     {
         return $this->hasMany(GroupFeeding::class);
+    }
+
+    public function structure(): BelongsTo
+    {
+        return $this->belongsTo(Structure::class);
     }
 }

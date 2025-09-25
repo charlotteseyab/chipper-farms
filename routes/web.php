@@ -109,12 +109,12 @@ Route::middleware([
     // Weight Management Routes
     Route::get('weights', [App\Http\Controllers\WeightManagementController::class, 'index'])->name('weights.index');
     Route::get('weights/create', [App\Http\Controllers\WeightManagementController::class, 'create'])->name('weights.create');
-Route::post('weights', [App\Http\Controllers\WeightManagementController::class, 'store'])->name('weights.store');
-Route::get('weights/{weight}/edit', [App\Http\Controllers\WeightManagementController::class, 'edit'])->name('weights.edit');
-Route::put('weights/{weight}', [App\Http\Controllers\WeightManagementController::class, 'update'])->name('weights.update');
-Route::get('weights/reports', [App\Http\Controllers\WeightManagementController::class, 'reports'])->name('weights.reports');
-Route::get('api/pigs/{pig}/previous-weight', [App\Http\Controllers\WeightManagementController::class, 'getPreviousWeight'])->name('api.pigs.previous-weight');
-Route::get('api/pigs/{pig}/expected-weight', [App\Http\Controllers\WeightManagementController::class, 'getExpectedWeight'])->name('api.pigs.expected-weight');
+    Route::post('weights', [App\Http\Controllers\WeightManagementController::class, 'store'])->name('weights.store');
+    Route::get('weights/{weight}/edit', [App\Http\Controllers\WeightManagementController::class, 'edit'])->name('weights.edit');
+    Route::put('weights/{weight}', [App\Http\Controllers\WeightManagementController::class, 'update'])->name('weights.update');
+    Route::get('weights/reports', [App\Http\Controllers\WeightManagementController::class, 'reports'])->name('weights.reports');
+    Route::get('api/pigs/{pig}/previous-weight', [App\Http\Controllers\WeightManagementController::class, 'getPreviousWeight'])->name('api.pigs.previous-weight');
+        Route::get('api/pigs/{pig}/expected-weight', [App\Http\Controllers\WeightManagementController::class, 'getExpectedWeight'])->name('api.pigs.expected-weight');
     Route::get('weights/reports/export-pdf', [App\Http\Controllers\WeightManagementController::class, 'exportPDF'])->name('weights.reports.export-pdf');
 
     // Weight Standards Routes (Admin, Manager and Superuser only)
@@ -167,8 +167,13 @@ Route::get('api/pigs/{pig}/expected-weight', [App\Http\Controllers\WeightManagem
     Route::get('deaths-export/pdf', [App\Http\Controllers\PigManagementController::class, 'deathsExportPdf'])->name('deaths.export.pdf');
 
     // Feed Management Routes
-    Route::get('feeds/schedule', [App\Http\Controllers\FeedController::class, 'schedule'])->name('feeds.schedule');
-    Route::get('feeds/reports', [App\Http\Controllers\FeedController::class, 'reports'])->name('feeds.reports');    
+    Route::get('feeds/schedule/create', [App\Http\Controllers\FeedUiController::class, 'createSchedule'])->name('feeds.schedule.create');
+    Route::get('feeds/schedule', [App\Http\Controllers\FeedUiController::class, 'schedule'])->name('feeds.schedule');
+    Route::post('feeds/schedule', [App\Http\Controllers\FeedUiController::class, 'storeSchedule'])->name('feeds.schedule.store');
+    Route::post('feeds/schedule/{schedule}/fed', [App\Http\Controllers\FeedUiController::class, 'markFed'])->name('feeds.schedule.mark-fed');
+    Route::post('feeds/schedule/{schedule}/skipped', [App\Http\Controllers\FeedUiController::class, 'markSkipped'])->name('feeds.schedule.mark-skipped');
+    Route::get('feeds/reports', [App\Http\Controllers\FeedUiController::class, 'reports'])->name('feeds.reports');
+    Route::get('feeds/reports/export/pdf', [App\Http\Controllers\FeedUiController::class, 'exportReportsPdf'])->name('feeds.reports.export.pdf');
     Route::get('feeds', [App\Http\Controllers\FeedController::class, 'index'])->name('feeds.index');
     Route::get('feeds/create', [App\Http\Controllers\FeedController::class, 'create'])->name('feeds.create');
     Route::post('feeds', [App\Http\Controllers\FeedController::class, 'store'])->name('feeds.store');
@@ -185,12 +190,16 @@ Route::get('api/pigs/{pig}/expected-weight', [App\Http\Controllers\WeightManagem
         Route::get('feed-inventory/create', [App\Http\Controllers\FeedInventoryController::class, 'create'])->name('feed-inventory.create');
         Route::post('feed-inventory', [App\Http\Controllers\FeedInventoryController::class, 'store'])->name('feed-inventory.store');
         Route::get('feed-inventory/analytics', [App\Http\Controllers\FeedInventoryController::class, 'analytics'])->name('feed-inventory.analytics');
-
+        Route::get('feed-inventory/{inventory}/edit', [App\Http\Controllers\FeedInventoryController::class, 'edit'])->name('feed-inventory.edit');
+        Route::put('feed-inventory/{inventory}', [App\Http\Controllers\FeedInventoryController::class, 'update'])->name('feed-inventory.update');
+        Route::delete('feed-inventory/{inventory}', [App\Http\Controllers\FeedInventoryController::class, 'destroy'])->name('feed-inventory.destroy');
         // Feed Purchase Requests
         Route::get('feed-purchase-requests', [App\Http\Controllers\FeedPurchaseRequestController::class, 'index'])->name('feed-purchase-requests.index');
         Route::get('feed-purchase-requests/create', [App\Http\Controllers\FeedPurchaseRequestController::class, 'create'])->name('feed-purchase-requests.create');
         Route::post('feed-purchase-requests', [App\Http\Controllers\FeedPurchaseRequestController::class, 'store'])->name('feed-purchase-requests.store');
         Route::get('feed-purchase-requests/{request}', [App\Http\Controllers\FeedPurchaseRequestController::class, 'show'])->name('feed-purchase-requests.show');
+        Route::post('feed-purchase-requests/{request}/approve', [App\Http\Controllers\FeedPurchaseRequestController::class, 'approve'])->middleware('role:admin,superuser')->name('feed-purchase-requests.approve');
+        Route::post('feed-purchase-requests/{request}/reject', [App\Http\Controllers\FeedPurchaseRequestController::class, 'reject'])->middleware('role:admin,superuser')->name('feed-purchase-requests.reject');
     });
 
     // Feed Management Setup
@@ -198,4 +207,11 @@ Route::get('api/pigs/{pig}/expected-weight', [App\Http\Controllers\WeightManagem
         Route::resource('feed-types', App\Http\Controllers\FeedTypeController::class);
         Route::resource('feeding-standards', App\Http\Controllers\FeedingStandardController::class);
     });
+
+    // Grouping Rules
+    Route::resource('grouping-rules', App\Http\Controllers\GroupingRuleController::class)->middleware('role:admin,superuser,manager');
+
+    // Ingredients & Recipes
+    Route::resource('ingredients', App\Http\Controllers\IngredientController::class)->middleware('role:admin,superuser,manager');
+    Route::resource('recipes', App\Http\Controllers\FeedRecipeController::class)->middleware('role:admin,superuser,manager');
 });

@@ -1,292 +1,321 @@
 <x-app-layout>
-    <div class="min-h-screen bg-gray-50">
-        <!-- Header -->
-        <div class="bg-white shadow-sm border-b border-gray-200">
-            <div class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-4">
-                        <a href="{{ route('feeds.index') }}" class="text-gray-500 hover:text-gray-700">
-                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                            </svg>
-                        </a>
-                        <div>
-                            <h1 class="text-2xl font-bold text-gray-900">Feed Reports</h1>
-                            <p class="text-gray-500">Analyze feeding patterns and costs</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center space-x-3">
-                        <button onclick="exportToCSV()" 
-                                class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                            <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                            </svg>
-                            Export CSV
-                        </button>
-                    </div>
+<style>
+    #feedTypeChart, #ingredientChart {
+        max-height: 350px; /* keeps them compact */
+    }
+</style>
+
+    <div class="max-w-7xl mx-auto px-4 py-8 space-y-8">
+        <!-- Header + Filter -->
+        <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+            <form method="GET" class="flex flex-wrap items-end gap-4 bg-white p-4 rounded-lg shadow border">
+                <div>
+                    <label class="block text-xs font-medium text-gray-500">From</label>
+                    <input type="date" 
+                           name="start_date" 
+                           value="{{ $from ?? now()->subDays(30)->toDateString() }}" 
+                           class="mt-1 border rounded px-3 py-2 text-sm focus:ring focus:ring-blue-200 w-40">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500">To</label>
+                    <input type="date" 
+                           name="end_date" 
+                           value="{{ $to ?? now()->toDateString() }}" 
+                           class="mt-1 border rounded px-3 py-2 text-sm focus:ring focus:ring-blue-200 w-40">
+                </div>
+                <button class="h-10 px-4 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition">
+                    Filter
+                </button>
+            </form>
+
+            <a href="{{ route('feeds.reports.export.pdf', ['start_date' => $from, 'end_date' => $to]) }}" 
+               class="h-10 px-4 flex items-center justify-center bg-red-600 text-white rounded-lg text-sm font-medium shadow hover:bg-red-700 transition">
+               📄 Export PDF
+            </a>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-6 rounded-xl shadow border">
+                <div class="text-sm text-gray-500">Total Scheduled Feed</div>
+                <div class="mt-2 text-3xl font-bold text-gray-900">
+                    {{ number_format($totalScheduledKg ?? 0, 2) }} <span class="text-lg font-medium">kg</span>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow border">
+                <div class="text-sm text-gray-500">Feed Types Scheduled</div>
+                <div class="mt-2 text-3xl font-bold text-gray-900">
+                    {{ isset($byType) ? $byType->count() : 0 }}
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow border">
+                <div class="text-sm text-gray-500">Total Ingredients Used</div>
+                <div class="mt-2 text-3xl font-bold text-gray-900">
+                    {{ isset($ingredientDetails) ? count($ingredientDetails) : 0 }}
                 </div>
             </div>
         </div>
 
-        <main class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <!-- Date Range Filter -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Feed by Type Chart -->
+            <div class="bg-white rounded-xl shadow border">
+                <div class="px-6 py-4 border-b text-base font-semibold text-gray-800">Feed by Type (Chart)</div>
+                <div class="p-6">
+                    <canvas id="feedTypeChart" height="150"></canvas>
+                </div>
+            </div>
+
+            <!-- Ingredient Usage Chart -->
+            <div class="bg-white rounded-xl shadow border">
+                <div class="px-6 py-4 border-b text-base font-semibold text-gray-800">Estimated Ingredient Usage (Chart)</div>
+                <div class="p-6">
+                    <canvas id="ingredientChart" height="100"></canvas>
+                </div>
+                </div>
+        </div>
+
+        <!-- Feed vs Pig Weights -->
+        <div class="bg-white rounded-xl shadow border">
+            <div class="px-6 py-4 border-b text-base font-semibold text-gray-800">Feed vs Pig Weights</div>
+            <div class="p-6">
+                <canvas id="feedWeightChart" height="100"></canvas>
+            </div>
+        </div>
+
+        <!-- Tables -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Feed by Type Table -->
+            <div class="bg-white rounded-xl shadow border">
                 <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-medium text-gray-900">Report Period</h3>
-                </div>
-                <form method="GET" class="p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <label for="start_date" class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                            <input type="date" name="start_date" id="start_date" value="{{ $startDate }}" 
-                                   class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                        </div>
-                        <div>
-                            <label for="end_date" class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                            <input type="date" name="end_date" id="end_date" value="{{ $endDate }}" 
-                                   class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500">
-                        </div>
-                        <div class="flex items-end">
-                            <button type="submit" 
-                                    class="w-full px-4 py-2 bg-green-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-green-700">
-                                Update Report
-                            </button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Summary Statistics -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <svg class="h-8 w-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Total Feed Records</p>
-                            <p class="text-2xl font-semibold text-gray-900">{{ number_format($totalFeeds) }}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <svg class="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Total Feed Amount</p>
-                            <p class="text-2xl font-semibold text-gray-900">{{ number_format($totalAmount, 1) }} kg</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <svg class="h-8 w-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Total Cost</p>
-                            <p class="text-2xl font-semibold text-gray-900">${{ number_format($totalCost, 2) }}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <svg class="h-8 w-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <p class="text-sm font-medium text-gray-500">Avg Cost per kg</p>
-                            <p class="text-2xl font-semibold text-gray-900">
-                                ${{ $totalAmount > 0 ? number_format($totalCost / $totalAmount, 2) : '0.00' }}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Feed by Type Analysis -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-                    <div class="px-6 py-4 border-b border-gray-200">
-                        <h3 class="text-lg font-medium text-gray-900">Feed Consumption by Type</h3>
-                    </div>
-                    <div class="p-6">
-                        @if($feedsByType->count() > 0)
-                            <div class="space-y-4">
-                                @foreach($feedsByType as $feed)
-                                    @php
-                                        $percentage = $totalAmount > 0 ? ($feed->total_amount / $totalAmount) * 100 : 0;
-                                        $colorClass = match($feed->feed_type) {
-                                            'starter' => 'bg-blue-500',
-                                            'grower' => 'bg-green-500',
-                                            'finisher' => 'bg-orange-500',
-                                            'breeding' => 'bg-purple-500',
-                                            'lactating' => 'bg-pink-500',
-                                            'maintenance' => 'bg-gray-500',
-                                            'supplement' => 'bg-yellow-500',
-                                            'medicated' => 'bg-red-500',
-                                            default => 'bg-gray-500'
-                                        };
-                                    @endphp
-                                    <div class="flex items-center justify-between">
-                                        <div class="flex items-center space-x-3">
-                                            <div class="w-4 h-4 {{ $colorClass }} rounded-full"></div>
-                                            <span class="text-sm font-medium text-gray-900">
-                                                {{ ucfirst(str_replace('_', ' ', $feed->feed_type)) }}
-                                            </span>
-                                        </div>
-                                        <div class="text-right">
-                                            <div class="text-sm font-medium text-gray-900">
-                                                {{ number_format($feed->total_amount, 1) }} kg
-                                            </div>
-                                            <div class="text-xs text-gray-500">
-                                                {{ number_format($percentage, 1) }}%
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="{{ $colorClass }} h-2 rounded-full" style="width: {{ $percentage }}%"></div>
-                                    </div>
-                                @endforeach
-                            </div>
-                        @else
-                            <div class="text-center py-8">
-                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                                </svg>
-                                <h3 class="mt-2 text-sm font-medium text-gray-900">No feed data</h3>
-                                <p class="mt-1 text-sm text-gray-500">No feed records found for this period.</p>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-                    <div class="px-6 py-4 border-b border-gray-200">
-                        <h3 class="text-lg font-medium text-gray-900">Feed Cost by Type</h3>
-                    </div>
-                    <div class="p-6">
-                        @if($feedsByType->count() > 0)
-                            <div class="space-y-4">
-                                @foreach($feedsByType as $feed)
-                                    @php
-                                        $costPercentage = $totalCost > 0 ? ($feed->total_cost / $totalCost) * 100 : 0;
-                                    @endphp
-                                    <div class="flex items-center justify-between">
-                                        <div class="flex items-center space-x-3">
-                                            <div class="w-4 h-4 bg-gray-400 rounded-full"></div>
-                                            <span class="text-sm font-medium text-gray-900">
-                                                {{ ucfirst(str_replace('_', ' ', $feed->feed_type)) }}
-                                            </span>
-                                        </div>
-                                        <div class="text-right">
-                                            <div class="text-sm font-medium text-gray-900">
-                                                ${{ number_format($feed->total_cost, 2) }}
-                                            </div>
-                                            <div class="text-xs text-gray-500">
-                                                {{ number_format($costPercentage, 1) }}%
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="bg-gray-400 h-2 rounded-full" style="width: {{ $costPercentage }}%"></div>
-                                    </div>
-                                @endforeach
-                            </div>
-                        @else
-                            <div class="text-center py-8">
-                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
-                                </svg>
-                                <h3 class="mt-2 text-sm font-medium text-gray-900">No cost data</h3>
-                                <p class="mt-1 text-sm text-gray-500">No cost information available for this period.</p>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-            </div>
-
-            <!-- Top Consuming Pigs -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-medium text-gray-900">Top Consuming Pigs</h3>
+                    <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Feed Types Summary
+                    </h3>
+                    <p class="text-sm text-gray-500 mt-1">Detailed breakdown of feed types and their usage</p>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
+                        <thead class="bg-gradient-to-r from-blue-50 to-indigo-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pig</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Feed Count</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Cost</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg per Feed</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Feed Type</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Events</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Amount</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Avg per Event</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-gray-200">
-                            @forelse($topConsumers as $consumer)
-                                <tr class="hover:bg-gray-50">
+                            @foreach(($byType ?? []) as $row)
+                                <tr class="hover:bg-blue-50 transition-colors duration-150">
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="flex items-center">
-                                            <div>
-                                                <div class="text-sm font-medium text-gray-900">
-                                                    <a href="{{ route('pigs.show', $consumer->pig_id) }}" class="text-green-600 hover:text-green-800">
-                                                        {{ $consumer->pig->ear_tag_number }}
-                                                    </a>
-                                                </div>
-                                                <div class="text-sm text-gray-500">{{ $consumer->pig->code }}</div>
-                                            </div>
+                                            <div class="w-3 h-3 bg-blue-500 rounded-full mr-3"></div>
+                                            <span class="text-sm font-medium text-gray-900">{{ $row['name'] }}</span>
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {{ $consumer->feed_count }}
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            {{ $row['count'] }} events
+                                        </span>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {{ number_format($consumer->total_amount, 1) }} kg
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm font-semibold text-gray-900">{{ number_format($row['total_amount'], 2) }} kg</span>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        ${{ number_format($consumer->total_cost, 2) }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {{ number_format($consumer->total_amount / $consumer->feed_count, 1) }} kg
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm text-gray-600">{{ number_format($row['total_amount'] / max($row['count'], 1), 2) }} kg</span>
                                     </td>
                                 </tr>
-                            @empty
+                            @endforeach
+                            @if(empty($byType) || $byType->isEmpty())
                                 <tr>
-                                    <td colspan="5" class="px-6 py-12 text-center">
-                                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                                        </svg>
-                                        <h3 class="mt-2 text-sm font-medium text-gray-900">No feed data</h3>
-                                        <p class="mt-1 text-sm text-gray-500">No feed records found for this period.</p>
+                                    <td colspan="4" class="px-6 py-12 text-center">
+                                        <div class="flex flex-col items-center">
+                                            <svg class="w-12 h-12 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                            </svg>
+                                            <span class="text-gray-400 text-sm">No feed type data available for the selected period</span>
+                                        </div>
                                     </td>
                                 </tr>
-                            @endforelse
+                            @endif
                         </tbody>
                     </table>
                 </div>
             </div>
-        </main>
+
+            <!-- Ingredient Usage Table -->
+            <div class="bg-white rounded-xl shadow border">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        Ingredients Analysis
+                    </h3>
+                    <p class="text-sm text-gray-500 mt-1">Detailed nutritional and usage information for all ingredients</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gradient-to-r from-green-50 to-emerald-50">
+                            <tr>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Ingredient</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Used (kg)</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Protein %</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Energy (kcal/kg)</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Feed Types</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Cost (₵/kg)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            @foreach(($ingredientDetails ?? []) as $name => $details)
+                                <tr class="hover:bg-green-50 transition-colors duration-150">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
+                                            <span class="text-sm font-medium text-gray-900">{{ $name }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            {{ number_format($details['total_used'], 2) }} kg
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm text-gray-600">{{ number_format($details['protein_percentage'], 1) }}%</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm text-gray-600">{{ number_format($details['energy_kcal'], 0) }}</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex flex-wrap gap-1">
+                                            @foreach($details['feed_types'] as $feedType)
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                    {{ $feedType }}
+                                                </span>
+                                            @endforeach
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm font-semibold text-gray-900">₵{{ number_format($details['cost_per_kg'], 2) }}</span>
+                                    </td>
+                                </tr>
+                            @endforeach
+                            @if(empty($ingredientDetails))
+                                <tr>
+                                    <td colspan="6" class="px-6 py-12 text-center">
+                                        <div class="flex flex-col items-center">
+                                            <svg class="w-12 h-12 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                            </svg>
+                                            <span class="text-gray-400 text-sm">No ingredient data available for the selected period</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endif
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        function exportToCSV() {
-            const startDate = document.getElementById('start_date').value;
-            const endDate = document.getElementById('end_date').value;
-            const url = `{{ route('feeds.index') }}?export=csv&date_from=${startDate}&date_to=${endDate}`;
-            window.open(url, '_blank');
-        }
+        // Feed by Type Chart
+        new Chart(document.getElementById('feedTypeChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: @json(($byType ?? [])->pluck('name')),
+                datasets: [{
+                    label: 'Total Amount (kg)',
+                    data: @json(($byType ?? [])->pluck('total_amount')),
+                    backgroundColor: '#2563eb'
+                }]
+            }
+        });
+
+        // Ingredient Usage Chart
+        new Chart(document.getElementById('ingredientChart').getContext('2d'), {
+            type: 'pie',
+            data: {
+                labels: @json(array_keys($ingredientDetails ?? [])),
+                datasets: [{
+                    label: 'Usage (kg)',
+                    data: @json(array_column($ingredientDetails ?? [], 'total_used')),
+                    backgroundColor: ['#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#9333ea', '#06b6d4', '#ec4899', '#84cc16']
+                }]
+            }
+        });
+
+        // Feed vs Pig Weights Chart (Dual-Axis, by Date)
+        const feedWeightCtx = document.getElementById('feedWeightChart').getContext('2d');
+        new Chart(feedWeightCtx, {
+            type: 'line',
+            data: {
+                labels: @json(($feedByDate ?? [])->keys()),
+                datasets: [
+                    {
+                        label: 'Feed (kg)',
+                        data: @json(($feedByDate ?? [])->values()),
+                        yAxisID: 'y',
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37, 99, 235, 0.15)',
+                        borderWidth: 2,
+                        pointRadius: 2,
+                        fill: true,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Avg Weight (kg)',
+                        data: @json(($avgWeightByDate ?? [])->values()),
+                        yAxisID: 'y1',
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                        borderWidth: 2,
+                        pointRadius: 2,
+                        fill: true,
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                interaction: { mode: 'index', intersect: false },
+                stacked: false,
+                plugins: {
+                    tooltip: { enabled: true },
+                    legend: { position: 'top' },
+                    title: {
+                        display: true,
+                        text: 'Feed vs Average Weight by Date'
+                    }
+                },
+                scales: {
+                    x: {
+                        title: { display: true, text: 'Date' },
+                        ticks: { autoSkip: true, maxTicksLimit: 8 }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: { display: true, text: 'Feed (kg)' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        grid: { drawOnChartArea: false },
+                        title: { display: true, text: 'Avg Weight (kg)' }
+                    }
+                }
+            }
+        });
+
+    
+
     </script>
 </x-app-layout>

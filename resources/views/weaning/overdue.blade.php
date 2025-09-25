@@ -105,6 +105,7 @@
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         @foreach($overduePigs as $pig)
+                            @if($pig->gender === 'F')
                             @php
                                 $currentAge = (int) $pig->date_of_birth->diffInDays(now());
                                 $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
@@ -204,6 +205,7 @@
                                     </div>
                                 </td>
                             </tr>
+                            @endif
                         @endforeach
                     </tbody>
                 </table>

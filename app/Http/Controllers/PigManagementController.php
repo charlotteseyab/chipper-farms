@@ -936,10 +936,11 @@ class PigManagementController extends Controller {
         return view('mating.manage', compact('matings', 'stats'));
     }
 
-    public function destroyMating(Mating $mating)
+    public function destroyMating($id)
     {
+        $mating = Mating::findOrFail($id);
         $mating->delete();
-        return redirect()->route('mating.manage')->with('success', 'Mating deleted successfully.');
+        return redirect()->route('mating.manage')->with('success', 'Mating record deleted successfully.');
     }
 
     public function recordPregnancyCheck(Request $request, $id)
@@ -1504,62 +1505,46 @@ class PigManagementController extends Controller {
     {
         $pig = PigManagement::findOrFail($id);
 
-        $data = $request->validate([
-            'completion_date' => 'required|date|before_or_equal:today',
-            'final_weight' => 'nullable|numeric|min:0|max:500',
-            'health_status' => 'required|in:excellent,good,fair,poor',
-            'body_condition_score' => 'nullable|in:1,2,3,4,5',
-            'next_destination' => 'required|in:breeding,market,monitoring,other',
-            'growth_performance' => 'nullable|in:excellent,good,average,poor',
-            'completion_notes' => 'nullable|string|max:1000'
-        ]);
-
-        // Check if pig has been weaned
         if (!$pig->weaning) {
             return back()->withErrors(['maturity' => 'This pig has not been weaned yet.']);
         }
 
-        // Check if pig is already completed
-        if ($pig->weaning->maturity_completed) {
-            return back()->withErrors(['maturity' => 'This pig has already completed maturity.']);
-        }
+        $data = $request->validate([
+            'completion_date' => 'required|date|before_or_equal:today',
+            'final_weight' => 'nullable|numeric|min:0|max:500',
+            'health_status' => 'required|in:excellent,good,fair,poor',
+            'body_condition_score' => 'nullable|integer|min:1|max:5',
+            'next_destination' => 'required|in:breeding,market',
+            'growth_performance' => 'nullable|in:excellent,good,average,poor',
+            'completion_notes' => 'nullable|string|max:1000',
+            'alive_males' => 'nullable|integer|min:0',
+            'alive_females' => 'nullable|integer|min:0',
+        ]);
 
-        $ageAtCompletion = (int) $pig->date_of_birth->diffInDays($data['completion_date']);
-        $maturityAge = config('breeding.cycle.birth_to_maturity_days', 180);
+        $ageAtMaturity = (int) $pig->date_of_birth->diffInDays($data['completion_date']);
 
-        // Update weaning record with maturity completion data
         $pig->weaning->update([
             'maturity_completed' => true,
             'maturity_completion_date' => $data['completion_date'],
-            'age_at_maturity_days' => $ageAtCompletion,
-            'final_weight' => $data['final_weight'],
+            'age_at_maturity_days' => $ageAtMaturity,
+            'final_weight' => $data['final_weight'] ?? null,
             'health_status_at_maturity' => $data['health_status'],
-            'body_condition_score' => $data['body_condition_score'],
+            'body_condition_score' => $data['body_condition_score'] ?? null,
             'next_destination' => $data['next_destination'],
-            'growth_performance' => $data['growth_performance'],
-            'maturity_notes' => $data['completion_notes'],
-            'completed_by' => auth()->id()
+            'growth_performance' => $data['growth_performance'] ?? null,
+            'maturity_notes' => $data['completion_notes'] ?? null,
+            'alive_males' => $data['alive_males'] ?? null,
+            'alive_females' => $data['alive_females'] ?? null,
+            'completed_by' => auth()->id(),
         ]);
 
-        // Create final weight record if provided
-        if (isset($data['final_weight'])) {
-            $pig->weights()->create([
-                'weight' => $data['final_weight'],
-                'weigh_date' => $data['completion_date'],
-                'notes' => 'Maturity completion weight'
-            ]);
+        // If moving to market and pig is a breeding stock, change to standard stock
+        if ($data['next_destination'] === 'market' && $pig->stock_type === 'breeding') {
+            $pig->stock_type = 'standard';
+            $pig->save();
         }
 
-        $destinationMessage = match($data['next_destination']) {
-            'breeding' => 'Ready for breeding program.',
-            'market' => 'Ready for market.',
-            'monitoring' => 'Requires continued monitoring.',
-            'other' => 'Special handling required.',
-        };
-
-        return back()->with('success',
-            "Maturity completed for {$pig->code} at {$ageAtCompletion} days old. {$destinationMessage}"
-        );
+        return back()->with('success', "Weaning completed for {$pig->code}. Age at completion: {$ageAtMaturity} days.");
     }
 
     public function updateWeaningStatus(Request $request, $id)

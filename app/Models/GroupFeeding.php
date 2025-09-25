@@ -15,6 +15,13 @@ class GroupFeeding extends Model
         'recorded_by',
     ];
 
+    protected static function booted(): void
+    {
+        static::created(function (GroupFeeding $feeding) {
+            $feeding->deductIngredientInventory();
+        });
+    }
+
     public function group(): BelongsTo
     {
         return $this->belongsTo(Group::class);
@@ -26,5 +33,24 @@ class GroupFeeding extends Model
     public function recorder(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recorded_by');
+    }
+
+    public function deductIngredientInventory(): void
+    {
+        $feedType = $this->feedType()->with('recipe.items.ingredient')->first();
+        if (!$feedType || !$feedType->recipe) return;
+        $amountKg = (float)$this->amount; // assume kg for now
+        foreach ($feedType->recipe->items as $item) {
+            $ingredient = $item->ingredient;
+            if (!$ingredient) continue;
+            $ingredientShareKg = $amountKg * ((float)$item->percentage / 100.0);
+            $inv = IngredientInventory::firstOrCreate(
+                ['ingredient_id' => $ingredient->id],
+                ['quantity' => 0, 'unit' => $ingredient->unit ?? 'kg']
+            );
+            $inv->quantity = max(0, (float)$inv->quantity - $ingredientShareKg);
+            $inv->last_updated = now();
+            $inv->save();
+        }
     }
 }

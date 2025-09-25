@@ -6,14 +6,14 @@
                   ->groupBy('pig_id');
         })
         ->count();
-    $underWeightAlerts = App\Models\WeightAlert::where('alert_type', 'under_weight')->where('acknowledged', false)
+    $underWeightAlerts = App\Models\WeightAlert::where('alert_type', 'under_weight')
         ->whereIn('id', function($query) {
             $query->selectRaw('MAX(id)')
                   ->from('weight_alerts')
                   ->groupBy('pig_id');
         })
         ->count();
-    $overWeightAlerts = App\Models\WeightAlert::where('alert_type', 'over_weight')->where('acknowledged', false)
+    $overWeightAlerts = App\Models\WeightAlert::where('alert_type', 'over_weight')
         ->whereIn('id', function($query) {
             $query->selectRaw('MAX(id)')
                   ->from('weight_alerts')
@@ -22,7 +22,6 @@
         ->count();
 @endphp
 
-@if($unacknowledgedAlerts > 0 || $underWeightAlerts > 0 || $overWeightAlerts > 0)
     <div class="bg-white border border-gray-200 rounded-lg shadow-sm p-4 mb-6">
         <div class="flex items-center justify-between mb-3">
             <h3 class="text-lg font-medium text-gray-900 flex items-center">
@@ -50,7 +49,7 @@
             </a>
 
             <!-- Under Weight -->
-            <a href="{{ route('weight-alerts.index', ['alert_type' => 'under_weight', 'acknowledged' => 0]) }}"
+            <a href="{{ route('weight-alerts.index', ['alert_type' => 'under_weight']) }}"
                class="flex flex-col items-center bg-blue-50 border border-blue-200 rounded-lg py-4 transition hover:bg-blue-100 hover:shadow cursor-pointer group">
                 <div class="flex items-center mb-2">
                     <svg class="w-7 h-7 text-blue-500 mr-2 group-hover:text-blue-700 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -62,7 +61,7 @@
             </a>
 
             <!-- Over Weight -->
-            <a href="{{ route('weight-alerts.index', ['alert_type' => 'over_weight', 'acknowledged' => 0]) }}"
+            <a href="{{ route('weight-alerts.index', ['alert_type' => 'over_weight']) }}"
                class="flex flex-col items-center bg-orange-50 border border-orange-200 rounded-lg py-4 transition hover:bg-orange-100 hover:shadow cursor-pointer group">
                 <div class="flex items-center mb-2">
                     <svg class="w-7 h-7 text-orange-500 mr-2 group-hover:text-orange-700 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -74,4 +73,3 @@
             </a>
         </div>
     </div>
-@endif

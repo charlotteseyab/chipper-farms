@@ -81,7 +81,18 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $room->name }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $room->code }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ ucfirst($room->type) }}</td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $room->capacity ?? '-' }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                            @if($room->capacity)
+                                                {{ $room->pigs->count() }} / {{ $room->capacity }}
+                                                @if($room->pigs->count() >= $room->capacity)
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">Full</span>
+                                                @else
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 ml-2">Available</span>
+                                                @endif
+                                            @else
+                                                {{ $room->pigs->count() }} (Unlimited)
+                                            @endif
+                                        </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $room->notes ?? '-' }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div class="flex items-center space-x-2">

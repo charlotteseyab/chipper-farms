@@ -119,125 +119,127 @@
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         @foreach($pendingPigs as $pig)
-                            @php
-                                $currentAge = (int) $pig->date_of_birth->diffInDays(now());
-                                $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
-                                $daysUntilWeaning = $weaningAge - $currentAge;
-                                $isReadySoon = $daysUntilWeaning <= 7 && $daysUntilWeaning > 0;
-                                $isReadyForWeaning = $currentAge >= $weaningAge;
-                            @endphp
-                            <tr class="hover:bg-gray-50 @if($isReadyForWeaning) bg-green-50 @elseif($isReadySoon) bg-yellow-50 @endif">
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="flex items-center">
-                                        <div class="flex-shrink-0 h-10 w-10">
-                                            <div class="h-10 w-10 rounded-full @if($isReadyForWeaning) bg-green-200 @elseif($isReadySoon) bg-yellow-200 @else bg-blue-100 @endif flex items-center justify-center">
-                                                <span class="text-sm font-medium @if($isReadyForWeaning) text-green-800 @elseif($isReadySoon) text-yellow-800 @else text-blue-700 @endif">
-                                                    {{ $pig->gender === 'M' ? '🐗' : '🐷' }}
-                                                </span>
+                            @if($pig->gender === 'F')
+                                @php
+                                    $currentAge = (int) $pig->date_of_birth->diffInDays(now());
+                                    $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+                                    $daysUntilWeaning = $weaningAge - $currentAge;
+                                    $isReadySoon = $daysUntilWeaning <= 7 && $daysUntilWeaning > 0;
+                                    $isReadyForWeaning = $currentAge >= $weaningAge;
+                                @endphp
+                                <tr class="hover:bg-gray-50 @if($isReadyForWeaning) bg-green-50 @elseif($isReadySoon) bg-yellow-50 @endif">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="flex-shrink-0 h-10 w-10">
+                                                <div class="h-10 w-10 rounded-full @if($isReadyForWeaning) bg-green-200 @elseif($isReadySoon) bg-yellow-200 @else bg-blue-100 @endif flex items-center justify-center">
+                                                    <span class="text-sm font-medium @if($isReadyForWeaning) text-green-800 @elseif($isReadySoon) text-yellow-800 @else text-blue-700 @endif">
+                                                        {{ $pig->gender === 'M' ? '🐗' : '🐷' }}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div class="ml-4">
+                                                <div class="text-sm font-medium text-gray-900">{{ $pig->ear_tag_number }}</div>
+                                                <div class="text-xs text-gray-500">{{ $pig->code }}</div>
                                             </div>
                                         </div>
-                                        <div class="ml-4">
-                                            <div class="text-sm font-medium text-gray-900">{{ $pig->ear_tag_number }}</div>
-                                            <div class="text-xs text-gray-500">{{ $pig->code }}</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        {{ $pig->date_of_birth->format('M d, Y') }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <span class="@if($isReadyForWeaning) text-green-600 font-bold @elseif($isReadySoon) text-yellow-600 font-semibold @endif">
+                                            {{ $currentAge }} days
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <div class="text-sm font-medium text-gray-900">
+                                            @php
+                                                $latestWeight = $pig->weights()->latest('weigh_date')->first();
+                                            @endphp
+                                            {{ $latestWeight ? $latestWeight->weight : 'N/A' }}
                                         </div>
-                                    </div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {{ $pig->date_of_birth->format('M d, Y') }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    <span class="@if($isReadyForWeaning) text-green-600 font-bold @elseif($isReadySoon) text-yellow-600 font-semibold @endif">
-                                        {{ $currentAge }} days
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    <div class="text-sm font-medium text-gray-900">
-                                        @php
-                                            $latestWeight = $pig->weights()->latest('weigh_date')->first();
-                                        @endphp
-                                        {{ $latestWeight ? $latestWeight->weight : 'N/A' }}
-                                    </div>
-                                    @if($latestWeight)
-                                        <div class="text-xs text-gray-500">{{ $latestWeight->weigh_date->format('M d') }}</div>
-                                    @endif
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    @if($isReadyForWeaning)
-                                        <span class="text-green-600 font-bold">Ready now</span>
-                                    @elseif($daysUntilWeaning > 0)
-                                        <span class="@if($isReadySoon) text-yellow-600 font-semibold @endif">
-                                            {{ $daysUntilWeaning }} days
-                                        </span>
-                                    @else
-                                        <span class="text-green-600 font-bold">Ready now</span>
-                                    @endif
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    @if($pig->mother)
-                                        <a href="{{ route('pigs.show', $pig->mother->id) }}" class="text-blue-600 hover:text-blue-800">
-                                            {{ $pig->mother->ear_tag_number }}
-                                        </a>
-                                    @else
-                                        <span class="text-gray-400">N/A</span>
-                                    @endif
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    @if($isReadyForWeaning)
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                            Ready to Wean
-                                        </span>
-                                    @elseif($isReadySoon)
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                                            Ready Soon
-                                        </span>
-                                    @else
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                            Growing
-                                        </span>
-                                    @endif
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <div class="relative inline-block text-left" x-data="{ open: false, place: 'down', toggle(){ this.open = !this.open; if(!this.open){ return; } this.$nextTick(() => { const menu = this.$refs.menu; const trigger = this.$refs.trigger; if(!menu || !trigger) return; const mr = menu.getBoundingClientRect(); const tr = trigger.getBoundingClientRect(); const below = window.innerHeight - tr.bottom; const above = tr.top; this.place = (below < mr.height + 16 && above > mr.height) ? 'up' : 'down'; }); } }">
-                                        <button x-ref="trigger" @click="toggle()" class="flex items-center text-gray-600 hover:text-gray-900">
-                                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
-                                            </svg>
-                                        </button>
-                                        <div x-ref="menu" x-show="open" @click.away="open = false" x-transition :class="place === 'down' ? 'origin-top-right mt-2 top-full' : 'origin-bottom-right mb-2 bottom-full'" class="absolute right-0 w-48 bg-white rounded-md shadow-lg z-50 border">
-                                            <div class="py-1">
-                                                @if($isReadyForWeaning)
-                                                    <button onclick="openWeaningModal({{ $pig->id }}, '{{ $pig->code }}', {{ $currentAge }})" class="flex items-center w-full px-4 py-2 text-sm text-green-600 hover:bg-green-50">
+                                        @if($latestWeight)
+                                            <div class="text-xs text-gray-500">{{ $latestWeight->weigh_date->format('M d') }}</div>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        @if($isReadyForWeaning)
+                                            <span class="text-green-600 font-bold">Ready now</span>
+                                        @elseif($daysUntilWeaning > 0)
+                                            <span class="@if($isReadySoon) text-yellow-600 font-semibold @endif">
+                                                {{ $daysUntilWeaning }} days
+                                            </span>
+                                        @else
+                                            <span class="text-green-600 font-bold">Ready now</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        @if($pig->mother)
+                                            <a href="{{ route('pigs.show', $pig->mother->id) }}" class="text-blue-600 hover:text-blue-800">
+                                                {{ $pig->mother->ear_tag_number }}
+                                            </a>
+                                        @else
+                                            <span class="text-gray-400">N/A</span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        @if($isReadyForWeaning)
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                Ready to Wean
+                                            </span>
+                                        @elseif($isReadySoon)
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                Ready Soon
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                Growing
+                                            </span>
+                                        @endif
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <div class="relative inline-block text-left" x-data="{ open: false, place: 'down', toggle(){ this.open = !this.open; if(!this.open){ return; } this.$nextTick(() => { const menu = this.$refs.menu; const trigger = this.$refs.trigger; if(!menu || !trigger) return; const mr = menu.getBoundingClientRect(); const tr = trigger.getBoundingClientRect(); const below = window.innerHeight - tr.bottom; const above = tr.top; this.place = (below < mr.height + 16 && above > mr.height) ? 'up' : 'down'; }); } }">
+                                            <button x-ref="trigger" @click="toggle()" class="flex items-center text-gray-600 hover:text-gray-900">
+                                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+                                                </svg>
+                                            </button>
+                                            <div x-ref="menu" x-show="open" @click.away="open = false" x-transition :class="place === 'down' ? 'origin-top-right mt-2 top-full' : 'origin-bottom-right mb-2 bottom-full'" class="absolute right-0 w-48 bg-white rounded-md shadow-lg z-50 border">
+                                                <div class="py-1">
+                                                    @if($isReadyForWeaning)
+                                                        <button onclick="openWeaningModal({{ $pig->id }}, '{{ $pig->code }}', {{ $currentAge }})" class="flex items-center w-full px-4 py-2 text-sm text-green-600 hover:bg-green-50">
+                                                            <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                                            </svg>
+                                                            Wean Now
+                                                        </button>
+                                                    @else
+                                                        <div class="flex items-center px-4 py-2 text-sm text-gray-400 cursor-not-allowed" title="Pig must be at least {{ config('breeding.cycle.birth_to_weaning_days', 45) }} days old to wean">
+                                                            <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                                            </svg>
+                                                            Wean Now
+                                                        </div>
+                                                    @endif
+                                                    <button onclick="openWeightModal({{ $pig->id }}, '{{ $pig->code }}')" class="flex items-center w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50">
                                                         <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
                                                         </svg>
-                                                        Wean Now
+                                                        Update Weight
                                                     </button>
-                                                @else
-                                                    <div class="flex items-center px-4 py-2 text-sm text-gray-400 cursor-not-allowed" title="Pig must be at least {{ config('breeding.cycle.birth_to_weaning_days', 45) }} days old to wean">
+                                                    <a href="{{ route('pigs.show', $pig->id) }}" class="flex items-center px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
                                                         <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                                         </svg>
-                                                        Wean Now
-                                                    </div>
-                                                @endif
-                                                <button onclick="openWeightModal({{ $pig->id }}, '{{ $pig->code }}')" class="flex items-center w-full px-4 py-2 text-sm text-blue-600 hover:bg-blue-50">
-                                                    <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
-                                                    </svg>
-                                                    Update Weight
-                                                </button>
-                                                <a href="{{ route('pigs.show', $pig->id) }}" class="flex items-center px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
-                                                    <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                                    </svg>
-                                                    View Details
-                                                </a>
+                                                        View Details
+                                                    </a>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </td>
-                            </tr>
+                                    </td>
+                                </tr>
+                            @endif
                         @endforeach
                     </tbody>
                 </table>

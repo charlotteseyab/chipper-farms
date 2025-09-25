@@ -377,7 +377,7 @@
 
                     <!-- Weight History -->
                     @if($pig->weights->count() > 0)
-                        <div class="bg-white rounded-lg shadow border border-gray-200 mt-8">
+                        <div id="weight" class="bg-white rounded-lg shadow border border-gray-200 mt-8">
                             <div class="px-6 py-4 border-b border-gray-200">
                                 <h2 class="text-lg font-semibold text-gray-900">Recent Weight History</h2>
                             </div>
@@ -466,7 +466,7 @@
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Period</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight Range</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phase</th>
+                                            <!-- <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phase</th> -->
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Gain</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Daily Gain</th>
                                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Performance</th>
@@ -484,7 +484,7 @@
                                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     {{ number_format($period['from_weight'], 1) }} → {{ number_format($period['to_weight'], 1) }} kg
                                                 </td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                <!-- <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     @php
                                                         $endWeight = $period['to_weight'];
                                                         if ($endWeight < 25) {
@@ -499,7 +499,7 @@
                                                         }
                                                     @endphp
                                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $badge }}">{{ $phase }}</span>
-                                                </td>
+                                                </td> -->
                                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     <span class="{{ $period['weight_gain'] >= 0 ? 'text-green-600' : 'text-red-600' }}">
                                                         {{ $period['weight_gain'] >= 0 ? '+' : '' }}{{ number_format($period['weight_gain'], 1) }} kg

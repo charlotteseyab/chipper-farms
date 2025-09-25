@@ -28,7 +28,7 @@
                 @endphp
 
                 <!-- Users -->
-                <a href="#" class="block bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                <a href="#" class="block bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-200 transform hover:scale-102">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-blue-100 text-sm font-medium">Total Users</p>
@@ -44,7 +44,7 @@
                 </a>
 
                 <!-- Total Pigs -->
-                <a href="{{ route('all-stocks.index') }}" class="block bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                <a href="{{ route('all-stocks.index') }}" class="block bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-200 transform hover:scale-102">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-green-100 text-sm font-medium">Total Pigs</p>

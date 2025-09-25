@@ -238,7 +238,7 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div class="flex gap-2">
                                                 <a href="{{ route('weights.edit', $weight) }}" class="text-green-600 hover:text-green-900">Edit</a>
-                                                <a href="{{ route('pigs.show', $weight->pig->id) }}" class="text-blue-600 hover:text-blue-900">View Pig</a>
+                                                <a href="{{ route('pigs.show', $weight->pig->id) }}#weight" class="text-blue-600 hover:text-blue-900">View Pig</a>
                                             </div>
                                         </td>
                                     </tr>

@@ -179,7 +179,7 @@
         </div>
 
          <!-- Feed Management Dropdown -->
-         <div x-data="{ open: {{ request()->is('feed-types*') || request()->is('feeding-standards*') || request()->is('feed-inventory*') || request()->is('feed-purchase-requests*') || request()->is('feeds/schedule*') || request()->is('feeds/reports*') ? 'true' : 'false' }} }" class="relative">
+         <div x-data="{ open: {{ request()->is('feed-types*') || request()->is('feeding-standards*') || request()->is('recipes*') || request()->is('feed-inventory*') || request()->is('feed-purchase-requests*') || request()->is('feeds/schedule*') || request()->is('feeds/reports*') ? 'true' : 'false' }} }" class="relative">
             <button @click="open = !open" class="flex items-center justify-between w-full px-4 py-3 rounded-lg text-white hover:bg-[#218c6a] transition @if(request()->is('feed-types*') || request()->is('feeding-standards*') || request()->is('feed-inventory*') || request()->is('feed-purchase-requests*')) bg-[#218c6a] @endif">
                 <div class="flex items-center gap-3">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -193,12 +193,8 @@
             </button>
 
             <div x-show="open" x-transition class="mt-2 ml-4 space-y-1">
-                <a href="{{ route('feed-types.index') }}" class="flex items-center gap-3 px-4 py-2 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition text-sm @if(request()->is('feed-types*')) bg-[#218c6a] text-white @endif">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-                    </svg>
-                    Feed Types
-                </a>
+                <a href="{{ route('feed-types.index') }}" class="flex items-center gap-3 px-4 py-2 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition text-sm @if(request()->is('feed-types*')) bg-[#218c6a] text-white @endif">Feed Types</a>
+                <a href="{{ route('recipes.index') }}" class="flex items-center gap-3 px-4 py-2 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition text-sm @if(request()->is('recipes*')) bg-[#218c6a] text-white @endif">Feed Recipes</a>
                 <a href="{{ route('feeding-standards.index') }}" class="flex items-center gap-3 px-4 py-2 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition text-sm @if(request()->is('feeding-standards*')) bg-[#218c6a] text-white @endif">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
@@ -215,7 +211,7 @@
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
                     </svg>
-                    Feed Purchase Requests
+                    Purchase Requests
                 </a>
                 <a href="{{ route('feeds.schedule') }}" class="flex items-center gap-3 px-4 py-2 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition text-sm @if(request()->is('feeds/schedule*')) bg-[#218c6a] text-white @endif">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">

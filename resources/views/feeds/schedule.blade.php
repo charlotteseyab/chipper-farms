@@ -1,210 +1,119 @@
 <x-app-layout>
-    <div class="min-h-screen bg-gray-50">
+    <div class="min-h-screen">
         <!-- Header -->
-        <div class="bg-white shadow-sm border-b border-gray-200">
-            <div class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-                <div class="flex items-center space-x-4">
-                    <a href="{{ route('feeds.index') }}" class="text-gray-500 hover:text-gray-700">
-                        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                        </svg>
-                    </a>
-                    <div>
-                        <h1 class="text-2xl font-bold text-gray-900">Feed Schedule</h1>
-                        <p class="text-gray-500">View and manage feeding schedules for pigs</p>
-                    </div>
+        <div class="bg-white shadow">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-black">Feed Schedule</h1>
+                    <p class="text-gray-500 mt-1">Plan and record feeding events.</p>
                 </div>
+                <form method="GET" class="mt-4 sm:mt-0 flex items-end gap-4 bg-white rounded-lg shadow px-4 py-3">
+                    <div>
+                        <label class="block text-xs text-gray-500">From</label>
+                        <input type="date" name="from" value="{{ $from ?? now()->toDateString() }}"
+                            class="border rounded px-2 py-1 text-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500">To</label>
+                        <input type="date" name="to" value="{{ $to ?? now()->toDateString() }}"
+                            class="border rounded px-2 py-1 text-sm focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500">Status</label>
+                        <select name="status"
+                            class="border rounded px-2 py-1 text-sm focus:ring-blue-500 focus:border-blue-500">
+                            @php($all = implode(',', $statuses ?? []))
+                            <option value="planned,fed,skipped" {{ $all=="planned,fed,skipped" ? 'selected' : '' }}>All</option>
+                            <option value="planned" {{ $all=="planned" ? 'selected' : '' }}>Planned</option>
+                            <option value="fed" {{ $all=="fed" ? 'selected' : '' }}>Fed</option>
+                            <option value="skipped" {{ $all=="skipped" ? 'selected' : '' }}>Skipped</option>
+                        </select>
+                    </div>
+                    <button class="px-4 py-2 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 transition">
+                        Filter
+                    </button>
+                </form>
             </div>
         </div>
 
-        <main class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <!-- Feed Schedule Overview -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                <!-- Today's Feeds -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-                    <div class="px-6 py-4 border-b border-gray-200">
-                        <h3 class="text-lg font-medium text-gray-900">Today's Feeds</h3>
-                    </div>
-                    <div class="p-6">
-                        <div class="text-3xl font-bold text-green-600">
-                            {{ \App\Models\Feed::whereDate('feed_date', today())->count() }}
-                        </div>
-                        <p class="text-sm text-gray-500 mt-1">Feed records today</p>
-                    </div>
-                </div>
-
-                <!-- Overdue Feeds -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-                    <div class="px-6 py-4 border-b border-gray-200">
-                        <h3 class="text-lg font-medium text-gray-900">Pending Feeds</h3>
-                    </div>
-                    <div class="p-6">
-                        <div class="text-3xl font-bold text-orange-600">
-                            {{ $pigs->where('stock_type', '!=', 'breeding')->count() }}
-                        </div>
-                        <p class="text-sm text-gray-500 mt-1">Pigs needing feeds</p>
-                    </div>
-                </div>
-
-                <!-- Total Feed Cost Today -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-                    <div class="px-6 py-4 border-b border-gray-200">
-                        <h3 class="text-lg font-medium text-gray-900">Today's Feed Cost</h3>
-                    </div>
-                    <div class="p-6">
-                        <div class="text-3xl font-bold text-blue-600">
-                            ${{ number_format(\App\Models\Feed::whereDate('feed_date', today())->sum('feed_cost') ?? 0, 2) }}
-                        </div>
-                        <p class="text-sm text-gray-500 mt-1">Total cost today</p>
-                    </div>
-                </div>
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Button -->
+            <div class="mb-6 flex justify-end">
+                <a href="{{ route('feeds.schedule.create') }}"
+                   class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow hover:bg-blue-700 transition">
+                    + New Schedule
+                </a>
             </div>
 
-            <!-- Feed Schedule by Pig Type -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-medium text-gray-900">Feed Schedule by Stock Type</h3>
+            <!-- Table -->
+            <div class="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-800">Scheduled Feedings</h3>
                 </div>
+
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Type</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recommended Feed Type</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Daily Amount</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Frequency</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Active Pigs</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                <th class="px-6 py-3 text-left font-medium text-gray-600">Date</th>
+                                <th class="px-6 py-3 text-left font-medium text-gray-600">Structure</th>
+                                <th class="px-6 py-3 text-left font-medium text-gray-600">Feed Type</th>
+                                <th class="px-6 py-3 text-left font-medium text-gray-600">Planned Amount</th>
+                                <th class="px-6 py-3 text-left font-medium text-gray-600">Status</th>
+                                <th class="px-6 py-3 text-left font-medium text-gray-600">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                        Weaner
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Starter Feed</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">0.5 - 1.0 kg</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">3 times daily</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {{ $pigs->where('stock_type', 'weaner')->count() }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <a href="{{ route('feeds.create') }}?stock_type=weaner" class="text-green-600 hover:text-green-900">Quick Feed</a>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                        Grower
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Grower Feed</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">1.5 - 2.5 kg</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2 times daily</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {{ $pigs->where('stock_type', 'grower')->count() }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <a href="{{ route('feeds.create') }}?stock_type=grower" class="text-green-600 hover:text-green-900">Quick Feed</a>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                                        Finisher
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Finisher Feed</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2.5 - 3.5 kg</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2 times daily</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {{ $pigs->where('stock_type', 'finisher')->count() }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <a href="{{ route('feeds.create') }}?stock_type=finisher" class="text-green-600 hover:text-green-900">Quick Feed</a>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                        Breeding
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Breeding Feed</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2.0 - 3.0 kg</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">2 times daily</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {{ $pigs->where('stock_type', 'breeding')->count() }}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <a href="{{ route('feeds.create') }}?stock_type=breeding" class="text-green-600 hover:text-green-900">Quick Feed</a>
-                                </td>
-                            </tr>
+                        <tbody class="bg-white divide-y divide-gray-100">
+                            @forelse($entries as $entry)
+                                <tr class="hover:bg-gray-50 transition">
+                                    <td class="px-6 py-4">{{ $entry->scheduled_for->format('M d, Y') }}</td>
+                                    <td class="px-6 py-4">{{ optional($entry->structure)->name ?? optional($entry->group->structure ?? null)->name ?? ('Structure #' . $entry->structure_id) }}</td>
+                                    <td class="px-6 py-4 font-medium text-gray-800">{{ $entry->feedType->name ?? ('FeedType #' . $entry->feed_type_id) }}</td>
+                                    <td class="px-6 py-4">{{ number_format($entry->planned_amount, 2) }} {{ $entry->unit }}</td>
+                                    <td class="px-6 py-4">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                            {{
+                                                match($entry->status) {
+                                                    'planned' => 'bg-yellow-100 text-yellow-800',
+                                                    'fed' => 'bg-green-100 text-green-800',
+                                                    'skipped' => 'bg-gray-200 text-gray-700',
+                                                    default => 'bg-gray-200 text-gray-700'
+                                                }
+                                            }}">
+                                            {{ ucfirst($entry->status) }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        @if($entry->status === 'planned')
+                                            <div class="flex items-center gap-2">
+                                                <form method="POST" action="{{ route('feeds.schedule.mark-fed', $entry) }}">
+                                                    @csrf
+                                                    <button class="px-3 py-1 bg-green-600 text-white rounded text-xs shadow hover:bg-green-700">Mark as Fed</button>
+                                                </form>
+                                                <form method="POST" action="{{ route('feeds.schedule.mark-skipped', $entry) }}">
+                                                    @csrf
+                                                    <button class="px-3 py-1 bg-gray-500 text-white rounded text-xs shadow hover:bg-gray-600">Skip</button>
+                                                </form>
+                                            </div>
+                                        @elseif($entry->status === 'fed')
+                                            <div class="text-xs text-gray-500">✔ Fed {{ optional($entry->fed_at)->format('M d, Y H:i') }} by <span class="font-medium">{{ optional($entry->feeder)->name ?? '—' }}</span></div>
+                                        @else
+                                            <div class="text-xs text-gray-500">✖ Skipped</div>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="6" class="px-6 py-12 text-center text-gray-400">No scheduled feedings for the selected range.</td>
+                                </tr>
+                            @endforelse
                         </tbody>
                     </table>
                 </div>
-            </div>
 
-            <!-- Recent Feed Activity -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <div class="flex items-center justify-between">
-                        <h3 class="text-lg font-medium text-gray-900">Recent Feed Activity</h3>
-                        <a href="{{ route('feeds.index') }}" class="text-sm text-green-600 hover:text-green-800">View All</a>
-                    </div>
-                </div>
-                <div class="p-6">
-                    @php
-                        $recentFeeds = \App\Models\Feed::with(['pig', 'recorder'])
-                            ->orderBy('feed_date', 'desc')
-                            ->orderBy('feed_time', 'desc')
-                            ->limit(10)
-                            ->get();
-                    @endphp
-                    
-                    @if($recentFeeds->count() > 0)
-                        <div class="space-y-4">
-                            @foreach($recentFeeds as $feed)
-                                <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                                    <div class="flex items-center space-x-4">
-                                        <div class="flex-shrink-0">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $feed->feed_type_badge }}">
-                                                {{ $feed->feed_type_display }}
-                                            </span>
-                                        </div>
-                                        <div>
-                                            <div class="text-sm font-medium text-gray-900">
-                                                <a href="{{ route('pigs.show', $feed->pig_id) }}" class="text-green-600 hover:text-green-800">
-                                                    {{ $feed->pig->ear_tag_number }}
-                                                </a>
-                                                - {{ $feed->formatted_amount }}
-                                            </div>
-                                            <div class="text-sm text-gray-500">
-                                                {{ $feed->feed_date->format('M d, Y') }}
-                                                @if($feed->feed_time)
-                                                    at {{ $feed->feed_time->format('g:i A') }}
-                                                @endif
-                                                by {{ $feed->recorder->name }}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="text-sm text-gray-500">
-                                        {{ $feed->formatted_cost }}
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    @else
-                        <div class="text-center py-8">
-                            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                            </svg>
-                            <h3 class="mt-2 text-sm font-medium text-gray-900">No recent feed activity</h3>
-                            <p class="mt-1 text-sm text-gray-500">Start recording feeds to see activity here.</p>
-                        </div>
-                    @endif
+                <div class="px-6 py-4 border-t border-gray-100">
+                    {{ $entries->links('pagination::tailwind') }}
                 </div>
             </div>
         </main>

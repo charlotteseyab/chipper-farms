@@ -3,8 +3,8 @@
 <div class="container mx-auto px-4 py-2">
     <div class="flex justify-between items-center mb-8">
         <div>
-            <h1 class="text-3xl font-bold text-gray-900">In Progress - Weaning to Maturity</h1>
-            <p class="text-gray-600 mt-2">Pigs that have been weaned and are growing toward maturity (180 days)</p>
+            <h1 class="text-3xl font-bold text-gray-900">In Progress - Weaning</h1>
+            <p class="text-gray-600 mt-2">Pigs that have been weaned and are growing toward maturity ({{ config('breeding.cycle.birth_to_maturity_days', 180) }} days)</p>
         </div>
     </div>
 
@@ -113,12 +113,13 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight (kg)</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days to Maturity</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progress</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mother</th>
+                            <!-- <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mother</th> -->
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         @foreach($inProgressPigs as $pig)
+                            @if($pig->gender === 'F')
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
@@ -183,7 +184,7 @@
                                         <span class="text-gray-400">N/A</span>
                                     @endif
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <!-- <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     @if($pig->mother)
                                         <a href="{{ route('pigs.show', $pig->mother->id) }}" class="text-blue-600 hover:text-blue-800">
                                             {{ $pig->mother->ear_tag_number }}
@@ -191,7 +192,7 @@
                                     @else
                                         <span class="text-gray-400">N/A</span>
                                     @endif
-                                </td>
+                                </td> -->
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div class="relative inline-block text-left" x-data="{ open: false, place: 'down', toggle(){ this.open = !this.open; if(!this.open){ return; } this.$nextTick(() => { const menu = this.$refs.menu; const trigger = this.$refs.trigger; if(!menu || !trigger) return; const mr = menu.getBoundingClientRect(); const tr = trigger.getBoundingClientRect(); const below = window.innerHeight - tr.bottom; const above = tr.top; this.place = (below < mr.height + 16 && above > mr.height) ? 'up' : 'down'; }); } }">
                                         <button x-ref="trigger" @click="toggle()" class="flex items-center text-gray-600 hover:text-gray-900">
@@ -241,6 +242,7 @@
                                     </div>
                                 </td>
                             </tr>
+                            @endif
                         @endforeach
                     </tbody>
                 </table>
@@ -452,7 +454,7 @@
     <div class="relative top-10 mx-auto p-6 border max-w-2xl shadow-lg rounded-md bg-white">
         <div class="mt-3">
             <div class="flex items-center justify-between mb-4">
-                <h3 id="maturityModalTitle" class="text-lg font-semibold text-gray-900">Complete Maturity</h3>
+                <h3 id="maturityModalTitle" class="text-lg font-semibold text-gray-900">Complete Weaning</h3>
                 <button onclick="closeMaturityModal()" class="text-gray-400 hover:text-gray-600">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -506,6 +508,18 @@
                                 <option value="5">5 - Very fat</option>
                             </select>
                         </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Alive Male Piglets (optional)</label>
+                            <input type="number" name="alive_males" min="0"
+                                   class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 text-sm">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Alive Female Piglets (optional)</label>
+                            <input type="number" name="alive_females" min="0"
+                                   class="w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 text-sm">
+                        </div>
                     </div>
 
                     <!-- Right Column -->
@@ -519,8 +533,6 @@
                                     <option value="" disabled selected>-- Select --</option> 
                                 <option value="breeding">Breeding Stock</option>
                                 <option value="market">Market Ready</option>
-                                <option value="monitoring">Continued Monitoring</option>
-                                <!-- <option value="other">Other</option> -->
                             </select>
                         </div>
 
@@ -548,7 +560,7 @@
                 <!-- Form Actions -->
                 <div class="flex justify-between items-center pt-6 border-t mt-6">
                     <div class="text-sm text-gray-500">
-                        This will complete the weaning-to-maturity process
+                        This will complete the weaning process
                     </div>
                     <div class="flex space-x-3">
                         <button type="button" onclick="closeMaturityModal()"
@@ -557,7 +569,7 @@
                         </button>
                         <button type="submit"
                                 class="px-6 py-2 bg-green-600 text-white rounded-md text-sm font-medium hover:bg-green-700">
-                            Complete Maturity
+                            Complete Weaning
                         </button>
                     </div>
                 </div>
@@ -568,7 +580,7 @@
 
 <script>
 function openMaturityModal(pigId, pigEarTag, ageInDays) {
-    document.getElementById('maturityModalTitle').textContent = `Complete Maturity - ${pigEarTag}`;
+    document.getElementById('maturityModalTitle').textContent = `Complete Weaning - ${pigEarTag}`;
     document.getElementById('maturityForm').action = `/weaning/${pigId}/complete-maturity`;
     document.getElementById('maturityModal').classList.remove('hidden');
 
@@ -582,10 +594,10 @@ function openMaturityModal(pigId, pigEarTag, ageInDays) {
     }
     pigInfo.innerHTML = `
         <div class="text-sm text-green-800">
-            <strong>🎉 MATURITY COMPLETION</strong><br>
+            <strong> WEANING COMPLETION</strong><br>
             <strong>Ear Tag:</strong> ${pigEarTag}<br>
             <strong>Current Age:</strong> ${Math.floor(ageInDays)} days<br>
-            <strong>Target Maturity:</strong> {{ config('breeding.cycle.birth_to_maturity_days', 180) }} days<br>
+            <strong>Target Weaning:</strong> {{ config('breeding.cycle.birth_to_weaning_days', 45) }} days<br>
             <strong>Status:</strong> Ready for completion
         </div>
     `;

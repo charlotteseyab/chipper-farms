@@ -90,12 +90,14 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age at Maturity</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Final Weight</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Health Status</th>
-                            <!-- <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destination</th> -->
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Alive After Weaning</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Destination</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         @foreach($completedPigs as $completion)
+                            @if($completion->pig->gender === 'F')
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center">
@@ -139,7 +141,18 @@
                                         {{ ucfirst($completion->health_status_at_maturity) }}
                                     </span>
                                 </td>
-                                <!-- <td class="px-6 py-4 whitespace-nowrap">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    @php
+                                        $am = $completion->alive_males;
+                                        $af = $completion->alive_females;
+                                    @endphp
+                                    @if(is_null($am) && is_null($af))
+                                        <span class="text-gray-400">N/A</span>
+                                    @else
+                                        <span>M: {{ is_null($am) ? 'N/A' : $am }}, F: {{ is_null($af) ? 'N/A' : $af }}</span>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
                                     @php
                                         $destinationBadge = match($completion->next_destination) {
                                             'breeding' => 'bg-purple-100 text-purple-800',
@@ -152,7 +165,7 @@
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $destinationBadge }}">
                                         {{ ucfirst($completion->next_destination) }}
                                     </span>
-                                </td> -->
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     <div class="relative inline-block text-left" x-data="{ open: false, place: 'down', toggle(){ this.open = !this.open; if(!this.open){ return; } this.$nextTick(() => { const menu = this.$refs.menu; const trigger = this.$refs.trigger; if(!menu || !trigger) return; const mr = menu.getBoundingClientRect(); const tr = trigger.getBoundingClientRect(); const below = window.innerHeight - tr.bottom; const above = tr.top; this.place = (below < mr.height + 16 && above > mr.height) ? 'up' : 'down'; }); } }">
                                         <button x-ref="trigger" @click="toggle()" class="flex items-center text-gray-600 hover:text-gray-900">
@@ -180,6 +193,7 @@
                                     </div>
                                 </td>
                             </tr>
+                            @endif
                         @endforeach
                     </tbody>
                 </table>
