@@ -26,7 +26,6 @@ class IngredientController extends Controller
             'fat_percentage' => 'nullable|numeric|min:0|max:100',
             'fiber_percentage' => 'nullable|numeric|min:0|max:100',
             'unit' => 'required|string|max:10',
-            'cost_per_unit' => 'required|numeric|min:0',
             'initial_quantity' => 'nullable|numeric|min:0',
         ]);
         $ingredient = Ingredient::create($data);
@@ -59,7 +58,6 @@ class IngredientController extends Controller
             'fat_percentage' => 'nullable|numeric|min:0|max:100',
             'fiber_percentage' => 'nullable|numeric|min:0|max:100',
             'unit' => 'required|string|max:10',
-            'cost_per_unit' => 'required|numeric|min:0',
             'initial_quantity' => 'nullable|numeric|min:0',
             'adjust_quantity' => 'nullable|numeric|min:0',
         ]);

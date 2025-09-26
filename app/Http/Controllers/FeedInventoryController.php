@@ -64,21 +64,25 @@ class FeedInventoryController extends Controller
 
     // Analytics: show projected usage for a period
     public function analytics(Request $request)
-    {
-        $feedType = $request->feed_type;
-        $days = $request->days ?? 7;
-        $start = $request->start_date ?? now()->subDays($days)->toDateString();
-        $end = $request->end_date ?? now()->toDateString();
-        $usage = GroupFeeding::where('feed_type_id', $feedType)
-            ->whereBetween('feed_date', [$start, $end])
-            ->sum('feed_amount');
-        $avgPerDay = $usage / max(1, $days);
-        return response()->json([
-            'total_used' => $usage,
-            'avg_per_day' => $avgPerDay,
-            'projected_needed' => $avgPerDay * $days,
-        ]);
-    }
+{
+    $feedType = $request->feed_type;
+    $days = $request->days ?? 7;
+    $start = $request->start_date ?? now()->subDays($days)->toDateString();
+    $end = $request->end_date ?? now()->toDateString();
+
+    $usage = GroupFeeding::where('feed_type_id', $feedType)
+        ->whereBetween('date', [$start, $end])
+        ->sum('amount'); // ✅ must end the query with sum()
+
+    $avgPerDay = $usage / max(1, $days);
+
+    return response()->json([
+        'total_used' => $usage,
+        'avg_per_day' => $avgPerDay,
+        'projected_needed' => $avgPerDay * $days,
+    ]);
+}
+
 
     public function edit(FeedInventory $feedInventory)
     {

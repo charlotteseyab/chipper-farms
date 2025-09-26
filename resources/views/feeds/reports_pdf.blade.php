@@ -31,7 +31,7 @@
                 <div style="font-size:18px;font-weight:bold;">{{ isset($byType) ? $byType->count() : 0 }}</div>
             </div>
             <div class="col card">
-                <div class="muted">Unique Ingredients Used</div>
+                <div class="muted">Ingredients Used</div>
                 <div style="font-size:18px;font-weight:bold;">{{ isset($ingredientUsage) ? count($ingredientUsage) : 0 }}</div>
             </div>
         </div>

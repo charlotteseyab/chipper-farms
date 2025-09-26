@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\FeedType;
 use Illuminate\Http\Request;
+use App\Models\IngredientInventory; // ⬅️ ADDED: To fetch stock quantities
 
 class FeedTypeController extends Controller
 {
@@ -14,8 +15,35 @@ class FeedTypeController extends Controller
 
     public function create()
     {
+        // 1. Fetch all ingredients (using full namespace as per file style)
         $ingredients = \App\Models\Ingredient::orderBy('name')->get(['id','name']);
-        return view('feed_types.create', compact('ingredients'));
+
+        // 2. Fetch all ingredient inventory quantities and map by ingredient_id
+        // This gives us a collection of inventory records keyed by ingredient_id
+        $inventoryMap = IngredientInventory::get()->keyBy('ingredient_id');
+
+        // 3. Filter the ingredient list to only include those with stock > 0
+        $availableIngredients = $ingredients->filter(function ($ingredient) use ($inventoryMap) {
+            $inventoryRecord = $inventoryMap->get($ingredient->id);
+            
+            // Get quantity (default to 0 if no inventory record exists)
+            $quantity = $inventoryRecord ? $inventoryRecord->quantity : 0;
+            
+            // We also need the unit for the view, default to 'kg' if not on inventory record
+            $unit = $inventoryRecord ? $inventoryRecord->unit : 'kg'; 
+
+            // Augment the ingredient model with stock data for the view
+            $ingredient->quantity = $quantity;
+            $ingredient->unit = $unit;
+            
+            // Only return ingredients that have stock
+            return $quantity > 0;
+        });
+        
+        // Pass the filtered and augmented collection to the view
+        return view('feed_types.create', [
+            'ingredients' => $availableIngredients,
+        ]);
     }
 
     public function store(Request $request)
@@ -84,7 +112,8 @@ class FeedTypeController extends Controller
     public function edit(FeedType $feedType)
     {
         $feedType->load('recipe.items.ingredient');
-        $ingredients = \App\Models\Ingredient::orderBy('name')->get(['id','name']);
+        // This logic should also be updated if you want to apply the same filter to the edit view
+        $ingredients = \App\Models\Ingredient::orderBy('name')->get(['id','name']); 
         return view('feed_types.edit', compact('feedType','ingredients'));
     }
 
