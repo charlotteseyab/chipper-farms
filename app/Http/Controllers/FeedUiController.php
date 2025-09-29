@@ -10,47 +10,48 @@ use Carbon\Carbon;
 class FeedUiController extends Controller
 {
     public function schedule()
-    {
-        $tab = request('tab', 'current'); // detect active tab
-        $today = now()->toDateString();
-        $statuses = request('status') ? explode(',', request('status')) : ['planned','fed','skipped'];
+{
+    $tab = request('tab', 'current'); // detect active tab
+    $today = now()->toDateString();
+    $statuses = request('status') ? explode(',', request('status')) : ['planned','fed','skipped'];
 
-        if ($tab === 'current') {
-            // Today tab: use $from and $to from request or default to today
-            $from = request('from', $today);
-            $to = request('to', $today);
+    if ($tab === 'current') {
+        // Today tab: use $from and $to from request or default to today
+        $from = request('from', $today);
+        $to = request('to', $today);
 
-            $entries = \App\Models\FeedSchedule::with(['group.structure','structure','feedType','feeder'])
-                ->whereBetween('scheduled_for', [$from, $to])
-                ->whereIn('status', $statuses)
-                ->orderBy('scheduled_for')
-                ->orderBy('group_id')
-                ->paginate(50);
-        } else {
-            // Previous schedules tab: automatically load all previous schedules by default
-            $query = \App\Models\FeedSchedule::with(['group.structure','structure','feedType','feeder'])
-                ->whereDate('scheduled_for', '<', $today) // all past schedules
-                ->whereIn('status', $statuses)
-                ->orderBy('scheduled_for')
-                ->orderBy('group_id');
+        $entries = \App\Models\FeedSchedule::with(['group.structure','structure','feedType','feeder'])
+            ->whereBetween('scheduled_for', [$from, $to])
+            ->whereIn('status', $statuses)
+            ->orderBy('scheduled_for')
+            ->orderBy('group_id')
+            ->paginate(50);
+    } else {
+        // Previous schedules tab: automatically load all previous schedules by default
+        $query = \App\Models\FeedSchedule::with(['group.structure','structure','feedType','feeder'])
+            ->whereDate('scheduled_for', '<', $today) // all past schedules
+            ->whereIn('status', $statuses)
+            ->orderBy('scheduled_for')
+            ->orderBy('group_id');
 
-            // Apply date filter only if user selects it
-            if (request()->filled('from')) {
-                $query->whereDate('scheduled_for', '>=', request('from'));
-            }
-            if (request()->filled('to')) {
-                $query->whereDate('scheduled_for', '<=', request('to'));
-            }
-
-            $entries = $query->paginate(50);
-
-            // Set $from and $to for Blade date picker inputs (optional)
-            $from = request('from') ?? null;
-            $to = request('to') ?? null;
+        // Apply date filter only if user selects it
+        if (request()->filled('from')) {
+            $query->whereDate('scheduled_for', '>=', request('from'));
+        }
+        if (request()->filled('to')) {
+            $query->whereDate('scheduled_for', '<=', request('to'));
         }
 
-        return view('feeds.schedule', compact('entries', 'from', 'to', 'statuses', 'tab'));
+        $entries = $query->paginate(50);
+
+        // Set $from and $to for Blade date picker inputs (optional)
+        $from = request('from') ?? null;
+        $to = request('to') ?? null;
     }
+
+    return view('feeds.schedule', compact('entries', 'from', 'to', 'statuses', 'tab'));
+}
+    
 
     public function reports(Request $request)
     {
@@ -73,7 +74,7 @@ class FeedUiController extends Controller
             ];
         })->sortByDesc('total_amount');
 
-        // ✅ Correct ingredient analysis
+        // Ingredient usage - show all ingredients with details
         $ingredientUsage = [];
         $ingredientDetails = [];
         foreach ($schedules as $sch) {
@@ -81,9 +82,9 @@ class FeedUiController extends Controller
             if (!$ft || !$ft->recipe) continue;
             foreach ($ft->recipe->items as $ri) {
                 $ingName = optional($ri->ingredient)->name ?? 'Item '.$ri->ingredient_id;
-                $perKg = (float)($ri->percentage ?? 0) / 100;
+                $perKg = (float)($ri->percentage ?? 0)/100;
                 $qty = $perKg * (float)$sch->planned_amount;
-
+                
                 if (!isset($ingredientUsage[$ingName])) {
                     $ingredientUsage[$ingName] = 0.0;
                     $ingredientDetails[$ingName] = [
@@ -100,12 +101,12 @@ class FeedUiController extends Controller
                 $ingredientDetails[$ingName]['feed_types'][] = $ft->name;
             }
         }
-
+        
         // Remove duplicates from feed_types arrays
         foreach ($ingredientDetails as $name => $details) {
             $ingredientDetails[$name]['feed_types'] = array_unique($details['feed_types']);
         }
-
+        
         arsort($ingredientUsage);
 
         // --- Feed vs Pig Weights using latest weight per pig ---
@@ -161,7 +162,7 @@ class FeedUiController extends Controller
             ];
         })->sortByDesc('total_amount');
 
-        // ✅ FIXED: Ingredient usage calculation (same as reports)
+        // Ingredient usage - show all ingredients with details for PDF
         $ingredientUsage = [];
         $ingredientDetails = [];
         foreach ($schedules as $sch) {
@@ -169,9 +170,9 @@ class FeedUiController extends Controller
             if (!$ft || !$ft->recipe) continue;
             foreach ($ft->recipe->items as $ri) {
                 $ingName = optional($ri->ingredient)->name ?? 'Item '.$ri->ingredient_id;
-                $perKg = (float)($ri->percentage ?? 0) / 100;
+                $perKg = (float)($ri->percentage ?? 0);
                 $qty = $perKg * (float)$sch->planned_amount;
-
+                
                 if (!isset($ingredientUsage[$ingName])) {
                     $ingredientUsage[$ingName] = 0.0;
                     $ingredientDetails[$ingName] = [
@@ -188,11 +189,12 @@ class FeedUiController extends Controller
                 $ingredientDetails[$ingName]['feed_types'][] = $ft->name;
             }
         }
-
+        
+        // Remove duplicates from feed_types arrays
         foreach ($ingredientDetails as $name => $details) {
             $ingredientDetails[$name]['feed_types'] = array_unique($details['feed_types']);
         }
-
+        
         arsort($ingredientUsage);
 
         // --- Feed vs Pig Weights using latest weight per pig ---
@@ -229,6 +231,8 @@ class FeedUiController extends Controller
 
         return $pdf->download("feed_reports_{$from}_to_{$to}.pdf");
     }
+
+   
 
     public function createSchedule()
     {
@@ -272,21 +276,45 @@ class FeedUiController extends Controller
             'scheduled_for' => 'required|date|after_or_equal:today',
             'notes' => 'nullable|string|max:1000',
         ]);
-
+        
         $inv = \App\Models\FeedInventory::firstOrCreate(
             ['feed_type_id' => $data['feed_type_id']],
             ['quantity' => 0, 'unit' => $data['unit'] ?? 'kg', 'last_updated' => now()]
         );
 
-        if ((float)$inv->quantity <= 0) {
-            return back()->with('error', 'Cannot schedule: On-hand stock for this feed type is 0.');
+        $plannedKg = (float)$data['planned_amount'];
+        $inventoryUnit = strtolower($inv->unit);
+        $deductionAmount = $plannedKg; // Default to kg if inventory is also in kg
+
+        // --- NEW UNIT CONVERSION LOGIC ---
+        // Assumption: If the inventory unit is 'bag', we need a conversion factor.
+        // In a real app, this should come from the database (e.g., FeedType setting).
+        // For demonstration, we assume a standard bag size is 25 kg.
+        $kgPerBag = 25.0; 
+
+        if ($inventoryUnit === 'bag' || $inventoryUnit === 'bags') {
+            // Convert the planned amount (in kg) into bags for deduction
+            if ($kgPerBag <= 0) {
+                 return back()->with('error', 'Inventory error: Bag weight conversion is zero.');
+            }
+            $deductionAmount = $plannedKg / $kgPerBag; // This is the amount of bags to deduct
+
+            // Note: If bags are whole units, you might need to use ceil() here, 
+            // but we'll use a float deduction for accuracy for now.
         }
-        if ((float)$inv->quantity < (float)$data['planned_amount']) {
-            return back()->with('error', 'Cannot schedule: Planned amount exceeds on-hand stock (' . number_format((float)$inv->quantity, 2) . ' ' . $inv->unit . ').');
+        // --- END NEW UNIT CONVERSION LOGIC ---
+
+        // Stock checks use the $deductionAmount (which is either in kg or bags now)
+        if ((float)$inv->quantity <= 0) {
+            return back()->with('error', 'Cannot schedule: On-hand stock for this feed type is 0 ' . $inventoryUnit . '(s).');
+        }
+        
+        if ((float)$inv->quantity < $deductionAmount) {
+            return back()->with('error', 'Cannot schedule: Planned amount (' . number_format($deductionAmount, 2) . ' ' . $inventoryUnit . '(s)) exceeds on-hand stock (' . number_format((float)$inv->quantity, 2) . ' ' . $inventoryUnit . '(s)).');
         }
 
         // Deduct now at scheduling time
-        $inv->quantity = max(0, (float)$inv->quantity - (float)$data['planned_amount']);
+        $inv->quantity = max(0, (float)$inv->quantity - $deductionAmount);
         $inv->last_updated = now();
         $inv->save();
 

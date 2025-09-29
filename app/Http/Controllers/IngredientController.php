@@ -26,9 +26,12 @@ class IngredientController extends Controller
             'fat_percentage' => 'nullable|numeric|min:0|max:100',
             'fiber_percentage' => 'nullable|numeric|min:0|max:100',
             'unit' => 'required|string|max:10',
+            'bag_weight_kg' => 'nullable|numeric|min:0.01', // Default bag weight for this ingredient
             'initial_quantity' => 'nullable|numeric|min:0',
         ]);
+        
         $ingredient = Ingredient::create($data);
+        
         if (($data['initial_quantity'] ?? 0) > 0) {
             $inv = \App\Models\IngredientInventory::firstOrCreate(
                 ['ingredient_id' => $ingredient->id],
@@ -58,10 +61,14 @@ class IngredientController extends Controller
             'fat_percentage' => 'nullable|numeric|min:0|max:100',
             'fiber_percentage' => 'nullable|numeric|min:0|max:100',
             'unit' => 'required|string|max:10',
+            'bag_weight_kg' => 'nullable|numeric|min:0.01', // Default bag weight update is validated here
             'initial_quantity' => 'nullable|numeric|min:0',
             'adjust_quantity' => 'nullable|numeric|min:0',
         ]);
-        $ingredient->update($data);
+        
+        // ⬅️ The change is reflected because $ingredient->update($data) saves the new bag_weight_kg
+        $ingredient->update($data); 
+        
         if (($data['adjust_quantity'] ?? 0) > 0) {
             $inv = \App\Models\IngredientInventory::firstOrCreate(
                 ['ingredient_id' => $ingredient->id],
