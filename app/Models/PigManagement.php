@@ -819,7 +819,7 @@ class PigManagement extends Model
                 'color' => 'yellow',
                 'icon' => '⚠️'
             ];
-        } elseif ($daysSince <= 35) {
+        } elseif ($daysSince <= 30) {
             return [
                 'status' => 'overdue',
                 'message' => 'Overdue',

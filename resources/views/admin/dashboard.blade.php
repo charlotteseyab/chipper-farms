@@ -1137,7 +1137,7 @@
                                 $daysSince = $pig->getDaysSinceLastWeighing();
                                 $lastWeighing = $pig->getLastWeighingDate();
                                 $lastWeight = $pig->weights()->latest('weigh_date')->first();
-                                $overdueDays = $daysSince - 35; // 35 is the weighing interval
+                                $overdueDays = $daysSince - 5; // 5 is the weighing interval
                             @endphp
                             <div class="bg-{{ $weighingStatus['color'] }}-50 border border-{{ $weighingStatus['color'] }}-200 rounded-lg p-4">
                                 <div class="flex items-start justify-between">
