@@ -65,19 +65,17 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-        // Seed structures and rooms
-        $this->call(StructureSeeder::class);
+        // // Seed structures and rooms
+        // $this->call(StructureSeeder::class);
         
-        // Seed expected weight standards
-        $this->call(ExpectedWeightStandardSeeder::class);
+        // // Seed expected weight standards
+        // $this->call(ExpectedWeightStandardSeeder::class);
         
-        // Seed pig management data
-        $this->call(PigManagementSeeder::class);
+        // // Seed pig management data
+        // $this->call(PigManagementSeeder::class);
         
-        // Seed pig weight data
-        $this->call(PigWeightSeeder::class);
+        // // Seed pig weight data
+        // $this->call(PigWeightSeeder::class);
 
-        // Seed demo notifications for UI preview
-        $this->call(NotificationsSeeder::class);
     }
 }
