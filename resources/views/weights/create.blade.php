@@ -308,7 +308,7 @@
             </div>
         </div>
     </main>
-
+    <x-copyright-minimal />
     <script>
         // Toggle between single and batch mode
         function toggleBatchMode() {

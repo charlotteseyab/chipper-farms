@@ -66,10 +66,10 @@
                 <!-- Week Number -->
                 <div>
                     <label for="week_number" class="block text-sm font-medium text-gray-700 mb-1">Week Number *</label>
-                    <input type="number" name="week_number" id="week_number" min="1" max="104" required
+                    <input type="number" name="week_number" id="week_number" min="1" max="200" required
                            value="{{ old('week_number') }}" placeholder="e.g., 8"
                            class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 @error('week_number') border-red-300 @enderror">
-                    <p class="mt-1 text-xs text-gray-500">Age in weeks (1-104)</p>
+                    <p class="mt-1 text-xs text-gray-500">Age in weeks (1-200)</p>
                     @error('week_number')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                     @enderror
@@ -156,7 +156,7 @@
         </form>
     </div>
 </div>
-
+<x-copyright-minimal />
 <script>
     // Weight range preview
     function updateWeightPreview() {

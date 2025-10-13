@@ -704,4 +704,5 @@
             @endif
         </main>
     </div>
+    <x-copyright-minimal />
 </x-app-layout>

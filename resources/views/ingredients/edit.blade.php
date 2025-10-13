@@ -76,17 +76,21 @@
             <!-- Unit -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Stock Unit (e.g., kg, bag)</label>
-                <input type="text" name="unit" value="{{ old('unit', $ingredient->unit) }}"
-                    class="w-full border-gray-300 rounded-lg px-3 py-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150" required>
+                @php($u = old('unit', $ingredient->unit))
+                <select name="unit" id="unit" class="w-full border-gray-300 rounded-lg px-3 py-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150" required>
+                    <option value="kg" {{ strtolower($u)==='kg' ? 'selected' : '' }}>kg</option>
+                    <option value="bag" {{ strtolower($u)==='bag' ? 'selected' : '' }}>bag</option>
+                    <option value="bags" {{ strtolower($u)==='bags' ? 'selected' : '' }}>bags</option>
+                </select>
                 <p class="mt-1 text-xs text-gray-500">The unit this item is counted in for inventory.</p>
             </div>
             
             <!-- Default Bag Weight (NEW FIELD) -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Default Bag Weight (kg)</label>
-                <input type="number" step="0.01" min="0.01" name="bag_weight_kg" value="{{ old('bag_weight_kg', $ingredient->bag_weight_kg) }}"
+                <label class="block text-sm font-medium text-gray-700 mb-1">Bag Weight (kg) — per bag</label>
+                <input type="number" step="0.01" min="0.01" name="bag_weight_kg" id="bag_weight_kg" value="{{ old('bag_weight_kg', $ingredient->bag_weight_kg) }}"
                     class="w-full border-gray-300 rounded-lg px-3 py-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150">
-                <p class="mt-1 text-xs text-gray-500">Required if the Stock Unit is 'bag'. This is the standard weight used for converting KG usage to BAG deduction.</p>
+                <p class="mt-1 text-xs text-gray-500">If unit is bag(s), enter weight of a single bag in kg.</p>
             </div>
 
 
@@ -97,11 +101,12 @@
                     <span class="inline-block px-2 py-1 bg-gray-100 border border-gray-200 rounded-md">Current On-hand: {{ isset($onHand) ? number_format($onHand->quantity, 2) . ' ' . $onHand->unit : '0.00' }}</span>
                 </div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Quantity Purchased (adds to on-hand)</label>
-                <input type="number" step="0.01" min="0" name="initial_quantity"
+                <input type="number" step="0.01" min="0" name="initial_quantity" id="initial_quantity"
                     value="{{ old('initial_quantity') }}"
                     placeholder="Enter quantity purchased"
                     class="w-full border-gray-300 rounded-lg px-3 py-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150">
-                <p class="text-xs text-gray-500 mt-1">Leave blank to keep on-hand unchanged.</p>
+                <p class="text-xs text-gray-500 mt-1">Enter amount in the selected unit. If bag(s), this is the number of bags. Leave blank to keep on-hand unchanged.</p>
+                <p class="mt-1 text-xs text-gray-500" id="kg_preview" style="display:none;">Total weight: <span id="kg_preview_value">0.00</span> kg</p>
             </div>
 
             <!-- Buttons -->
@@ -117,5 +122,29 @@
         </form>
     </div>
 </div>
+<x-copyright-minimal />
+<script>
+    const unitEl = document.getElementById('unit');
+    const bagWeightEl = document.getElementById('bag_weight_kg');
+    const qtyEl = document.getElementById('initial_quantity');
+    const preview = document.getElementById('kg_preview');
+    const previewVal = document.getElementById('kg_preview_value');
 
+    function updatePreview() {
+        const unit = (unitEl.value || '').toLowerCase();
+        const qty = parseFloat(qtyEl.value || '0');
+        const bagW = parseFloat(bagWeightEl.value || '0');
+        if ((unit === 'bag' || unit === 'bags') && qty > 0 && bagW > 0) {
+            const totalKg = qty * bagW;
+            previewVal.textContent = totalKg.toFixed(2);
+            preview.style.display = '';
+        } else {
+            preview.style.display = 'none';
+        }
+    }
+    unitEl.addEventListener('change', updatePreview);
+    bagWeightEl.addEventListener('input', updatePreview);
+    qtyEl.addEventListener('input', updatePreview);
+    updatePreview();
+</script>
 </x-app-layout>

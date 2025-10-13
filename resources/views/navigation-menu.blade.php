@@ -19,6 +19,56 @@
             </div>
 
             <div class="hidden sm:flex sm:items-center sm:ms-6">
+                <!-- Notifications Bell -->
+                @auth
+                @php
+                    $unreadCount = \Illuminate\Notifications\DatabaseNotification::whereNull('read_at')->count();
+                    $recentNotifications = \Illuminate\Notifications\DatabaseNotification::latest()->limit(7)->get();
+                @endphp
+                <div class="mr-4 relative" x-data="{ openBell: false }" @click.outside="openBell = false">
+                    <button type="button" @click="openBell = !openBell" class="relative inline-flex items-center text-gray-500 hover:text-gray-700 focus:outline-none">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                        @if($unreadCount > 0)
+                            <span class="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">{{ $unreadCount }}</span>
+                        @endif
+                    </button>
+
+                    <!-- Dropdown Panel -->
+                    <div x-show="openBell" x-transition class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
+                        <div class="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
+                            <span class="text-sm font-semibold text-gray-800">Notifications</span>
+                            @if($unreadCount > 0)
+                                <form action="{{ route('notifications.readAll') }}" method="POST">
+                                    @csrf
+                                    <button class="text-xs text-gray-500 hover:text-gray-700">Mark all as read</button>
+                                </form>
+                            @endif
+                        </div>
+                        <ul class="max-h-80 overflow-y-auto">
+                            @forelse($recentNotifications as $notification)
+                                @php $data = $notification->data; @endphp
+                                <li class="px-3 py-2 {{ is_null($notification->read_at) ? 'bg-gray-50' : '' }}">
+                                    <a href="{{ $data['link'] ?? route('notifications.index') }}" class="block">
+                                        <div class="text-sm text-gray-700">
+                                            <span class="font-medium">{{ ucfirst(str_replace('_',' ', $data['type'] ?? 'notification')) }}</span>
+                                            • Pig {{ $data['ear_tag'] ?? 'N/A' }}
+                                        </div>
+                                        <div class="text-xs text-gray-500 mt-0.5">
+                                            {{ $notification->created_at->diffForHumans() }}
+                                        </div>
+                                    </a>
+                                </li>
+                            @empty
+                            @endforelse
+                        </ul>
+                        <div class="px-3 py-2 border-t border-gray-100 text-right">
+                            <a href="{{ route('notifications.index') }}" class="text-xs font-medium text-emerald-700 hover:text-emerald-800">View all</a>
+                        </div>
+                    </div>
+                </div>
+                @endauth
                 <!-- Teams Dropdown -->
                 @if (Laravel\Jetstream\Jetstream::hasTeamFeatures())
                     <div class="ms-3 relative">

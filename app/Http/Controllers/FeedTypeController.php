@@ -3,10 +3,59 @@ namespace App\Http\Controllers;
 
 use App\Models\FeedType;
 use Illuminate\Http\Request;
-use App\Models\IngredientInventory; // ⬅️ ADDED: To fetch stock quantities
+use App\Models\IngredientInventory;
 
 class FeedTypeController extends Controller
 {
+    /**
+     * Helper to fetch and augment all ingredients with calculated stock quantities,
+     * providing both total KG (for calculations) and display quantity/unit (for UI clarity).
+     */
+    private function getAugmentedIngredients()
+    {
+        // 1. Fetch all ingredients, including the necessary conversion factor (bag_weight_kg)
+        $ingredients = \App\Models\Ingredient::orderBy('name')->get(['id', 'name', 'bag_weight_kg']);
+
+        // 2. Fetch all ingredient inventory records for fast lookup
+        // NOTE: This assumes a single consolidated inventory record per ingredient ID.
+        $inventoryMap = IngredientInventory::get()->keyBy('ingredient_id');
+
+        // 3. Augment the ingredient list
+        $augmentedIngredients = $ingredients->map(function ($ingredient) use ($inventoryMap) {
+            $inventoryRecord = $inventoryMap->get($ingredient->id);
+            
+            $quantity = 0.0;
+            $inventoryUnit = 'kg'; // Default unit assumption
+            $kgPerBag = (float) ($ingredient->bag_weight_kg ?? 1.0);
+            
+            if ($inventoryRecord) {
+                $quantity = (float) $inventoryRecord->quantity;
+                $inventoryUnit = strtolower($inventoryRecord->unit);
+            }
+            
+            // Compute total amount in KG for internal use (unchanged)
+            $currentStockKg = ($inventoryUnit === 'bag' || $inventoryUnit === 'bags')
+                ? ($quantity * max($kgPerBag, 1.0))
+                : $quantity;
+            $ingredient->current_stock_kg = round($currentStockKg, 2);
+
+            // Display logic for UI:
+            // - If inventory tracked in bags, show the bag weight in kg (per bag), NOT total kg
+            // - Otherwise, show the quantity in kg
+            if ($inventoryUnit === 'bag' || $inventoryUnit === 'bags') {
+                $ingredient->current_stock_display = number_format(max($kgPerBag, 0), 2);
+                $ingredient->current_stock_unit = 'kg';
+            } else {
+                $ingredient->current_stock_display = number_format($quantity, 2);
+                $ingredient->current_stock_unit = 'kg';
+            }
+            
+            return $ingredient;
+        });
+        
+        return $augmentedIngredients;
+    }
+
     public function index()
     {
         $feedTypes = FeedType::orderBy('name')->get();
@@ -15,34 +64,11 @@ class FeedTypeController extends Controller
 
     public function create()
     {
-        // 1. Fetch all ingredients (using full namespace as per file style)
-        $ingredients = \App\Models\Ingredient::orderBy('name')->get(['id','name']);
-
-        // 2. Fetch all ingredient inventory quantities and map by ingredient_id
-        // This gives us a collection of inventory records keyed by ingredient_id
-        $inventoryMap = IngredientInventory::get()->keyBy('ingredient_id');
-
-        // 3. Filter the ingredient list to only include those with stock > 0
-        $availableIngredients = $ingredients->filter(function ($ingredient) use ($inventoryMap) {
-            $inventoryRecord = $inventoryMap->get($ingredient->id);
-            
-            // Get quantity (default to 0 if no inventory record exists)
-            $quantity = $inventoryRecord ? $inventoryRecord->quantity : 0;
-            
-            // We also need the unit for the view, default to 'kg' if not on inventory record
-            $unit = $inventoryRecord ? $inventoryRecord->unit : 'kg'; 
-
-            // Augment the ingredient model with stock data for the view
-            $ingredient->quantity = $quantity;
-            $ingredient->unit = $unit;
-            
-            // Only return ingredients that have stock
-            return $quantity > 0;
-        });
+        // Use the new helper function to get ingredients with converted stock
+        $augmentedIngredients = $this->getAugmentedIngredients();
         
-        // Pass the filtered and augmented collection to the view
         return view('feed_types.create', [
-            'ingredients' => $availableIngredients,
+            'ingredients' => $augmentedIngredients,
         ]);
     }
 
@@ -82,19 +108,45 @@ class FeedTypeController extends Controller
                     'percentage' => $qty, // reuse column to store absolute qty (kg)
                 ]);
             }
-            // Deduct exact ingredient quantities and increase feed stock by total batch
+            
             if ($totalBatch > 0) {
+                // Deduct exact ingredient quantities using the correct unit
                 foreach ($items as $it) {
                     $ingredientId = (int)$it['ingredient_id'];
-                    $shareKg = (float)$it['quantity'];
-                    $inv = \App\Models\IngredientInventory::firstOrCreate(
-                        ['ingredient_id' => $ingredientId],
-                        ['quantity' => 0, 'unit' => 'kg', 'last_updated' => now()]
-                    );
-                    $inv->quantity = max(0, (float)$inv->quantity - $shareKg);
+                    $shareKg = (float)$it['quantity']; // Amount required by recipe, always in KG
+
+                    // Fetch ingredient and inventory to determine deduction logic
+                    $ingredient = \App\Models\Ingredient::find($ingredientId, ['bag_weight_kg']);
+                    $inv = \App\Models\IngredientInventory::where('ingredient_id', $ingredientId)->first();
+
+                    if (!$inv) {
+                         // If no inventory exists, create a default record to prevent errors
+                         // Defaulting to 'kg' unit for simple deduction.
+                         $inv = \App\Models\IngredientInventory::create([
+                             'ingredient_id' => $ingredientId,
+                             'quantity' => 0.0, 
+                             'unit' => 'kg', 
+                             'last_updated' => now(),
+                         ]);
+                    }
+                    
+                    $inventoryUnit = strtolower($inv->unit);
+                    $kgPerBag = (float) ($ingredient->bag_weight_kg ?? 1.0); 
+
+                    if ($inventoryUnit === 'bag' || $inventoryUnit === 'bags') {
+                        // Inventory is stored in bags: convert required KG amount to bags
+                        // Deduction amount in BAGS = Required KG / KG per Bag
+                        $deductionInBags = $shareKg / $kgPerBag;
+                        $inv->quantity = max(0, (float)$inv->quantity - $deductionInBags);
+                    } else {
+                        // Inventory is stored in KG: deduct KG directly
+                        $inv->quantity = max(0, (float)$inv->quantity - $shareKg);
+                    }
+                    
                     $inv->last_updated = now();
                     $inv->save();
                 }
+                
                 // Increase feed type stock in FeedInventory by batch size
                 $feedInv = \App\Models\FeedInventory::firstOrCreate(
                     ['feed_type_id' => $feedType->id],
@@ -112,8 +164,10 @@ class FeedTypeController extends Controller
     public function edit(FeedType $feedType)
     {
         $feedType->load('recipe.items.ingredient');
-        // This logic should also be updated if you want to apply the same filter to the edit view
-        $ingredients = \App\Models\Ingredient::orderBy('name')->get(['id','name']); 
+        
+        // Use the new helper function to get ingredients with converted stock
+        $ingredients = $this->getAugmentedIngredients();
+
         return view('feed_types.edit', compact('feedType','ingredients'));
     }
 
@@ -159,15 +213,40 @@ class FeedTypeController extends Controller
             if ($totalBatch > 0) {
                 foreach ($items as $it) {
                     $ingredientId = (int)$it['ingredient_id'];
-                    $shareKg = (float)$it['quantity'];
-                    $inv = \App\Models\IngredientInventory::firstOrCreate(
-                        ['ingredient_id' => $ingredientId],
-                        ['quantity' => 0, 'unit' => 'kg', 'last_updated' => now()]
-                    );
-                    $inv->quantity = max(0, (float)$inv->quantity - $shareKg);
+                    $shareKg = (float)$it['quantity']; // Amount required by recipe, always in KG
+
+                    // Fetch ingredient and inventory to determine deduction logic
+                    $ingredient = \App\Models\Ingredient::find($ingredientId, ['bag_weight_kg']);
+                    $inv = \App\Models\IngredientInventory::where('ingredient_id', $ingredientId)->first();
+
+                    if (!$inv) {
+                         // If no inventory exists, create a default record to prevent errors
+                         // Defaulting to 'kg' unit for simple deduction.
+                         $inv = \App\Models\IngredientInventory::create([
+                             'ingredient_id' => $ingredientId,
+                             'quantity' => 0.0, 
+                             'unit' => 'kg', 
+                             'last_updated' => now(),
+                         ]);
+                    }
+                    
+                    $inventoryUnit = strtolower($inv->unit);
+                    $kgPerBag = (float) ($ingredient->bag_weight_kg ?? 1.0); 
+
+                    if ($inventoryUnit === 'bag' || $inventoryUnit === 'bags') {
+                        // Inventory is stored in bags: convert required KG amount to bags
+                        // Deduction amount in BAGS = Required KG / KG per Bag
+                        $deductionInBags = $shareKg / $kgPerBag;
+                        $inv->quantity = max(0, (float)$inv->quantity - $deductionInBags);
+                    } else {
+                        // Inventory is stored in KG: deduct KG directly
+                        $inv->quantity = max(0, (float)$inv->quantity - $shareKg);
+                    }
+                    
                     $inv->last_updated = now();
                     $inv->save();
                 }
+                
                 $feedInv = \App\Models\FeedInventory::firstOrCreate(
                     ['feed_type_id' => $feedType->id],
                     ['quantity' => 0, 'unit' => $feedType->unit ?? 'kg', 'last_updated' => now()]

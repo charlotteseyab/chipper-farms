@@ -12,10 +12,10 @@
             </a>
         </div>
 
-        <div class="bg-white overflow-hidden shadow-2xl rounded-xl border border-gray-100">
+        <div class="bg-white overflow-hidden shadow-xl rounded-xl border border-gray-100">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+                    <thead class="bg-gray-100">
                         <tr>
                             <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/6">
                                 Name & Description
@@ -41,7 +41,7 @@
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
-                        @foreach($feedTypes as $type)
+                        @forelse($feedTypes as $type)
                         <tr class="hover:bg-indigo-50 transition duration-150 ease-in-out">
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm font-medium text-gray-900">{{ $type->name }}</div>
@@ -92,11 +92,30 @@
                                 </div>
                             </td>
                         </tr>
-                        @endforeach
+                        @empty
+                        <tr>
+                            <td colspan="7" class="px-6 py-12 text-center bg-gray-50">
+                                <div class="flex flex-col items-center">
+                                    <svg class="w-12 h-12 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                                    <span class="text-gray-500 text-lg font-semibold">
+                                        No Feed Types Found
+                                    </span>
+                                    <p class="text-sm text-gray-500 mt-1">
+                                        Start by adding your first feed type to the catalogue.
+                                    </p>
+                                    <a href="{{ route('feed-types.create') }}" 
+                                       class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full shadow-sm text-white bg-green-600 hover:bg-green-700 transition">
+                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                        Add New Feed Type
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
         </div>
-        
     </div>
+    <x-copyright-minimal />
 </x-app-layout>

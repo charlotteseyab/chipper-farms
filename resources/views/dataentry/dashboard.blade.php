@@ -1,19 +1,28 @@
 <x-app-layout>
     <div class="min-h-screen">
         <div class="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-2 mb-12">
-            <!-- Header Section -->
-            <!-- <div class="mb-8">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h1 class="text-4xl font-bold text-gray-900 mb-2">Data Entry Center</h1>
-                        <p class="text-lg text-gray-600">Streamline your farm data management</p>
+
+            <!-- Header -->
+            <div class="mb-6">
+                <div class="bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-2xl shadow-lg overflow-hidden">
+                    <div class="px-6 sm:px-8 py-6 flex items-center justify-between">
+                        <div>
+                            <h1 class="text-2xl sm:text-3xl font-bold text-white">Data Entry Dashboard</h1>
+                            <p class="text-emerald-100 mt-1 text-sm">Quick overview and shortcuts for daily operations</p>
+                        </div>
+                        <div class="hidden sm:flex items-center gap-3">
+                            <a href="{{ route('weights.create') }}" class="inline-flex items-center px-3 py-2 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-semibold transition">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                New Weight
+                            </a>
+                            <a href="{{ route('all-stocks.create') }}" class="inline-flex items-center px-3 py-2 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-semibold transition">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/></svg>
+                                New Pig
+                            </a>
+                        </div>
                     </div>
-                    <div class="text-right">
-                        <div class="text-sm text-gray-500">Last updated</div>
-                        <div class="text-lg font-semibold text-gray-900">{{ now()->format('M j, Y g:i A') }}</div>
-                    </div>
+                </div>
             </div>
-            </div> -->
 
             <!-- Key Metrics Cards -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
@@ -118,25 +127,28 @@
             <!-- Charts Section -->
             <div class="mb-8">
                 <!-- Daily Weights Chart -->
-                <div class="bg-white rounded-2xl shadow-lg p-6">
+                <div class="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
                     <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-xl font-bold text-gray-900">Daily Weights Recorded</h2>
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-900">Daily Weights Recorded</h2>
+                            <p class="text-sm text-gray-500">Counts per day with 7-day moving average</p>
+                        </div>
                         <div class="flex items-center space-x-4">
                             <!-- Date Range Selector -->
                             <div class="flex items-center space-x-2">
                                 <label class="text-sm font-medium text-gray-700">From:</label>
-                                <input type="date" id="startDate" class="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <input type="date" id="startDate" class="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
                             </div>
                             <div class="flex items-center space-x-2">
                                 <label class="text-sm font-medium text-gray-700">To:</label>
-                                <input type="date" id="endDate" class="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                                <input type="date" id="endDate" class="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
                             </div>
-                            <button onclick="updateChart()" class="px-4 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors">
+                            <button onclick="updateChart()" class="px-4 py-1 bg-emerald-600 text-white text-sm rounded-md hover:bg-emerald-700 transition-colors">
                                 Update
                             </button>
                         </div>
                     </div>
-                    <div class="h-64">
+                    <div class="h-64 relative">
                         <canvas id="dailyWeightsChart"></canvas>
                     </div>
                 </div>
@@ -361,52 +373,6 @@
 
                 <!-- Right Column - Tasks & Alerts -->
                 <div class="space-y-6">
-                    <!-- Priority Tasks -->
-                    <!-- <div class="bg-white rounded-2xl shadow-lg p-6">
-                        <h2 class="text-xl font-bold text-gray-900 mb-4">Priority Tasks</h2>
-                        <div class="space-y-3">
-                            @if($pendingWeighing > 0)
-                                <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                    <div class="flex items-center justify-between">
-                                        <div>
-                                            <p class="font-medium text-yellow-800">{{ $pendingWeighing }} pigs need weighing</p>
-                                            <p class="text-sm text-yellow-600">Overdue by 7+ days</p>
-                    </div>
-                                        <a href="{{ route('all-stocks.index', ['has_recent_weight' => 'false', 'recent_weight_days' => 7]) }}" class="px-3 py-1 bg-yellow-600 text-white text-sm rounded-lg hover:bg-yellow-700 transition">
-                                            View
-                                        </a>
-                                    </div>
-                                </div>
-                            @endif
-
-                            @if($activeAlerts > 0)
-                                <div class="p-4 bg-red-50 border border-red-200 rounded-lg">
-                                    <div class="flex items-center justify-between">
-                                        <div>
-                                            <p class="font-medium text-red-800">{{ $activeAlerts }} active alerts</p>
-                                            <p class="text-sm text-red-600">Requires attention</p>
-                                        </div>
-                                        <a href="{{ route('weight-alerts.index') }}" class="px-3 py-1 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition">
-                                            View
-                                        </a>
-                                    </div>
-                                </div>
-                            @endif
-
-                            @if($pendingWeighing == 0 && $activeAlerts == 0)
-                                <div class="text-center py-6">
-                                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                        </svg>
-                                    </div>
-                                    <p class="text-green-600 font-medium">All caught up!</p>
-                                    <p class="text-sm text-gray-500">No urgent tasks</p>
-                                </div>
-                            @endif
-                        </div>
-                    </div> -->
-
                     <!-- Today's Summary -->
                     <div class="bg-white rounded-2xl shadow-lg p-6">
                         <h2 class="text-xl font-bold text-gray-900 mb-4">Today's Summary</h2>
@@ -489,7 +455,7 @@
                         </div>
                         <div class="space-y-2">
                             @php
-                                $overduePigs = \App\Models\PigManagement::getOverdueForWeighing()->take(5);
+                            $overduePigs = \App\Models\PigManagement::getOverdueForWeighing(30)->take(5);
                             @endphp
                             @forelse($overduePigs as $pig)
                                 @php
@@ -682,73 +648,102 @@
 
         // Initialize Charts
         document.addEventListener('DOMContentLoaded', function() {
-            // Set default date range (last 7 days)
             const endDate = new Date();
             const startDate = new Date();
             startDate.setDate(startDate.getDate() - 6);
-            
             document.getElementById('startDate').value = startDate.toISOString().split('T')[0];
             document.getElementById('endDate').value = endDate.toISOString().split('T')[0];
-            
-            // Initialize chart with default data
             initializeChart();
         });
 
+        function createGradient(ctx) {
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+            gradient.addColorStop(1, 'rgba(16, 185, 129, 0.05)');
+            return gradient;
+        }
+
+        function movingAverage(values, windowSize = 7) {
+            const result = [];
+            for (let i = 0; i < values.length; i++) {
+                const start = Math.max(0, i - windowSize + 1);
+                const window = values.slice(start, i + 1);
+                const avg = window.reduce((a, b) => a + b, 0) / window.length;
+                result.push(Number(avg.toFixed(2)));
+            }
+            return result;
+        }
+
         function initializeChart() {
-            const dailyWeightsCtx = document.getElementById('dailyWeightsChart').getContext('2d');
-            
-            // Get data from PHP
+            const ctx = document.getElementById('dailyWeightsChart').getContext('2d');
             const dailyWeightsData = @json($dailyWeightsData);
-            const last7Days = dailyWeightsData.map(item => item.date);
-            const weightsData = dailyWeightsData.map(item => item.count);
-            
-            dailyWeightsChart = new Chart(dailyWeightsCtx, {
+            const labels = dailyWeightsData.map(item => item.date);
+            const counts = dailyWeightsData.map(item => item.count);
+            const avg7 = movingAverage(counts, 7);
+
+            const fillGradient = createGradient(ctx);
+
+            dailyWeightsChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: last7Days,
-                    datasets: [{
-                        label: 'Weights Recorded',
-                        data: weightsData,
-                        borderColor: 'rgb(59, 130, 246)',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        borderWidth: 3,
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: 'rgb(59, 130, 246)',
-                        pointBorderColor: '#fff',
-                        pointBorderWidth: 2,
-                        pointRadius: 6
-                    }]
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Weights Recorded',
+                            data: counts,
+                            borderColor: 'rgb(16, 185, 129)',
+                            backgroundColor: fillGradient,
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.35,
+                            pointBackgroundColor: 'rgb(16, 185, 129)',
+                            pointBorderColor: '#fff',
+                            pointBorderWidth: 2,
+                            pointRadius: 4
+                        },
+                        {
+                            label: '7-day Avg',
+                            data: avg7,
+                            borderColor: 'rgb(5, 150, 105)',
+                            backgroundColor: 'transparent',
+                            borderDash: [6, 6],
+                            borderWidth: 2,
+                            tension: 0.35,
+                            pointRadius: 0
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    interaction: { intersect: false, mode: 'index' },
                     plugins: {
-                        legend: {
-                            display: false
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(0,0,0,0.85)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            borderWidth: 0,
+                            padding: 10,
+                            displayColors: true,
+                            callbacks: {
+                                title: (items) => items[0].label,
+                                label: (item) => `${item.dataset.label}: ${item.parsed.y}`
+                            }
                         }
                     },
                     scales: {
                         y: {
                             beginAtZero: true,
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.1)'
-                            },
-                            ticks: {
-                                stepSize: 5
-                            }
+                            grid: { color: 'rgba(0,0,0,0.06)', drawBorder: false },
+                            ticks: { color: '#6B7280' }
                         },
                         x: {
-                            grid: {
-                                display: false
-                            }
+                            grid: { display: false },
+                            ticks: { color: '#6B7280' }
                         }
                     },
-                    elements: {
-                        point: {
-                            hoverRadius: 8
-                        }
-                    }
+                    animation: { duration: 800, easing: 'easeOutQuart' }
                 }
             });
         }
@@ -756,44 +751,23 @@
         function updateChart() {
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
-            
-            if (!startDate || !endDate) {
-                alert('Please select both start and end dates');
-                return;
-            }
-            
-            if (new Date(startDate) > new Date(endDate)) {
-                alert('Start date cannot be after end date');
-                return;
-            }
-            
-            // Show loading state
-            const updateButton = document.querySelector('button[onclick="updateChart()"]');
-            const originalText = updateButton.textContent;
-            updateButton.textContent = 'Loading...';
-            updateButton.disabled = true;
-            
-            // Fetch new data
+            if (!startDate || !endDate) { alert('Please select both start and end dates'); return; }
+            if (new Date(startDate) > new Date(endDate)) { alert('Start date cannot be after end date'); return; }
+
+            const btn = document.querySelector('button[onclick="updateChart()"]');
+            const originalText = btn.textContent; btn.textContent = 'Loading...'; btn.disabled = true;
+
             fetch(`/api/daily-weights-data?start_date=${startDate}&end_date=${endDate}`)
-                .then(response => response.json())
+                .then(r => r.json())
                 .then(data => {
-                    // Update chart data
+                    const avg7 = movingAverage(data.data, 7);
                     dailyWeightsChart.data.labels = data.labels;
                     dailyWeightsChart.data.datasets[0].data = data.data;
-                    dailyWeightsChart.update();
-                    
-                    // Reset button
-                    updateButton.textContent = originalText;
-                    updateButton.disabled = false;
+                    dailyWeightsChart.data.datasets[1].data = avg7;
+                    dailyWeightsChart.update('active');
                 })
-                .catch(error => {
-                    console.error('Error fetching chart data:', error);
-                    alert('Error loading chart data. Please try again.');
-                    
-                    // Reset button
-                    updateButton.textContent = originalText;
-                    updateButton.disabled = false;
-                });
+                .catch(err => { console.error('Error:', err); alert('Error loading chart data.'); })
+                .finally(() => { btn.textContent = originalText; btn.disabled = false; });
         }
     </script>
 </x-app-layout>

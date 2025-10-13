@@ -94,7 +94,7 @@
             </form>
         </div>
     </main>
-
+    <x-copyright-minimal />
     <script>
         // Form enhancement and validation
         document.addEventListener('DOMContentLoaded', function() {

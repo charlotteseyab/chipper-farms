@@ -84,6 +84,25 @@ class AppServiceProvider extends ServiceProvider
                     'metadata' => [ 'guard' => $event->guard ],
                 ]);
             } catch (\Throwable $e) {}
+
+            // Record last activity time on logout so UI can show last active timestamp
+            try {
+                if ($event->user) {
+                    $event->user->forceFill([
+                        'last_seen' => null,           // not currently online
+                        'last_active_at' => now(),     // last active moment
+                    ])->save();
+                }
+            } catch (\Throwable $e) {}
         });
+
+        // Schedule daily notification generation if scheduler is running (documented in README)
+        try {
+            if ($this->app->runningInConsole()) {
+                \Illuminate\Support\Facades\Artisan::command('schedule:work');
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
     }
 }

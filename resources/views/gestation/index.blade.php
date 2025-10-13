@@ -1,5 +1,5 @@
 <x-app-layout>
-    <div class="min-h-screen bg-gray-50">
+    <div class="min-h-screen mb-8">
         <!-- Header -->
         <div class="bg-white shadow-sm border-b border-gray-200">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -93,202 +93,242 @@
 
             <!-- Pregnant Sows Table -->
             <div class="bg-white shadow rounded-lg border border-gray-200">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h2 class="text-lg font-semibold text-gray-900">Pregnant Sows</h2>
-                    <p class="text-sm text-gray-600 mt-1">Monitor gestation progress and record farrowing</p>
-                </div>
+    <!-- Updated Header with Search Form -->
+    <div class="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+        <div>
+            <h2 class="text-lg font-semibold text-gray-900">Pregnant Sows</h2>
+            <p class="text-sm text-gray-600 mt-1">Monitor gestation progress and record farrowing</p>
+        </div>
 
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Breeding Pair</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mating Date</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expected Farrowing</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gestation Days</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            @forelse($pregnantMatings as $mating)
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="flex items-center">
-                                            <div>
-                                                <div class="text-sm text-gray-500">
-                                                    <span class="inline-flex items-center">
-                                                        <svg class="w-6 h-6 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                                                            <circle cx="9" cy="15" r="6" stroke="currentColor" stroke-width="2" fill="none"/>
-                                                            <path d="M15 9L21 3M21 3h-5M21 3v5" stroke="currentColor" stroke-width="2" fill="none"/>
-                                                        </svg>
-                                                        <span class="font-medium">{{ $mating->male->ear_tag_number }}</span>
-                                                    </span>
-                                                    <span class="mx-2 text-gray-400">×</span>
-                                                    <span class="inline-flex items-center">
-                                                        <svg class="w-6 h-6 text-pink-600 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                                                            <circle cx="12" cy="8" r="5" stroke="currentColor" stroke-width="2" fill="none"/>
-                                                            <path d="M12 13v8M9 18h6" stroke="currentColor" stroke-width="2" fill="none"/>
-                                                        </svg>
-                                                        <span class="font-medium">{{ $mating->female->ear_tag_number }}</span>
-                                                    </span>
-                                                </div>
-                                                <!-- <div class="text-sm font-medium text-gray-900">
-                                                    <span class="inline-flex items-center">
-                                                        <span class="text-blue-600 font-medium">♂</span>
-                                                        <span class="ml-1">{{ $mating->male->ear_tag_number }}</span>
-                                                    </span>
-                                                    <span class="mx-2 text-gray-400">×</span>
-                                                    <span class="inline-flex items-center">
-                                                        <span class="text-pink-600 font-medium">♀</span>
-                                                        <span class="ml-1">{{ $mating->female->code }}</span>
-                                                    </span>
-                                                </div> -->
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-900">{{ $mating->actual_date->format('M d, Y') }}</div>
-                                        <div class="text-xs text-gray-500">{{ $mating->actual_date->diffForHumans() }}</div>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-900">{{ $mating->expected_farrowing_date->format('M d, Y') }}</div>
-                                        @if($mating->pregnancy_status === 'farrowed' && $mating->actual_farrowing_date)
-                                            @php $delta = $mating->expected_farrowing_date->diffInDays($mating->actual_farrowing_date, false);
-                                            @endphp
-                                            <div class="mt-1 space-x-2">
-                                                @if($delta < 0)
-                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Farrowed early by {{ abs($delta) }} days</span>
-                                                @elseif($delta === 0)
-                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Farrowed on time</span>
-                                                @else
-                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">Farrowed late by {{ $delta }} days</span>
-                                                @endif
-                                            </div>
-                                            <div class="text-xs text-gray-500 mt-1">Actual: {{ $mating->actual_farrowing_date->format('M d, Y') }} • Expected: {{ $mating->expected_farrowing_date->format('M d, Y') }}</div>
-                                        @else
-                                            <div class="text-xs text-gray-500">
-                                                @if($mating->is_overdue_for_farrowing)
-                                                    {{ abs($mating->days_to_farrowing) }} days overdue
-                                                @elseif($mating->days_to_farrowing == 0)
-                                                    Due today
-                                                @else
-                                                    {{ $mating->days_to_farrowing }} days to go
-                                                @endif
-                                            </div>
-                                        @endif
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $mating->farrowing_status_badge }}">
-                                            {{ $mating->pregnancy_status_icon }} {{ $mating->farrowing_status }}
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {{ $mating->gestation_days }} days
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <div class="flex items-center justify-center">
-                                            <!-- Actions Dropdown -->
-                                            <div class="relative inline-block text-left">
-                                                <div>
-                                                    <button type="button" class="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1.5 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" id="actions-menu-{{ $mating->id }}" onclick="toggleDropdown({{ $mating->id }})">
-                                                        Actions
-                                                        <svg class="-mr-1 ml-2 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
-                                                        </svg>
-                                                    </button>
-                                                </div>
-                                                <div class="origin-top-right absolute right-0 mt-2 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 hidden z-50" id="dropdown-menu-{{ $mating->id }}">
-                                                    <div class="py-1" role="menu">
-                                                        <!-- Status Information -->
-                                                        <div class="px-4 py-2 border-b border-gray-100">
-                                                            @if($mating->pregnancy_status === 'pregnant')
-                                                                <div class="flex items-center space-x-2">
-                                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Pregnant</span>
-                                                                </div>
-                                                            @elseif($mating->pregnancy_status === 'farrowed')
-                                                                <div class="space-y-1">
-                                                                    <div class="flex items-center space-x-2">
-                                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Farrowed</span>
-                                                                    </div>
-                                                                    @if($mating->actual_farrowing_date && $mating->expected_farrowing_date)
-                                                                        @php $delta = $mating->expected_farrowing_date->diffInDays($mating->actual_farrowing_date, false);
-                                                                        @endphp
-                                                                        <div class="flex items-center space-x-2">
-                                                                            @if($delta < 0)
-                                                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Early by {{ abs($delta) }}d</span>
-                                                                            @elseif($delta === 0)
-                                                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">On time</span>
-                                                                            @else
-                                                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">Late by {{ $delta }}d</span>
-                                                                            @endif
-                                                                        </div>
-                                                                        <div class="text-xs text-gray-500">
-                                                                            {{ $mating->actual_farrowing_date->format('M d, Y') }}
-                                                                        </div>
-                                                                    @endif
-                                                                </div>
-                                                            @else
-                                                                <div class="flex items-center space-x-2">
-                                                                    <span class="text-gray-400 text-sm">Completed</span>
-                                                                </div>
-                                                            @endif
-                                                        </div>
-                                                        
-                                                        <!-- Action Buttons -->
-                                                        @if($mating->pregnancy_status === 'pregnant')
-                                                            <button onclick="openFarrowingModal({{ $mating->id }}, '{{ $mating->female->ear_tag_number }}', '{{ $mating->expected_farrowing_date->format('Y-m-d') }}')" class="block w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50" role="menuitem">
-                                                                Record Farrowing
-                                                            </button>
-                                                            <button onclick="openStatusModal({{ $mating->id }}, '{{ $mating->female->ear_tag_number }}')" class="block w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50" role="menuitem">
-                                                                Update Status
-                                                            </button>
-                                                        @endif
-                                                        <a href="{{ route('gestation.edit', $mating->id) }}" class="block w-full text-left px-4 py-2 text-sm text-purple-600 hover:bg-purple-50" role="menuitem">
-                                                            Edit Gestation
-                                                        </a>
-                                                        <form method="POST" action="{{ route('gestation.destroy', $mating->id) }}" onsubmit="return confirm('Are you sure you want to delete this gestation record?');">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50" role="menuitem">Delete</button>
-                                                        </form>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="6" class="px-6 py-12 text-center">
-                                        <div class="text-gray-500">
-                                            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-                                            </svg>
-                                            <h3 class="mt-2 text-sm font-medium text-gray-900">No pregnant sows</h3>
-                                            <p class="mt-1 text-sm text-gray-500">No confirmed pregnancies at this time.</p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-
-                @if($pregnantMatings->hasPages())
-                    <div class="px-6 py-4 border-t border-gray-200">
-                        <div class="flex items-center justify-between">
-                            <div class="text-sm text-gray-700">
-                                Showing {{ $pregnantMatings->firstItem() }} to {{ $pregnantMatings->lastItem() }} of {{ $pregnantMatings->total() }} results
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <x-simple-pagination :paginator="$pregnantMatings" />
-                            </div>
-                        </div>
+        <!-- START: Search Form Integration -->
+        <div class="w-full sm:w-64 mt-4 sm:mt-0">
+            <form action="{{ route('gestation.index') }}" method="GET" class="relative">
+                <label for="pregnant-sows-search" class="sr-only">Search</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path>
+                        </svg>
                     </div>
-                @endif
+                    <!-- 'name="search"' and 'value="{{ request('search') }}"' are essential for server-side filtering -->
+                    <input type="text" 
+                        id="pregnant-sows-search" 
+                        name="search" 
+                        value="{{ request('search') }}"
+                        class="block w-full pl-10 pr-4 py-2 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500" 
+                        placeholder="Search sow or boar code..."
+                    >
+                    <button type="submit" class="hidden">Search</button>
+                </div>
+            </form>
+        </div>
+        <!-- END: Search Form Integration -->
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Breeding Pair</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mating Date</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expected Farrowing</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gestation Days</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                @forelse($pregnantMatings as $mating)
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div>
+                                    <div class="text-sm text-gray-500">
+                                        <span class="inline-flex items-center">
+                                            <svg class="w-6 h-6 text-blue-600 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                                                <circle cx="9" cy="15" r="6" stroke="currentColor" stroke-width="2" fill="none"/>
+                                                <path d="M15 9L21 3M21 3h-5M21 3v5" stroke="currentColor" stroke-width="2" fill="none"/>
+                                            </svg>
+                                            <span class="font-medium">{{ $mating->male->ear_tag_number }}</span>
+                                        </span>
+                                        <span class="mx-2 text-gray-400">×</span>
+                                        <span class="inline-flex items-center">
+                                            <svg class="w-6 h-6 text-pink-600 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                                                <circle cx="12" cy="8" r="5" stroke="currentColor" stroke-width="2" fill="none"/>
+                                                <path d="M12 13v8M9 18h6" stroke="currentColor" stroke-width="2" fill="none"/>
+                                            </svg>
+                                            <span class="font-medium">{{ $mating->female->ear_tag_number }}</span>
+                                        </span>
+                                    </div>
+                                    <!-- <div class="text-sm font-medium text-gray-900">
+                                        <span class="inline-flex items-center">
+                                            <span class="text-blue-600 font-medium">♂</span>
+                                            <span class="ml-1">{{ $mating->male->ear_tag_number }}</span>
+                                        </span>
+                                        <span class="mx-2 text-gray-400">×</span>
+                                        <span class="inline-flex items-center">
+                                            <span class="text-pink-600 font-medium">♀</span>
+                                            <span class="ml-1">{{ $mating->female->code }}</span>
+                                        </span>
+                                    </div> -->
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ $mating->actual_date->format('M d, Y') }}</div>
+                            <div class="text-xs text-gray-500">{{ $mating->actual_date->diffForHumans() }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-900">{{ $mating->expected_farrowing_date->format('M d, Y') }}</div>
+                            @if($mating->pregnancy_status === 'farrowed' && $mating->actual_farrowing_date)
+                                @php $delta = $mating->expected_farrowing_date->diffInDays($mating->actual_farrowing_date, false);
+                                @endphp
+                                <div class="mt-1 space-x-2">
+                                    @if($delta < 0)
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Farrowed early by {{ abs($delta) }} days</span>
+                                    @elseif($delta === 0)
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Farrowed on time</span>
+                                    @else
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">Farrowed late by {{ $delta }} days</span>
+                                    @endif
+                                </div>
+                                <div class="text-xs text-gray-500 mt-1">Actual: {{ $mating->actual_farrowing_date->format('M d, Y') }} • Expected: {{ $mating->expected_farrowing_date->format('M d, Y') }}</div>
+                            @else
+                                <div class="text-xs text-gray-500">
+                                    @if($mating->is_overdue_for_farrowing)
+                                        {{ abs($mating->days_to_farrowing) }} days overdue
+                                    @elseif($mating->days_to_farrowing == 0)
+                                        Due today
+                                    @else
+                                        {{ $mating->days_to_farrowing }} days to go
+                                    @endif
+                                </div>
+                            @endif
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $mating->farrowing_status_badge }}">
+                                {{ $mating->pregnancy_status_icon }} {{ $mating->farrowing_status }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ $mating->gestation_days }} days
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div class="flex items-center justify-center">
+                                <!-- Actions Dropdown -->
+                                <div class="relative inline-block text-left">
+                                    <div>
+                                        <button type="button" class="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-1.5 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" id="actions-menu-{{ $mating->id }}" onclick="toggleDropdown({{ $mating->id }})">
+                                            Actions
+                                            <svg class="-mr-1 ml-2 h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <div class="origin-top-right absolute right-0 mt-2 w-64 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 hidden z-50" id="dropdown-menu-{{ $mating->id }}">
+                                        <div class="py-1" role="menu">
+                                            <!-- Status Information -->
+                                            <div class="px-4 py-2 border-b border-gray-100">
+                                                @if($mating->pregnancy_status === 'pregnant')
+                                                    <div class="flex items-center space-x-2">
+                                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Pregnant</span>
+                                                    </div>
+                                                @elseif($mating->pregnancy_status === 'farrowed')
+                                                    <div class="space-y-1">
+                                                        <div class="flex items-center space-x-2">
+                                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Farrowed</span>
+                                                        </div>
+                                                        @if($mating->actual_farrowing_date && $mating->expected_farrowing_date)
+                                                            @php $delta = $mating->expected_farrowing_date->diffInDays($mating->actual_farrowing_date, false);
+                                                            @endphp
+                                                            <div class="flex items-center space-x-2">
+                                                                @if($delta < 0)
+                                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Early by {{ abs($delta) }}d</span>
+                                                                @elseif($delta === 0)
+                                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">On time</span>
+                                                                @else
+                                                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">Late by {{ $delta }}d</span>
+                                                                @endif
+                                                            </div>
+                                                            <div class="text-xs text-gray-500">
+                                                                {{ $mating->actual_farrowing_date->format('M d, Y') }}
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                @else
+                                                    <div class="flex items-center space-x-2">
+                                                        <span class="text-gray-400 text-sm">Completed</span>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                            
+                                            <!-- Action Buttons -->
+                                            @if($mating->pregnancy_status === 'pregnant')
+                                                <button onclick="openFarrowingModal({{ $mating->id }}, '{{ $mating->female->ear_tag_number }}', '{{ $mating->expected_farrowing_date->format('Y-m-d') }}')" class="block w-full text-left px-4 py-2 text-sm text-green-600 hover:bg-green-50" role="menuitem">
+                                                    Record Farrowing
+                                                </button>
+                                                <button onclick="openStatusModal({{ $mating->id }}, '{{ $mating->female->ear_tag_number }}')" class="block w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-blue-50" role="menuitem">
+                                                    Update Status
+                                                </button>
+                                            @endif
+                                            <a href="{{ route('gestation.edit', $mating->id) }}" class="block w-full text-left px-4 py-2 text-sm text-purple-600 hover:bg-purple-50" role="menuitem">
+                                                Edit Gestation
+                                            </a>
+                                            <form method="POST" action="{{ route('gestation.destroy', $mating->id) }}" onsubmit="return confirm('Are you sure you want to delete this gestation record?');">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50" role="menuitem">Delete</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="6" class="px-6 py-12 text-center">
+                            <div class="text-gray-500">
+                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                                </svg>
+                                <h3 class="mt-2 text-sm font-medium text-gray-900">
+                                    @if(request('search'))
+                                        No gestation records matched your search query.
+                                    @else
+                                        No pregnant sows
+                                    @endif
+                                </h3>
+                                <p class="mt-1 text-sm text-gray-500">
+                                    @if(request('search'))
+                                        Try a different sow or boar code, or clear the search box.
+                                    @else
+                                        No confirmed pregnancies at this time.
+                                    @endif
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    @if($pregnantMatings->hasPages())
+        <div class="px-6 py-4 border-t border-gray-200">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-gray-700">
+                    Showing {{ $pregnantMatings->firstItem() }} to {{ $pregnantMatings->lastItem() }} of {{ $pregnantMatings->total() }} results
+                </div>
+                <div class="flex items-center space-x-2">
+                    <x-simple-pagination :paginator="$pregnantMatings" />
+                </div>
             </div>
+        </div>
+    @endif
+</div>
         </main>
+        <x-copyright-minimal />
     </div>
 
     <!-- Record Farrowing Modal -->

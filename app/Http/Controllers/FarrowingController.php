@@ -2,17 +2,55 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Farrowing;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB; // <-- REQUIRED for DATE_FORMAT
 
 class FarrowingController extends Controller
 {
-    public function index()
+    /**
+     * Display a listing of the Farrowing Records with optional server-side search.
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\View\View
+     */
+    public function index(Request $request) // <-- Now accepting $request
     {
-        $farrowingRecords = Farrowing::with(['sow', 'boar', 'recordedBy'])
-            ->orderBy('farrowing_date', 'desc')
-            ->paginate(15);
+        // Start building the query
+        $query = Farrowing::with(['sow', 'boar', 'recordedBy']);
 
+        // Check for a search query parameter and apply server-side filtering
+        if ($search = $request->get('search')) {
+            $searchTerm = '%' . $search . '%';
+
+            $query->where(function ($q) use ($searchTerm) {
+                // 1. Search by Sow Tag/Code (Female)
+                $q->whereHas('sow', function ($sowQuery) use ($searchTerm) {
+                    $sowQuery->where('ear_tag_number', 'like', $searchTerm)
+                             ->orWhere('code', 'like', $searchTerm); // Added search by 'code'
+                })
+                // 2. Search by Boar Tag/Code (Male)
+                ->orWhereHas('boar', function ($boarQuery) use ($searchTerm) {
+                    $boarQuery->where('ear_tag_number', 'like', $searchTerm)
+                             ->orWhere('code', 'like', $searchTerm); // Added search by 'code'
+                })
+                // 3. Search by Farrowing Type or Difficulty
+                ->orWhere('farrowing_type', 'like', $searchTerm)
+                ->orWhere('farrowing_difficulty', 'like', $searchTerm)
+                // 4. Search by Farrowing Date
+                // Note: Searching dates as strings can be slow/inefficient, but works for simple filtering.
+                ->orWhere(DB::raw('DATE_FORMAT(farrowing_date, "%Y-%m-%d")'), 'like', $searchTerm);
+            });
+        }
+        
+        // Apply sorting and pagination to the potentially filtered query
+        $farrowingRecords = $query
+            ->orderBy('farrowing_date', 'desc')
+            ->paginate(15)
+            // CRITICAL: Append the search term to pagination links
+            ->appends($request->only('search')); 
+
+        // --- Stats Compilation (This remains unaffected by the search query, which is usually correct for overall stats) ---
         $stats = [
             'total_farrowings' => Farrowing::count(),
             'farrowings_this_month' => Farrowing::thisMonth()->count(),

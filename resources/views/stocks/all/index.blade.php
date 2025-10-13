@@ -301,6 +301,7 @@
   </table>
 </div>
 
+
                 
                 <!-- Pagination (embedded, simple style) -->
                 @if($pigmanagement->hasPages())
@@ -318,6 +319,8 @@
             </div>
         </div>
     </main>
+    <x-copyright-minimal />
+
 
     <script>
         // Client-side quick search filtering (vanilla JS)

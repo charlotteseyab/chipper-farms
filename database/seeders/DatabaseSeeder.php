@@ -76,5 +76,8 @@ class DatabaseSeeder extends Seeder
         
         // Seed pig weight data
         $this->call(PigWeightSeeder::class);
+
+        // Seed demo notifications for UI preview
+        $this->call(NotificationsSeeder::class);
     }
 }

@@ -74,7 +74,7 @@
                                 <select name="items[0][ingredient_id]" class="w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm text-sm px-3 py-2">
                                     <option value="">-- Select ingredient --</option>
                                     @foreach($ingredients as $ing)
-                                        <option value="{{ $ing->id }}">{{ $ing->name }}</option>
+                                        <option value="{{ $ing->id }}">{{ $ing->name }} (Stock: {{ $ing->current_stock_display ?? 0 }} {{ $ing->current_stock_unit ?? 'kg' }})</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -89,7 +89,7 @@
                                 <div class="col-span-8">
                                     <select name="items[{{ $idx }}][ingredient_id]" class="w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm text-sm px-3 py-2">
                                         @foreach($ingredients as $ing)
-                                            <option value="{{ $ing->id }}" {{ $it->ingredient_id == $ing->id ? 'selected' : '' }}>{{ $ing->name }}</option>
+                                            <option value="{{ $ing->id }}" {{ $it->ingredient_id == $ing->id ? 'selected' : '' }}>{{ $ing->name }} (Stock: {{ $ing->current_stock_display ?? 0 }} {{ $ing->current_stock_unit ?? 'kg' }})</option>
                                         @endforeach
                                     </select>
                                 </div>
@@ -125,6 +125,8 @@
             </div>
         </form>
     </div>
+    <x-copyright-minimal />
+    
     <script>
         const container = document.getElementById('items');
         // NOTE: The PHP logic has been updated to correctly initialize the JS index
@@ -147,7 +149,7 @@
                 <div class=\"col-span-8\">
                     <select name=\"items[${index}][ingredient_id]\" class=\"w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm text-sm px-3 py-2\">
                         <option value=\"\">-- Select ingredient --</option>
-                        ${`@foreach($ingredients as $ing)<option value=\"{{ $ing->id }}\">{{ $ing->name }}</option>@endforeach`}
+                        ${`@foreach($ingredients as $ing)<option value=\"{{ $ing->id }}\">{{ $ing->name }} (Stock: {{ $ing->current_stock_display ?? 0 }} {{ $ing->current_stock_unit ?? 'kg' }})</option>@endforeach`}
                     </select>
                 </div>
                 <div class=\"col-span-3\">

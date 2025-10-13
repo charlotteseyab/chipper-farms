@@ -15,9 +15,20 @@
                     <div class="bg-white p-4 rounded-lg shadow-sm border">
                         <div class="flex items-center">
                             <div class="p-2 bg-blue-100 rounded-lg">
-                                <svg class="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4"/>
-                                </svg>
+                            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+                                {{-- The main pig body/head shape (Outline Style) --}}
+                                <path d="M12 21.5a9.5 9.5 0 0 1-9.5-9.5c0-1.8.6-3.5 1.7-4.9l-.7-1.4c-.1-.3-.2-.5-.2-.8V2.5c0-.8.7-1.5 1.5-1.5h1.5c.8 0 1.5.7 1.5 1.5v.5h10v-.5c0-.8.7-1.5 1.5-1.5h1.5c.8 0 1.5.7 1.5 1.5v2.3c0 .3-.1.6-.2.8l-.7 1.4c1.1 1.4 1.7 3.1 1.7 4.9a9.5 9.5 0 0 1-9.5 9.5Z"/>
+  
+                                {{-- Eyes (as small filled circles) --}}
+                                <circle cx="15.5" cy="8.5" r=".5" fill="currentColor"/>
+                                 <circle cx="8.5" cy="8.5" r=".5" fill="currentColor"/>
+  
+                                {{-- Snout detail --}}
+                                <path d="M11 15.5h2c1.7 0 2 1.3 2 1.5v.5c0 .3-.2.5-.5.5h-5c-.3 0-.5-.2-.5-.5v-.5c0-.2.3-1.5 2-1.5Z"/>
+
+                                {{-- Subtle Heart/Union Marker (top right of the icon) --}}
+                                <path d="M18.5 7.5a1.5 1.5 0 0 0-1.2.7 1.5 1.5 0 0 0-1.2-.7 1.5 1.5 0 0 0-1.5 1.5c0 .9.6 1.4 1.5 2l1.2 1.2 1.2-1.2c.9-.6 1.5-1.1 1.5-2a1.5 1.5 0 0 0-1.5-1.5Z" fill="none" stroke-width="1.5"/>
+                            </svg>
                             </div>
                             <div class="ml-3">
                                 <p class="text-xs font-medium text-gray-600">Total Matings</p>
@@ -338,6 +349,7 @@
                     </div>
                 @endif
             </div>
+            
 
             <!-- Current Functionality -->
             <div class="mt-8 bg-white shadow-lg rounded-lg p-6">
@@ -541,6 +553,7 @@
             </div>
         </div>
     </div>
+    <x-copyright-minimal />
 
     <script>
         function openCompleteMatingModal(matingId, maleEarTag, femaleEarTag, plannedDate) {

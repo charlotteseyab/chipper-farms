@@ -116,6 +116,7 @@
                 </div>
             </div>
         </div>
+        <x-copyright-minimal />
     </div>
 </x-app-layout>
 

@@ -4,8 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
+use Illuminate\Support\Carbon;
 use App\Helpers\BreedingCalculator;
+use App\Models\User; // Added for relationship consistency
+use App\Models\PigManagement; // Added for relationship consistency
 
 class Mating extends Model
 {
@@ -25,7 +27,6 @@ class Mating extends Model
         'pregnancy_check_date',
         'pregnancy_status',
         'pregnancy_check_method',
-        'pregnancy_check_notes',
         'pregnancy_confidence',
         'checked_by',
         'actual_farrowing_date',
@@ -208,7 +209,7 @@ class Mating extends Model
     {
         return match($this->farrowing_status) {
             'Farrowed' => 'bg-green-100 text-green-800',
-            'Overdue' => 'bg-red-100 text-red-800',
+            'Overdue' => 'bg-red-100 text-red-800 animate-pulse', // Added pulse for emphasis
             'Due Soon' => 'bg-yellow-100 text-yellow-800',
             'Pregnant' => 'bg-blue-100 text-blue-800',
             default => 'bg-gray-100 text-gray-800'

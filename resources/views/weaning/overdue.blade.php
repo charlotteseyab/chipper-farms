@@ -233,7 +233,7 @@
         @endif
     </div>
 </div>
-
+<x-copyright-minimal />
 <!-- Include the weaning modal -->
 @include('weaning.partials.weaning-modal')
 

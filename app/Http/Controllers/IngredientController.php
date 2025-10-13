@@ -26,7 +26,7 @@ class IngredientController extends Controller
             'fat_percentage' => 'nullable|numeric|min:0|max:100',
             'fiber_percentage' => 'nullable|numeric|min:0|max:100',
             'unit' => 'required|string|max:10',
-            'bag_weight_kg' => 'nullable|numeric|min:0.01', // Default bag weight for this ingredient
+            'bag_weight_kg' => 'required_if:unit,bag,bags|nullable|numeric|min:0.01', // Require per-bag weight when tracking in bags
             'initial_quantity' => 'nullable|numeric|min:0',
         ]);
         
@@ -61,7 +61,7 @@ class IngredientController extends Controller
             'fat_percentage' => 'nullable|numeric|min:0|max:100',
             'fiber_percentage' => 'nullable|numeric|min:0|max:100',
             'unit' => 'required|string|max:10',
-            'bag_weight_kg' => 'nullable|numeric|min:0.01', // Default bag weight update is validated here
+            'bag_weight_kg' => 'required_if:unit,bag,bags|nullable|numeric|min:0.01', // Require per-bag weight when tracking in bags
             'initial_quantity' => 'nullable|numeric|min:0',
             'adjust_quantity' => 'nullable|numeric|min:0',
         ]);

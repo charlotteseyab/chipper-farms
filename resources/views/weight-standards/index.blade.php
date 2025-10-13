@@ -191,7 +191,7 @@
         @endif
     </div>
 </div>
-
+<x-copyright-minimal />
 <script>
     // Live search functionality for weight standards
     document.addEventListener('DOMContentLoaded', function() {

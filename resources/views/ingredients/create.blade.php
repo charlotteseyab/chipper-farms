@@ -61,25 +61,30 @@
             <!-- Unit -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Stock Unit (e.g., kg, bag)</label>
-                <input type="text" name="unit" value="{{ old('unit','kg') }}" 
-                    class="w-full border-gray-300 rounded-lg px-3 py-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150" required>
+                <select name="unit" id="unit" class="w-full border-gray-300 rounded-lg px-3 py-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150" required>
+                    @php($u = old('unit','kg'))
+                    <option value="kg" {{ $u==='kg' ? 'selected' : '' }}>kg</option>
+                    <option value="bag" {{ $u==='bag' ? 'selected' : '' }}>bag</option>
+                    <option value="bags" {{ $u==='bags' ? 'selected' : '' }}>bags</option>
+                </select>
                 <p class="mt-1 text-xs text-gray-500">The unit this item is counted in for inventory.</p>
             </div>
 
             <!-- Default Bag Weight (NEW FIELD) -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Default Bag Weight (kg)</label>
-                <input type="number" step="0.01" min="0.01" name="bag_weight_kg" value="{{ old('bag_weight_kg') }}"
+                <label class="block text-sm font-medium text-gray-700 mb-1">Bag Weight (kg) — per bag</label>
+                <input type="number" step="0.01" min="0.01" name="bag_weight_kg" id="bag_weight_kg" value="{{ old('bag_weight_kg') }}"
                     class="w-full border-gray-300 rounded-lg px-3 py-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150">
-                <p class="mt-1 text-xs text-gray-500">Required if the Stock Unit is 'bag'. This is the standard weight used for converting KG usage to BAG deduction.</p>
+                <p class="mt-1 text-xs text-gray-500">If unit is bag(s), enter weight of a single bag in kg.</p>
             </div>
 
             <!-- Quantity -->
             <div class="md:col-span-2">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Quantity Purchased (Initial Stock)</label>
-                <input type="number" step="0.01" min="0" name="initial_quantity" value="{{ old('initial_quantity') }}"
+                <input type="number" step="0.01" min="0" name="initial_quantity" id="initial_quantity" value="{{ old('initial_quantity') }}"
                     class="w-full border-gray-300 rounded-lg px-3 py-2 shadow-sm focus:ring-blue-500 focus:border-blue-500 transition duration-150">
-                <p class="mt-1 text-xs text-gray-500">Enter the amount in the **Stock Unit** (e.g., 100 kg or 4 bags) to start inventory.</p>
+                <p class="mt-1 text-xs text-gray-500">Enter amount in the selected unit. If bag(s), this is the number of bags.</p>
+                <p class="mt-1 text-xs text-gray-500" id="kg_preview" style="display:none;">Total weight: <span id="kg_preview_value">0.00</span> kg</p>
             </div>
 
             <!-- Buttons -->
@@ -94,6 +99,30 @@
             </div>
         </form>
     </div>
-</div>
+<script>
+    const unitEl = document.getElementById('unit');
+    const bagWeightEl = document.getElementById('bag_weight_kg');
+    const qtyEl = document.getElementById('initial_quantity');
+    const preview = document.getElementById('kg_preview');
+    const previewVal = document.getElementById('kg_preview_value');
 
+    function updatePreview() {
+        const unit = (unitEl.value || '').toLowerCase();
+        const qty = parseFloat(qtyEl.value || '0');
+        const bagW = parseFloat(bagWeightEl.value || '0');
+        if ((unit === 'bag' || unit === 'bags') && qty > 0 && bagW > 0) {
+            const totalKg = qty * bagW;
+            previewVal.textContent = totalKg.toFixed(2);
+            preview.style.display = '';
+        } else {
+            preview.style.display = 'none';
+        }
+    }
+    unitEl.addEventListener('change', updatePreview);
+    bagWeightEl.addEventListener('input', updatePreview);
+    qtyEl.addEventListener('input', updatePreview);
+    updatePreview();
+    </script>
+</div>
+<xopyright-minimal />
 </x-app-layout>

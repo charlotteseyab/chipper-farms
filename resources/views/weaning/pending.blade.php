@@ -4,7 +4,7 @@
     <div class="flex justify-between items-center mb-8">
         <div>
             <h1 class="text-3xl font-bold text-gray-900">Pending Weaning</h1>
-            <p class="text-gray-600 mt-2">Pigs not yet ready for weaning (under {{ config('breeding.cycle.birth_to_weaning_days', 45) }} days old)</p>
+            <!-- <p class="text-gray-600 mt-2">Pigs not yet ready for weaning (under {{ config('breeding.cycle.birth_to_weaning_days', 45) }} days old)</p> -->
         </div>
     </div>
 
@@ -98,8 +98,8 @@
     <!-- Pending Pigs Table -->
     <div class="bg-white rounded-lg shadow-sm border">
         <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-xl font-semibold text-gray-900">Pending Pigs ({{ $pendingPigs->total() }})</h2>
-            <p class="text-sm text-gray-600 mt-1">Pigs that haven't reached weaning age yet</p>
+            <h2 class="text-xl font-semibold text-gray-900">Pending Weaning ({{ $pendingPigs->total() }})</h2>
+            <!-- <p class="text-sm text-gray-600 mt-1">Pigs that haven't reached weaning age yet</p> -->
         </div>
 
         @if($pendingPigs->count() > 0)
@@ -267,7 +267,7 @@
         @endif
     </div>
 </div>
-
+<x-copyright-minimal />
 <!-- Include the weaning modal -->
 @include('weaning.partials.weaning-modal')
 

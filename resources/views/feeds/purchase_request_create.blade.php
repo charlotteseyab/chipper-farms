@@ -157,6 +157,7 @@
             </div>
         </div>
     </div>
+    <x-copyright-minimal />
     
     <script>
     const categoryEl = document.getElementById('category');

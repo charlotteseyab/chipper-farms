@@ -5,7 +5,7 @@
         </a>
         <span class="text-white font-bold text-lg tracking-wide mt-2">Superuser Panel</span>
     </div>
-    <nav class="flex flex-col gap-2 flex-1 px-4 pt-20 pb-8 overflow-y-auto scrollbar-thin scrollbar-thumb-[#218c6a] scrollbar-track-[#1C6C51]">
+    <nav class="flex flex-col gap-2 flex-1 px-4 pt-5 pb-8 overflow-y-auto scrollbar-thin scrollbar-thumb-[#218c6a] scrollbar-track-[#1C6C51]">
         <a href="/superuser/dashboard" class="flex items-center gap-3 px-4 py-3 rounded-lg font-semibold text-white hover:bg-[#218c6a] transition @if(request()->is('superuser/dashboard')) bg-[#218c6a] @endif">
             <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M13 5v6h6m-6 0v6m0 0H7m6 0h6"/></svg>
             Dashboard
@@ -206,13 +206,6 @@
                     </svg>
                     Feed Types
                 </a>
-                <!-- <a href="{{ route('recipes.index') }}" class="flex items-center gap-3 px-4 py-2 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition text-sm @if(request()->is('recipes*')) bg-[#218c6a] text-white @endif">Feed Recipes</a>
-                <a href="{{ route('feeding-standards.index') }}" class="flex items-center gap-3 px-4 py-2 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition text-sm @if(request()->is('feeding-standards*')) bg-[#218c6a] text-white @endif">
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
-                    </svg>
-                    Feeding Standards
-                </a> -->
                 <a href="{{ route('feed-inventory.index') }}" class="flex items-center gap-3 px-4 py-2 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition text-sm @if(request()->is('feed-inventory*')) bg-[#218c6a] text-white @endif">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/>
@@ -240,15 +233,22 @@
             </div>
         </div>
 
+        <a href="{{ route('settings.metrics') }}" class="flex items-center gap-3 px-4 py-3 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition @if(request()->is('farrowing*')) bg-[#218c6a] text-white @endif">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+            </svg>
+            <span class="font-medium">Performance Metrics</span>
+        </a>
+
         <!-- General Settings Dropdown -->
-        <div x-data="{ open: {{ request()->is('settings*') || request()->is('deaths*') || request()->is('sales*') || request()->is('feed-inventory*') || request()->is('feed-purchase-requests*') ? 'true' : 'false' }} }" class="relative">
+        <div x-data="{ open: {{ request()->is('settings*') || request()->is('deaths*') || request()->is('sales*') || request()->is('feed-inventory*') || request()->is('feed-purchase-requests*') || request()->is('settings/metrics*') ? 'true' : 'false' }} }" class="relative">
             <button @click="open = !open" class="flex items-center justify-between w-full px-4 py-3 rounded-lg text-white hover:bg-[#218c6a] transition @if(request()->is('settings*')) bg-[#218c6a] @endif">
                 <div class="flex items-center gap-3">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                     </svg>
-                    General Settings
+                    Set Up
                 </div>
                 <svg class="h-4 w-4 transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
@@ -261,7 +261,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                     </svg>
-                    Set Up
+                    Settings
                 </a>
                 <a href="{{ route('deaths.index') }}" class="flex items-center gap-3 px-4 py-2 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition text-sm @if(request()->is('deaths*')) bg-[#218c6a] text-white @endif">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -289,15 +289,5 @@
                 </a>
             </div>
         </div>
-
-        <!-- <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-[#218c6a] transition">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 10c-4.41 0-8-1.79-8-4V6c0-2.21 3.59-4 8-4s8 1.79 8 4v8c0 2.21-3.59 4-8 4z"/></svg>
-            All Settings
-        </a>
-        <a href="#" class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-[#218c6a] transition">
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v4a1 1 0 001 1h3m10-5v4a1 1 0 01-1 1h-3m-4 4h6m-6 4h6"/></svg>
-            System Logs
-        </a> -->
-        <!-- Add more superuser links here -->
     </nav>
 </aside>

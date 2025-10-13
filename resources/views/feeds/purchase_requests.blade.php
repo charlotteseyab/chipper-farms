@@ -25,7 +25,7 @@
         <div class="bg-white overflow-hidden shadow-xl rounded-lg border border-gray-100">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead class="bg-gray-50">
+                    <thead class="bg-gray-100">
                         <tr>
                             <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Item / Category</th>
                             <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Quantity</th>
@@ -38,7 +38,7 @@
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-100">
-                        @foreach($requests as $req)
+                        @forelse($requests as $req)
                         <tr class="hover:bg-gray-50 transition duration-100">
                             <td class="px-4 py-3 whitespace-nowrap">
                                 <div class="text-sm font-medium text-gray-900">{{ $req->item_name ?? $req->feed_type ?? 'N/A' }}</div>
@@ -90,7 +90,26 @@
                                 </a>
                             </td>
                         </tr>
-                        @endforeach
+                        @empty
+                        <tr>
+                            <td colspan="8" class="px-6 py-12 text-center bg-gray-50">
+                                <div class="flex flex-col items-center">
+                                    <svg class="w-12 h-12 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-9 0V3h4v2m-4 0h4"></path></svg>
+                                    <span class="text-gray-500 text-lg font-semibold">
+                                        No Procurement Requests Yet
+                                    </span>
+                                    <p class="text-sm text-gray-500 mt-1">
+                                        All purchase requests, including feed and other farm supplies, will appear here.
+                                    </p>
+                                    <a href="{{ route('feed-purchase-requests.create') }}" 
+                                       class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 transition">
+                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                        Create First Request
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
@@ -100,4 +119,5 @@
             {{ $requests->links() }}
         </div>
     </div>
+    <x-copyright-minimal />
 </x-app-layout>

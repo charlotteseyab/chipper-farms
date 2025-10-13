@@ -14,7 +14,7 @@
     }
 </style>
 
-    <div class="max-w-7xl mx-auto px-4 py-2 sm:px-6 lg:px-8 space-y-6 mb-6">
+    <div class="max-w-7xl mx-auto px-4 py-2 sm:px-6 lg:px-8 space-y-6 mb-2">
         
         <div class="mb-6">
             <h1 class="text-3xl font-extrabold text-gray-900 leading-tight">
@@ -44,13 +44,12 @@
                 <button class="h-9 px-4 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-md">
                     Apply Filter
                 </button>
+                <a href="{{ route('feeds.reports.export.pdf', ['start_date' => $from, 'end_date' => $to]) }}" 
+                    class="h-9 px-4 flex items-center justify-center bg-red-600 text-white rounded-lg text-sm font-medium shadow-md hover:bg-red-700 transition">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm0 0l-1.5-3m1.5 3l1.5-3"></path></svg>
+                    Export PDF
+                </a>
             </form>
-
-            <a href="{{ route('feeds.reports.export.pdf', ['start_date' => $from, 'end_date' => $to]) }}" 
-               class="h-9 px-4 flex items-center justify-center bg-red-600 text-white rounded-lg text-sm font-medium shadow-md hover:bg-red-700 transition">
-               <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm0 0l-1.5-3m1.5 3l1.5-3"></path></svg>
-               Export PDF
-            </a>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -89,6 +88,75 @@
                     <canvas id="ingredientChart"></canvas>
                 </div>
                 </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-lg border border-gray-100 mt-6" x-data="{ tab: 'daily' }">
+            <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                <div class="text-lg font-semibold text-gray-800">Structure Feed Consumption</div>
+                <div class="flex gap-2 text-sm">
+                    <button @click="tab='daily'" :class="tab==='daily' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-1.5 rounded-lg">Daily</button>
+                    <button @click="tab='monthly'" :class="tab==='monthly' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-1.5 rounded-lg">Monthly</button>
+                    <button @click="tab='yearly'" :class="tab==='yearly' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-1.5 rounded-lg">Yearly</button>
+                </div>
+            </div>
+            <div class="p-5">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider" x-text="tab==='daily' ? 'Date' : (tab==='monthly' ? 'Month' : 'Year')"></th>
+                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Structure</th>
+                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Total (kg)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-100" x-show="tab==='daily'">
+                            @forelse(($dailyStructureTotals ?? []) as $date => $rows)
+                                @foreach($rows as $row)
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-5 py-2 whitespace-nowrap text-sm text-gray-700">{{ $date }}</td>
+                                        <td class="px-5 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{{ $row['structure_name'] }}</td>
+                                        <td class="px-5 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">{{ number_format($row['total'], 2) }}</td>
+                                    </tr>
+                                @endforeach
+                            @empty
+                                <tr>
+                                    <td colspan="3" class="px-5 py-6 text-center text-gray-400 text-sm">No data available.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                        <tbody class="bg-white divide-y divide-gray-100" x-show="tab==='monthly'">
+                            @forelse(($monthlyStructureTotals ?? []) as $month => $rows)
+                                @foreach($rows as $row)
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-5 py-2 whitespace-nowrap text-sm text-gray-700">{{ $month }}</td>
+                                        <td class="px-5 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{{ $row['structure_name'] }}</td>
+                                        <td class="px-5 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">{{ number_format($row['total'], 2) }}</td>
+                                    </tr>
+                                @endforeach
+                            @empty
+                                <tr>
+                                    <td colspan="3" class="px-5 py-6 text-center text-gray-400 text-sm">No data available.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                        <tbody class="bg-white divide-y divide-gray-100" x-show="tab==='yearly'">
+                            @forelse(($yearlyStructureTotals ?? []) as $year => $rows)
+                                @foreach($rows as $row)
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-5 py-2 whitespace-nowrap text-sm text-gray-700">{{ $year }}</td>
+                                        <td class="px-5 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{{ $row['structure_name'] }}</td>
+                                        <td class="px-5 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">{{ number_format($row['total'], 2) }}</td>
+                                    </tr>
+                                @endforeach
+                            @empty
+                                <tr>
+                                    <td colspan="3" class="px-5 py-6 text-center text-gray-400 text-sm">No data available.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
 
         <div class="bg-white rounded-xl shadow-lg border border-gray-100">
@@ -201,9 +269,8 @@
                 </div>
             </div>
         </div>
-        
     </div>
-
+<x-copyright-minimal />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         // Feed by Type Chart

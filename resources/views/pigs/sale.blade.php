@@ -32,7 +32,7 @@
             </div>
         </div>
 
-        <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <!-- Pig Information Card -->
             <div class="bg-white rounded-lg shadow border border-gray-200 mb-6">
                 <div class="px-6 py-4 border-b border-gray-200">
@@ -244,6 +244,7 @@
                 </form>
             </div>
         </main>
+        <x-copyright-minimal />
     </div>
 
     <script>

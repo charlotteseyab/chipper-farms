@@ -126,14 +126,30 @@
 
     <!-- Farrowing Records Table -->
     <div class="bg-white rounded-lg shadow-sm border">
-        <div class="px-6 py-4 border-b border-gray-200">
-            <h2 class="text-xl font-semibold text-gray-900">Farrowing Records ({{ $farrowingRecords->total() }})</h2>
-            <p class="text-sm text-gray-600 mt-1">Complete birth and farrowing history</p>
+        <!-- Table Header with Search Bar -->
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+            <div>
+                <h2 class="text-xl font-semibold text-gray-900">Farrowing Records ({{ $farrowingRecords->total() }})</h2>
+                <p class="text-sm text-gray-600 mt-1">Complete birth and farrowing history</p>
+            </div>
+            <!-- Search Box (Top Right) -->
+            <div class="w-full sm:w-64">
+                <label for="farrowing-search" class="sr-only">Search</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"></path>
+                        </svg>
+                    </div>
+                    <input type="text" id="farrowing-search" onkeyup="filterFarrowingTable()" class="block w-full pl-10 pr-4 py-2 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Search sow, date, type...">
+                </div>
+            </div>
+            <!-- End Search Box -->
         </div>
 
         @if($farrowingRecords->count() > 0)
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
+                <table class="min-w-full divide-y divide-gray-200" id="farrowing-records-table">
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sow</th>
@@ -145,7 +161,7 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody class="bg-white divide-y divide-gray-200" id="table-body">
                         @foreach($farrowingRecords as $farrowing)
                             <tr class="hover:bg-gray-50">
                                 <td class="px-6 py-4 whitespace-nowrap">
@@ -213,6 +229,19 @@
                                 </td>
                             </tr>
                         @endforeach
+
+                        <!-- Search No Results State (Initially hidden) -->
+                        <tr id="no-search-results-row" style="display: none;">
+                            <td colspan="7" class="px-6 py-12 text-center">
+                                <div class="text-gray-500">
+                                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <h3 class="mt-2 text-sm font-medium text-gray-900">No results found</h3>
+                                    <p class="mt-1 text-sm text-gray-500">Try adjusting your search term.</p>
+                                </div>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -229,7 +258,8 @@
                 </div>
             </div>
         @else
-            <div class="px-6 py-12 text-center">
+            <!-- Initial Empty State -->
+            <div class="px-6 py-12 text-center" id="initial-empty-state">
                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                 </svg>
@@ -239,4 +269,72 @@
         @endif
     </div>
 </div>
+<x-copyright-minimal />
+
 </x-app-layout>
+
+<!-- <script>
+    /**
+     * Implements the live search functionality for the Farrowing Records table.
+     * It hides rows that do not contain the search input text and manages the 
+     * visibility of the 'No results found' message.
+     */
+    function filterFarrowingTable() {
+        const input = document.getElementById("farrowing-search");
+        const filter = input.value.toUpperCase().trim();
+        
+        const tableBody = document.getElementById("table-body");
+        
+        // If the table body element doesn't exist (i.e., no initial data), stop execution
+        if (!tableBody) return;
+
+        // Get all data rows (<tr>) in the tbody
+        const tr = tableBody.getElementsByTagName("tr");
+        
+        const noResultsRow = document.getElementById("no-search-results-row");
+        
+        let foundMatch = false;
+        
+        // Iterate through all rows in the table body
+        for (let i = 0; i < tr.length; i++) {
+            const row = tr[i];
+            
+            // Skip the dedicated status row from the filter check, but keep it hidden for now
+            if (row.id === "no-search-results-row") {
+                row.style.display = "none";
+                continue;
+            }
+
+            // Check if the row content includes the filter text
+            const rowText = row.innerText.toUpperCase();
+            
+            if (rowText.includes(filter)) {
+                row.style.display = ""; // Show the row
+                foundMatch = true;
+            } else {
+                row.style.display = "none"; // Hide the row
+            }
+        }
+        
+        // Logic for displaying the correct status message
+        if (filter.length > 0) {
+            // User is actively searching
+            if (foundMatch) {
+                if (noResultsRow) noResultsRow.style.display = "none";
+            } else {
+                if (noResultsRow) noResultsRow.style.display = ""; // Show "No results found"
+            }
+        } else {
+            // Search field is empty, show all data rows
+            if (noResultsRow) noResultsRow.style.display = "none";
+            
+            // Show all data rows again
+            for (let i = 0; i < tr.length; i++) {
+                 // Ensure we don't accidentally display the hidden 'no-search-results-row'
+                 if (tr[i].id !== "no-search-results-row") {
+                     tr[i].style.display = "";
+                 }
+            }
+        }
+    }
+</script> -->

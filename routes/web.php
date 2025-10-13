@@ -1,6 +1,29 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Notifications\DatabaseNotification;
+use App\Http\Controllers\RoomController;
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('/notifications', function() {
+        $notifications = DatabaseNotification::query()->latest()->paginate(15);
+        return view('notifications.index', compact('notifications'));
+    })->name('notifications.index');
+
+    Route::post('/notifications/{id}/read', function(string $id) {
+        $notification = DatabaseNotification::query()->where('id', $id)->firstOrFail();
+        if (is_null($notification->read_at)) {
+            $notification->forceFill(['read_at' => now()])->save();
+        }
+        return back();
+    })->name('notifications.read');
+
+    Route::post('/notifications/read-all', function() {
+        DatabaseNotification::query()->whereNull('read_at')->update(['read_at' => now()]);
+        return back();
+    })->name('notifications.readAll');
+});
 
 Route::get('/', function () {
     return view('welcome');
@@ -20,6 +43,7 @@ Route::middleware([
     'auth:sanctum',
     config('jetstream.auth_session'),
     'verified',
+    'activity'
 ])->group(function () {
     Route::view('/admin/dashboard', 'admin.dashboard')->name('admin.dashboard');
     Route::view('/manager/dashboard', 'manager.dashboard')->name('manager.dashboard');
@@ -114,7 +138,7 @@ Route::middleware([
     Route::put('weights/{weight}', [App\Http\Controllers\WeightManagementController::class, 'update'])->name('weights.update');
     Route::get('weights/reports', [App\Http\Controllers\WeightManagementController::class, 'reports'])->name('weights.reports');
     Route::get('api/pigs/{pig}/previous-weight', [App\Http\Controllers\WeightManagementController::class, 'getPreviousWeight'])->name('api.pigs.previous-weight');
-        Route::get('api/pigs/{pig}/expected-weight', [App\Http\Controllers\WeightManagementController::class, 'getExpectedWeight'])->name('api.pigs.expected-weight');
+    Route::get('api/pigs/{pig}/expected-weight', [App\Http\Controllers\WeightManagementController::class, 'getExpectedWeight'])->name('api.pigs.expected-weight');
     Route::get('weights/reports/export-pdf', [App\Http\Controllers\WeightManagementController::class, 'exportPDF'])->name('weights.reports.export-pdf');
 
     // Weight Standards Routes (Admin, Manager and Superuser only)
@@ -153,6 +177,8 @@ Route::middleware([
     Route::post('settings/setup/breeding/reset', [App\Http\Controllers\SettingsController::class, 'resetBreeding'])->name('settings.setup.breeding.reset');
     Route::get('settings/activity-log', [App\Http\Controllers\SettingsController::class, 'activityLog'])->name('settings.activity-log');
     
+
+    
     // System Reports Routes
     Route::get('settings/reports', [App\Http\Controllers\SettingsController::class, 'systemReports'])->name('settings.reports');
     Route::get('settings/reports/export/pdf', [App\Http\Controllers\SettingsController::class, 'exportSystemReportsPdf'])->name('settings.reports.export.pdf');
@@ -166,21 +192,42 @@ Route::middleware([
     Route::get('deaths-export/csv', [App\Http\Controllers\PigManagementController::class, 'deathsExportCsv'])->name('deaths.export.csv');
     Route::get('deaths-export/pdf', [App\Http\Controllers\PigManagementController::class, 'deathsExportPdf'])->name('deaths.export.pdf');
 
-    // Feed Management Routes
+    // Feed Management (Scheduling) Routes
     Route::get('feeds/schedule/create', [App\Http\Controllers\FeedUiController::class, 'createSchedule'])->name('feeds.schedule.create');
     Route::get('feeds/schedule', [App\Http\Controllers\FeedUiController::class, 'schedule'])->name('feeds.schedule');
     Route::post('feeds/schedule', [App\Http\Controllers\FeedUiController::class, 'storeSchedule'])->name('feeds.schedule.store');
+    Route::get('feeds/schedule/{schedule}', [App\Http\Controllers\FeedUiController::class, 'showSchedule'])->name('feeds.schedule.show');
     Route::post('feeds/schedule/{schedule}/fed', [App\Http\Controllers\FeedUiController::class, 'markFed'])->name('feeds.schedule.mark-fed');
     Route::post('feeds/schedule/{schedule}/skipped', [App\Http\Controllers\FeedUiController::class, 'markSkipped'])->name('feeds.schedule.mark-skipped');
+
+    // Granular Feed Allocation Route (for Modal submission)
+    Route::post('feeds/schedule', [App\Http\Controllers\FeedUiController::class, 'storeSchedule'])->name('feeds.allocation.store');
+
+    // Feed Reports Routes
     Route::get('feeds/reports', [App\Http\Controllers\FeedUiController::class, 'reports'])->name('feeds.reports');
     Route::get('feeds/reports/export/pdf', [App\Http\Controllers\FeedUiController::class, 'exportReportsPdf'])->name('feeds.reports.export.pdf');
-    Route::get('feeds', [App\Http\Controllers\FeedController::class, 'index'])->name('feeds.index');
-    Route::get('feeds/create', [App\Http\Controllers\FeedController::class, 'create'])->name('feeds.create');
-    Route::post('feeds', [App\Http\Controllers\FeedController::class, 'store'])->name('feeds.store');
-    Route::get('feeds/{feed}', [App\Http\Controllers\FeedController::class, 'show'])->name('feeds.show');
-    Route::get('feeds/{feed}/edit', [App\Http\Controllers\FeedController::class, 'edit'])->name('feeds.edit');
-    Route::put('feeds/{feed}', [App\Http\Controllers\FeedController::class, 'update'])->name('feeds.update');
-    Route::delete('feeds/{feed}', [App\Http\Controllers\FeedController::class, 'destroy'])->name('feeds.destroy');
+
+    // Feed Management (Inventory) Routes
+    Route::get('feeds', [App\Http\Controllers\FeedUiController::class, 'index'])->name('feeds.index');
+    Route::get('feeds/create', [App\Http\Controllers\FeedUiController::class, 'create'])->name('feeds.create');
+    Route::post('feeds', [App\Http\Controllers\FeedUiController::class, 'store'])->name('feeds.store');
+    Route::get('feeds/{feed}', [App\Http\Controllers\FeedUiController::class, 'show'])->name('feeds.show');
+    Route::get('feeds/{feed}/edit', [App\Http\Controllers\FeedUiController::class, 'edit'])->name('feeds.edit'); // Corrected typo in controller name
+    Route::put('feeds/{feed}', [App\Http\Controllers\FeedUiController::class, 'update'])->name('feeds.update');
+    Route::delete('feeds/{feed}', [App\Http\Controllers\FeedUiController::class, 'destroy'])->name('feeds.destroy');
+
+    // === Location API Routes (NEW) ===
+
+    // API routes for the cascading Structure/Room/Pig selection
+    Route::prefix('api')->group(function () {
+    // 1. Fetches Rooms belonging to a selected Structure
+    Route::get('structures/{structureId}/rooms', [RoomController::class, 'apiListRoomsByStructure']);
+
+    // 2. Fetches Pigs belonging to a selected Room
+    Route::get('rooms/{roomId}/pigs', [RoomController::class, 'apiListPigsByRoom']);
+
+});
+
    
 
     // Feed Inventory & Purchase Requests (manager/admin only)

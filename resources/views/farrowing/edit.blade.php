@@ -310,5 +310,6 @@
                 </div>
             </form>
         </main>
+        <x-copyright-minimal />
     </div>
 </x-app-layout>

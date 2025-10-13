@@ -237,4 +237,5 @@
             </form>
         </div>
     </main>
+    <x-copyright-minimal />
 </x-app-layout>

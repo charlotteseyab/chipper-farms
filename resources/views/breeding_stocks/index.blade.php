@@ -233,7 +233,7 @@
             </div>
         </div>
     </main>
-
+    <x-copyright-minimal />
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('filterForm');

@@ -235,6 +235,7 @@
             </div>
         </div>
     </main>
+    <x-copyright-minimal />
 
     <script>
         // Enhanced form behavior with book-like interactions

@@ -211,7 +211,7 @@
         </form>
     </div>
 </div>
-
+<x-copyright-minimal />
 <script>
     // Store original values for comparison
     const originalValues = {

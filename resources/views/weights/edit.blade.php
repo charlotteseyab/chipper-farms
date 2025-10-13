@@ -273,6 +273,7 @@
             </form>
             </div>
         </div>
+        <x-copyright-minimal />
     </main>
 
     <script>

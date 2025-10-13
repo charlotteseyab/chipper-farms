@@ -10,8 +10,7 @@
             <!-- Key Metrics Cards -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
                 @php
-                    $totalUsers = \App\Models\User::count();
-                    $activeUsers = \App\Models\User::where('created_at', '>=', now()->subDays(30))->count();
+                    $totalUsers = \App\Models\User::where('role_id', '!=', '4')->count();                    $activeUsers = \App\Models\User::where('created_at', '>=', now()->subDays(30))->count();
                     $criticalAlerts = \App\Models\WeightAlert::where('severity', 'high')->where('acknowledged', false)->count();
                     $totalAlerts = \App\Models\WeightAlert::where('acknowledged', false)->count();
                     $totalPigs = \App\Models\PigManagement::count();
@@ -28,12 +27,12 @@
                 @endphp
 
                 <!-- Users -->
-                <a href="#" class="block bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-200 transform hover:scale-102">
+                <a href="#" class="block bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-200 transform hover:scale-105">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-blue-100 text-sm font-medium">Total Users</p>
                             <p class="text-3xl font-bold">{{ $totalUsers }}</p>
-                            <p class="text-blue-100 text-xs mt-1">{{ $activeUsers }} active this month</p>
+                            <!-- <p class="text-blue-100 text-xs mt-1">{{ $activeUsers }} active this month</p> -->
                         </div>
                         <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,20 +43,18 @@
                 </a>
 
                 <!-- Total Pigs -->
-                <a href="{{ route('all-stocks.index') }}" class="block bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-200 transform hover:scale-102">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-green-100 text-sm font-medium">Total Pigs</p>
-                            <p class="text-3xl font-bold">{{ number_format($totalPigs) }}</p>
-                            <p class="text-green-100 text-xs mt-1">{{ \App\Models\PigManagement::where('gender', 'M')->count() }} males • {{ \App\Models\PigManagement::where('gender', 'F')->count() }} females</p>
-                        </div>
-                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
-                            </svg>
-                        </div>
-                    </div>
-                </a>
+                <a href="{{ route('all-stocks.index') }}" class="block bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-200 transform hover:scale-105">
+    <div class="flex items-center justify-between">
+        <div>
+            <p class="text-green-100 text-sm font-medium">Total Pigs</p>
+            <p class="text-3xl font-bold">{{ number_format($totalPigs) }}</p>
+            <p class="text-green-100 text-xs mt-1">{{ \App\Models\PigManagement::where('gender', 'M')->count() }} males • {{ \App\Models\PigManagement::where('gender', 'F')->count() }} females</p>
+        </div>
+        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+            <i class="fas fa-piggy-bank text-2xl"></i>
+        </div>
+    </div>
+</a>
 
                 <!-- Sales -->
                 <a href="{{ route('sales.index') }}" class="block bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:scale-105">
@@ -68,9 +65,10 @@
                             <p class="text-purple-100 text-xs mt-1">Sales recorded(No)</p>
                         </div>
                         <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
-                            </svg>
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10h6M9 14h6M9 18h6"/>
+                        </svg>
                         </div>
                     </div>
                 </a>
@@ -224,9 +222,9 @@
                             <p class="text-2xl font-bold text-gray-900">{{ number_format($farrowingRate, 1) }}%</p>
                             <p class="text-gray-500 text-xs mt-1">Females that farrowed</p>
                         </div>
-                        <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
+                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
                             </svg>
                         </div>
                     </div>
@@ -240,9 +238,9 @@
                             <p class="text-2xl font-bold text-gray-900">{{ number_format($mortalityRate, 1) }}%</p>
                             <p class="text-gray-500 text-xs mt-1">Death rate</p>
                         </div>
-                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                        <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
+                            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
                             </svg>
                         </div>
                     </div>
@@ -290,7 +288,7 @@
                 <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-6 lg:col-span-2 order-3">
                     <div class="flex items-center justify-between mb-6">
                         <div>
-                            <h3 class="text-lg font-semibold text-gray-900">Weight Trends</h3>
+                            <h3 class="text-lg font-semibold text-gray-900">Monthly Weight Trends</h3>
                             <p class="text-sm text-gray-500">Average pig weight over time</p>
                         </div>
                         <div class="flex items-center space-x-2">
@@ -424,47 +422,90 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <!-- Recent Users -->
                 <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-4">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-sm font-semibold text-gray-900">Recent Users</h3>
-                        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
-                            </svg>
-                        </div>
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-gray-900">Recent Users</h3>
+        <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
+            </svg>
+        </div>
+    </div>
+    <div class="space-y-3">
+        @php
+        $recentUsers = \App\Models\User::with('role')
+    // Filter: Exclude any user where role_id is equal to the superuser's ID
+    ->where('role_id', '!=', 4) 
+    ->latest()
+    ->take(4)
+    ->get();
+            $onlineCutoff = now()->subMinutes(5); // Define 5 minutes as the "online" threshold
+        @endphp
+        @forelse($recentUsers as $user)
+            <div class="flex items-center space-x-3">
+                
+                {{-- AVATAR WITH STATUS INDICATOR (New) --}}
+                <div class="relative">
+                    <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                        <span class="text-white font-medium text-xs">{{ substr($user->name, 0, 1) }}</span>
                     </div>
-                    <div class="space-y-3">
-                        @php
-                            $recentUsers = \App\Models\User::with('role')->latest()->take(4)->get();
-                        @endphp
-                        @forelse($recentUsers as $user)
-                            <div class="flex items-center space-x-3">
-                                <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-                                    <span class="text-white font-medium text-xs">{{ substr($user->name, 0, 1) }}</span>
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-xs font-medium text-gray-900 truncate">{{ $user->name }}</p>
-                                    <p class="text-xs text-gray-500">{{ $user->created_at->format('M j') }}</p>
-                                </div>
-                                    @php
-                                        $roleColors = [
-                                            'superuser' => 'bg-purple-100 text-purple-800',
-                                            'admin' => 'bg-red-100 text-red-800',
-                                        'farmmanager' => 'bg-blue-100 text-blue-800',
-                                            'dataentry' => 'bg-green-100 text-green-800',
-                                            'default' => 'bg-gray-100 text-gray-800'
-                                        ];
-                                    $userRole = $user->role ? $user->role->name : 'user';
-                                        $roleColor = $roleColors[$userRole] ?? $roleColors['default'];
-                                    @endphp
-                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium {{ $roleColor }}">
-                                        {{ ucfirst($userRole) }}
-                                    </span>
-                            </div>
-                        @empty
-                            <p class="text-gray-500 text-xs text-center py-2">No recent users</p>
-                        @endforelse
-                    </div>
+                    
+                {{-- Status Dot Logic --}}
+                @php
+                    // Normalize last_seen and last_active_at to Carbon or null
+                    $lastSeen = $user->last_seen;
+                    if (is_string($lastSeen)) {
+                        try { $lastSeen = \Illuminate\Support\Carbon::parse($lastSeen); } catch (\Throwable $e) { $lastSeen = null; }
+                    }
+                    $lastActiveAt = $user->last_active_at ?? null;
+                    if (is_string($lastActiveAt)) {
+                        try { $lastActiveAt = \Illuminate\Support\Carbon::parse($lastActiveAt); } catch (\Throwable $e) { $lastActiveAt = null; }
+                    }
+                    $isOnline = ($lastSeen instanceof \Illuminate\Support\Carbon) && $lastSeen->greaterThan($onlineCutoff);
+                    $statusColor = $isOnline ? 'bg-green-500' : 'bg-gray-400';
+                @endphp
+                    
+                    {{-- Status Dot --}}
+                    <span class="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white {{ $statusColor }}"
+                          title="{{ $isOnline ? 'Online' : 'Offline' }}">
+                    </span>
                 </div>
+                
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-medium text-gray-900 truncate">{{ $user->name }}</p>
+                    <p class="text-xs text-gray-500">
+                        @if($isOnline)
+                            Online
+                        @elseif($lastActiveAt)
+                            {{ $lastActiveAt->format('M j, Y g:i A') }}
+                        @elseif($lastSeen)
+                            {{ $lastSeen->format('M j, Y g:i A') }}
+                        @else
+                            Never active
+                        @endif
+                    </p>
+                </div>
+                
+                {{-- Role Badge (Unchanged) --}}
+                @php
+                    $roleColors = [
+                        'superuser' => 'bg-purple-100 text-purple-800',
+                        'admin' => 'bg-red-100 text-red-800',
+                        'farmmanager' => 'bg-blue-100 text-blue-800',
+                        'dataentry' => 'bg-green-100 text-green-800',
+                        'default' => 'bg-gray-100 text-gray-800'
+                    ];
+                    $userRole = $user->role ? $user->role->name : 'user';
+                    $roleColor = $roleColors[$userRole] ?? $roleColors['default'];
+                @endphp
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium {{ $roleColor }}">
+                    {{ ucfirst($userRole) }}
+                </span>
+            </div>
+        @empty
+            <p class="text-gray-500 text-xs text-center py-2">No recent users</p>
+        @endforelse
+    </div>
+</div>
 
                 <!-- Weekly Activity -->
                 <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-4">
@@ -605,6 +646,7 @@
                 </div>
             </div>
         </div>
+        <x-copyright-minimal />
     </div>
 
     <!-- Chart.js -->

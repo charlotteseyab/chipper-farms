@@ -31,4 +31,5 @@
         <a href="{{ route('feed-inventory.index') }}" class="ml-4 text-gray-600 hover:underline">Cancel</a>
     </form>
 </div>
+<x-copyright-minimal />
 </x-app-layout>

@@ -795,7 +795,7 @@ class PigManagement extends Model
         return $lastWeighing->diffInDays(now());
     }
 
-    public function isOverdueForWeighing($weighingIntervalDays = 14)
+    public function isOverdueForWeighing($weighingIntervalDays = 30)
     {
         return $this->getDaysSinceLastWeighing() > $weighingIntervalDays;
     }
@@ -804,21 +804,22 @@ class PigManagement extends Model
     {
         $daysSince = $this->getDaysSinceLastWeighing();
         
-        if ($daysSince <= 7) {
+        // One-month schedule: current (<=15d), due soon (<=25d), overdue (<=35d), critical (>35d)
+        if ($daysSince <= 15) {
             return [
                 'status' => 'current',
                 'message' => 'Up to date',
                 'color' => 'green',
                 'icon' => '✅'
             ];
-        } elseif ($daysSince <= 14) {
+        } elseif ($daysSince <= 25) {
             return [
                 'status' => 'due_soon',
                 'message' => 'Due soon',
                 'color' => 'yellow',
                 'icon' => '⚠️'
             ];
-        } elseif ($daysSince <= 21) {
+        } elseif ($daysSince <= 35) {
             return [
                 'status' => 'overdue',
                 'message' => 'Overdue',
@@ -835,18 +836,18 @@ class PigManagement extends Model
         }
     }
 
-    public function getNextWeighingDate($weighingIntervalDays = 14)
+    public function getNextWeighingDate($weighingIntervalDays = 30)
     {
         $lastWeighing = $this->getLastWeighingDate();
         if (!$lastWeighing) {
-            // If never weighed, next weighing should be 2 weeks from birth
+            // If never weighed, next weighing should be one month from birth
             return $this->date_of_birth ? $this->date_of_birth->addDays($weighingIntervalDays) : null;
         }
         return $lastWeighing->addDays($weighingIntervalDays);
     }
 
     // Static methods for weighing alerts (more reliable than scopes)
-    public static function getOverdueForWeighing($weighingIntervalDays = 14)
+    public static function getOverdueForWeighing($weighingIntervalDays = 30)
     {
         $pigs = static::whereDoesntHave('deaths')
                      ->whereDoesntHave('sales')
@@ -857,7 +858,7 @@ class PigManagement extends Model
         });
     }
 
-    public static function getDueForWeighing($weighingIntervalDays = 14)
+    public static function getDueForWeighing($weighingIntervalDays = 30)
     {
         $pigs = static::whereDoesntHave('deaths')
                      ->whereDoesntHave('sales')
@@ -869,13 +870,22 @@ class PigManagement extends Model
         });
     }
 
-    public static function countOverdueForWeighing($weighingIntervalDays = 14)
+    public static function countOverdueForWeighing($weighingIntervalDays = 30)
     {
         return static::getOverdueForWeighing($weighingIntervalDays)->count();
     }
 
-    public static function countDueForWeighing($weighingIntervalDays = 14)
+    public static function countDueForWeighing($weighingIntervalDays = 30)
     {
         return static::getDueForWeighing($weighingIntervalDays)->count();
     }
+
+    public function litters()
+    {
+        // A Sow (PigManagement) can have many Litters.
+        // We assume the foreign key on the 'litters' table is 'sow_id'
+        return $this->hasMany(Litter::class, 'sow_id');
+    }
+
+    
 }

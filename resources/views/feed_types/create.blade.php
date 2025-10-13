@@ -1,15 +1,6 @@
 <x-app-layout>
     <div class="max-w-6xl mx-auto py-2 px-4 sm:px-6 lg:px-8">
         
-        <!-- <div class="mb-8 border-b border-gray-200 pb-3">
-            <h1 class="text-3xl font-extrabold text-gray-900 leading-tight">
-                Create New Feed Type ➕
-            </h1>
-            <p class="text-gray-500 mt-1">
-                Define the nutrient profile and recipe for a new feed product.
-            </p>
-        </div> -->
-
         <form method="POST" action="{{ route('feed-types.store') }}" class="bg-white p-8 rounded-xl shadow-2xl border border-gray-100 space-y-6">
             @csrf
 
@@ -67,19 +58,24 @@
                 </h2>
                 
                 <div id="items" class="space-y-3">
-                    <div class="grid grid-cols-12 gap-3 p-2 bg-gray-50 rounded-lg">
+                    <div class="grid grid-cols-12 gap-3 p-2 bg-gray-50 rounded-lg ingredient-row">
                         <div class="col-span-8">
-                            <select name="items[0][ingredient_id]" class="w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm text-sm px-3 py-2">
+                            <select name="items[0][ingredient_id]" class="w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm text-sm px-3 py-2" required>
                                 <option value="">-- Select ingredient --</option>
                                 @foreach($ingredients as $ing)
-                                    <option value="{{ $ing->id }}">{{ $ing->name }}</option>
+                                    <!-- Use the new display properties for clarity -->
+                                    <option value="{{ $ing->id }}">
+                                        {{ $ing->name }} (Stock: {{ $ing->current_stock_display ?? 0 }} {{ $ing->current_stock_unit ?? 'units' }})
+                                    </option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="col-span-3">
-                            <input type="number" step="0.01" min="0" name="items[0][quantity]" class="w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm text-sm px-3 py-2" placeholder="Qty (kg)">
+                            <input type="number" step="0.01" min="0" name="items[0][quantity]" class="w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm text-sm px-3 py-2" placeholder="Qty (kg)" required>
                         </div>
-                        <div class="col-span-1 text-center flex items-center justify-center text-sm font-medium text-gray-500">kg</div>
+                        <div class="col-span-1 text-center flex items-center justify-center text-sm font-medium text-gray-500">
+                            kg
+                        </div>
                     </div>
                 </div>
             </div>
@@ -106,27 +102,55 @@
             </div>
         </form>
     </div>
+    <x-copyright-minimal />
     
     <script>
+        // The ingredientsData is now augmented with current_stock_display and current_stock_unit
+        const ingredientsData = @json($ingredients);
+
         const container = document.getElementById('items');
-        let index = 1; // Start new items at index 1 since the initial item uses index 0
+        let index = 1; 
+
+        // Function to build the options HTML with stock info
+        function buildIngredientOptions() {
+            let options = '<option value="">-- Select ingredient --</option>';
+            ingredientsData.forEach(ing => {
+                // Access the new 'current_stock_display' and 'current_stock_unit' properties
+                const stock = ing.current_stock_display || '0';
+                const unit = ing.current_stock_unit || 'units';
+
+                options += `<option value="${ing.id}">${ing.name} (Stock: ${stock} ${unit})</option>`;
+            });
+            return options;
+        }
+
         document.getElementById('add-item').addEventListener('click', () => {
+            const optionsHtml = buildIngredientOptions();
             const row = document.createElement('div');
-            // Applying the same clean styling as the initial item
-            row.className = 'grid grid-cols-12 gap-3 p-2 bg-white border border-gray-200 rounded-lg';
+            row.className = 'grid grid-cols-12 gap-3 p-2 bg-white border border-gray-200 rounded-lg ingredient-row';
+            
             row.innerHTML = `
                 <div class="col-span-8">
-                    <select name="items[${index}][ingredient_id]" class="w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm text-sm px-3 py-2">
-                        <option value="">-- Select ingredient --</option>
-                        ${`@foreach($ingredients as $ing)<option value=\"{{ $ing->id }}\">{{ $ing->name }}</option>@endforeach`}
+                    <select name="items[${index}][ingredient_id]" class="w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm text-sm px-3 py-2" required>
+                        ${optionsHtml}
                     </select>
                 </div>
                 <div class="col-span-3">
-                    <input type="number" step="0.01" min="0" name="items[${index}][quantity]" class="w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm text-sm px-3 py-2" placeholder="Qty (kg)">
+                    <input type="number" step="0.01" min="0" name="items[${index}][quantity]" class="w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm text-sm px-3 py-2" placeholder="Qty (kg)" required>
                 </div>
-                <div class="col-span-1 text-center flex items-center justify-center text-sm font-medium text-gray-500">kg</div>
+                <div class="col-span-1 text-center flex items-center justify-center text-sm font-medium text-gray-500">
+                    <button type="button" class="text-red-500 hover:text-red-700 remove-item" title="Remove Ingredient">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                </div>
             `;
             container.appendChild(row);
+            
+            // Add removal functionality for the new row
+            row.querySelector('.remove-item').addEventListener('click', () => {
+                row.remove();
+            });
+
             index++;
         });
     </script>

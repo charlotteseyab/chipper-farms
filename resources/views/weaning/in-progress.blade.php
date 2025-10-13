@@ -270,7 +270,7 @@
         @endif
     </div>
 </div>
-
+<x-copyright-minimal />
 <!-- Weight Update Modal -->
 <div id="weightModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
     <div class="relative top-10 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">

@@ -248,7 +248,7 @@
             </div>
         </div>
     </main>
-
+    <x-copyright-minimal />
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const maleSelect = document.getElementById('male_id');
