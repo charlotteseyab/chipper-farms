@@ -1,5 +1,5 @@
 <x-app-layout>
-    <div class="max-w-7xl mx-auto px-4">
+    <div class="max-w-7xl mx-auto px-4 mb-10">
         <div class="flex items-center justify-between mb-4">
             <h1 class="text-2xl font-bold text-gray-900">Notifications</h1>
             <form action="{{ route('notifications.readAll') }}" method="POST">
@@ -50,10 +50,24 @@
                     <li class="p-10 text-center text-sm text-gray-500">No notifications</li>
                 @endforelse
             </ul>
+            
+            {{-- PAGINATION MOVED HERE --}}
+            @if ($notifications->hasPages())
+                <div class="px-4 py-4 border-t border-gray-200">
+                    <div class="flex items-center justify-between">
+                        <div class="text-sm text-gray-700">
+                            Showing {{ $notifications->firstItem() }} to {{ $notifications->lastItem() }} of {{ $notifications->total() }} results
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <x-simple-pagination :paginator="$notifications" />
+                        </div>
+                    </div>
+                </div>
+            @endif
+            {{-- END PAGINATION --}}
         </div>
 
-        <div class="mt-4">{{ $notifications->links() }}</div>
+        {{-- The old, empty pagination div is removed --}}
     </div>
+    <x-copyright-minimal />
 </x-app-layout>
-
-

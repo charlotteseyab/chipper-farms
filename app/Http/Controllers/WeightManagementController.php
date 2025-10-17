@@ -341,6 +341,59 @@ class WeightManagementController extends Controller
     }
 
     /**
+     * Export all weights (filtered) as PDF
+     */
+    public function exportAllPDF(Request $request)
+    {
+        // Apply same filters as index
+        $latestSub = \DB::table('pig_weights as pw2')
+            ->selectRaw('MAX(weigh_date) as max_date, pig_id')
+            ->groupBy('pig_id');
+
+        $query = PigWeight::with(['pig', 'weightAlerts'])
+            ->joinSub($latestSub, 'latest', function($join) {
+                $join->on('pig_weights.pig_id', '=', 'latest.pig_id')
+                     ->on('pig_weights.weigh_date', '=', 'latest.max_date');
+            });
+
+        if ($request->pig_id) {
+            $query->where('pig_weights.pig_id', $request->pig_id);
+        }
+        if ($request->date_from) {
+            $query->whereDate('pig_weights.weigh_date', '>=', $request->date_from);
+        }
+        if ($request->date_to) {
+            $query->whereDate('pig_weights.weigh_date', '<=', $request->date_to);
+        }
+        if ($request->purpose) {
+            $query->where('pig_weights.purpose', $request->purpose);
+        }
+        if ($request->weight_from) {
+            $query->where('pig_weights.weight', '>=', $request->weight_from);
+        }
+        if ($request->weight_to) {
+            $query->where('pig_weights.weight', '<=', $request->weight_to);
+        }
+
+        $weights = $query->orderBy('pig_weights.pig_id')->orderBy('pig_weights.weigh_date', 'desc')
+            ->select('pig_weights.*')->get();
+
+        // Load filter params for display
+        $filters = $request->only(['pig_id', 'purpose', 'weight_from', 'weight_to', 'date_from', 'date_to']);
+
+        $pdf = Pdf::loadView('weights.all-pdf-report', compact('weights', 'filters'));
+        $pdf->setPaper('A4', 'landscape');
+        $pdf->setOptions([
+            'isHtml5ParserEnabled' => true,
+            'isPhpEnabled' => true,
+            'defaultFont' => 'sans-serif'
+        ]);
+
+        $filename = 'weights-all-' . now()->format('Y-m-d') . '.pdf';
+        return $pdf->download($filename);
+    }
+
+    /**
      * Get previous weight for a pig
      */
     public function getPreviousWeight($pigId)

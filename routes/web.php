@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Notifications\DatabaseNotification;
 use App\Http\Controllers\RoomController;
+// Import the new Controller
+use App\Http\Controllers\PerformanceMetricController;
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/notifications', function() {
@@ -127,6 +129,8 @@ Route::middleware([
     // Standard Stock Routes
     Route::get('standard-stocks', [App\Http\Controllers\PigManagementController::class, 'standardIndex'])->name('standard-stocks.index');
     Route::get('standard-stocks/create', [App\Http\Controllers\PigManagementController::class, 'standardCreate'])->name('standard-stocks.create');
+    Route::get('standard-stocks/{pig}/edit', [App\Http\Controllers\PigManagementController::class, 'standardEdit'])->name('standard-stocks.edit');
+    Route::put('standard-stocks/{pig}', [App\Http\Controllers\PigManagementController::class, 'standardUpdate'])->name('standard-stocks.update');
     Route::get('standard-stocks-export/csv', [App\Http\Controllers\PigManagementController::class, 'standardExportCsv'])->name('standard-stocks.export.csv');
     Route::get('standard-stocks-export/pdf', [App\Http\Controllers\PigManagementController::class, 'standardExportPdf'])->name('standard-stocks.export.pdf');
 
@@ -140,6 +144,9 @@ Route::middleware([
     Route::get('api/pigs/{pig}/previous-weight', [App\Http\Controllers\WeightManagementController::class, 'getPreviousWeight'])->name('api.pigs.previous-weight');
     Route::get('api/pigs/{pig}/expected-weight', [App\Http\Controllers\WeightManagementController::class, 'getExpectedWeight'])->name('api.pigs.expected-weight');
     Route::get('weights/reports/export-pdf', [App\Http\Controllers\WeightManagementController::class, 'exportPDF'])->name('weights.reports.export-pdf');
+
+    // PDF export for all weights (filtered)
+    Route::get('weights/export/pdf', [App\Http\Controllers\WeightManagementController::class, 'exportAllPDF'])->name('weights.index.export-pdf');
 
     // Weight Standards Routes (Admin, Manager and Superuser only)
     Route::middleware(['role:admin,manager,superuser'])->group(function () {
@@ -162,7 +169,6 @@ Route::middleware([
     })->name('weight-demo');
 
 
-
     // Structure and Room Management Routes
     Route::resource('structures', App\Http\Controllers\StructureController::class);
     Route::post('structures/{structure}/rooms', [App\Http\Controllers\RoomController::class, 'store'])->name('structures.rooms.store');
@@ -176,7 +182,10 @@ Route::middleware([
     Route::post('settings/setup/breeding', [App\Http\Controllers\SettingsController::class, 'saveBreeding'])->name('settings.setup.breeding.save');
     Route::post('settings/setup/breeding/reset', [App\Http\Controllers\SettingsController::class, 'resetBreeding'])->name('settings.setup.breeding.reset');
     Route::get('settings/activity-log', [App\Http\Controllers\SettingsController::class, 'activityLog'])->name('settings.activity-log');
-    
+
+    // PERFORMANCE METRICS ROUTE (NEW)
+    Route::get('metrics', [PerformanceMetricController::class, 'index'])->name('performance_metrics.index');
+    // Route::get('settings/metrics', [App\Http\Controllers\SettingsController::class, 'metrics'])->name('settings.metrics'); // Existing, but commented out.
 
     
     // System Reports Routes

@@ -251,7 +251,12 @@
             </div>
         </div>
 
-        
+        <a href="{{ route('performance_metrics.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition @if(request()->is('farrowing*')) bg-[#218c6a] text-white @endif">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+            </svg>
+            <span class="font-medium">Performance Metrics</span>
+        </a>
 
         <!-- General Settings Dropdown -->
         <div x-data="{ open: {{ request()->is('settings*') || request()->is('deaths*')|| request()->is('sales*') ? 'true' : 'false' }} }" class="relative">

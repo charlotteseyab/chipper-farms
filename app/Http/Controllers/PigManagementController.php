@@ -323,6 +323,57 @@ class PigManagementController extends Controller {
         return $relationship['risk_level'] === 'critical';
     }
 
+    // --- Standard Stock Edit ---
+    public function standardEdit(PigManagement $pig)
+    {
+        // Ensure we're editing a standard stock
+        if ($pig->stock_type !== 'standard') {
+            return redirect()->route('standard-stocks.index')->with('error', 'Only standard stock can be edited here.');
+        }
+
+        $structures = \App\Models\Structure::orderBy('name')->get(['id','name']);
+        $rooms = \App\Models\Room::orderBy('name')->get(['id','name','structure_id']);
+        $selectedStructureId = $pig->structure_id ?: optional($pig->room)->structure_id;
+        $fathers = PigManagement::where('gender','M')->orderBy('ear_tag_number')->get(['id','ear_tag_number']);
+        $mothers = PigManagement::where('gender','F')->orderBy('ear_tag_number')->get(['id','ear_tag_number']);
+
+        return view('stocks.standard.edit', compact('pig','structures','rooms','fathers','mothers','selectedStructureId'));
+    }
+
+    public function standardUpdate(\Illuminate\Http\Request $request, PigManagement $pig)
+    {
+        if ($pig->stock_type !== 'standard') {
+            return redirect()->route('standard-stocks.index')->with('error', 'Only standard stock can be edited here.');
+        }
+
+        $data = $request->validate([
+            'ear_tag_number' => 'required|string|max:50|unique:pigs_management,ear_tag_number,' . $pig->id,
+            'breed' => 'required|string|max:50',
+            'gender' => 'required|in:M,F',
+            'date_of_birth' => 'required|date',
+            'structure_id' => 'nullable|exists:structures,id',
+            'room_id' => 'nullable|exists:rooms,id',
+            'father_id' => 'nullable|exists:pigs_management,id',
+            'mother_id' => 'nullable|exists:pigs_management,id',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $data['ear_tag_number'] = trim($data['ear_tag_number']);
+
+        // Update age_in_days based on DOB
+        $birthDate = \Carbon\Carbon::parse($data['date_of_birth']);
+        $data['age_in_days'] = (int) $birthDate->diffInDays(now());
+
+        // Basic inbreeding check (optional)
+        if ($this->hasInbreedingRisk($data['father_id'] ?? null, $data['mother_id'] ?? null)) {
+            return back()->withErrors(['inbreeding' => 'Inbreeding risk detected.'])->withInput();
+        }
+
+        $pig->update($data);
+
+        return redirect()->route('standard-stocks.index')->with('success', 'Standard stock updated successfully.');
+    }
+
     public function checkRelationship(Request $request)
     {
         $fatherId = $request->input('father_id');

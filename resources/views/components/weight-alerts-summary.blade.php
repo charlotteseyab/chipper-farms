@@ -37,7 +37,7 @@
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <!-- Total Unacknowledged -->
-            <a href="{{ route('weight-alerts.index', ['acknowledged' => 0]) }}"
+            <!-- <a href="{{ route('weight-alerts.index', ['acknowledged' => 0]) }}"
                class="flex flex-col items-center bg-red-50 border border-red-200 rounded-lg py-4 transition hover:bg-red-100 hover:shadow cursor-pointer group">
                 <div class="flex items-center mb-2">
                     <svg class="w-7 h-7 text-red-500 mr-2 group-hover:text-red-700 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -46,7 +46,7 @@
                     <span class="text-3xl font-extrabold text-red-600 group-hover:text-red-700 transition">{{ $unacknowledgedAlerts }}</span>
                 </div>
                 <div class="text-xs text-gray-600 font-medium uppercase tracking-wide">Unacknowledged</div>
-            </a>
+            </a> -->
 
             <!-- Under Weight -->
             <a href="{{ route('weight-alerts.index', ['alert_type' => 'under_weight']) }}"

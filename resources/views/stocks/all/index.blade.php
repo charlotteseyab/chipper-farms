@@ -132,7 +132,10 @@
             data-breed="{{ $pig->breed }}"
             data-type="{{ $pig->stock_type }}"
             data-gender="{{ $pig->gender }}"
-            data-location="{{ $pig->room?->structure?->name ?? '' }} {{ $pig->room?->name ?? '' }}">
+            data-location="{{ $pig->room?->structure?->name ?? '' }} {{ $pig->room?->name ?? '' }}"
+            data-dob="{{ optional($pig->date_of_birth)->format('Y-m-d') }}"
+            data-age="{{ $pig->age_compact }}"
+            data-parents="{{ ($pig->father->ear_tag_number ?? '') . ' ' . ($pig->mother->ear_tag_number ?? '') }}">
           <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ $pig->code }}</td>
           <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $pig->ear_tag_number }}</td>
           <td class="px-6 py-4 whitespace-nowrap">
@@ -297,6 +300,9 @@
           </td>
         </tr>
       @endforelse
+      <tr id="clientNoMatchRow" class="hidden">
+        <td colspan="11" class="px-6 py-12 text-center text-sm text-gray-500">No matches for your search.</td>
+      </tr>
     </tbody>
   </table>
 </div>
@@ -349,7 +355,10 @@
                             (r.dataset.breed || '') + ' ' +
                             (r.dataset.type || '') + ' ' +
                             (r.dataset.gender || '') + ' ' +
-                            (r.dataset.location || '')
+                            (r.dataset.location || '') + ' ' +
+                            (r.dataset.dob || '') + ' ' +
+                            (r.dataset.age || '') + ' ' +
+                            (r.dataset.parents || '')
                         ).toLowerCase();
                         var match = tokens.every(function(tok){ return fields.indexOf(tok) !== -1; });
                         r.style.display = match ? '' : 'none';

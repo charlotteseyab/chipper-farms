@@ -16,6 +16,17 @@
                         </svg>
                         Weight Reports
                     </a>
+                    <form method="GET" action="{{ route('weights.index.export-pdf') }}" class="inline">
+                        @foreach(request()->except('page') as $key => $value)
+                            <input type="hidden" name="{{ $key }}" value="{{ $value }}" />
+                        @endforeach
+                        <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition" title="Export all weights (filtered) as PDF">
+                            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Export PDF
+                        </button>
+                    </form>
                 </div>
             </div>
 

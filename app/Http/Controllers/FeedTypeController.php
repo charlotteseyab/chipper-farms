@@ -43,11 +43,16 @@ class FeedTypeController extends Controller
             // - If inventory tracked in bags, show the bag weight in kg (per bag), NOT total kg
             // - Otherwise, show the quantity in kg
             if ($inventoryUnit === 'bag' || $inventoryUnit === 'bags') {
-                $ingredient->current_stock_display = number_format(max($kgPerBag, 0), 2);
-                $ingredient->current_stock_unit = 'kg';
+                $totalKg = $quantity * $kgPerBag;
+                $ingredient->current_stock_display = number_format($quantity, 2) . ' bags  (' . number_format($kgPerBag, 2) . ' kg/bag, ' . number_format($totalKg, 2) . ' kg total)';
+                $ingredient->current_stock_unit = 'bags';
+                $ingredient->current_stock_kg = round($totalKg, 2);
+                $ingredient->per_bag_kg = number_format($kgPerBag, 2);
+                $ingredient->total_bags = number_format($quantity, 2);
             } else {
-                $ingredient->current_stock_display = number_format($quantity, 2);
+                $ingredient->current_stock_display = number_format($quantity, 2) . ' kg';
                 $ingredient->current_stock_unit = 'kg';
+                $ingredient->current_stock_kg = round($quantity, 2);
             }
             
             return $ingredient;
@@ -137,7 +142,9 @@ class FeedTypeController extends Controller
                         // Inventory is stored in bags: convert required KG amount to bags
                         // Deduction amount in BAGS = Required KG / KG per Bag
                         $deductionInBags = $shareKg / $kgPerBag;
-                        $inv->quantity = max(0, (float)$inv->quantity - $deductionInBags);
+                        $totalKgNow = $inv->quantity * $kgPerBag;
+                        $remainingKg = max(0, $totalKgNow - $shareKg);
+                        $inv->quantity = $kgPerBag > 0 ? ($remainingKg / $kgPerBag) : 0; // Always recompute bags as float
                     } else {
                         // Inventory is stored in KG: deduct KG directly
                         $inv->quantity = max(0, (float)$inv->quantity - $shareKg);
@@ -237,7 +244,9 @@ class FeedTypeController extends Controller
                         // Inventory is stored in bags: convert required KG amount to bags
                         // Deduction amount in BAGS = Required KG / KG per Bag
                         $deductionInBags = $shareKg / $kgPerBag;
-                        $inv->quantity = max(0, (float)$inv->quantity - $deductionInBags);
+                        $totalKgNow = $inv->quantity * $kgPerBag;
+                        $remainingKg = max(0, $totalKgNow - $shareKg);
+                        $inv->quantity = $kgPerBag > 0 ? ($remainingKg / $kgPerBag) : 0; // Always recompute bags as float
                     } else {
                         // Inventory is stored in KG: deduct KG directly
                         $inv->quantity = max(0, (float)$inv->quantity - $shareKg);
