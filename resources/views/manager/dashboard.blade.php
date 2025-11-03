@@ -17,7 +17,18 @@
                             <p class="text-sm font-medium text-gray-600">Total Stock</p>
                             <p class="text-2xl font-bold text-gray-900">
                                 @php
-                                    $totalStock = \App\Models\PigManagement::count();
+                                    // Enhanced pig counting including piglets (weaned = active pigs only)
+                                    $weanedPigs = \App\Models\PigManagement::active()->count();
+                                    $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+                                    $recentFarrowings = \App\Models\Farrowing::with('pigletDeaths')
+                                        ->where('farrowing_date', '>=', now()->subDays($weaningAge))
+                                        ->where('status', 'active')
+                                        ->get();
+                                    $pigletsCount = 0;
+                                    foreach ($recentFarrowings as $f) {
+                                        $pigletsCount += max(0, (int)($f->live_births ?? 0) - (int)$f->pigletDeaths->sum('count'));
+                                    }
+                                    $totalStock = $weanedPigs + $pigletsCount;
                                 @endphp
                                 {{ $totalStock }}
                             </p>
@@ -31,13 +42,17 @@
                     <div class="mt-4">
                         <div class="flex items-center text-sm text-gray-600">
                             @php
-                                $breedingStock = \App\Models\PigManagement::where('stock_type', 'breeding')->count();
-                                $standardStock = \App\Models\PigManagement::where('stock_type', 'standard')->count();
+                                $breedingStock = \App\Models\PigManagement::active()->where('stock_type', 'breeding')->count();
+                                $standardStock = \App\Models\PigManagement::active()->where('stock_type', 'standard')->count();
                             @endphp
+                            <span class="text-green-600 font-medium">{{ $weanedPigs }}</span>
+                            <span class="ml-1">weaned (</span>
                             <span class="text-green-600 font-medium">{{ $breedingStock }}</span>
                             <span class="ml-1">breeding, </span>
                             <span class="text-blue-600 font-medium ml-1">{{ $standardStock }}</span>
-                            <span class="ml-1">standard</span>
+                            <span class="ml-1">standard), </span>
+                            <span class="text-orange-600 font-medium ml-1">{{ $pigletsCount }}</span>
+                            <span class="ml-1">piglets</span>
                         </div>
                     </div>
                 </a>
@@ -150,7 +165,13 @@
                             <p class="text-sm font-medium text-gray-600">Mortality Rate</p>
                             <p class="text-2xl font-bold text-gray-900">
                                 @php
-                                    $totalPigs = \App\Models\PigManagement::count();
+                                    // Use enhanced pig counting for mortality rate calculation
+                                    $weanedPigs = \App\Models\PigManagement::count();
+                                    $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+                                    $pigletsCount = \App\Models\Farrowing::where('farrowing_date', '>=', now()->subDays($weaningAge))
+                                        ->where('status', 'active')
+                                        ->sum('live_births');
+                                    $totalPigs = $weanedPigs + $pigletsCount;
                                     $totalDeaths = \App\Models\PigDeath::count();
                                     $mortalityRate = $totalPigs > 0 ? ($totalDeaths / $totalPigs) * 100 : 0;
                                 @endphp
@@ -245,7 +266,13 @@
                     </div>
                     <div class="mt-4 grid grid-cols-2 gap-4 text-sm">
                         @php
-                            $totalStock = \App\Models\PigManagement::count();
+                            // Use enhanced pig counting for stock distribution
+                            $weanedPigs = \App\Models\PigManagement::count();
+                            $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+                            $pigletsCount = \App\Models\Farrowing::where('farrowing_date', '>=', now()->subDays($weaningAge))
+                                ->where('status', 'active')
+                                ->sum('live_births');
+                            $totalStock = $weanedPigs + $pigletsCount;
                             $breedingStock = \App\Models\PigManagement::where('stock_type', 'breeding')->count();
                             $standardStock = \App\Models\PigManagement::where('stock_type', 'standard')->count();
                         @endphp
@@ -407,7 +434,13 @@
                         @php
                             // Calculate real breeding statistics from database
                             $totalBreedingStock = \App\Models\PigManagement::where('stock_type', 'breeding')->count();
-                            $totalPigs = \App\Models\PigManagement::count();
+                            // Use enhanced pig counting for performance calculations
+                            $weanedPigs = \App\Models\PigManagement::count();
+                            $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+                            $pigletsCount = \App\Models\Farrowing::where('farrowing_date', '>=', now()->subDays($weaningAge))
+                                ->where('status', 'active')
+                                ->sum('live_births');
+                            $totalPigs = $weanedPigs + $pigletsCount;
                             $totalWeightRecords = \App\Models\PigWeight::count();
                             $recentWeightRecords = \App\Models\PigWeight::where('created_at', '>=', now()->subDays(30))->count();
 

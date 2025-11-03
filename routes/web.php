@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PigHealthController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Notifications\DatabaseNotification;
 use App\Http\Controllers\RoomController;
@@ -9,12 +10,24 @@ use App\Http\Controllers\PerformanceMetricController;
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/notifications', function() {
-        $notifications = DatabaseNotification::query()->latest()->paginate(15);
+        $user = auth()->user();
+        $isSuperuser = $user && optional($user->role)->name === 'superuser';
+        if ($isSuperuser) {
+            // Superuser sees all notifications
+            $notifications = Illuminate\Notifications\DatabaseNotification::query()->latest()->paginate(15);
+        } else {
+            // Others see only their own
+            $notifications = $user->notifications()->latest()->paginate(15);
+        }
         return view('notifications.index', compact('notifications'));
     })->name('notifications.index');
 
     Route::post('/notifications/{id}/read', function(string $id) {
-        $notification = DatabaseNotification::query()->where('id', $id)->firstOrFail();
+        $user = auth()->user();
+        $isSuperuser = $user && optional($user->role)->name === 'superuser';
+        $notification = $isSuperuser
+            ? Illuminate\Notifications\DatabaseNotification::query()->where('id', $id)->firstOrFail()
+            : $user->notifications()->where('id', $id)->firstOrFail();
         if (is_null($notification->read_at)) {
             $notification->forceFill(['read_at' => now()])->save();
         }
@@ -22,7 +35,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('notifications.read');
 
     Route::post('/notifications/read-all', function() {
-        DatabaseNotification::query()->whereNull('read_at')->update(['read_at' => now()]);
+        $user = auth()->user();
+        $isSuperuser = $user && optional($user->role)->name === 'superuser';
+        if ($isSuperuser) {
+            Illuminate\Notifications\DatabaseNotification::query()->whereNull('read_at')->update(['read_at' => now()]);
+        } else {
+            $user->unreadNotifications()->update(['read_at' => now()]);
+        }
         return back();
     })->name('notifications.readAll');
 });
@@ -36,6 +55,28 @@ Route::middleware([
     config('jetstream.auth_session'),
     'verified',
 ])->group(function () {
+    Route::get('/health', [PigHealthController::class, 'index'])->name('health.index');
+    Route::get('/health/create-health', [PigHealthController::class, 'createHealth'])->name('health.create');
+    Route::get('/health/create-medication', [PigHealthController::class, 'createMedication'])->name('health.create-medication');
+    Route::post('/health/store-health', [PigHealthController::class, 'storeHealth'])->name('health.store');
+    Route::post('/health/store-medication', [PigHealthController::class, 'storeMedication'])->name('medications.store');
+    Route::get('/health/{pig}', [PigHealthController::class, 'show'])->name('health.show');
+    Route::get('/health/{pig}/create-health', [PigHealthController::class, 'createHealth'])->name('health.createForPig');
+    Route::get('/health/{pig}/create-medication', [PigHealthController::class, 'createMedication'])->name('medications.createForPig');
+    Route::post('/health/{pig}/health', [PigHealthController::class, 'storeHealth'])->name('health.storeForPig');
+    Route::post('/health/{pig}/medication', [PigHealthController::class, 'storeMedication'])->name('medications.storeForPig');
+    Route::get('/medications/{medication}', [PigHealthController::class, 'showMedication'])->name('medications.show');
+    Route::get('/medications/{medication}/edit', [PigHealthController::class, 'editMedication'])->name('medications.edit');
+    Route::put('/medications/{medication}', [PigHealthController::class, 'updateMedication'])->name('medications.update');
+    Route::delete('/medications/{medication}', [PigHealthController::class, 'destroyMedication'])->name('medications.destroy');
+
+    // Medications index & Health reports
+    Route::get('/medications', [PigHealthController::class, 'medicationsIndex'])->name('medications.index');
+    Route::get('/health-reports', [PigHealthController::class, 'reports'])->name('health.reports');
+    Route::get('/health/{pig}/edit', [PigHealthController::class, 'edit'])->name('health.edit');
+    Route::delete('/health/{pig}', [PigHealthController::class, 'destroy'])->name('health.destroy');
+    Route::get('/export/health.csv', [PigHealthController::class, 'exportHealthCsv'])->name('health.export');
+    Route::get('/export/medications.csv', [PigHealthController::class, 'exportMedicationsCsv'])->name('medications.export');
     Route::get('/dashboard', function () {
         return view('dashboard');
     })->name('dashboard');
@@ -92,6 +133,7 @@ Route::middleware([
     Route::get('farrowing/{farrowing}', [App\Http\Controllers\FarrowingController::class, 'show'])->name('farrowing.show');
     Route::get('farrowing/{farrowing}/edit', [App\Http\Controllers\FarrowingController::class, 'edit'])->name('farrowing.edit');
     Route::put('farrowing/{farrowing}', [App\Http\Controllers\FarrowingController::class, 'update'])->name('farrowing.update');
+    Route::post('farrowing/{farrowing}/piglet-deaths', [App\Http\Controllers\FarrowingController::class, 'recordPigletDeath'])->name('farrowing.piglet-deaths.record');
     Route::post('gestation/{id}/farrowing', [App\Http\Controllers\PigManagementController::class, 'recordFarrowing'])->name('gestation.farrowing');
     Route::post('gestation/{id}/update-status', [App\Http\Controllers\PigManagementController::class, 'updateGestationStatus'])->name('gestation.update-status');
 

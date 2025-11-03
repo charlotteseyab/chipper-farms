@@ -33,6 +33,9 @@
                 <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
                     <div class="text-sm text-gray-600">Total Deaths</div>
                     <div class="text-2xl font-semibold text-gray-900">{{ $stats['total_deaths'] ?? 0 }}</div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        {{ $stats['total_adult_deaths'] ?? 0 }} pigs • {{ $stats['total_piglet_deaths'] ?? 0 }} piglets
+                    </div>
                 </div>
                 <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
                     <div class="text-sm text-gray-600">Adult Deaths</div>
@@ -110,8 +113,8 @@
                 @endif
             </div>
 
-            <!-- Piglet Mortality Table -->
-            <div class="bg-white rounded-lg shadow border border-gray-200">
+            <!-- Piglet Mortality Table (Pig model) -->
+            <!-- <div class="bg-white rounded-lg shadow border border-gray-200">
                 <div class="px-6 py-4 border-b border-gray-200">
                     <h2 class="text-lg font-semibold text-gray-900">Piglet Mortality (Under 60 days)</h2>
                     <p class="text-sm text-gray-600 mt-1">Deaths at birth, during weaning, and early life stages</p>
@@ -167,6 +170,51 @@
                 @if(isset($pigletDeaths) && $pigletDeaths->hasPages())
                     <div class="px-6 py-4 border-t border-gray-200">
                         {{ $pigletDeaths->links() }}
+                    </div>
+                @endif
+            </div> -->
+
+            <!-- Piglet Death Events (Farrowing-based records) -->
+            <div class="bg-white rounded-lg shadow border border-gray-200 mt-6">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-lg font-semibold text-gray-900">Piglet Death Events (Litters)</h2>
+                    <p class="text-sm text-gray-600 mt-1">Events recorded against farrowings</p>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sow</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cause</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            @forelse($pigletDeathEvents ?? [] as $event)
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900">{{ optional(optional($event->farrowing)->sow)->code ?? 'N/A' }}</div>
+                                        <div class="text-sm text-gray-500">{{ optional(optional($event->farrowing)->sow)->ear_tag_number ?? '' }}</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ \Carbon\Carbon::parse($event->death_date)->format('M d, Y') }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-semibold">{{ $event->count }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $event->cause ?? '—' }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $event->notes ?? '—' }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="px-6 py-12 text-center text-gray-500">No piglet death events recorded.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+
+                @if(isset($pigletDeathEvents) && $pigletDeathEvents->hasPages())
+                    <div class="px-6 py-4 border-t border-gray-200">
+                        {{ $pigletDeathEvents->links() }}
                     </div>
                 @endif
             </div>

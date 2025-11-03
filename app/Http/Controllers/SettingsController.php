@@ -125,17 +125,27 @@ class SettingsController extends Controller
     /**
      * Show comprehensive system reports
      */
-    public function systemReports()
+    public function systemReports(Request $request)
     {
+        $from = $request->date('from');
+        $to = $request->date('to');
+
+        // Helper to apply optional date range on created_at
+        $applyRange = function($query) use ($from, $to) {
+            if ($from) { $query->whereDate('created_at', '>=', $from); }
+            if ($to) { $query->whereDate('created_at', '<=', $to); }
+            return $query;
+        };
+
         // Executive Summary
         $summary = [
-            'total_pigs' => PigManagement::count(),
-            'active_pigs' => PigManagement::active()->count(),
-            'sold_pigs' => PigManagement::whereHas('sales')->count(),
-            'deceased_pigs' => PigManagement::whereHas('deaths')->count(),
-            'total_sales_revenue' => PigSale::sum('sale_price'),
-            'average_sale_price' => PigSale::avg('sale_price'),
-            'total_weights_recorded' => PigWeight::count(),
+            'total_pigs' => $applyRange(PigManagement::query())->count(),
+            'active_pigs' => $applyRange(PigManagement::active())->count(),
+            'sold_pigs' => $applyRange(PigManagement::whereHas('sales'))->count(),
+            'deceased_pigs' => $applyRange(PigManagement::whereHas('deaths'))->count(),
+            'total_sales_revenue' => $applyRange(PigSale::query())->sum('sale_price'),
+            'average_sale_price' => $applyRange(PigSale::query())->avg('sale_price'),
+            'total_weights_recorded' => $applyRange(PigWeight::query())->count(),
             'total_structures' => Structure::count(),
             'total_rooms' => Room::count(),
             'total_users' => User::count(),
@@ -143,74 +153,69 @@ class SettingsController extends Controller
 
         // Pig Distribution
         $pigDistribution = [
-            'by_stock_type' => PigManagement::selectRaw('stock_type, COUNT(*) as count')
-                ->groupBy('stock_type')
+            'by_stock_type' => $applyRange(PigManagement::selectRaw('stock_type, COUNT(*) as count')->groupBy('stock_type'))
                 ->pluck('count', 'stock_type'),
-            'by_gender' => PigManagement::selectRaw('gender, COUNT(*) as count')
-                ->groupBy('gender')
+            'by_gender' => $applyRange(PigManagement::selectRaw('gender, COUNT(*) as count')->groupBy('gender'))
                 ->pluck('count', 'gender'),
-            'by_breed' => PigManagement::selectRaw('breed, COUNT(*) as count')
-                ->groupBy('breed')
+            'by_breed' => $applyRange(PigManagement::selectRaw('breed, COUNT(*) as count')->groupBy('breed'))
                 ->pluck('count', 'breed'),
         ];
 
         // Recent Activity (last 30 days)
         $recentActivity = [
-            'new_pigs' => PigManagement::where('created_at', '>=', now()->subDays(30))->count(),
-            'weights_recorded' => PigWeight::where('created_at', '>=', now()->subDays(30))->count(),
-            'pigs_sold' => PigSale::where('created_at', '>=', now()->subDays(30))->count(),
-            'pigs_died' => PigDeath::where('created_at', '>=', now()->subDays(30))->count(),
-            'matings_planned' => Mating::where('created_at', '>=', now()->subDays(30))->count(),
+            'new_pigs' => $applyRange(PigManagement::query())->count(),
+            'weights_recorded' => $applyRange(PigWeight::query())->count(),
+            'pigs_sold' => $applyRange(PigSale::query())->count(),
+            'pigs_died' => $applyRange(PigDeath::query())->count(),
+            'matings_planned' => $applyRange(Mating::query())->count(),
         ];
 
         // Financial Overview
         $financialOverview = [
-            'total_revenue' => PigSale::sum('sale_price'),
-            'average_price_per_kg' => PigSale::avg('sale_price'),
-            'sales_by_month' => PigSale::selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, SUM(sale_price) as revenue, COUNT(*) as count')
+            'total_revenue' => $applyRange(PigSale::query())->sum('sale_price'),
+            'average_price_per_kg' => $applyRange(PigSale::query())->avg('sale_price'),
+            'sales_by_month' => $applyRange(PigSale::selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, SUM(sale_price) as revenue, COUNT(*) as count')
                 ->groupBy('month')
-                ->orderBy('month')
+                ->orderBy('month'))
                 ->get(),
         ];
 
         // Breeding Statistics
         $breedingStats = [
-            'total_matings' => Mating::count(),
-            'total_farrowings' => Farrowing::count(),
-            'total_weanings' => Weaning::count(),
-            'average_litter_size' => Farrowing::avg('total_piglets_born'),
-            'pregnancy_rate' => Mating::where('status', 'completed')->count() > 0 
-                ? (Farrowing::count() / Mating::where('status', 'completed')->count()) * 100 
+            'total_matings' => $applyRange(Mating::query())->count(),
+            'total_farrowings' => $applyRange(Farrowing::query())->count(),
+            'total_weanings' => $applyRange(Weaning::query())->count(),
+            'average_litter_size' => $applyRange(Farrowing::query())->avg('total_piglets_born'),
+            'pregnancy_rate' => $applyRange(Mating::where('status', 'completed'))->count() > 0 
+                ? ($applyRange(Farrowing::query())->count() / $applyRange(Mating::where('status', 'completed'))->count()) * 100 
                 : 0,
         ];
 
         // Health & Mortality
         $healthStats = [
-            'total_deaths' => PigDeath::count(),
-            'deaths_by_cause' => PigDeath::selectRaw('death_cause, COUNT(*) as count')
-                ->groupBy('death_cause')
+            'total_deaths' => $applyRange(PigDeath::query())->count(),
+            'deaths_by_cause' => $applyRange(PigDeath::selectRaw('death_cause, COUNT(*) as count')->groupBy('death_cause'))
                 ->pluck('count', 'death_cause'),
-            'mortality_rate' => PigManagement::count() > 0 
-                ? (PigDeath::count() / PigManagement::count()) * 100 
+            'mortality_rate' => $applyRange(PigManagement::query())->count() > 0 
+                ? ($applyRange(PigDeath::query())->count() / $applyRange(PigManagement::query())->count()) * 100 
                 : 0,
         ];
 
         // Weight Analytics
         $weightAnalytics = [
-            'average_weight' => PigWeight::avg('weight'),
-            'total_weight_records' => PigWeight::count(),
-            'weights_by_month' => PigWeight::selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, COUNT(*) as count, AVG(weight) as avg_weight')
+            'average_weight' => $applyRange(PigWeight::query())->avg('weight'),
+            'total_weight_records' => $applyRange(PigWeight::query())->count(),
+            'weights_by_month' => $applyRange(PigWeight::selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, COUNT(*) as count, AVG(weight) as avg_weight')
                 ->groupBy('month')
-                ->orderBy('month')
+                ->orderBy('month'))
                 ->get(),
         ];
 
         // Structure & Room Utilization
         $structureStats = [
-            'structures_by_status' => Structure::selectRaw('status, COUNT(*) as count')
-                ->groupBy('status')
-                ->pluck('count', 'status'),
-            'room_utilization' => Room::withCount('pigs')->get(),
+            // Provide list of structures with identifiers for tab filtering
+            'structures_by_status' => Structure::select('id', 'name', 'status')->orderBy('name')->get(),
+            'room_utilization' => Room::withCount('pigs')->with('structure')->get(),
             'detailed_structures' => Structure::withCount('rooms')->get(),
         ];
 

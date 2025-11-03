@@ -887,5 +887,15 @@ class PigManagement extends Model
         return $this->hasMany(Litter::class, 'sow_id');
     }
 
+    public function healthRecords(): HasMany
+    {
+        return $this->hasMany(HealthRecord::class, 'pig_id');
+    }
+
+    public function medicationAdministrations(): HasMany
+    {
+        return $this->hasMany(MedicationAdministration::class, 'pig_id');
+    }
+
     
 }

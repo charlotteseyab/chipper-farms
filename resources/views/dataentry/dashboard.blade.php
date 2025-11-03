@@ -27,7 +27,18 @@
             <!-- Key Metrics Cards -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
                 @php
-                    $totalPigs = \App\Models\PigManagement::active()->count();
+                    // Enhanced pig counting including piglets
+                    $weanedPigs = \App\Models\PigManagement::active()->count();
+                    $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+                    $recentFarrowings = \App\Models\Farrowing::with('pigletDeaths')
+                        ->where('farrowing_date', '>=', now()->subDays($weaningAge))
+                        ->where('status', 'active')
+                        ->get();
+                    $pigletsCount = 0;
+                    foreach ($recentFarrowings as $f) {
+                        $pigletsCount += max(0, (int)($f->live_births ?? 0) - (int)$f->pigletDeaths->sum('count'));
+                    }
+                    $totalPigs = $weanedPigs + $pigletsCount;
                     $todayWeights = \App\Models\PigWeight::whereDate('created_at', today())->count();
                     $pendingWeighing = \App\Models\PigManagement::active()->whereDoesntHave('weights', function($query) {
                         $query->where('weigh_date', '>=', now()->subDays(7));
@@ -51,8 +62,8 @@
                 <a href="{{ route('all-stocks.index') }}" class="block bg-gradient-to-br from-green-500 to-green-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:scale-105">
                     <div class="flex items-center justify-between">
                         <div>
-                            <p class="text-green-100 text-sm font-medium">Total Active Pigs</p>
-                            <p class="text-3xl font-bold">{{ number_format($totalPigs) }}</p>
+                            <p class="text-green-100 text-sm font-medium">Total Pigs</p>
+                            <p class="text-3xl font-bold">{{ number_format($totalPigs) }} • {{ number_format($pigletsCount) }} piglets</p>
                         </div>
                         <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

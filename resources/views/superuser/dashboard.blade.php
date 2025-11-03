@@ -46,7 +46,13 @@
                             <p class="text-blue-100 text-sm font-medium">Data Completeness</p>
                             <p class="text-2xl font-bold">
                                 @php
-                                    $totalPigs = \App\Models\PigManagement::count();
+                                    // Use enhanced pig counting for data completeness calculation
+                                    $weanedPigs = \App\Models\PigManagement::count();
+                                    $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+                                    $pigletsCount = \App\Models\Farrowing::where('farrowing_date', '>=', now()->subDays($weaningAge))
+                                        ->where('status', 'active')
+                                        ->sum('live_births');
+                                    $totalPigs = $weanedPigs + $pigletsCount;
                                     $pigsWithWeights = \App\Models\PigManagement::whereHas('weights')->count();
                                     $dataCompleteness = $totalPigs > 0 ? round(($pigsWithWeights / $totalPigs) * 100) : 0;
                                 @endphp
@@ -96,7 +102,13 @@
                                     // Calculate system health based on real metrics
                                     $criticalAlerts = \App\Models\WeightAlert::where('severity', 'high')->where('acknowledged', false)->count();
                                     $totalAlerts = \App\Models\WeightAlert::where('acknowledged', false)->count();
-                                    $totalPigs = \App\Models\PigManagement::count();
+                                    // Use enhanced pig counting for system health calculation
+                                    $weanedPigs = \App\Models\PigManagement::count();
+                                    $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+                                    $pigletsCount = \App\Models\Farrowing::where('farrowing_date', '>=', now()->subDays($weaningAge))
+                                        ->where('status', 'active')
+                                        ->sum('live_births');
+                                    $totalPigs = $weanedPigs + $pigletsCount;
                                     $pigsWithRecentWeights = \App\Models\PigManagement::whereHas('weights', function($query) {
                                         $query->where('created_at', '>=', now()->subDays(30));
                                     })->count();
@@ -232,7 +244,19 @@
                     <div class="space-y-4">
                         @php
                             // Calculate real farm metrics from database
-                            $totalPigs = \App\Models\PigManagement::count();
+                            // Use enhanced pig counting for performance metrics
+                            // Weaned pigs = active pigs (exclude deceased/sold)
+                            $weanedPigs = \App\Models\PigManagement::active()->count();
+                            $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+                            $recentFarrowings = \App\Models\Farrowing::with('pigletDeaths')
+                                ->where('farrowing_date', '>=', now()->subDays($weaningAge))
+                                ->where('status', 'active')
+                                ->get();
+                            $pigletsCount = 0;
+                            foreach ($recentFarrowings as $f) {
+                                $pigletsCount += max(0, (int)($f->live_births ?? 0) - (int)$f->pigletDeaths->sum('count'));
+                            }
+                            $totalPigs = $weanedPigs + $pigletsCount;
                             $breedingStock = \App\Models\PigManagement::where('stock_type', 'breeding')->count();
                             $totalWeights = \App\Models\PigWeight::count();
                             $recentWeights = \App\Models\PigWeight::where('created_at', '>=', now()->subDays(30))->count();
@@ -308,8 +332,16 @@
                     <h3 class="text-lg font-semibold text-gray-900 mb-4">📊 Quick Stats</h3>
                     <div class="space-y-4">
                         @php
+                            // Enhanced pig counting including piglets
+                            $weanedPigs = \App\Models\PigManagement::count();
+                            $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+                            $pigletsCount = \App\Models\Farrowing::where('farrowing_date', '>=', now()->subDays($weaningAge))
+                                ->where('status', 'active')
+                                ->sum('live_births');
+                            $totalPigs = $weanedPigs + $pigletsCount;
+                            
                             $quickStats = [
-                                ['label' => 'Total Pigs', 'value' => \App\Models\PigManagement::count(), 'icon' => 'users'],
+                                ['label' => 'Total Pigs', 'value' => $totalPigs, 'icon' => 'users', 'subtitle' => $weanedPigs . ' weaned • ' . $pigletsCount . ' piglets'],
                                 ['label' => 'Weight Records', 'value' => \App\Models\PigWeight::count(), 'icon' => 'scale'],
                                 ['label' => 'Active Breeding', 'value' => \App\Models\PigManagement::where('stock_type', 'breeding')->count(), 'icon' => 'heart'],
                                 ['label' => 'Monthly Revenue', 'value' => '₵' . number_format(\App\Models\PigManagement::whereMonth('created_at', now()->month)->count() * 500), 'icon' => 'dollar']
@@ -338,7 +370,12 @@
                                             </svg>
                                         @endif
                                     </div>
-                                    <span class="text-sm text-gray-600">{{ $stat['label'] }}</span>
+                                    <div>
+                                        <span class="text-sm text-gray-600">{{ $stat['label'] }}</span>
+                                        @if(isset($stat['subtitle']))
+                                            <p class="text-xs text-gray-500">{{ $stat['subtitle'] }}</p>
+                                        @endif
+                                    </div>
                                 </div>
                                 <span class="text-sm font-medium text-gray-900">{{ $stat['value'] }}</span>
                             </div>

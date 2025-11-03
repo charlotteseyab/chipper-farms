@@ -46,7 +46,7 @@
                     </svg>
                 </div>
                 <div class="ml-3">
-                    <p class="text-xs font-medium text-gray-600">Avg Litter Size</p>
+            <p class="text-xs font-medium text-gray-600">Avg Litter Size</p>
                     <p class="text-xl font-semibold text-gray-900">
                         @if($stats['average_litter_size'])
                             {{ number_format($stats['average_litter_size'], 1) }}
@@ -133,7 +133,7 @@
                 <p class="text-sm text-gray-600 mt-1">Complete birth and farrowing history</p>
             </div>
             <!-- Search Box (Top Right) -->
-            <div class="w-full sm:w-64">
+            <!-- <div class="w-full sm:w-64">
                 <label for="farrowing-search" class="sr-only">Search</label>
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -143,7 +143,7 @@
                     </div>
                     <input type="text" id="farrowing-search" onkeyup="filterFarrowingTable()" class="block w-full pl-10 pr-4 py-2 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Search sow, date, type...">
                 </div>
-            </div>
+            </div> -->
             <!-- End Search Box -->
         </div>
 
@@ -188,8 +188,11 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                     <div class="space-y-1">
                                         <div class="flex items-center space-x-2">
-                                            <span class="text-green-600 font-medium">{{ $farrowing->live_births }}</span>
+                                            <span class="text-green-600 font-medium">{{ $farrowing->current_litter_size }}</span>
                                             <span class="text-gray-400">live</span>
+                                            @if($farrowing->total_piglet_deaths > 0)
+                                                <span class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">-{{ $farrowing->total_piglet_deaths }}</span>
+                                            @endif
                                         </div>
                                         @if($farrowing->stillbirths > 0)
                                             <div class="flex items-center space-x-2">
@@ -198,7 +201,7 @@
                                             </div>
                                         @endif
                                         <div class="text-xs text-gray-500">
-                                            {{ $farrowing->survival_rate }}% survival
+                                            {{ number_format(($farrowing->total_piglets_born > 0) ? ($farrowing->current_litter_size / $farrowing->total_piglets_born) * 100 : 0, 1) }}% survival
                                         </div>
                                     </div>
                                 </td>
@@ -218,13 +221,57 @@
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <div class="flex items-center space-x-3">
-                                        <a href="{{ route('farrowing.show', $farrowing->id) }}" class="text-blue-600 hover:text-blue-900">
-                                            View Details
-                                        </a>
-                                        <a href="{{ route('farrowing.edit', $farrowing->id) }}" class="text-green-600 hover:text-green-900">
-                                            Edit
-                                        </a>
+                                    <div x-data="{ open: false }">
+                                        <div class="flex items-center space-x-3">
+                                            <a href="{{ route('farrowing.show', $farrowing->id) }}" class="text-blue-600 hover:text-blue-900">
+                                                View Details
+                                            </a>
+                                            <a href="{{ route('farrowing.edit', $farrowing->id) }}" class="text-green-600 hover:text-green-900">
+                                                Edit
+                                            </a>
+                                            <button type="button" @click="open = true" class="text-red-600 hover:text-red-800">
+                                                Record Piglet Death
+                                            </button>
+                                        </div>
+
+                                        <!-- Modal -->
+                                        <div x-cloak x-show="open" class="fixed inset-0 z-50 flex items-center justify-center">
+                                        <!-- Backdrop -->
+                                            <div class="absolute inset-0 bg-black bg-opacity-40" @click="open = false"></div>
+                                        <!-- Dialog -->
+                                            <div class="relative bg-white rounded-lg shadow-lg w-full max-w-lg mx-4">
+                                                <div class="px-5 py-4 border-b flex items-center justify-between">
+                                                    <h3 class="text-sm font-semibold text-gray-900">Record Piglet Death</h3>
+                                                    <button type="button" class="text-gray-400 hover:text-gray-600" @click="open = false">✕</button>
+                                                </div>
+                                                <div class="p-5">
+                                                    <form method="POST" action="{{ route('farrowing.piglet-deaths.record', $farrowing) }}" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        @csrf
+                                                        <div>
+                                                            <label class="block text-xs text-gray-600">Date</label>
+                                                            <input type="date" name="death_date" class="mt-1 block w-full rounded-md border-gray-300 focus:border-red-500 focus:ring-red-500" required>
+                                                        </div>
+                                                        <div>
+                                                            <label class="block text-xs text-gray-600">Count</label>
+                                                            <input type="number" min="1" name="count" class="mt-1 block w-full rounded-md border-gray-300 focus:border-red-500 focus:ring-red-500" value="1" required>
+                                                        </div>
+                                                        <div class="md:col-span-2">
+                                                            <label class="block text-xs text-gray-600">Cause (optional)</label>
+                                                            <input type="text" name="cause" class="mt-1 block w-full rounded-md border-gray-300 focus:border-red-500 focus:ring-red-500" placeholder="e.g., crushing">
+                                                        </div>
+                                                        <div class="md:col-span-2">
+                                                            <label class="block text-xs text-gray-600">Notes (optional)</label>
+                                                            <textarea name="notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 focus:border-red-500 focus:ring-red-500" placeholder="Additional details"></textarea>
+                                                        </div>
+                                                        <div class="md:col-span-2 flex items-center justify-end space-x-2">
+                                                            <button type="button" @click="open = false" class="px-3 py-1.5 rounded-md border text-xs text-gray-700 hover:bg-gray-50">Cancel</button>
+                                                            <button type="submit" class="px-3 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-700 text-xs">Save</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <!-- End Modal -->
                                     </div>
                                 </td>
                             </tr>

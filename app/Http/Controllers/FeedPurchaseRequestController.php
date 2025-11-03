@@ -4,7 +4,11 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\FeedPurchaseRequest;
+use App\Models\User;
+use App\Notifications\FeedPurchaseRequestNotificationImmediate;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Log;
 
 class FeedPurchaseRequestController extends Controller
 {
@@ -49,7 +53,53 @@ class FeedPurchaseRequestController extends Controller
 
         $data['requested_by'] = Auth::id();
         $data['status'] = 'pending';
-        FeedPurchaseRequest::create($data);
+        $request = FeedPurchaseRequest::create($data);
+
+        // Notify admins and superusers about new purchase request AFTER COMMIT with a per-user lock
+        Log::info('[FPR] Created request', ['request_id' => $request->id, 'requested_by' => $data['requested_by']]);
+        \DB::afterCommit(function() use ($request) {
+            // Notify only admins for new requests; superuser will see all via UI aggregation
+            $admins = User::whereHas('role', function($query) {
+                $query->where('name', 'admin');
+            })->get();
+            Log::info('[FPR] After commit - dispatching notifications', ['request_id' => $request->id, 'admin_count' => $admins->count()]);
+            foreach ($admins as $admin) {
+                // Acquire a short-lived lock to prevent rapid duplicate sends
+                $lockKey = 'notify:fpr:new:'.$admin->id.':'.$request->id;
+                $lock = \Cache::lock($lockKey, 10);
+                if ($lock->get()) {
+                    try {
+                        $alreadySent = \DB::table('notifications')
+                            ->where('notifiable_id', $admin->id)
+                            ->where('type', 'like', 'App\\Notifications\\FeedPurchaseRequestNotification%')
+                            ->where(function($q) use ($request) {
+                                // Handle JSON stored as number or string; also include a LIKE fallback
+                                $q->whereJsonContains('data->request_id', (int) $request->id)
+                                  ->orWhereJsonContains('data->request_id', (string) $request->id)
+                                  ->orWhere('data', 'like', '%"request_id":'.((int)$request->id).'%')
+                                  ->orWhere('data', 'like', '%"request_id":"'.((string)$request->id).'"%');
+                            })
+                            ->exists();
+                        Log::info('[FPR] Notify check', [
+                            'request_id' => $request->id,
+                            'admin_id' => $admin->id,
+                            'already_sent' => $alreadySent,
+                            'lock_key' => $lockKey,
+                        ]);
+                        if (!$alreadySent) {
+                            $admin->notify(new FeedPurchaseRequestNotificationImmediate($request, 'new'));
+                            Log::info('[FPR] Notification sent', ['request_id' => $request->id, 'admin_id' => $admin->id]);
+                        }
+                    } finally {
+                        optional($lock)->release();
+                        Log::info('[FPR] Lock released', ['lock_key' => $lockKey]);
+                    }
+                } else {
+                    Log::warning('[FPR] Could not acquire lock - possible duplicate prevented', ['lock_key' => $lockKey]);
+                }
+            }
+        });
+        
         return redirect()->route('feed-purchase-requests.index')->with('success', 'Procurement request submitted!');
     }
 
@@ -73,6 +123,10 @@ class FeedPurchaseRequestController extends Controller
             'decided_by' => Auth::id(),
             'decided_at' => now(),
         ]);
+        
+        // Notify the requester about approval
+        $request->requestedBy->notify(new FeedPurchaseRequestNotificationImmediate($request, 'approved'));
+        
         return back()->with('success', 'Request approved.');
     }
 
@@ -89,6 +143,10 @@ class FeedPurchaseRequestController extends Controller
             'decided_by' => Auth::id(),
             'decided_at' => now(),
         ]);
+        
+        // Notify the requester about rejection
+        $request->requestedBy->notify(new FeedPurchaseRequestNotificationImmediate($request, 'rejected'));
+        
         return back()->with('success', 'Request rejected.');
     }
 }

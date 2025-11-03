@@ -11,22 +11,38 @@
                             <p class="text-gray-600 mt-1">Complete overview of your farm management system</p>
                         </div>
                         <div class="flex space-x-3">
-                            <a href="{{ route('settings.reports.export.pdf') }}" 
+                            <a href="{{ route('settings.reports.export.pdf', request()->query()) }}" 
                                class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-700 focus:bg-red-700 active:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition ease-in-out duration-150">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                 </svg>
                                 Export PDF
                             </a>
-                            <a href="{{ route('settings.reports.export.csv') }}" 
+                            <!-- <a href="{{ route('settings.reports.export.csv', request()->query()) }}" 
                                class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 focus:bg-green-700 active:bg-green-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition ease-in-out duration-150">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                 </svg>
                                 Export CSV
-                            </a>
+                            </a> -->
                         </div>
                     </div>
+                    <form method="GET" class="mt-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">From</label>
+                                <input type="date" name="from" value="{{ request('from') }}" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">To</label>
+                                <input type="date" name="to" value="{{ request('to') }}" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div class="flex items-end space-x-2">
+                                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Apply</button>
+                                <a href="{{ route('settings.reports') }}" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Reset</a>
+                            </div>
+                        </div>
+                    </form>
                 </div>
             </div>
 
@@ -325,15 +341,26 @@
                 <div class="p-6">
                     <h3 class="text-lg font-bold text-gray-900 mb-4">Structure & Room Utilization</h3>
                     
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    @php $firstStructureId = optional($structureStats['structures_by_status']->first())->id; @endphp
+                    <div x-data="{ selectedStructureId: {{ $firstStructureId ?? 'null' }} }" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div>
                             <h4 class="text-sm font-medium text-gray-700 mb-3">Structures by Status</h4>
-                            <div class="space-y-2">
-                                @foreach($structureStats['structures_by_status'] as $status => $count)
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-sm text-gray-600 capitalize">{{ str_replace('_', ' ', $status) }}</span>
-                                        <span class="text-sm font-semibold text-gray-900">{{ number_format($count) }}</span>
-                                    </div>
+                            <div class="space-y-2 max-h-40 overflow-y-auto">
+                                @foreach($structureStats['structures_by_status'] as $structure)
+                                    <button type="button" @click="selectedStructureId = {{ $structure->id }}"
+                                        class="w-full flex justify-between items-center px-3 py-2 rounded-md text-left transition"
+                                        :class="selectedStructureId === {{ $structure->id }} ? 'bg-blue-50' : 'hover:bg-gray-50'">
+                                        <span class="text-sm text-gray-700" :class="selectedStructureId === {{ $structure->id }} ? 'font-semibold text-blue-900' : ''">{{ $structure->name }}</span>
+                                        <span class="text-xs inline-flex items-center px-2.5 py-0.5 rounded-full font-medium 
+                                            {{ match($structure->status) {
+                                                'active' => 'bg-green-100 text-green-800',
+                                                'inactive' => 'bg-gray-100 text-gray-800',
+                                                'under_maintenance' => 'bg-yellow-100 text-yellow-800',
+                                                default => 'bg-gray-100 text-gray-800'
+                                            } }}">
+                                            {{ ucfirst(str_replace('_', ' ', $structure->status)) }}
+                                        </span>
+                                    </button>
                                 @endforeach
                             </div>
                         </div>
@@ -341,16 +368,14 @@
                         <div>
                             <h4 class="text-sm font-medium text-gray-700 mb-3">Room Utilization</h4>
                             <div class="space-y-2 max-h-40 overflow-y-auto">
-                                @foreach($structureStats['room_utilization']->take(10) as $room)
-                                    <div class="flex justify-between items-center">
+                                @foreach($structureStats['room_utilization'] as $room)
+                                    <div class="flex justify-between items-center" x-show="selectedStructureId === {{ (int)optional($room->structure)->id }}">
                                         <span class="text-sm text-gray-600">{{ $room->name }}</span>
                                         <span class="text-sm font-semibold text-gray-900">{{ $room->pigs_count }} pigs</span>
                                     </div>
                                 @endforeach
-                                @if($structureStats['room_utilization']->count() > 10)
-                                    <div class="text-xs text-gray-500 text-center">
-                                        ... and {{ $structureStats['room_utilization']->count() - 10 }} more rooms
-                                    </div>
+                                @if($structureStats['room_utilization']->isEmpty())
+                                    <div class="text-xs text-gray-500 text-center">No rooms found.</div>
                                 @endif
                             </div>
                         </div>

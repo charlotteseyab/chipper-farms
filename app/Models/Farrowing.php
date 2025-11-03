@@ -64,6 +64,28 @@ class Farrowing extends Model
         return $this->belongsTo(User::class, 'recorded_by');
     }
 
+    public function pigletDeaths()
+    {
+        return $this->hasMany(PigletDeath::class);
+    }
+
+    public function getNetLivePigletsAttribute(): int
+    {
+        $deaths = $this->pigletDeaths()->sum('count');
+        return max(0, (int)($this->live_births ?? 0) - (int)$deaths);
+    }
+
+    public function getTotalPigletDeathsAttribute(): int
+    {
+        return (int) $this->pigletDeaths()->sum('count');
+    }
+
+    public function getCurrentLitterSizeAttribute(): int
+    {
+        // Alias for clarity in views
+        return $this->net_live_piglets;
+    }
+
     // Scopes
     public function scopeThisMonth($query)
     {

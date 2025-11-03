@@ -1993,13 +1993,16 @@ class PigManagementController extends Controller {
             'sale_date' => 'required|date|before_or_equal:today',
             'sale_weight' => 'required|numeric|min:0',
             'weight_type' => 'required|in:live,carcass',
-            'buyer_name' => 'required|string|max:255',
+            // Buyer info should not be required
+            'buyer_name' => 'nullable|string|max:255',
             'buyer_contact' => 'nullable|string|max:255',
             'buyer_address' => 'nullable|string|max:1000',
             'sale_purpose' => 'required|in:market,breeding,slaughter,export,other',
-            'sale_purpose_other' => 'required_if:sale_purpose,other|string|max:255',
+            // Allow null unless 'other' is chosen
+            'sale_purpose_other' => 'nullable|required_if:sale_purpose,other|string|max:255',
             'payment_method' => 'nullable|in:cash,check,bank_transfer,mobile_money,other',
-            'payment_method_other' => 'required_if:payment_method,other|string|max:255',
+            // Allow null unless 'other' is chosen
+            'payment_method_other' => 'nullable|required_if:payment_method,other|string|max:255',
             'payment_status' => 'required|in:pending,paid,partial',
             'notes' => 'nullable|string|max:1000',
             'sold_by' => 'nullable|string|max:255',
@@ -2009,6 +2012,11 @@ class PigManagementController extends Controller {
 
         $data['pig_id'] = $pig->id;
         $data['sold_by'] = auth()->user()->name; // Set the current user as the person who sold the pig
+
+        // Convert sale weight from pounds (input) to kilograms (storage & pricing)
+        if (isset($data['sale_weight'])) {
+            $data['sale_weight'] = round($data['sale_weight'] / 2.20462, 2);
+        }
 
         // Set price rate based on weight type
         if ($data['weight_type'] === 'live') {
@@ -2023,6 +2031,11 @@ class PigManagementController extends Controller {
         }
         if (isset($data['payment_method']) && $data['payment_method'] === 'other') {
             $data['payment_method'] = $data['payment_method_other'];
+        }
+
+        // Ensure non-nullable DB columns get safe defaults when fields are optional
+        if (!isset($data['buyer_name']) || $data['buyer_name'] === null) {
+            $data['buyer_name'] = '';
         }
 
         // Create sale record
@@ -2236,19 +2249,21 @@ class PigManagementController extends Controller {
         $data = $request->validate([
             'death_date' => 'required|date|before_or_equal:today',
             'death_cause' => 'required|in:disease,accident,natural,stillbirth,crushing,starvation,hypothermia,dehydration,congenital,unknown,other',
-            'death_cause_other' => 'required_if:death_cause,other|string|max:255',
+            // Allow null unless 'other' is chosen
+            'death_cause_other' => 'nullable|required_if:death_cause,other|string|max:255',
             'final_weight' => 'nullable|numeric|min:0|max:1000',
             'death_location' => 'nullable|string|max:255',
             'veterinary_notes' => 'nullable|string|max:2000',
-            'disposal_method' => 'required|in:burial,incineration,rendering,other',
-            'disposal_method_other' => 'required_if:disposal_method,other|string|max:255',
+            'disposal_method' => 'required|in:burial,incineration,rendering,donation,disposal,other',
+            // Allow null unless 'other' is chosen
+            'disposal_method_other' => 'nullable|required_if:disposal_method,other|string|max:255',
             'disposal_date' => 'nullable|date|after_or_equal:death_date',
             'death_notes' => 'nullable|string|max:2000',
         ]);
 
         // Handle "other" values
-        $deathCause = $data['death_cause'] === 'other' ? $data['death_cause_other'] : $data['death_cause'];
-        $disposalMethod = $data['disposal_method'] === 'other' ? $data['disposal_method_other'] : $data['disposal_method'];
+        $deathCause = $data['death_cause'] === 'other' ? trim($data['death_cause_other'] ?? '') : $data['death_cause'];
+        $disposalMethod = $data['disposal_method'] === 'other' ? trim($data['disposal_method_other'] ?? '') : $data['disposal_method'];
 
         // Create death record with pig relationship loaded for age calculation
         $death = new \App\Models\PigDeath([
@@ -2294,7 +2309,7 @@ class PigManagementController extends Controller {
         $deaths = $adultQuery->orderBy('death_date', 'desc')->paginate(10);
         $deaths->appends($request->query());
 
-        // Piglet deaths (pigs under 60 days old)
+        // Piglet deaths (pigs under 60 days old) recorded against pigs
         $pigletQuery = \App\Models\PigDeath::with(['pig'])
             ->whereHas('pig', function($q) {
                 $q->whereRaw('DATEDIFF(death_date, date_of_birth) < 60');
@@ -2315,13 +2330,24 @@ class PigManagementController extends Controller {
         $pigletDeaths = $pigletQuery->orderBy('death_date', 'desc')->paginate(10);
         $pigletDeaths->appends($request->query());
 
+        // Piglet death events recorded via Farrowing (PigletDeath model)
+        $pigletDeathEventsQuery = \App\Models\PigletDeath::with(['farrowing.sow']);
+        if ($request->date_from) {
+            $pigletDeathEventsQuery->where('death_date', '>=', $request->date_from);
+        }
+        if ($request->date_to) {
+            $pigletDeathEventsQuery->where('death_date', '<=', $request->date_to);
+        }
+        $pigletDeathEvents = $pigletDeathEventsQuery->orderBy('death_date', 'desc')->paginate(10);
+        $pigletDeathEvents->appends($request->query());
+
         // Enhanced stats
         $stats = [
-            'total_deaths' => \App\Models\PigDeath::count(),
+            'total_deaths' => \App\Models\PigDeath::count() + (int) \App\Models\PigletDeath::sum('count'),
             'recent_deaths' => \App\Models\PigDeath::recent(30)->count(),
             'total_piglet_deaths' => \App\Models\PigDeath::whereHas('pig', function($q) {
                 $q->whereRaw('DATEDIFF(death_date, date_of_birth) < 60');
-            })->count(),
+            })->count() + (int) \App\Models\PigletDeath::sum('count'),
             'recent_piglet_deaths' => \App\Models\PigDeath::recent(30)->whereHas('pig', function($q) {
                 $q->whereRaw('DATEDIFF(death_date, date_of_birth) < 60');
             })->count(),
@@ -2333,7 +2359,7 @@ class PigManagementController extends Controller {
             })->count(),
         ];
 
-        return view('deaths.index', compact('deaths', 'pigletDeaths', 'stats'));
+        return view('deaths.index', compact('deaths', 'pigletDeaths', 'pigletDeathEvents', 'stats'));
     }
 
     public function deathShow($id)

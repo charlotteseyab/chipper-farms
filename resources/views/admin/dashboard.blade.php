@@ -13,10 +13,25 @@
                     $totalUsers = \App\Models\User::where('role_id', '!=', '4')->count();                    $activeUsers = \App\Models\User::where('created_at', '>=', now()->subDays(30))->count();
                     $criticalAlerts = \App\Models\WeightAlert::where('severity', 'high')->where('acknowledged', false)->count();
                     $totalAlerts = \App\Models\WeightAlert::where('acknowledged', false)->count();
-                    $totalPigs = \App\Models\PigManagement::count();
+                    
+                    // Enhanced pig counting including piglets
+                    // Weaned pigs = active pigs only (exclude deceased/sold)
+                    $weanedPigs = \App\Models\PigManagement::active()->count();
+                    $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+                    // Piglets = sum of net live piglets (live_births - piglet death counts) for active, recent litters
+                    $recentFarrowings = \App\Models\Farrowing::with('pigletDeaths')
+                        ->where('farrowing_date', '>=', now()->subDays($weaningAge))
+                        ->where('status', 'active')
+                        ->get();
+                    $pigletsCount = 0;
+                    foreach ($recentFarrowings as $f) {
+                        $pigletsCount += max(0, (int)($f->live_births ?? 0) - (int)$f->pigletDeaths->sum('count'));
+                    }
+                    $totalPigs = $weanedPigs + $pigletsCount;
+                    
                     $totalWeights = \App\Models\PigWeight::count();
                     $totalSales = \App\Models\PigSale::count();
-                    $totalDeaths = \App\Models\PigDeath::count();
+                    $totalDeaths = \App\Models\PigDeath::count() + (int) \App\Models\PigletDeath::sum('count');
                     $activePigs = \App\Models\PigManagement::active()->count();
                     $deceasedPigs = \App\Models\PigManagement::deceased()->count();
                     $soldPigs = \App\Models\PigManagement::sold()->count();
@@ -48,7 +63,7 @@
         <div>
             <p class="text-green-100 text-sm font-medium">Total Pigs</p>
             <p class="text-3xl font-bold">{{ number_format($totalPigs) }}</p>
-            <p class="text-green-100 text-xs mt-1">{{ \App\Models\PigManagement::where('gender', 'M')->count() }} males • {{ \App\Models\PigManagement::where('gender', 'F')->count() }} females</p>
+            <p class="text-green-100 text-xs mt-1">{{ \App\Models\PigManagement::active()->where('gender', 'M')->count() }} males • {{ \App\Models\PigManagement::active()->where('gender', 'F')->count() }} females • {{ number_format($pigletsCount) }} piglets</p>
         </div>
         <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
             <i class="fas fa-piggy-bank text-2xl"></i>
@@ -62,7 +77,12 @@
                         <div>
                             <p class="text-purple-100 text-sm font-medium">Total Sales</p>
                             <p class="text-3xl font-bold">{{ number_format($totalSales) }}</p>
-                            <p class="text-purple-100 text-xs mt-1">Sales recorded(No)</p>
+                            <p class="text-purple-100 text-xs mt-1">Sales recorded (No)</p>
+                            @php
+                                $maleSales = \App\Models\PigSale::whereHas('pig', function($q){ $q->where('gender','M'); })->count();
+                                $femaleSales = \App\Models\PigSale::whereHas('pig', function($q){ $q->where('gender','F'); })->count();
+                            @endphp
+                            <p class="text-purple-100 text-xs mt-1">{{ number_format($maleSales) }} males • {{ number_format($femaleSales) }} females</p>
                         </div>
                         <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -79,7 +99,9 @@
                         <div>
                             <p class="text-red-100 text-sm font-medium">Death Records</p>
                             <p class="text-3xl font-bold">{{ number_format($totalDeaths) }}</p>
-                            <p class="text-red-100 text-xs mt-1">Deaths recorded</p>
+                            <p class="text-red-100 text-xs mt-1">
+                                {{ number_format(\App\Models\PigDeath::count()) }} pigs • {{ number_format((int) \App\Models\PigletDeath::sum('count')) }} piglets
+                            </p>
                         </div>
                         <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

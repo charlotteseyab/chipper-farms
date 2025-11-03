@@ -21,7 +21,32 @@
                                 @else
                                     Rooms: {{ $structure->current_room_count }} (Unlimited capacity)
                                 @endif
+                                <span class="ml-4 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                    {{ $structure->total_pigs }} Total Pigs
+                                </span>
+                                <span class="ml-2 text-xs text-gray-500">
+                                    ({{ $structure->rooms->sum(function($room) { return $room->pigs->count(); }) }} weaned + 
+                                    @php
+                                        $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+                                        $pigletsCount = 0;
+                                        foreach ($structure->rooms as $room) {
+                                            foreach ($room->pigs as $sow) {
+                                                foreach ($sow->farrowingsAsSow as $farrowing) {
+                                                    if ($farrowing->farrowing_date >= now()->subDays($weaningAge) && $farrowing->status === 'active') {
+                                                        $pigletsCount += $farrowing->live_births;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        echo $pigletsCount;
+                                    @endphp
+                                     piglets)
+                                </span>
                             </span>
+                            
                         </div>
                     </div>
                     <div class="space-x-2">
@@ -41,7 +66,31 @@
             <!-- Rooms -->
             <div class="bg-white rounded-lg shadow-sm border border-gray-200">
                 <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                    <h2 class="text-lg font-semibold text-gray-900">Rooms</h2>
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-900">Rooms</h2>
+                        <p class="text-sm text-gray-600 mt-1">
+                            Total pigs across all rooms: 
+                            <span class="font-semibold text-blue-600">{{ $structure->total_pigs }}</span>
+                            <span class="text-gray-500">
+                                ({{ $structure->rooms->sum(function($room) { return $room->pigs->count(); }) }} weaned + 
+                                @php
+                                    $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+                                    $pigletsCount = 0;
+                                    foreach ($structure->rooms as $room) {
+                                        foreach ($room->pigs as $sow) {
+                                            foreach ($sow->farrowingsAsSow as $farrowing) {
+                                                if ($farrowing->farrowing_date >= now()->subDays($weaningAge) && $farrowing->status === 'active') {
+                                                    $pigletsCount += $farrowing->live_births;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    echo $pigletsCount;
+                                @endphp
+                                 piglets)
+                            </span>
+                        </p>
+                    </div>
                 </div>
                 <div class="p-6">
                     <form method="POST" action="{{ route('structures.rooms.store', $structure) }}" class="grid grid-cols-1 md:grid-cols-5 gap-3 mb-6">

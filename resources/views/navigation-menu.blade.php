@@ -22,8 +22,15 @@
                 <!-- Notifications Bell -->
                 @auth
                 @php
-                    $unreadCount = \Illuminate\Notifications\DatabaseNotification::whereNull('read_at')->count();
-                    $recentNotifications = \Illuminate\Notifications\DatabaseNotification::latest()->limit(7)->get();
+                    $user = auth()->user();
+                    $isSuperuser = $user && optional($user->role)->name === 'superuser';
+                    if ($isSuperuser) {
+                        $unreadCount = \Illuminate\Notifications\DatabaseNotification::whereNull('read_at')->count();
+                        $recentNotifications = \Illuminate\Notifications\DatabaseNotification::latest()->limit(7)->get();
+                    } else {
+                        $unreadCount = $user ? $user->unreadNotifications()->count() : 0;
+                        $recentNotifications = $user ? $user->notifications()->latest()->limit(7)->get() : collect();
+                    }
                 @endphp
                 <div class="mr-4 relative" x-data="{ openBell: false }" @click.outside="openBell = false">
                     <button type="button" @click="openBell = !openBell" class="relative inline-flex items-center text-gray-500 hover:text-gray-700 focus:outline-none">
@@ -53,7 +60,13 @@
                                     <a href="{{ $data['link'] ?? route('notifications.index') }}" class="block">
                                         <div class="text-sm text-gray-700">
                                             <span class="font-medium">{{ ucfirst(str_replace('_',' ', $data['type'] ?? 'notification')) }}</span>
-                                            • Pig {{ $data['ear_tag'] ?? 'N/A' }}
+                                            @if(isset($data['ear_tag']))
+                                                • Pig {{ $data['ear_tag'] }}
+                                            @elseif(isset($data['item_name']))
+                                                • {{ $data['item_name'] }} ({{ $data['quantity'] ?? '' }})
+                                            @elseif(isset($data['feed_name']))
+                                                • {{ $data['feed_name'] }} ({{ $data['current_stock'] ?? '' }})
+                                            @endif
                                         </div>
                                         <div class="text-xs text-gray-500 mt-0.5">
                                             {{ $notification->created_at->diffForHumans() }}

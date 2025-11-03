@@ -134,7 +134,7 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $saleStatus['badge_class'] }}">
-                                    {{ $saleStatus['icon'] }} {{ ucfirst($saleStatus['status']) }}
+                                     {{ ucfirst($saleStatus['status']) }}
                                 </span>
                                 @if($saleStatus['sold'])
                                     <p class="text-xs text-gray-500 mt-1">{{ $saleStatus['sale_price'] }}</p>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Farrowing;
+use App\Models\PigletDeath;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB; // <-- REQUIRED for DATE_FORMAT
 
@@ -69,6 +70,22 @@ class FarrowingController extends Controller
         return view('farrowing.index', compact('farrowingRecords', 'stats'));
     }
 
+    public function recordPigletDeath(Request $request, Farrowing $farrowing)
+    {
+        $data = $request->validate([
+            'death_date' => 'required|date|before_or_equal:today',
+            'count' => 'required|integer|min:1',
+            'cause' => 'nullable|string|max:120',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+        $data['recorded_by'] = auth()->id();
+        $data['farrowing_id'] = $farrowing->id;
+
+        PigletDeath::create($data);
+
+        return back()->with('success', 'Piglet death recorded.');
+    }
+
     public function show(Farrowing $farrowing)
     {
         $farrowing->load(['sow', 'boar', 'recordedBy']);
@@ -126,8 +143,11 @@ class FarrowingController extends Controller
             'status' => 'required|in:active,inactive,archived',
         ]);
 
-        // Validate that live births + stillbirths = total piglets born
-        if (($data['live_births'] + $data['stillbirths']) !== $data['total_piglets_born']) {
+        // Validate that live births + stillbirths = total piglets born (cast to integers to avoid strict type mismatch)
+        $liveBirths = (int) ($data['live_births'] ?? 0);
+        $stillBirths = (int) ($data['stillbirths'] ?? 0);
+        $totalBorn = (int) ($data['total_piglets_born'] ?? 0);
+        if (($liveBirths + $stillBirths) !== $totalBorn) {
             return back()->withErrors([
                 'total_piglets_born' => 'Total piglets born must equal live births + stillbirths.'
             ])->withInput();

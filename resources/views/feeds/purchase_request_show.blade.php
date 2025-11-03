@@ -120,7 +120,7 @@
 
             @if($request->decision_reason)
                 <div class="mt-8 border-t pt-6">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Decision Reason</h3>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Reason for rejecting</h3>
                     <div class="p-4 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-700 italic">
                         {{ $request->decision_reason }}
                     </div>

@@ -130,7 +130,7 @@
             </div>
         </form>
 
-        <div class="mt-8 p-6 bg-indigo-50 border-2 border-indigo-200 rounded-xl shadow-lg space-y-3 hidden" id="feed-calc-card">
+        <!-- <div class="mt-8 p-6 bg-indigo-50 border-2 border-indigo-200 rounded-xl shadow-lg space-y-3 hidden" id="feed-calc-card">
             <h2 class="text-lg font-bold text-indigo-800 flex items-center">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                 Projected Feed Usage Calculator
@@ -155,7 +155,7 @@
             <div id="calc-result" class="mt-4 p-3 bg-indigo-100 rounded-lg text-sm text-indigo-800 font-medium border border-indigo-200">
                 Enter details and press calculate to see projections.
             </div>
-        </div>
+        </div> -->
     </div>
     <x-copyright-minimal />
     

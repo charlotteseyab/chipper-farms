@@ -134,7 +134,7 @@
                     <div class="space-y-3">
                         <div>
                             <span class="text-gray-500 text-sm block">Name:</span>
-                            <div class="text-gray-900 font-medium">{{ $sale->buyer_name }}</div>
+                            <div class="text-gray-900 font-medium">{{ $sale->buyer_name ?: 'N/A' }}</div>
                         </div>
                         @if($sale->buyer_contact)
                             <div>

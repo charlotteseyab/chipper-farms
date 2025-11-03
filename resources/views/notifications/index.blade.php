@@ -17,19 +17,27 @@
                             <div>
                                 <div class="text-sm text-gray-700">
                                     <span class="font-semibold">{{ ucfirst(str_replace('_',' ', $data['type'] ?? 'notification')) }}</span>
-                                    • Pig <span class="font-medium">{{ $data['ear_tag'] ?? 'N/A' }}</span>
+                                    @if(isset($data['ear_tag']))
+                                        • Pig <span class="font-medium">{{ $data['ear_tag'] }}</span>
+                                    @elseif(isset($data['item_name']))
+                                        • <span class="font-medium">{{ $data['item_name'] }}</span> ({{ $data['quantity'] ?? '' }})
+                                    @elseif(isset($data['feed_name']))
+                                        • <span class="font-medium">{{ $data['feed_name'] }}</span> ({{ $data['current_stock'] ?? '' }})
+                                    @endif
                                 </div>
                                 <div class="text-xs text-gray-500 mt-1">
                                     @if(isset($data['days_since']))
                                         Last weighed {{ $data['days_since'] }} days ago
                                     @elseif(isset($data['last_weighed']))
                                         Last weighed on {{ \Carbon\Carbon::parse($data['last_weighed'])->format('M j, Y') }}
+                                    @elseif(isset($data['body']))
+                                        {{ $data['body'] }}
                                     @endif
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
                                 @if(isset($data['link']))
-                                    <a href="{{ $data['link'] }}" class="px-3 py-1.5 text-xs rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">Record Weight</a>
+                                    <a href="{{ $data['link'] }}" class="px-3 py-1.5 text-xs rounded-lg bg-emerald-600 text-white hover:bg-emerald-700">{{ $data['action_text'] ?? 'View' }}</a>
                                 @endif
                                 <form x-show="!localRead" x-on:submit.prevent="
                                         fetch('{{ route('notifications.read', $notification->id) }}', { method: 'POST', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }})

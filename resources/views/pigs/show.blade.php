@@ -2,7 +2,7 @@
     <div class="min-h-screen bg-gray-50">
         <!-- Header -->
         <div class="bg-white shadow-sm border-b border-gray-200">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-4">
                         <a href="{{ \App\Helpers\NavigationHelper::getContextualBackUrl('pig-detail') }}"
@@ -11,7 +11,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
                             </svg>
                         </a>
-                        <div>
+                        <div class="m-2">
                             <h1 class="text-2xl font-bold text-gray-900">{{ $pig->ear_tag_number }}</h1>
                             <p class="text-gray-500">{{ ucfirst($pig->stock_type) }} Stock • {{ $pig->breed }} • {{ ucfirst($pig->gender === 'M' ? 'Male' : 'Female') }}</p>
                         </div>

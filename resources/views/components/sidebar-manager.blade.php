@@ -54,6 +54,33 @@
             </div>
         </div>
 
+        <!-- Health & Medication Dropdown -->
+        <div x-data="{ open: {{ request()->is('health*') || request()->is('medications*') || request()->is('health-reports*') ? 'true' : 'false' }} }" class="relative">
+            <button @click="open = !open" class="flex items-center justify-between w-full px-4 py-3 rounded-lg text-white hover:bg-[#218c6a] transition @if(request()->is('health*') || request()->is('medications*') || request()->is('health-reports*')) bg-[#218c6a] @endif">
+                <div class="flex items-center gap-3">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-3-3v6M5 7h14a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2V9a2 2 0 012-2z"/>
+                    </svg>
+                    <span class="font-medium">Health & Medication</span>
+                </div>
+                <svg class="h-4 w-4 transition-transform" :class="{'rotate-180': open}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                </svg>
+            </button>
+
+            <div x-show="open" x-transition class="mt-2 ml-4 space-y-1">
+                <a href="{{ route('health.index') }}" class="flex items-center gap-3 px-4 py-2 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition text-sm @if(request()->is('health') || request()->is('health/*')) bg-[#218c6a] text-white @endif">
+                    <span>Health</span>
+                </a>
+                <a href="{{ route('medications.index') }}" class="flex items-center gap-3 px-4 py-2 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition text-sm @if(request()->is('medications*')) bg-[#218c6a] text-white @endif">
+                    <span>Medication</span>
+                </a>
+                <a href="{{ route('health.reports') }}" class="flex items-center gap-3 px-4 py-2 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition text-sm @if(request()->is('health-reports') || request()->is('health-reports/*')) bg-[#218c6a] text-white @endif">
+                    <span>Reports</span>
+                </a>
+            </div>
+        </div>
+
         <!-- Mating Management Dropdown -->
         <div x-data="{ open: {{ request()->is('mating*') || request()->is('mating/manage*') ? 'true' : 'false' }} }"class="relative">
             <button @click="open = !open" class="flex items-center justify-between w-full px-4 py-3 rounded-lg text-white hover:bg-[#218c6a] transition @if(request()->is('mating*')) bg-[#218c6a] @endif">
@@ -233,7 +260,7 @@
             </div>
         </div>
 
-        <a href="{{ route('settings.metrics') }}" class="flex items-center gap-3 px-4 py-3 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition @if(request()->is('farrowing*')) bg-[#218c6a] text-white @endif">
+        <a href="{{ route('performance_metrics.index') }}" class="flex items-center gap-3 px-4 py-3 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition @if(request()->is('farrowing*')) bg-[#218c6a] text-white @endif">
             <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
             </svg>

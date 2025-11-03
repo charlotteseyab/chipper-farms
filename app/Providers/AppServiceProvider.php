@@ -8,6 +8,8 @@ use Illuminate\Support\Facades\View;
 use App\Helpers\NavigationHelper;
 use App\Models\PigWeight;
 use App\Observers\PigWeightObserver;
+use App\Models\FeedInventory;
+use App\Observers\FeedInventoryObserver;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Auth\Events\Login;
@@ -36,6 +38,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Register model observers
         PigWeight::observe(PigWeightObserver::class);
+        FeedInventory::observe(FeedInventoryObserver::class);
 
         // Apply runtime settings overrides for breeding config
         try {

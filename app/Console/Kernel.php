@@ -11,6 +11,12 @@ class Kernel extends ConsoleKernel
     {
         // Run daily at 01:00
         $schedule->command('weights:notify')->dailyAt('01:00');
+        
+        // Check feed inventory levels daily at 02:00
+        $schedule->command('feeds:check-inventory')->dailyAt('02:00');
+        
+        // Process notifications every 5 minutes
+        $schedule->command('notifications:process')->everyFiveMinutes();
     }
 
     protected function commands(): void
