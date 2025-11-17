@@ -13,7 +13,7 @@
             <div class="text-3xl font-extrabold text-gray-900 leading-snug">{{ isset($inventories) ? $inventories->count() : 0 }}</div>
         </div>
 
-        @php($lowCount = isset($ingredientInventoryMap) ? $ingredientInventoryMap->filter(fn($i) => (float)($i->quantity ?? 0) <= 0)->count() : 0)
+        @php($lowCount = $lowStockCount ?? 0)
         <div class="bg-white rounded-lg shadow-md p-4 border border-gray-100 transition duration-300 hover:shadow-lg">
             <div class="text-xs font-medium text-gray-500 mb-1">Low/No Stock Items</div>
             <div class="text-3xl font-extrabold leading-snug {{ $lowCount > 0 ? 'text-red-600' : 'text-green-600' }}">{{ $lowCount }}</div>
@@ -85,6 +85,20 @@
                     </tbody>
                 </table>
             </div>
+            @if($inventories->count())
+            <div class="px-6 py-4 border-t border-gray-200">
+                <div class="flex items-center justify-between">
+                    <div class="text-sm text-gray-700">
+                        Showing {{ $inventories->firstItem() }} to {{ $inventories->lastItem() }} of {{ $inventories->total() }} results
+                    </div>
+                        @if($inventories->hasPages())
+                    <div class="flex items-center space-x-2">
+                        <x-simple-pagination :paginator="$inventories" />
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 
@@ -188,6 +202,20 @@
                     </tbody>
                 </table>
             </div>
+            @if($ingredients->count())
+            <div class="px-6 py-4 border-t border-gray-200">
+                <div class="flex items-center justify-between">
+                    <div class="text-sm text-gray-700">
+                        Showing {{ $ingredients->firstItem() }} to {{ $ingredients->lastItem() }} of {{ $ingredients->total() }} results
+                    </div>
+                        @if($ingredients->hasPages())
+                    <div class="flex items-center space-x-2">
+                        <x-simple-pagination :paginator="$ingredients" />
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 </div>

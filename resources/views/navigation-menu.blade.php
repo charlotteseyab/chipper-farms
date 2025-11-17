@@ -19,45 +19,174 @@
             </div>
 
             <div class="hidden sm:flex sm:items-center sm:ms-6">
-                <!-- Notifications Bell -->
+                <!-- Notifications Bell with Real-Time Alerts -->
                 @auth
                 @php
                     $user = auth()->user();
                     $isSuperuser = $user && optional($user->role)->name === 'superuser';
+                    
+                    // Get stored notifications
                     if ($isSuperuser) {
-                        $unreadCount = \Illuminate\Notifications\DatabaseNotification::whereNull('read_at')->count();
-                        $recentNotifications = \Illuminate\Notifications\DatabaseNotification::latest()->limit(7)->get();
+                        $unreadStoredCount = \Illuminate\Notifications\DatabaseNotification::whereNull('read_at')->count();
+                    $recentNotifications = \Illuminate\Notifications\DatabaseNotification::latest()->limit(7)->get();
                     } else {
-                        $unreadCount = $user ? $user->unreadNotifications()->count() : 0;
+                        $unreadStoredCount = $user ? $user->unreadNotifications()->count() : 0;
                         $recentNotifications = $user ? $user->notifications()->latest()->limit(7)->get() : collect();
                     }
+                    
+                    // Get real-time alerts
+                    try {
+                        $realTimeAlerts = \App\Services\RealTimeNotificationService::getAllAlerts();
+                        $realTimeAlertCount = \App\Services\RealTimeNotificationService::getTotalAlertCount();
+                        
+                        // Combine all alerts into a single list
+                        $allAlertItems = collect();
+                        foreach ($realTimeAlerts as $category => $data) {
+                            if (isset($data['alerts']) && is_array($data['alerts'])) {
+                                foreach ($data['alerts'] as $alert) {
+                                    $allAlertItems->push($alert);
+                                }
+                            }
+                        }
+                        
+                        // Sort by severity (high priority first)
+                        $allAlertItems = $allAlertItems->sortByDesc(function($alert) {
+                            return $alert['severity'] === 'high' ? 2 : ($alert['severity'] === 'medium' ? 1 : 0);
+                        });
+                    } catch (\Exception $e) {
+                        $realTimeAlertCount = 0;
+                        $allAlertItems = collect();
+                    }
+                    
+                    // Total notification count (stored + real-time alerts)
+                    $totalNotificationCount = $unreadStoredCount + $realTimeAlertCount;
                 @endphp
                 <div class="mr-4 relative" x-data="{ openBell: false }" @click.outside="openBell = false">
                     <button type="button" @click="openBell = !openBell" class="relative inline-flex items-center text-gray-500 hover:text-gray-700 focus:outline-none">
                         <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                         </svg>
-                        @if($unreadCount > 0)
-                            <span class="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">{{ $unreadCount }}</span>
+                        @if($totalNotificationCount > 0)
+                            <span class="absolute -top-1 -right-1 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">{{ $totalNotificationCount }}</span>
                         @endif
                     </button>
 
                     <!-- Dropdown Panel -->
-                    <div x-show="openBell" x-transition class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 z-50">
-                        <div class="px-3 py-2 border-b border-gray-100 flex items-center justify-between">
-                            <span class="text-sm font-semibold text-gray-800">Notifications</span>
-                            @if($unreadCount > 0)
+                    <div x-show="openBell" x-transition class="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-y-auto">
+                        <div class="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                            <span class="text-sm font-semibold text-gray-800">Notifications & Alerts</span>
+                            @if($unreadStoredCount > 0)
                                 <form action="{{ route('notifications.readAll') }}" method="POST">
                                     @csrf
                                     <button class="text-xs text-gray-500 hover:text-gray-700">Mark all as read</button>
                                 </form>
                             @endif
                         </div>
-                        <ul class="max-h-80 overflow-y-auto">
+                        
+                        <div class="divide-y divide-gray-100">
+                            <!-- Real-Time Alerts Section -->
+                            @if($realTimeAlertCount > 0)
+                                <!-- <div class="px-4 py-2 bg-red-50 border-b border-red-100">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-xs font-semibold text-red-800 uppercase tracking-wide">Real-Time Alerts</span>
+                                        <span class="text-xs text-red-600 font-medium">{{ $realTimeAlertCount }} active</span>
+                                    </div>
+                                </div> -->
+                                
+                                @foreach($allAlertItems->take(5) as $alert)
+                                    <div class="px-4 py-3 hover:bg-gray-50 transition border-l-4 
+                                        @if($alert['severity'] === 'high') border-red-500 bg-red-50
+                                        @elseif($alert['severity'] === 'medium') border-yellow-500 bg-yellow-50
+                                        @else border-blue-500 bg-blue-50
+                                        @endif">
+                                        <div class="flex items-start">
+                                            <div class="flex-shrink-0 mt-0.5">
+                                                <span class="text-xl">{{ $alert['icon'] }}</span>
+                                            </div>
+                                            <div class="ml-3 flex-1">
+                                                <div class="flex items-center justify-between">
+                                                    <p class="text-sm font-medium text-gray-900">
+                                                        {{ $alert['title'] }}
+                                                    </p>
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                                                        @if($alert['severity'] === 'high') bg-red-100 text-red-800
+                                                        @elseif($alert['severity'] === 'medium') bg-yellow-100 text-yellow-800
+                                                        @else bg-blue-100 text-blue-800
+                                                        @endif">
+                                                        {{ $alert['count'] }}
+                                                    </span>
+                                                </div>
+                                                <p class="text-xs text-gray-600 mt-1">{{ $alert['message'] }}</p>
+                                                
+                                                @if(!empty($alert['items']) && count($alert['items']) > 0)
+                                                    <div class="mt-2 space-y-1">
+                                                        @foreach(array_slice($alert['items'], 0, 2) as $item)
+                                                            <div class="text-xs text-gray-500">
+                                                                @if(isset($item['ear_tag']))
+                                                                    • {{ $item['ear_tag'] }}
+                                                                    @if(isset($item['days_since']))
+                                                                        ({{ $item['days_since'] }} days)
+                                                                    @endif
+                                                                @elseif(isset($item['sow_ear_tag']))
+                                                                    • Sow {{ $item['sow_ear_tag'] }}
+                                                                    @if(isset($item['days_overdue']))
+                                                                        ({{ $item['days_overdue'] }} days overdue)
+                                                                    @endif
+                                                                @elseif(isset($item['name']))
+                                                                    • {{ $item['name'] }} ({{ $item['quantity'] }} {{ $item['unit'] }})
+                                                                @endif
+                                                            </div>
+                                                        @endforeach
+                                                        @if(count($alert['items']) > 2)
+                                                            <div class="text-xs text-gray-400">
+                                                                + {{ count($alert['items']) - 2 }} more...
+                                                            </div>
+                                                        @endif
+                                                    </div>
+                                                @endif
+                                                
+                                                <div class="mt-2">
+                                                    @if(in_array($alert['type'] ?? '', ['weight_overdue', 'weight_critical']))
+                                                        <a href="{{ route('admin.dashboard') }}#weighing-alerts-card" class="text-xs font-medium text-indigo-600 hover:text-indigo-800">
+                                                            View on Dashboard →
+                                                        </a>
+                                                    @else
+                                                        <a href="{{ $alert['link'] }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800">
+                                                            View details →
+                                                        </a>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                                
+                                @if($allAlertItems->count() > 5)
+                                    <div class="px-4 py-2 text-center bg-gray-50">
+                                        <span class="text-xs text-gray-500">
+                                            + {{ $allAlertItems->count() - 5 }} more alert(s)
+                                        </span>
+                                    </div>
+                                @endif
+                                
+                                @if($unreadStoredCount > 0)
+                                    <div class="px-4 py-2 bg-gray-50 border-t border-gray-200">
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-xs font-semibold text-gray-700 uppercase tracking-wide">Stored Notifications</span>
+                                            <span class="text-xs text-gray-600">{{ $unreadStoredCount }} unread</span>
+                                        </div>
+                                    </div>
+                                @endif
+                            @endif
+                            
+                            <!-- Stored Notifications Section -->
+                            <ul class="divide-y divide-gray-100">
                             @forelse($recentNotifications as $notification)
                                 @php $data = $notification->data; @endphp
-                                <li class="px-3 py-2 {{ is_null($notification->read_at) ? 'bg-gray-50' : '' }}">
+                                    <li class="px-4 py-3 {{ is_null($notification->read_at) ? 'bg-blue-50' : 'bg-white' }} hover:bg-gray-50 transition">
                                     <a href="{{ $data['link'] ?? route('notifications.index') }}" class="block">
+                                            <div class="flex items-start">
+                                                <div class="flex-1">
                                         <div class="text-sm text-gray-700">
                                             <span class="font-medium">{{ ucfirst(str_replace('_',' ', $data['type'] ?? 'notification')) }}</span>
                                             @if(isset($data['ear_tag']))
@@ -66,18 +195,34 @@
                                                 • {{ $data['item_name'] }} ({{ $data['quantity'] ?? '' }})
                                             @elseif(isset($data['feed_name']))
                                                 • {{ $data['feed_name'] }} ({{ $data['current_stock'] ?? '' }})
+                                                        @elseif(isset($data['sow_id']))
+                                                            • Sow {{ $data['ear_tag'] ?? 'N/A' }}
                                             @endif
                                         </div>
                                         <div class="text-xs text-gray-500 mt-0.5">
                                             {{ $notification->created_at->diffForHumans() }}
+                                                    </div>
+                                                </div>
+                                                @if(is_null($notification->read_at))
+                                                    <div class="ml-2 flex-shrink-0">
+                                                        <span class="inline-flex items-center justify-center w-2 h-2 bg-blue-600 rounded-full"></span>
+                                                    </div>
+                                                @endif
                                         </div>
                                     </a>
                                 </li>
                             @empty
+                                    @if($realTimeAlertCount == 0)
+                                        <li class="px-4 py-6 text-center text-sm text-gray-500">
+                                            No notifications
+                                        </li>
+                                    @endif
                             @endforelse
                         </ul>
-                        <div class="px-3 py-2 border-t border-gray-100 text-right">
-                            <a href="{{ route('notifications.index') }}" class="text-xs font-medium text-emerald-700 hover:text-emerald-800">View all</a>
+                        </div>
+                        
+                        <div class="px-4 py-3 border-t border-gray-100 bg-gray-50 text-center">
+                            <a href="{{ route('notifications.index') }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800">View all notifications</a>
                         </div>
                     </div>
                 </div>

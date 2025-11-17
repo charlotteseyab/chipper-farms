@@ -78,6 +78,16 @@ class FarrowingController extends Controller
             'cause' => 'nullable|string|max:120',
             'notes' => 'nullable|string|max:1000',
         ]);
+
+        $alreadyRecorded = (int) $farrowing->pigletDeaths()->sum('count');
+        $liveBirths = (int) ($farrowing->live_births ?? 0);
+
+        if (($alreadyRecorded + $data['count']) > $liveBirths) {
+            return back()->withErrors([
+                'count' => 'Recorded piglet deaths cannot exceed live births for this farrowing.',
+            ])->withInput();
+        }
+
         $data['recorded_by'] = auth()->id();
         $data['farrowing_id'] = $farrowing->id;
 
@@ -88,19 +98,25 @@ class FarrowingController extends Controller
 
     public function show(Farrowing $farrowing)
     {
-        $farrowing->load(['sow', 'boar', 'recordedBy']);
+        $farrowing->load(['sow', 'boar', 'recordedBy', 'pigletDeaths.recordedBy']);
 
         $genderDistribution = $farrowing->gender_distribution;
+        $pigletDeaths = $farrowing->pigletDeaths()->orderByDesc('death_date')->get();
+        $totalPigletDeaths = (int) $pigletDeaths->sum('count');
+        $netLivePiglets = max(0, (int) ($farrowing->live_births ?? 0) - $totalPigletDeaths);
 
         return view('farrowing.show', [
             'farrowing' => $farrowing,
             'genderDistribution' => $genderDistribution,
+            'pigletDeaths' => $pigletDeaths,
+            'totalPigletDeaths' => $totalPigletDeaths,
+            'netLivePiglets' => $netLivePiglets,
         ]);
     }
 
     public function edit(Farrowing $farrowing)
     {
-        $farrowing->load(['sow', 'boar']);
+        $farrowing->load(['sow', 'boar', 'pigletDeaths']);
         
         // Get all sows and boars for dropdowns
         $sows = \App\Models\PigManagement::where('gender', 'F')
@@ -113,7 +129,10 @@ class FarrowingController extends Controller
             ->orderBy('ear_tag_number')
             ->get();
 
-        return view('farrowing.edit', compact('farrowing', 'sows', 'boars'));
+        $recordedPigletDeaths = (int) $farrowing->pigletDeaths->sum('count');
+        $netLivePiglets = max(0, (int) ($farrowing->live_births ?? 0) - $recordedPigletDeaths);
+
+        return view('farrowing.edit', compact('farrowing', 'sows', 'boars', 'recordedPigletDeaths', 'netLivePiglets'));
     }
 
     public function update(Request $request, Farrowing $farrowing)
@@ -178,5 +197,146 @@ class FarrowingController extends Controller
 
         return redirect()->route('farrowing.show', $farrowing)
             ->with('success', 'Farrowing record updated successfully!');
+    }
+
+    public function updatePigletDeath(Request $request, PigletDeath $pigletDeath)
+    {
+        $data = $request->validate([
+            'death_date' => 'required|date|before_or_equal:today',
+            'count' => 'required|integer|min:1',
+            'cause' => 'nullable|string|max:120',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        $farrowing = $pigletDeath->farrowing;
+        $currentTotal = (int) $farrowing->pigletDeaths()->sum('count');
+        $proposedTotal = $currentTotal - (int) $pigletDeath->count + $data['count'];
+        $liveBirths = (int) ($farrowing->live_births ?? 0);
+
+        if ($proposedTotal > $liveBirths) {
+            return back()->withErrors([
+                'count' => 'Recorded piglet deaths cannot exceed live births for this farrowing.',
+            ])->withInput();
+        }
+
+        $data['recorded_by'] = auth()->id();
+        $pigletDeath->update($data);
+
+        return back()->with('success', 'Piglet death updated successfully.');
+    }
+
+    public function destroyPigletDeath(PigletDeath $pigletDeath)
+    {
+        $pigletDeath->delete();
+
+        return back()->with('success', 'Piglet death record deleted.');
+    }
+
+    /**
+     * Display piglet tracking page grouped by sow (mother)
+     * Shows all piglets, stillbirths, and deaths organized by mother
+     */
+    public function pigletTracking(Request $request)
+    {
+        // Get all sows that have farrowing records
+        $query = \App\Models\PigManagement::whereHas('farrowingsAsSow')
+            ->with([
+                'farrowingsAsSow' => function($q) {
+                    $q->with(['pigletDeaths', 'boar'])
+                      ->orderBy('farrowing_date', 'desc');
+                }
+            ])
+            ->where('gender', 'F')
+            ->where('stock_type', 'breeding');
+
+        // Filter by sow if search provided
+        if ($search = $request->get('search')) {
+            $searchTerm = '%' . $search . '%';
+            $query->where(function($q) use ($searchTerm) {
+                $q->where('ear_tag_number', 'like', $searchTerm)
+                  ->orWhere('code', 'like', $searchTerm);
+            });
+        }
+
+        $sows = $query->orderBy('ear_tag_number')->get();
+
+        // Get weaning age from config (same as dashboard)
+        $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+
+        // Calculate statistics for each sow and overall
+        $overallStats = [
+            'total_sows' => $sows->count(),
+            'total_farrowings' => 0,
+            'total_piglets_born' => 0,
+            'total_live_births' => 0,
+            'total_stillbirths' => 0,
+            'total_deaths' => 0,
+            'total_surviving' => 0,
+            'current_surviving' => 0, // Current surviving piglets (matches dashboard calculation)
+        ];
+
+        // Process each sow's data
+        $sowsWithStats = $sows->map(function($sow) use (&$overallStats, $weaningAge) {
+            $sowFarrowings = $sow->farrowingsAsSow;
+            $sowStats = [
+                'total_farrowings' => $sowFarrowings->count(),
+                'total_piglets_born' => 0,
+                'total_live_births' => 0,
+                'total_stillbirths' => 0,
+                'total_deaths' => 0,
+                'total_surviving' => 0,
+            ];
+
+            $farrowingsWithStats = $sowFarrowings->map(function($farrowing) use (&$sowStats, &$overallStats, $weaningAge) {
+                $deaths = (int) $farrowing->pigletDeaths->sum('count');
+                $liveBirths = (int) ($farrowing->live_births ?? 0);
+                $stillbirths = (int) ($farrowing->stillbirths ?? 0);
+                $totalBorn = (int) ($farrowing->total_piglets_born ?? 0);
+                $surviving = max(0, $liveBirths - $deaths);
+
+                // Check if this farrowing is recent and active (matches dashboard logic)
+                $isRecent = $farrowing->farrowing_date && 
+                           $farrowing->farrowing_date >= now()->subDays($weaningAge);
+                $isActive = $farrowing->status === 'active';
+
+                // Sow stats
+                $sowStats['total_piglets_born'] += $totalBorn;
+                $sowStats['total_live_births'] += $liveBirths;
+                $sowStats['total_stillbirths'] += $stillbirths;
+                $sowStats['total_deaths'] += $deaths;
+                $sowStats['total_surviving'] += $surviving;
+
+                // Overall stats (all farrowings)
+                $overallStats['total_farrowings']++;
+                $overallStats['total_piglets_born'] += $totalBorn;
+                $overallStats['total_live_births'] += $liveBirths;
+                $overallStats['total_stillbirths'] += $stillbirths;
+                $overallStats['total_deaths'] += $deaths;
+                $overallStats['total_surviving'] += $surviving;
+
+                // Current surviving (only recent active farrowings - matches dashboard)
+                if ($isRecent && $isActive) {
+                    $overallStats['current_surviving'] += $surviving;
+                }
+
+                return [
+                    'farrowing' => $farrowing,
+                    'deaths' => $deaths,
+                    'surviving' => $surviving,
+                    'live_births' => $liveBirths,
+                    'stillbirths' => $stillbirths,
+                    'total_born' => $totalBorn,
+                    'is_recent' => $isRecent && $isActive,
+                ];
+            });
+
+            return [
+                'sow' => $sow,
+                'farrowings' => $farrowingsWithStats,
+                'stats' => $sowStats,
+            ];
+        });
+
+        return view('piglets.tracking', compact('sowsWithStats', 'overallStats'));
     }
 }

@@ -9,8 +9,10 @@ class Kernel extends ConsoleKernel
 {
     protected function schedule(Schedule $schedule): void
     {
-        // Run daily at 01:00
-        $schedule->command('weights:notify')->dailyAt('01:00');
+        // Weighing notifications: run continuously
+        $schedule->command('weights:notify')->everyMinute();
+        // Gestation notifications: run continuously to catch events in real-time
+        $schedule->command('gestation:notify')->everyMinute();
         
         // Check feed inventory levels daily at 02:00
         $schedule->command('feeds:check-inventory')->dailyAt('02:00');

@@ -4,7 +4,6 @@ namespace App\Observers;
 
 use App\Models\FeedInventory;
 use App\Models\User;
-use App\Notifications\FeedInventoryLowStockNotification;
 use App\Notifications\FeedInventoryCriticalStockNotification;
 use Illuminate\Support\Facades\Notification;
 
@@ -20,37 +19,28 @@ class FeedInventoryObserver
         $this->checkStockLevels($inventory);
     }
 
-    private function checkStockLevels(FeedInventory $inventory)
+    private function checkStockLevels(FeedInventory $inventory): void
     {
-        $quantity = $inventory->quantity;
+        $quantity = (float) $inventory->quantity;
         
-        // Critical stock alert (≤ 10kg or equivalent)
-        if ($quantity <= 10) {
-            $this->sendCriticalStockNotification($inventory);
+        if ($quantity <= 0) {
+            return;
         }
-        // Low stock alert (≤ 50kg or equivalent)
-        elseif ($quantity <= 50) {
-            $this->sendLowStockNotification($inventory);
+
+        $unit = strtolower($inventory->unit ?? '');
+        $threshold = str_contains($unit, 'bag') ? 5 : 50; // bags vs kg
+
+        if ($quantity < $threshold) {
+            $this->sendCriticalStockNotification($inventory, $threshold);
         }
     }
 
-    private function sendCriticalStockNotification(FeedInventory $inventory)
+    private function sendCriticalStockNotification(FeedInventory $inventory, float $threshold): void
     {
-        // Get all admins and managers
         $users = User::whereHas('role', function($query) {
             $query->whereIn('name', ['admin', 'superuser', 'farmmanager']);
         })->get();
         
-        Notification::send($users, new FeedInventoryCriticalStockNotification($inventory, 10));
-    }
-
-    private function sendLowStockNotification(FeedInventory $inventory)
-    {
-        // Get all admins and managers
-        $users = User::whereHas('role', function($query) {
-            $query->whereIn('name', ['admin', 'superuser', 'farmmanager']);
-        })->get();
-        
-        Notification::send($users, new FeedInventoryLowStockNotification($inventory, 50));
+        Notification::send($users, new FeedInventoryCriticalStockNotification($inventory, $threshold));
     }
 }

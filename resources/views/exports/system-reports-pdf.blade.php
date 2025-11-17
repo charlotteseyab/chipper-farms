@@ -329,6 +329,39 @@
                     <div class="metric-label">Average Litter Size:</div>
                     <div class="metric-value">{{ number_format($breedingStats['average_litter_size'], 1) }}</div>
                 </div>
+                @php
+                    $pregNum = \App\Models\Mating::where('pregnancy_status', 'pregnant')->count();
+                    $pregDenom = \App\Models\Mating::whereNotNull('female_id')->count();
+                    $pregnancyRate = $pregDenom > 0 ? round($pregNum / $pregDenom * 100, 1) : 0;
+                    $totalMatings = \App\Models\Mating::count();
+                    $totalFarrowings = \App\Models\Farrowing::where('farrowing_date', '!=', null)->count();
+                    $farrowingRate = $totalMatings > 0 ? round($totalFarrowings / $totalMatings * 100, 1) : 0;
+                    $totalWeaned = \App\Models\Weaning::count();
+                    $totalBorn = \App\Models\Farrowing::sum('live_births');
+                    $weaningPercentage = $totalBorn > 0 ? round($totalWeaned / $totalBorn * 100, 1) : 0;
+                    $avgStillborns = \App\Models\Farrowing::avg('stillbirths');
+                    $avgBirthWeight = \App\Models\Farrowing::whereNotNull('average_birth_weight')->avg('average_birth_weight');
+                @endphp
+                <div class="metric-row">
+                    <div class="metric-label">Pregnancy Rate:</div>
+                    <div class="metric-value">{{ $pregnancyRate }}%</div>
+                </div>
+                <div class="metric-row">
+                    <div class="metric-label">Farrowing Rate:</div>
+                    <div class="metric-value">{{ $farrowingRate }}%</div>
+                </div>
+                <div class="metric-row">
+                    <div class="metric-label">Weaning Percentage:</div>
+                    <div class="metric-value">{{ $weaningPercentage }}%</div>
+                </div>
+                <div class="metric-row">
+                    <div class="metric-label">Average Stillbirths/Litter:</div>
+                    <div class="metric-value">{{ number_format($avgStillborns, 1) }}</div>
+                </div>
+                <div class="metric-row">
+                    <div class="metric-label">Average Birth Weight:</div>
+                    <div class="metric-value">{{ number_format($avgBirthWeight, 1) }} kg</div>
+                </div>
             </div>
             <div class="column">
                 <h2>Health & Mortality</h2>

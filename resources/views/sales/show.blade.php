@@ -1,26 +1,29 @@
 <x-app-layout>
-    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        
-        <!-- Header Section: Dark, Professional Bar -->
-        <div class="bg-gradient-to-r from-green-700 to-green-900 rounded-xl shadow-2xl overflow-hidden">
-            <div class="px-8 py-6 flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-extrabold text-white">Sale Transaction Details</h1>
-                    <p class="text-green-200 mt-1 font-medium">Complete record of the sale and financial transaction.</p>
-                </div>
-                
-                <!-- Action Button -->
-                <a href="{{ route('sales.index') }}" class="bg-white/10 hover:bg-white/20 text-white px-5 py-2.5 text-sm font-semibold rounded-lg transition duration-200 flex items-center shadow-md">
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                    </svg>
-                    Back to Sales List
-                </a>
+    
+    <!-- FULL-WIDTH Header Section: Subtle, Clean Bar -->
+    <!-- Switched to a light gray background with a subtle shadow and dark text for reliable visibility -->
+    <div class="bg-gray-100 border-b border-gray-200 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-extrabold text-gray-800">Sale Transaction Details</h1>
+                <p class="text-gray-500 mt-1 font-medium">Complete record of the sale and financial transaction.</p>
             </div>
+            
+            <!-- Action Button -->
+            <a href="{{ route('sales.index') }}" class="bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 px-5 py-2.5 text-sm font-semibold rounded-lg transition duration-200 flex items-center shadow-md">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                </svg>
+                Back to Sales List
+            </a>
         </div>
+    </div>
+
+    <!-- Main Content Container (below the fixed header) -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
         <!-- Main Content Grid -->
-        <div class="mt-8">
+        <div>
             <!-- Key Information Cards -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 

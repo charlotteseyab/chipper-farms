@@ -21,7 +21,7 @@
 
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <!-- Overview Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
                 <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
                     <div class="flex items-center">
                         <div class="p-3 bg-green-100 rounded-lg">
@@ -74,6 +74,34 @@
                         <div class="ml-4">
                             <p class="text-sm font-medium text-gray-600">Survival Rate</p>
                             <p class="text-2xl font-semibold text-gray-900">{{ $farrowing->survival_rate }}%</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-yellow-100 rounded-lg">
+                            <svg class="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3"/>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Recorded Piglet Deaths</p>
+                            <p class="text-2xl font-semibold text-red-600">-{{ $totalPigletDeaths }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 bg-blue-100 rounded-lg">
+                            <svg class="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v4a1 1 0 001 1h3v9l7-12h-4l4-7H9l-5 7z"/>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Current Litter Size</p>
+                            <p class="text-2xl font-semibold text-gray-900">{{ $netLivePiglets }}</p>
                         </div>
                     </div>
                 </div>
@@ -251,6 +279,104 @@
                 </div>
 
                 <div class="space-y-8">
+                    <div class="bg-white rounded-lg shadow border border-gray-200">
+                        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+                            <h2 class="text-lg font-semibold text-gray-900">Piglet Mortality Records</h2>
+                            <div class="text-sm text-gray-600">
+                                Total events: {{ $pigletDeaths->count() }}
+                            </div>
+                        </div>
+                        <div class="p-6">
+                            @if($pigletDeaths->isEmpty())
+                                <div class="text-gray-500 text-sm">No piglet deaths have been recorded for this farrowing.</div>
+                            @else
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cause</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recorded By</th>
+                                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white divide-y divide-gray-200">
+                                            @foreach($pigletDeaths as $death)
+                                                <tr x-data="{ manageOpen: false, editOpen: false }">
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $death->death_date?->format('M d, Y') ?? 'N/A' }}</td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-red-600">{{ $death->count }}</td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $death->cause ?? '—' }}</td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $death->notes ?? '—' }}</td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{{ optional($death->recordedBy)->name ?? '—' }}</td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                                        <div class="relative inline-block text-left">
+                                                            <button @click="manageOpen = !manageOpen" class="inline-flex justify-center w-full px-3 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium hover:bg-gray-200 focus:outline-none">
+                                                                Manage
+                                                                <svg class="-mr-1 ml-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                                                </svg>
+                                                            </button>
+                                                            <div x-cloak x-show="manageOpen" @click.away="manageOpen = false" class="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                                                                <div class="py-1">
+                                                                    <button @click="editOpen = true; manageOpen = false" class="block w-full text-left px-4 py-2 text-xs text-indigo-600 hover:bg-indigo-50">Edit</button>
+                                                                    <form method="POST" action="{{ route('farrowing.piglet-deaths.destroy', $death) }}" onsubmit="return confirm('Delete this piglet death record?');">
+                                                                        @csrf
+                                                                        @method('DELETE')
+                                                                        <button type="submit" class="block w-full text-left px-4 py-2 text-xs text-red-600 hover:bg-red-50">Delete</button>
+                                                                    </form>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <template x-if="editOpen">
+                                                            <div class="fixed inset-0 z-50 flex items-center justify-center">
+                                                                <div class="absolute inset-0 bg-black bg-opacity-40" @click="editOpen = false"></div>
+                                                                <div class="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+                                                                    <div class="px-5 py-4 border-b flex items-center justify-between">
+                                                                        <h3 class="text-sm font-semibold text-gray-900">Edit Piglet Death</h3>
+                                                                        <button type="button" class="text-gray-400 hover:text-gray-600" @click="editOpen = false">✕</button>
+                                                                    </div>
+                                                                    <div class="p-5">
+                                                                        <form method="POST" action="{{ route('farrowing.piglet-deaths.update', $death) }}" class="space-y-4">
+                                                                            @csrf
+                                                                            @method('PUT')
+                                                                            <div>
+                                                                                <label class="block text-xs text-gray-600">Date</label>
+                                                                                <input type="date" name="death_date" class="mt-1 block w-full rounded-md border-gray-300 focus:border-red-500 focus:ring-red-500" value="{{ $death->death_date?->toDateString() }}" required>
+                                                                            </div>
+                                                                            <div>
+                                                                                <label class="block text-xs text-gray-600">Count</label>
+                                                                                <input type="number" name="count" min="1" class="mt-1 block w-full rounded-md border-gray-300 focus:border-red-500 focus:ring-red-500" value="{{ $death->count }}" required>
+                                                                            </div>
+                                                                            <div>
+                                                                                <label class="block text-xs text-gray-600">Cause (optional)</label>
+                                                                                <input type="text" name="cause" class="mt-1 block w-full rounded-md border-gray-300 focus:border-red-500 focus:ring-red-500" value="{{ $death->cause }}">
+                                                                            </div>
+                                                                            <div>
+                                                                                <label class="block text-xs text-gray-600">Notes (optional)</label>
+                                                                                <textarea name="notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 focus:border-red-500 focus:ring-red-500">{{ $death->notes }}</textarea>
+                                                                            </div>
+                                                                            <div class="flex items-center justify-end space-x-2">
+                                                                                <button type="button" @click="editOpen = false" class="px-3 py-1.5 rounded-md border text-xs text-gray-700 hover:bg-gray-50">Cancel</button>
+                                                                                <button type="submit" class="px-3 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-700 text-xs">Save Changes</button>
+                                                                            </div>
+                                                                        </form>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </template>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
                     <!-- Follow-up -->
                     <div class="bg-white rounded-lg shadow border border-gray-200">
                         <div class="px-6 py-4 border-b border-gray-200">

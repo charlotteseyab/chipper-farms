@@ -138,7 +138,7 @@
                 </a> -->
 
                 <!-- Weighing Alerts -->
-                <button onclick="toggleWeighingAlertsModal()" class="block w-full bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                <button id="weighing-alerts-card" onclick="toggleWeighingAlertsModal()" class="block w-full bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:scale-105">
                     <div class="flex items-center justify-between">
                         <div>
                             <p class="text-yellow-100 text-sm font-medium">Weighing Alerts</p>
@@ -173,9 +173,20 @@
                     $salesThisMonth = \App\Models\PigSale::whereMonth('created_at', now()->month)->count();
                     
                     // Calculate farrowing rate
+                    $pregNum = \App\Models\Mating::where('pregnancy_status', 'pregnant')->count();
+                    $pregDenom = \App\Models\Mating::whereNotNull('female_id')->count();
+                    $pregnancyRate = $pregDenom > 0 ? round($pregNum / $pregDenom * 100, 1) : 0; // Unified
+
                     $totalMatings = \App\Models\Mating::count();
-                    $femalesThatFarrowed = \App\Models\Farrowing::count();
-                    $farrowingRate = $totalMatings > 0 ? ($femalesThatFarrowed / $totalMatings) * 100 : 0;
+                    $totalFarrowings = \App\Models\Farrowing::where('farrowing_date', '!=', null)->count();
+                    $farrowingRate = $totalMatings > 0 ? round($totalFarrowings / $totalMatings * 100, 1) : 0;
+
+    $totalWeaned = \App\Models\Weaning::count();
+    $totalBorn = \App\Models\Farrowing::sum('live_births');
+                    $weaningPercentage = $totalBorn > 0 ? round($totalWeaned / $totalBorn * 100, 1) : 0;
+                    
+                    $avgStillborns = \App\Models\Farrowing::avg('stillbirths');
+                    $avgBirthWeight = \App\Models\Farrowing::whereNotNull('average_birth_weight')->avg('average_birth_weight');
                     
                     // Calculate total weight and farm value
                     $totalWeight = \App\Models\PigWeight::whereIn('id', function($query) {
@@ -421,10 +432,14 @@
                             </div>
                         </div>
                         <div class="text-center p-4 bg-red-50 rounded-lg border border-red-200">
-                            <div class="text-2xl font-bold text-red-600">{{ $deceasedPigs }}</div>
+                            @php $deceasedPiglets = (int) \App\Models\PigletDeath::sum('count');
+                            $deceasedTotal = $deceasedPigs + $deceasedPiglets;
+                            @endphp
+                            <div class="text-2xl font-bold text-red-600">{{ $deceasedTotal }}</div>
                             <div class="text-sm text-red-700 font-medium">Deceased</div>
+                            <div class="text-xs text-red-600 mt-1">{{ number_format($deceasedPigs) }} pigs • {{ number_format($deceasedPiglets) }} piglets</div>
                             <div class="text-xs text-red-600 mt-1">
-                                {{ $totalPigs > 0 ? round(($deceasedPigs / $totalPigs) * 100, 1) : 0 }}% of total
+                                {{ $totalPigs > 0 ? round(($deceasedTotal / $totalPigs) * 100, 1) : 0 }}% of total
                             </div>
                         </div>
                         <div class="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
@@ -1256,6 +1271,7 @@
     <script>
         function toggleWeighingAlertsModal() {
             const modal = document.getElementById('weighingAlertsModal');
+            if (!modal) return;
             modal.classList.toggle('hidden');
         }
 
@@ -1270,9 +1286,22 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 const modal = document.getElementById('weighingAlertsModal');
-                if (!modal.classList.contains('hidden')) {
+                if (modal && !modal.classList.contains('hidden')) {
                     toggleWeighingAlertsModal();
                 }
+            }
+        });
+
+        // Open weighing alerts modal automatically when coming from notification link
+        document.addEventListener('DOMContentLoaded', function () {
+            if (window.location.hash === '#weighing-alerts-card') {
+                // Scroll the card into view
+                const card = document.getElementById('weighing-alerts-card');
+                if (card) {
+                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                // Open the modal
+                toggleWeighingAlertsModal();
             }
         });
     </script>

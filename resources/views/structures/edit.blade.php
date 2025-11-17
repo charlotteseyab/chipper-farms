@@ -1,6 +1,6 @@
 <x-app-layout>
     <div class="py-6">
-        <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-6xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h1 class="text-xl font-semibold text-gray-900 mb-4">Edit Structure</h1>
                 @if ($errors->any())

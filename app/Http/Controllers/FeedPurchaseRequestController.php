@@ -100,12 +100,33 @@ class FeedPurchaseRequestController extends Controller
             }
         });
         
+        // Redirect based on user role - managers/admins go to index, others go to their request
+        $user = Auth::user();
+        if ($user && ($user->isAdmin() || $user->isSuperuser() || optional($user->role)->name === 'farmmanager')) {
         return redirect()->route('feed-purchase-requests.index')->with('success', 'Procurement request submitted!');
+        } else {
+            return redirect()->route('feed-purchase-requests.show', $request->id)->with('success', 'Procurement request submitted!');
+        }
     }
 
     // Show a single purchase request
     public function show(FeedPurchaseRequest $request)
     {
+        $user = Auth::user();
+        
+        // Allow access if user is the requester, or if user is admin/manager/superuser
+        if (!$user) {
+            abort(403, 'Unauthorized');
+        }
+        
+        $isRequester = $request->requested_by === $user->id;
+        $isAdmin = $user->isAdmin() || $user->isSuperuser();
+        $isManager = optional($user->role)->name === 'farmmanager';
+        
+        if (!$isRequester && !$isAdmin && !$isManager) {
+            abort(403, 'You can only view your own purchase requests.');
+        }
+        
         $request->load('requestedBy');
         return view('feeds.purchase_request_show', compact('request'));
     }

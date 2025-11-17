@@ -1406,9 +1406,8 @@ class PigManagementController extends Controller {
         $pendingSowQuery = $this->getSowsWithLitterStatusQuery($minDays, $maxPendingDays, true);
 
         $pendingSows = $pendingSowQuery->with(['litters' => function ($q) use ($minDays, $maxPendingDays) {
-                                // Eager load only the relevant active, unweaned litter for the sow
-                                $q->where('active', true)
-                                  ->whereNull('date_weaned')
+                                // Eager load only the relevant unweaned litter for the sow
+                                $q->whereNull('date_weaned')
                                   ->whereRaw('DATEDIFF(NOW(), date_of_birth) < ?', [$maxPendingDays])
                                   ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$minDays])
                                   ->oldest('date_of_birth'); // Show oldest litter first for urgency
@@ -1564,9 +1563,8 @@ class PigManagementController extends Controller {
         $overdueSowQuery = $this->getSowsWithLitterStatusQuery($overdueThreshold, null, true);
 
         $overdueSows = $overdueSowQuery->with(['litters' => function ($q) use ($overdueThreshold) {
-                                // Eager load only the relevant active, unweaned litter for the sow
-                                $q->where('active', true)
-                                  ->whereNull('date_weaned')
+                                // Eager load only the relevant unweaned litter for the sow
+                                $q->whereNull('date_weaned')
                                   ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$overdueThreshold])
                                   ->oldest('date_of_birth'); // Show oldest litter first for urgency
                             }])
@@ -1612,27 +1610,17 @@ class PigManagementController extends Controller {
 
         // Apply filtering based on the litter's status (whereHas requires the 'litters' relationship)
         $query->whereHas('litters', function ($q) use ($minDays, $maxDays, $mustBeUnweaned, $mustBeWeaned) {
-            // Ensure we are only looking at the active litter record
-            $q->where('active', true)
-              ->whereNotNull('date_of_birth');
-
-            // Apply weaning status filter
+            // Unweaned or weaned filter only (do not use active col)
+            $q->whereNotNull('date_of_birth');
             if ($mustBeUnweaned) {
-                // Litter must not have a weaning date yet
                 $q->whereNull('date_weaned');
             } elseif ($mustBeWeaned !== null) {
-                // Filter for litters that have been weaned (based on your specific tracking needs)
                 $q->whereNotNull('date_weaned');
             }
-
-            // Apply age range for the litter
             if ($maxDays !== null) {
-                // Must be under the max age
                 $q->whereRaw('DATEDIFF(NOW(), date_of_birth) < ?', [$maxDays]);
             }
-            // Must be over the min age
             $q->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$minDays]);
-
         });
 
         return $query;

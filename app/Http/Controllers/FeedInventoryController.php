@@ -15,7 +15,7 @@ class FeedInventoryController extends Controller
     // Show feed inventory and daily usage
     public function index(Request $request)
     {
-        $inventories = FeedInventory::orderBy('feed_type_id')->get();
+        $inventories = FeedInventory::orderBy('feed_type_id')->paginate(10);
 
         // Daily usage for the last 14 days (feed types)
         $usage = GroupFeeding::selectRaw('feed_type_id, date as feed_date, SUM(amount) as total_used')
@@ -32,10 +32,24 @@ class FeedInventoryController extends Controller
         }
 
         // Ingredient catalog + stock
-        $ingredients = Ingredient::orderBy('name')->get();
-        $ingredientInventoryMap = IngredientInventory::get()->keyBy('ingredient_id');
+        $ingredientInventories = IngredientInventory::get();
+        $ingredientInventoryMap = $ingredientInventories->keyBy('ingredient_id');
+        $ingredients = Ingredient::orderBy('name')->paginate(10);
 
-        return view('feeds.inventory', compact('inventories', 'usage', 'balances', 'ingredients', 'ingredientInventoryMap'));
+        $manufacturedLowCount = FeedInventory::where('quantity', '<=', 0)->count();
+        $ingredientLowCount = $ingredientInventories->filter(function ($inv) {
+            return (float) ($inv->quantity ?? 0) <= 0;
+        })->count();
+        $lowStockCount = $manufacturedLowCount + $ingredientLowCount;
+
+        return view('feeds.inventory', compact(
+            'inventories',
+            'usage',
+            'balances',
+            'ingredients',
+            'ingredientInventoryMap',
+            'lowStockCount'
+        ));
     }
 
     // Show form to add feed stock

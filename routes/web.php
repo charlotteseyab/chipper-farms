@@ -56,6 +56,7 @@ Route::middleware([
     'verified',
 ])->group(function () {
     Route::get('/health', [PigHealthController::class, 'index'])->name('health.index');
+    Route::put('/health/{health_record}', [HealthRecordController::class, 'update'])->name('health.update');
     Route::get('/health/create-health', [PigHealthController::class, 'createHealth'])->name('health.create');
     Route::get('/health/create-medication', [PigHealthController::class, 'createMedication'])->name('health.create-medication');
     Route::post('/health/store-health', [PigHealthController::class, 'storeHealth'])->name('health.store');
@@ -134,8 +135,13 @@ Route::middleware([
     Route::get('farrowing/{farrowing}/edit', [App\Http\Controllers\FarrowingController::class, 'edit'])->name('farrowing.edit');
     Route::put('farrowing/{farrowing}', [App\Http\Controllers\FarrowingController::class, 'update'])->name('farrowing.update');
     Route::post('farrowing/{farrowing}/piglet-deaths', [App\Http\Controllers\FarrowingController::class, 'recordPigletDeath'])->name('farrowing.piglet-deaths.record');
+    Route::put('farrowing/piglet-deaths/{pigletDeath}', [App\Http\Controllers\FarrowingController::class, 'updatePigletDeath'])->name('farrowing.piglet-deaths.update');
+    Route::delete('farrowing/piglet-deaths/{pigletDeath}', [App\Http\Controllers\FarrowingController::class, 'destroyPigletDeath'])->name('farrowing.piglet-deaths.destroy');
     Route::post('gestation/{id}/farrowing', [App\Http\Controllers\PigManagementController::class, 'recordFarrowing'])->name('gestation.farrowing');
     Route::post('gestation/{id}/update-status', [App\Http\Controllers\PigManagementController::class, 'updateGestationStatus'])->name('gestation.update-status');
+
+    // Piglet Tracking routes
+    Route::get('piglets/tracking', [App\Http\Controllers\FarrowingController::class, 'pigletTracking'])->name('piglets.tracking');
 
     // Weaning Period Management Routes
     Route::get('weaning', function() {
@@ -216,6 +222,8 @@ Route::middleware([
     Route::post('structures/{structure}/rooms', [App\Http\Controllers\RoomController::class, 'store'])->name('structures.rooms.store');
     Route::delete('structures/{structure}/rooms/{room}', [App\Http\Controllers\RoomController::class, 'destroy'])->name('structures.rooms.destroy');
     Route::get('rooms/{room}', [App\Http\Controllers\RoomController::class, 'show'])->name('rooms.show');
+    Route::get('rooms/{room}/edit', [App\Http\Controllers\RoomController::class, 'edit'])->name('rooms.edit');
+    Route::put('rooms/{room}', [App\Http\Controllers\RoomController::class, 'update'])->name('rooms.update');
     Route::post('rooms', [App\Http\Controllers\RoomController::class, 'storeGlobal'])->name('rooms.store');
     Route::get('api/structures/{structure}/rooms', [App\Http\Controllers\RoomController::class, 'listByStructure'])->name('api.structures.rooms');
 

@@ -13,8 +13,8 @@
         <div class="mt-2 mb-2 text-xs text-green-100 uppercase tracking-wider pl-4">Management</div>
 
         <!-- Stock Management Dropdown -->
-        <div x-data="{ open: {{ request()->is('*stocks*') || request()->is('structures*') ? 'true' : 'false' }} }" class="relative">
-            <button @click="open = !open" class="flex items-center justify-between w-full px-4 py-3 rounded-lg text-white hover:bg-[#218c6a] transition @if(request()->is('*stocks*')) bg-[#218c6a] @endif">
+        <div x-data="{ open: {{ request()->is('*stocks*') || request()->is('*piglets*') || request()->is('*structures*') ? 'true' : 'false' }} }" class="relative">
+            <button @click="open = !open" class="flex items-center justify-between w-full px-4 py-3 rounded-lg text-white hover:bg-[#218c6a] transition @if(request()->is('*stocks*') || request()->is('*piglets*') || request()->is('*structures*')) bg-[#218c6a] @endif">
                 <div class="flex items-center gap-3">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
@@ -45,6 +45,12 @@
                     </svg>
                     Standard Stock
                 </a>
+                <a href="{{ route('piglets.tracking') }}" class="flex items-center gap-3 px-4 py-3 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition @if(request()->is('piglets*')) bg-[#218c6a] text-white @endif">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            </svg>
+            <span class="font-medium">Piglet Tracking</span>
+        </a>
                 <!-- <a href="/structures" class="flex items-center gap-3 px-4 py-2 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition text-sm @if(request()->is('structures*')) bg-[#218c6a] text-white @endif">
                     <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -193,7 +199,7 @@
 
          <!-- Feed Management Dropdown -->
          <div x-data="{ open: {{ request()->is('feed-types*') || request()->is('feeding-standards*') || request()->is('recipes*') || request()->is('feed-inventory*') || request()->is('feed-purchase-requests*') || request()->is('feeds/schedule*') || request()->is('feeds/reports*') ? 'true' : 'false' }} }" class="relative">
-            <button @click="open = !open" class="flex items-center justify-between w-full px-4 py-3 rounded-lg text-white hover:bg-[#218c6a] transition @if(request()->is('feed-types*') || request()->is('feeding-standards*') || request()->is('feed-inventory*') || request()->is('feed-purchase-requests*')) bg-[#218c6a] @endif">
+            <button @click="open = !open" class="flex items-center justify-between w-full px-4 py-3 rounded-lg text-white hover:bg-[#218c6a] transition @if(request()->is('feed-types*') || request()->is('feeding-standards*') || request()->is('feed-inventory*') || request()->is('feed-purchase-requests*') || request()->is('feeds/schedule*') || request()->is('feeds/reports*')) bg-[#218c6a] @endif">
                 <div class="flex items-center gap-3">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
@@ -298,7 +304,7 @@
 
         <!-- General Settings Dropdown -->
         <div x-data="{ open: {{ request()->is('settings*') || request()->is('deaths*')|| request()->is('sales*') ? 'true' : 'false' }} }" class="relative">
-            <button @click="open = !open" class="flex items-center justify-between w-full px-4 py-3 rounded-lg text-white hover:bg-[#218c6a] transition @if(request()->is('settings*')) bg-[#218c6a] @endif">
+            <button @click="open = !open" class="flex items-center justify-between w-full px-4 py-3 rounded-lg text-white hover:bg-[#218c6a] transition @if(request()->is('settings*') || request()->is('deaths*')|| request()->is('sales*')) bg-[#218c6a] @endif">
                 <div class="flex items-center gap-3">
                     <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>

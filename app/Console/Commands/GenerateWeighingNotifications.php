@@ -41,10 +41,28 @@ class GenerateWeighingNotifications extends Command
         $today = now()->toDateString();
 
         foreach ($dueSoon as $pig) {
-            Notification::send($recipients, new WeightDueSoonNotification($pig, $today));
+            foreach ($recipients as $user) {
+                $already = $user->notifications()
+                    ->where('type', \App\Notifications\WeightDueSoonNotification::class)
+                    ->where('data->pig_id', $pig->id)
+                    ->where('data->date_key', $today)
+                    ->exists();
+                if (!$already) {
+                    $user->notify(new WeightDueSoonNotification($pig, $today));
+                }
+            }
         }
         foreach ($overdue as $pig) {
-            Notification::send($recipients, new WeightOverdueNotification($pig, $today));
+            foreach ($recipients as $user) {
+                $already = $user->notifications()
+                    ->where('type', \App\Notifications\WeightOverdueNotification::class)
+                    ->where('data->pig_id', $pig->id)
+                    ->where('data->date_key', $today)
+                    ->exists();
+                if (!$already) {
+                    $user->notify(new WeightOverdueNotification($pig, $today));
+                }
+            }
         }
 
         $this->info("Due soon: {$dueSoon->count()}, Overdue: {$overdue->count()}");

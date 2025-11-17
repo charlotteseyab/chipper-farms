@@ -151,6 +151,12 @@
                                 @enderror
                             </div>
                         </div>
+                        <div class="mt-4 bg-blue-50 border border-blue-100 rounded-lg p-4 text-sm text-blue-800">
+                            <p class="font-semibold">Current summary</p>
+                            <p class="mt-1">Recorded piglet deaths: <span class="font-bold">{{ number_format($recordedPigletDeaths) }}</span></p>
+                            <p>Net live piglets remaining: <span class="font-bold">{{ number_format($netLivePiglets) }}</span></p>
+                            <p class="mt-2 text-xs text-blue-600">Adjusting <span class="font-semibold">Live Births</span> or <span class="font-semibold">Stillbirths</span> will automatically update <span class="font-semibold">Total Piglets Born</span> to keep the numbers consistent.</p>
+                        </div>
                     </div>
                 </div>
 
@@ -313,3 +319,24 @@
         <x-copyright-minimal />
     </div>
 </x-app-layout>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const liveInput = document.getElementById('live_births');
+        const stillInput = document.getElementById('stillbirths');
+        const totalInput = document.getElementById('total_piglets_born');
+
+        if (!liveInput || !stillInput || !totalInput) {
+            return;
+        }
+
+        const syncTotal = () => {
+            const live = parseInt(liveInput.value, 10) || 0;
+            const still = parseInt(stillInput.value, 10) || 0;
+            totalInput.value = live + still;
+        };
+
+        liveInput.addEventListener('input', syncTotal);
+        stillInput.addEventListener('input', syncTotal);
+    });
+</script>

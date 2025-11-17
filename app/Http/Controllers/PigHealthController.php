@@ -60,6 +60,14 @@ class PigHealthController extends Controller
         return view('health.show', compact('pig'));
     }
 
+    public function edit(PigManagement $pig)
+    {
+        // Load health records and medication administrations for the pig
+        $pig->load(['healthRecords' => function($q) { $q->latest('record_date'); },
+                    'medicationAdministrations' => function($q) { $q->latest('administration_date'); }]);
+        return view('health.edit', compact('pig'));
+    }
+
     public function createHealth(PigManagement $pig = null)
     {
         if (!$pig) {

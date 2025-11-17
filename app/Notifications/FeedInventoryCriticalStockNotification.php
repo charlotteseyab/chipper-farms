@@ -29,17 +29,20 @@ class FeedInventoryCriticalStockNotification extends Notification implements Sho
     {
         $feedType = $this->inventory->feedType;
         $currentStock = $this->inventory->quantity . ' ' . $this->inventory->unit;
+        $unitLabel = strtolower($this->inventory->unit ?? 'kg');
+        $thresholdLabel = str_contains($unitLabel, 'bag') ? "{$this->threshold} bags" : "{$this->threshold} kg";
         
         return new DatabaseMessage([
             'type' => 'feed_critical_stock',
             'title' => 'Critical Feed Stock Alert',
-            'body' => "URGENT: Feed stock for {$feedType->name} is critically low at {$currentStock}. Immediate purchase required!",
+            'body' => "URGENT: Feed stock for {$feedType->name} is critically low at {$currentStock} (threshold {$thresholdLabel}). Immediate purchase required!",
             'icon' => '🚨',
             'color' => 'red',
             'link' => route('feed-purchase-requests.create'),
             'action_text' => 'Create Purchase Request',
             'feed_name' => $feedType->name,
             'current_stock' => $currentStock,
+            'threshold' => $thresholdLabel,
         ]);
     }
 }

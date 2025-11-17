@@ -77,6 +77,34 @@ class RoomController extends Controller
         return view('rooms.show', compact('room'));
     }
 
+    public function edit(Room $room)
+    {
+        $room->load('structure');
+        return view('rooms.edit', compact('room'));
+    }
+
+    public function update(Request $request, Room $room)
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:255',
+            'code' => [
+                'required',
+                'string',
+                'max:50',
+                \Illuminate\Validation\Rule::unique('rooms', 'code')
+                    ->where('structure_id', $room->structure_id)
+                    ->ignore($room->id)
+            ],
+            'capacity' => 'nullable|integer|min:0',
+            'type' => 'required|in:maternity,gestation,weaning,finisher,quarantine,general',
+            'notes' => 'nullable|string'
+        ]);
+
+        $room->update($data);
+
+        return redirect()->route('rooms.show', $room)->with('success', 'Room updated successfully');
+    }
+
     // --- NEW API Methods for Cascading Dropdowns ---
 
     /**

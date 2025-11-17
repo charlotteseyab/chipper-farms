@@ -56,6 +56,18 @@
                             'count' => $count
                         ];
                     }
+
+                    $pregNum = \App\Models\Mating::where('pregnancy_status', 'pregnant')->count();
+                    $pregDenom = \App\Models\Mating::whereNotNull('female_id')->count();
+                    $pregnancyRate = $pregDenom > 0 ? round($pregNum / $pregDenom * 100, 1) : 0;
+                    $totalMatings = \App\Models\Mating::count();
+                    $totalFarrowings = \App\Models\Farrowing::where('farrowing_date', '!=', null)->count();
+                    $farrowingRate = $totalMatings > 0 ? round($totalFarrowings / $totalMatings * 100, 1) : 0;
+                    $totalWeaned = \App\Models\Weaning::count();
+                    $totalBorn = \App\Models\Farrowing::sum('live_births');
+                    $weaningPercentage = $totalBorn > 0 ? round($totalWeaned / $totalBorn * 100, 1) : 0;
+                    $avgStillborns = \App\Models\Farrowing::avg('stillbirths');
+                    $avgBirthWeight = \App\Models\Farrowing::whereNotNull('average_birth_weight')->avg('average_birth_weight');
                 @endphp
 
                 <!-- Total Pigs -->

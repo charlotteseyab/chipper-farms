@@ -35,7 +35,7 @@
             </div>
         </div> -->
 
-        <main class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <main class="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 pb-4">
             <form method="POST" action="{{ route('gestation.update', $mating) }}" class="space-y-8">
                 @csrf
                 @method('PUT')

@@ -288,7 +288,8 @@ class PerformanceMetricController extends Controller
         $thresholds = self::THRESHOLDS['Weaning Percentage'];
         try {
             $totalBorn = \App\Models\Farrowing::sum('live_births');
-            $totalWeaned = \App\Models\Farrowing::sum('number_weaned');
+            // Weaned pigs are recorded in the Weaning table as individual records
+            $totalWeaned = \App\Models\Weaning::count();
             $pct = $totalBorn > 0 ? round(100*$totalWeaned/$totalBorn,1) : 0;
         } catch (\Throwable $e) { $pct = 'N/A'; }
         $level = is_numeric($pct) ? $this->determineLevel($pct, $thresholds) : 'N/A';

@@ -197,10 +197,10 @@
                                 <div class="text-xs text-gray-500">
                                     @if($mating->is_overdue_for_farrowing)
                                         {{ abs($mating->days_to_farrowing) }} days overdue
-                                    @elseif($mating->days_to_farrowing == 0)
+                                    @elseif(\Carbon\Carbon::now()->startOfDay()->equalTo($mating->expected_farrowing_date->copy()->startOfDay()))
                                         Due today
                                     @else
-                                        {{ $mating->days_to_farrowing }} days to go
+                                        {{ \Carbon\Carbon::now()->startOfDay()->diffInDays($mating->expected_farrowing_date->copy()->startOfDay()) }} days to go
                                     @endif
                                 </div>
                             @endif

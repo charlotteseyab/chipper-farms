@@ -1,5 +1,5 @@
 <x-app-layout>
-    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto py-2 px-4 sm:px-6 lg:px-8">
 
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-5">
             <div class="mb-3 sm:mb-0">
@@ -15,12 +15,6 @@
                New Purchase Request
             </a>
         </div>
-        
-        @if(session('success'))
-            <div class="mb-5 p-3 bg-green-50 border-l-4 border-green-400 text-green-700 rounded-lg shadow-sm font-medium" role="alert">
-                {{ session('success') }}
-            </div>
-        @endif
 
         <div class="bg-white overflow-hidden shadow-xl rounded-lg border border-gray-100">
             <div class="overflow-x-auto">

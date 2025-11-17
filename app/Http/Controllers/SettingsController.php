@@ -186,9 +186,14 @@ class SettingsController extends Controller
             'total_farrowings' => $applyRange(Farrowing::query())->count(),
             'total_weanings' => $applyRange(Weaning::query())->count(),
             'average_litter_size' => $applyRange(Farrowing::query())->avg('total_piglets_born'),
-            'pregnancy_rate' => $applyRange(Mating::where('status', 'completed'))->count() > 0 
-                ? ($applyRange(Farrowing::query())->count() / $applyRange(Mating::where('status', 'completed'))->count()) * 100 
-                : 0,
+            // Unify with PerformanceMetricController (pregnancy_status method)
+            'pregnancy_rate' => (function() use ($applyRange) {
+                $eligibleMatings = $applyRange(Mating::whereNotNull('female_id'));
+                $pregnant = $applyRange(Mating::where('pregnancy_status', 'pregnant'));
+                $numEligible = $eligibleMatings->count();
+                $numPregnant = $pregnant->count();
+                return $numEligible > 0 ? round(100 * $numPregnant / $numEligible, 1) : 0;
+            })(),
         ];
 
         // Health & Mortality
