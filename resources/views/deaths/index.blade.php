@@ -23,6 +23,9 @@
                             Download PDF
                         </a>
                         <a href="{{ route('all-stocks.index') }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Record Death</a>
+                        <a href="{{ route('pigs.archived') }}" class="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black/80">
+                            Archived Records
+                        </a>
                     </div>
                 </div>
             </div>

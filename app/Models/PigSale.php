@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Carbon\Carbon;
 
 class PigSale extends Model
 {
+    use SoftDeletes;
     // Price rates per kg
     // Get pricing from settings, fallback to defaults
     public static function getLiveWeightRate()
@@ -70,7 +72,7 @@ class PigSale extends Model
     // Relationships
     public function pig(): BelongsTo
     {
-        return $this->belongsTo(PigManagement::class, 'pig_id');
+        return $this->belongsTo(PigManagement::class, 'pig_id')->withTrashed();
     }
 
     public function soldBy(): BelongsTo

@@ -1626,6 +1626,54 @@ class PigManagementController extends Controller {
         return $query;
     }
 
+    public function archived(Request $request)
+    {
+        $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+        $archived = PigManagement::onlyTrashed()
+            ->with(['deaths', 'sales'])
+            ->orderByDesc('deleted_at');
+        if ($search = $request->string('search')->toString()) {
+            $archived->where(function ($q) use ($search) {
+                $q->where('ear_tag_number', 'like', "%{$search}%")
+                  ->orWhere('code', 'like', "%{$search}%");
+            });
+        }
+        $category = $request->string('category')->toString();
+        if ($category === 'piglet') {
+            $archived->whereNotNull('date_of_birth')
+                ->whereDate('date_of_birth', '>=', Carbon::now()->subDays($weaningAge));
+        } elseif ($category === 'adult') {
+            $archived->where(function ($q) use ($weaningAge) {
+                $q->whereNull('date_of_birth')
+                  ->orWhereDate('date_of_birth', '<', Carbon::now()->subDays($weaningAge));
+            });
+        }
+        $pigs = $archived->paginate(15)->withQueryString();
+
+        // piglet deaths: soft-deleted (archived), newest first, paginated
+        $pigletDeaths = \App\Models\PigletDeath::onlyTrashed()
+            ->with(['farrowing.sow', 'recordedBy'])
+            ->orderByDesc('deleted_at')
+            ->paginate(10);
+
+        return view('pigs.archived', compact('pigs', 'category', 'weaningAge', 'pigletDeaths'));
+    }
+
+    public function restorePigletDeath($id)
+    {
+        $pigletDeath = \App\Models\PigletDeath::onlyTrashed()->findOrFail($id);
+        $pigletDeath->restore();
+        return redirect()->route('pigs.archived')->with('success', "Piglet death record restored.");
+    }
+
+    public function restorePig($id)
+    {
+        $pig = PigManagement::withTrashed()->findOrFail($id);
+        $pig->restore();
+
+        return redirect()->route('pigs.archived')->with('success', "Pig {$pig->code} has been restored to active records.");
+    }
+
     public function recordWeaning(Request $request, $id)
     {
         $pig = PigManagement::findOrFail($id);
@@ -1650,7 +1698,13 @@ class PigManagementController extends Controller {
             return back()->withErrors(['weaning' => 'This pig has already been weaned.']);
         }
 
-        $ageAtWeaning = (int) $pig->date_of_birth->diffInDays($data['weaning_date']);
+        $birthDate = $pig->date_of_birth instanceof Carbon
+            ? $pig->date_of_birth->copy()->startOfDay()
+            : Carbon::parse($pig->date_of_birth)->startOfDay();
+
+        $weaningDate = Carbon::parse($data['weaning_date'])->endOfDay();
+
+        $ageAtWeaning = (int) $birthDate->diffInDays($weaningDate);
         $minWeaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
 
         if ($ageAtWeaning < $minWeaningAge) {
@@ -1840,7 +1894,7 @@ class PigManagementController extends Controller {
     // Show detailed pig information
     public function show($id)
     {
-        $pig = PigManagement::with([
+        $pig = PigManagement::withTrashed()->with([
             'father',
             'mother',
             'weights' => function($query) {
@@ -2028,6 +2082,10 @@ class PigManagementController extends Controller {
 
         // Create sale record
         PigSale::create($data);
+
+        if (!$pig->trashed()) {
+            $pig->delete();
+        }
 
         return redirect()->route('sales.index')->with('success', "Sale of pig {$pig->code} recorded successfully!");
     }
@@ -2270,6 +2328,10 @@ class PigManagementController extends Controller {
         // Load the pig relationship for age calculation
         $death->setRelation('pig', $pig);
         $death->save();
+
+        if (!$pig->trashed()) {
+            $pig->delete();
+        }
 
         return redirect()->route('deaths.index')->with('success', "Death of pig {$pig->code} recorded successfully.");
     }

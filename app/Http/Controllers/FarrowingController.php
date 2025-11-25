@@ -91,7 +91,7 @@ class FarrowingController extends Controller
         $data['recorded_by'] = auth()->id();
         $data['farrowing_id'] = $farrowing->id;
 
-        PigletDeath::create($data);
+        \App\Models\PigletDeath::create($data);
 
         return back()->with('success', 'Piglet death recorded.');
     }
@@ -271,8 +271,8 @@ class FarrowingController extends Controller
             'total_live_births' => 0,
             'total_stillbirths' => 0,
             'total_deaths' => 0,
-            'total_surviving' => 0,
-            'current_surviving' => 0, // Current surviving piglets (matches dashboard calculation)
+            'total_surviving' => 0, // Represents all live piglets ever born
+            'current_surviving' => 0, // Piglets still on-farm (not yet weaned)
         ];
 
         // Process each sow's data
@@ -304,7 +304,7 @@ class FarrowingController extends Controller
                 $sowStats['total_live_births'] += $liveBirths;
                 $sowStats['total_stillbirths'] += $stillbirths;
                 $sowStats['total_deaths'] += $deaths;
-                $sowStats['total_surviving'] += $surviving;
+                $sowStats['total_surviving'] += $liveBirths;
 
                 // Overall stats (all farrowings)
                 $overallStats['total_farrowings']++;
@@ -312,7 +312,7 @@ class FarrowingController extends Controller
                 $overallStats['total_live_births'] += $liveBirths;
                 $overallStats['total_stillbirths'] += $stillbirths;
                 $overallStats['total_deaths'] += $deaths;
-                $overallStats['total_surviving'] += $surviving;
+                $overallStats['total_surviving'] += $liveBirths;
 
                 // Current surviving (only recent active farrowings - matches dashboard)
                 if ($isRecent && $isActive) {

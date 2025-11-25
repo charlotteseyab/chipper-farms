@@ -85,11 +85,11 @@
                     <p class="text-xs text-green-200 mt-2">Active Piglets (under {{ config('breeding.cycle.birth_to_weaning_days', 45) }} days old)</p>
                 </div>
                 
-                <!-- Total Surviving (All Time) -->
+                <!-- Total Piglets Ever Born (Live) -->
                 <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-5 col-span-2 lg:col-span-1">
-                    <p class="text-sm font-medium text-gray-600">Total Surviving (All Time)</p>
+                    <p class="text-sm font-medium text-gray-600">Total Piglets (All Time)</p>
                     <p class="text-3xl font-extrabold text-blue-600 mt-1">{{ $overallStats['total_surviving'] }}</p>
-                    <p class="text-xs text-gray-500 mt-2">Historical count from all farrowings</p>
+                    <p class="text-xs text-gray-500 mt-2">Cumulative live piglets recorded — never decreases</p>
                 </div>
             </div>
 

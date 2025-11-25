@@ -116,6 +116,23 @@
                     <div class="font-semibold text-gray-900">{{ optional($request->decided_at)->format('Y-m-d H:i') }}</div>
                 </div>
                 @endif
+                <div class="border-t pt-4">
+                    <div class="text-gray-500 mb-1">Payment Status</div>
+                    @if($request->status === 'approved')
+                        <form method="POST" action="{{ route('feed-purchase-requests.mark-paid', $request) }}" class="inline-flex items-center mt-1">
+                            @csrf
+                            <input type="hidden" name="is_paid" value="{{ $request->is_paid ? '0' : '1' }}">
+                            <input type="checkbox" onchange="this.form.submit()" {{ $request->is_paid ? 'checked' : '' }} class="form-checkbox h-5 w-5 text-green-600">
+                            <span class="ml-2 text-sm font-semibold {{ $request->is_paid ? 'text-green-600' : 'text-gray-500' }}">
+                                {{ $request->is_paid ? 'Paid' : 'Mark as Paid' }}
+                            </span>
+                        </form>
+                    @else
+                        <span class="inline-flex items-center px-3 py-0.5 rounded-full text-sm font-bold bg-gray-200 text-gray-700 mt-1">
+                            Unavailable
+                        </span>
+                    @endif
+                </div>
             </div>
 
             @if($request->decision_reason)

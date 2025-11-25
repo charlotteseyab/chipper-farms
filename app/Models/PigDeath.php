@@ -3,11 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Carbon\Carbon;
 
 class PigDeath extends Model
 {
+    use SoftDeletes;
     protected $fillable = [
         'pig_id',
         'death_date',
@@ -32,7 +34,7 @@ class PigDeath extends Model
     // Relationships
     public function pig(): BelongsTo
     {
-        return $this->belongsTo(PigManagement::class, 'pig_id');
+        return $this->belongsTo(PigManagement::class, 'pig_id')->withTrashed();
     }
 
     public function recordedBy(): BelongsTo

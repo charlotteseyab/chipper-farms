@@ -20,6 +20,8 @@ class FeedPurchaseRequest extends Model
         'vendor',
         'priority',
         'status',
+        'is_paid',
+        'paid_at',
         'decision_reason',
         'decided_by',
         'decided_at',
@@ -30,6 +32,8 @@ class FeedPurchaseRequest extends Model
         'cost_ghc' => 'float',
         'needed_by' => 'date',
         'decided_at' => 'datetime',
+        'is_paid' => 'boolean',
+        'paid_at' => 'datetime',
     ];
 
     public function requestedBy(): BelongsTo

@@ -143,6 +143,11 @@ Route::middleware([
     // Piglet Tracking routes
     Route::get('piglets/tracking', [App\Http\Controllers\FarrowingController::class, 'pigletTracking'])->name('piglets.tracking');
 
+    // Archived pigs (soft deletes)
+    Route::get('pigs/archived', [App\Http\Controllers\PigManagementController::class, 'archived'])->name('pigs.archived');
+    Route::patch('pigs/{id}/restore', [App\Http\Controllers\PigManagementController::class, 'restorePig'])->name('pigs.restore');
+    Route::patch('piglet-deaths/{id}/restore', [App\Http\Controllers\PigManagementController::class, 'restorePigletDeath'])->name('pigs.piglet-death-restore');
+
     // Weaning Period Management Routes
     Route::get('weaning', function() {
         return redirect('/weaning/overdue'); // Redirect to most urgent page
@@ -289,8 +294,8 @@ Route::middleware([
 
    
 
-    // Feed Inventory & Purchase Requests (manager/admin only)
-    Route::middleware(['role:manager,admin'])->group(function () {
+    // Feed Inventory & Purchase Requests (all roles now)
+    //Route::middleware(['role:manager,admin'])->group(function () {
         // Feed Inventory
         Route::get('feed-inventory', [App\Http\Controllers\FeedInventoryController::class, 'index'])->name('feed-inventory.index');
         Route::get('feed-inventory/create', [App\Http\Controllers\FeedInventoryController::class, 'create'])->name('feed-inventory.create');
@@ -306,7 +311,12 @@ Route::middleware([
         Route::get('feed-purchase-requests/{request}', [App\Http\Controllers\FeedPurchaseRequestController::class, 'show'])->name('feed-purchase-requests.show');
         Route::post('feed-purchase-requests/{request}/approve', [App\Http\Controllers\FeedPurchaseRequestController::class, 'approve'])->middleware('role:admin,superuser')->name('feed-purchase-requests.approve');
         Route::post('feed-purchase-requests/{request}/reject', [App\Http\Controllers\FeedPurchaseRequestController::class, 'reject'])->middleware('role:admin,superuser')->name('feed-purchase-requests.reject');
-    });
+        // Add route for marking payment status.
+        Route::post('feed-purchase-requests/{request}/mark-paid', [App\Http\Controllers\FeedPurchaseRequestController::class, 'markPaid'])->name('feed-purchase-requests.mark-paid');
+        Route::delete('feed-purchase-requests/{request}', [App\Http\Controllers\FeedPurchaseRequestController::class, 'destroy'])->middleware('role:superuser')->name('feed-purchase-requests.destroy');
+        Route::get('feed-purchase-requests/{request}/edit', [App\Http\Controllers\FeedPurchaseRequestController::class, 'edit'])->name('feed-purchase-requests.edit');
+        Route::put('feed-purchase-requests/{request}', [App\Http\Controllers\FeedPurchaseRequestController::class, 'update'])->name('feed-purchase-requests.update');
+    //});
 
     // Feed Management Setup
     Route::middleware(['role:admin,superuser,manager'])->group(function () {

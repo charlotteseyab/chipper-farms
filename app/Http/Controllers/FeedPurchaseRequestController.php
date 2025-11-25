@@ -112,21 +112,6 @@ class FeedPurchaseRequestController extends Controller
     // Show a single purchase request
     public function show(FeedPurchaseRequest $request)
     {
-        $user = Auth::user();
-        
-        // Allow access if user is the requester, or if user is admin/manager/superuser
-        if (!$user) {
-            abort(403, 'Unauthorized');
-        }
-        
-        $isRequester = $request->requested_by === $user->id;
-        $isAdmin = $user->isAdmin() || $user->isSuperuser();
-        $isManager = optional($user->role)->name === 'farmmanager';
-        
-        if (!$isRequester && !$isAdmin && !$isManager) {
-            abort(403, 'You can only view your own purchase requests.');
-        }
-        
         $request->load('requestedBy');
         return view('feeds.purchase_request_show', compact('request'));
     }
@@ -169,5 +154,76 @@ class FeedPurchaseRequestController extends Controller
         $request->requestedBy->notify(new FeedPurchaseRequestNotificationImmediate($request, 'rejected'));
         
         return back()->with('success', 'Request rejected.');
+    }
+
+    /**
+     * Mark payment as made (or undo) for a purchase request.
+     */
+    public function markPaid(Request $httpRequest, FeedPurchaseRequest $request)
+    {
+        // Only allow if currently approved
+        if ($request->status !== 'approved') {
+            return back()->withErrors(['You can only mark payment for approved requests.']);
+        }
+
+        $isPaid = $httpRequest->boolean('is_paid');
+        $request->fill([
+            'is_paid' => $isPaid,
+            'paid_at' => $isPaid ? now() : null,
+        ])->save();
+
+        return back()->with('success', $isPaid ? 'Payment marked as made.' : 'Payment unmarked.');
+    }
+
+    /**
+     * Show the edit form for a purchase request.
+     */
+    public function edit(FeedPurchaseRequest $request)
+    {
+        $categories = ['feed','medication','equipment','supplies','maintenance'];
+        return view('feeds.purchase_request_edit', compact('request', 'categories'));
+    }
+
+    /**
+     * Update a purchase request.
+     */
+    public function update(Request $httpRequest, FeedPurchaseRequest $request)
+    {
+        // Basic validation
+        $data = $httpRequest->validate([
+            'category' => 'required|string|in:feed,medication,equipment,supplies,maintenance',
+            'item_name' => 'nullable|string|max:120',
+            'feed_type' => 'nullable|string|max:100',
+            'quantity' => 'required|numeric|min:1|max:100000',
+            'unit' => 'string|max:10',
+            'cost_ghc' => 'required|numeric|min:0.1|max:1000000',
+            'needed_by' => 'nullable|date|after_or_equal:today',
+            'notes' => 'nullable|string|max:1000',
+            'vendor' => 'nullable|string|max:120',
+            'priority' => 'nullable|string|in:low,normal,high,urgent',
+        ]);
+        if (($data['category'] ?? null) === 'feed') {
+            $data['feed_type'] = $data['item_name'] ?: ($data['feed_type'] ?? $request->feed_type ?? '');
+        } else {
+            $data['feed_type'] = $data['feed_type'] ?? '';
+        }
+
+        $request->update($data);
+        return redirect()->route('feed-purchase-requests.show', $request)->with('success', 'Procurement request updated successfully.');
+    }
+
+    /**
+     * Delete a purchase request (superuser only).
+     */
+    public function destroy(FeedPurchaseRequest $request)
+    {
+        $user = auth()->user();
+        if (!$user || !$user->isSuperuser()) {
+            abort(403, 'Only superusers can delete purchase requests.');
+        }
+
+        $request->delete();
+
+        return back()->with('success', 'Purchase request deleted.');
     }
 }

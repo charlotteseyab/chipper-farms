@@ -25,6 +25,7 @@
                             <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Quantity</th>
                             <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cost (GHS)</th>
                             <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Payment Made</th>
                             <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Created At</th>
                             <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Needed By</th>
                             <th class="px-4 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Requested By</th>
@@ -64,6 +65,23 @@
                                     {{ strtoupper($req->status) }}
                                 </span>
                             </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-center">
+                                @if($req->status === 'approved')
+                                    @if($req->is_paid)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-green-100 text-green-800">
+                                            Paid
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-gray-200 text-gray-600">
+                                            Unpaid
+                                        </span>
+                                    @endif
+                                @else
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-gray-100 text-gray-400">
+                                        N/A
+                                    </span>
+                                @endif
+                            </td>
 
                             <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                                 {{ $req->created_at->format('Y-m-d') }}
@@ -77,11 +95,26 @@
                                 {{ $req->requestedBy->name ?? 'N/A' }}
                             </td>
                             
-                            <td class="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                                <a href="{{ route('feed-purchase-requests.show', ['request' => $req->getKey()]) }}" 
-                                   class="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-100 transition">
-                                    View Details
-                                </a>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">
+                                <div class="flex items-center gap-1">
+                                    <a href="{{ route('feed-purchase-requests.show', ['request' => $req->getKey()]) }}" 
+                                       class="inline-flex items-center justify-center text-indigo-600 hover:text-indigo-900 px-2 py-1 rounded-full bg-indigo-50 hover:bg-indigo-100 transition text-xs font-semibold">
+                                        View
+                                    </a>
+                                    <a href="{{ route('feed-purchase-requests.edit', $req) }}" 
+                                       class="inline-flex items-center justify-center text-indigo-600 hover:text-white px-2 py-1 rounded-full border border-indigo-200 hover:bg-indigo-600 transition text-xs font-semibold">
+                                        Edit
+                                    </a>
+                                    @if(auth()->user() && auth()->user()->isSuperuser())
+                                        <form action="{{ route('feed-purchase-requests.destroy', $req) }}" method="POST" class="inline-flex" onsubmit="return confirm('Are you sure you want to delete this request?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="inline-flex items-center justify-center text-red-600 hover:text-white px-2 py-1 rounded-full border border-red-200 hover:bg-red-600 transition text-xs font-semibold" title="Delete">
+                                                Delete
+                                            </button>
+                                        </form>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                         @empty
@@ -107,11 +140,21 @@
                     </tbody>
                 </table>
             </div>
+            <!-- Pagination (embedded, simple style) -->
+            @if($requests->hasPages())
+                    <div class="px-6 py-4 border-t border-gray-200 bg-white">
+                        <div class="flex items-center justify-between">
+                            <div class="text-sm text-gray-700">
+                                Showing {{ $requests->firstItem() }} to {{ $requests->lastItem() }} of {{ $requests->total() }} results
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <x-simple-pagination :paginator="$requests" />
+                            </div>
+                        </div>
+                    </div>
+                @endif
         </div>
         
-        <div class="mt-4 flex justify-end">
-            {{ $requests->links() }}
-        </div>
     </div>
     <x-copyright-minimal />
 </x-app-layout>

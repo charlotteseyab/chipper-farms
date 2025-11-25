@@ -321,12 +321,6 @@
                     </svg>
                     System Reports
                 </a>
-                <!-- <a href="{{ route('settings.metrics') }}" class="flex items-center gap-3 px-4 py-2 rounded-lg text-green-100 hover:bg-[#218c6a] hover:text-white transition text-sm @if(request()->is('settings/metrics*')) bg-[#218c6a] text-white @endif">
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
-                </svg>
-                    Performance Metrics
-                </a> -->
             </div>
         </div>
 	</nav>
