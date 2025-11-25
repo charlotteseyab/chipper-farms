@@ -358,9 +358,12 @@ class RealTimeNotificationService
     public static function getTotalAlertCount(): int
     {
         $allAlerts = self::getAllAlerts();
-        return $allAlerts['weight']['total_count'] + 
-               $allAlerts['gestation']['total_count'] + 
-               $allAlerts['feed']['total_count'];
+
+        $weightAlerts = count($allAlerts['weight']['alerts'] ?? []);
+        $gestationAlerts = count($allAlerts['gestation']['alerts'] ?? []);
+        $feedAlerts = count($allAlerts['feed']['alerts'] ?? []);
+
+        return $weightAlerts + $gestationAlerts + $feedAlerts;
     }
 
     /**

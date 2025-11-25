@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PigHealthController;
+use App\Http\Controllers\FarmManagerDashboardController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Notifications\DatabaseNotification;
 use App\Http\Controllers\RoomController;
@@ -90,7 +91,7 @@ Route::middleware([
     'activity'
 ])->group(function () {
     Route::view('/admin/dashboard', 'admin.dashboard')->name('admin.dashboard');
-    Route::view('/manager/dashboard', 'manager.dashboard')->name('manager.dashboard');
+    Route::get('/manager/dashboard', FarmManagerDashboardController::class)->name('manager.dashboard');
     Route::view('/superuser/dashboard', 'superuser.dashboard')->name('superuser.dashboard');
     Route::view('/dataentry/dashboard', 'dataentry.dashboard')->name('dataentry.dashboard');
     
