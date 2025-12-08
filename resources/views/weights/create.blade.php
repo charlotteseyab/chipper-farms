@@ -355,7 +355,7 @@
                     document.getElementById('info-stock-type').textContent = selectedOption.dataset.stockType.charAt(0).toUpperCase() + selectedOption.dataset.stockType.slice(1);
 
                     // Load expected weight standards and previous weight
-                    loadWeightStandards(selectedOption.value);
+                    loadWeightStandards(selectedOption.value, weighDateInput.value, targetWeekSelect.value);
                     loadPreviousWeight(selectedOption.value);
                     
                     // Clear any previous weight feedback
@@ -369,7 +369,7 @@
                 }
             }
 
-            function loadWeightStandards(pigId) {
+            function loadWeightStandards(pigId, weighDateValue, targetWeekValue) {
                 // Show loading state
                 document.getElementById('expected-range').textContent = 'Loading...';
                 document.getElementById('expected-optimal').textContent = 'Loading...';
@@ -377,7 +377,17 @@
                 document.getElementById('standard-loading').classList.remove('hidden');
 
                 // Make AJAX call to get expected weight standards
-                fetch(`/api/pigs/${pigId}/expected-weight`)
+                const params = new URLSearchParams();
+                if (weighDateValue) {
+                    params.append('date', weighDateValue);
+                }
+                if (targetWeekValue) {
+                    params.append('week', targetWeekValue);
+                }
+                const url = params.toString()
+                    ? `/api/pigs/${pigId}/expected-weight?${params.toString()}`
+                    : `/api/pigs/${pigId}/expected-weight`;
+                fetch(url)
                     .then(response => response.json())
                     .then(data => {
                         if (data.success && data.data) {
@@ -392,7 +402,15 @@
                         } else {
                             document.getElementById('expected-range').textContent = 'N/A';
                             document.getElementById('expected-optimal').textContent = 'N/A';
-                            document.getElementById('no-standard-message').classList.remove('hidden');
+                            const messageEl = document.getElementById('no-standard-message');
+                            if (data.data && data.data.note) {
+                                messageEl.textContent = data.data.note;
+                            } else if (data.message) {
+                                messageEl.textContent = data.message;
+                            } else {
+                                messageEl.textContent = 'No weight standard set for this pig type/age.';
+                            }
+                            messageEl.classList.remove('hidden');
                             window.currentWeightStandard = null;
                         }
                         document.getElementById('standard-loading').classList.add('hidden');
@@ -583,10 +601,17 @@
             targetWeekSelect.addEventListener('change', function() {
                 updateWeekComparison();
                 updateWeightFeedback();
+                if (pigSelect.value) {
+                    loadWeightStandards(pigSelect.value, weighDateInput.value, targetWeekSelect.value);
+                }
             });
             weighDateInput.addEventListener('change', function() {
                 autoSuggestWeek();
                 updateWeekComparison();
+                if (pigSelect.value) {
+                    loadWeightStandards(pigSelect.value, weighDateInput.value, targetWeekSelect.value);
+                }
+                updateWeightFeedback();
             });
 
             // Auto-suggest target week based on pig's age on weigh date
@@ -619,6 +644,7 @@
             if (pigSelect.value) {
                 updatePigInfo();
                 autoSuggestWeek();
+                loadWeightStandards(pigSelect.value, weighDateInput.value, targetWeekSelect.value);
             }
 
             // Set current time when form loads

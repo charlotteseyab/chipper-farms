@@ -86,8 +86,8 @@
 
                     <!-- Sale Weight -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2" for="sale_weight">Sale Weight (lb) <span class="text-red-500">*</span></label>
-                        <input type="number" id="sale_weight" name="sale_weight" value="{{ old('sale_weight', ($pig->deaths()->exists() ? ($pig->deaths()->first()->final_weight ?? 0) : ($pig->latestWeight?->weight ?? 0)) * 2.20462) }}" 
+                        <label class="block text-sm font-medium text-gray-700 mb-2" for="sale_weight">Sale Weight (kg) <span class="text-red-500">*</span></label>
+                        <input type="number" id="sale_weight" name="sale_weight" value="{{ old('sale_weight', ($pig->deaths()->exists() ? ($pig->deaths()->first()->final_weight ?? 0) : ($pig->latestWeight?->weight ?? 0))) }}" 
                                step="0.1" min="0" required 
                                class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
                         <p class="text-xs text-gray-500 mt-1">Weight used for final price calculation.</p>
@@ -269,19 +269,16 @@
 
     // Function to calculate and display price
     function calculatePrice() {
-        const pounds = parseFloat(weightInput.value) || 0;
+        const kg = parseFloat(weightInput.value) || 0;
         const weightType = weightTypeSelect.value;
-        // Conversion factor from pounds (lb) to kilograms (kg)
-        const KG_PER_LB = 1 / 2.20462;
         
-        if (pounds > 0 && weightType) {
-            const kg = pounds * KG_PER_LB;
+        if (kg > 0 && weightType) {
             const rate = PRICE_RATES[weightType];
             const totalPrice = kg * rate;
             
             // Update display
             calculatedPriceDiv.textContent = `₵${totalPrice.toFixed(2)}`;
-            priceBreakdownDiv.textContent = `${pounds.toFixed(1)} lb (${kg.toFixed(2)} kg) × ₵${rate}/kg rate`;
+            priceBreakdownDiv.textContent = `${kg.toFixed(2)} kg × ₵${rate}/kg rate`;
             
             // Add visual feedback
             calculatedPriceDiv.classList.remove('text-gray-500');

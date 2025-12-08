@@ -12,6 +12,7 @@ class FeedSchedule extends Model
     protected $fillable = [
         'group_id',
         'structure_id',
+        'room_id', // newly added
         'feed_type_id',
         'planned_amount',
         'unit',

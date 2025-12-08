@@ -21,7 +21,7 @@
                             </a>
                         </div>
                     </div>
-                </div>
+                                    </div>
             </div>
 
             <!-- Key Metrics Cards -->
@@ -29,7 +29,7 @@
                 @php
                     // Enhanced pig counting including piglets
                     $weanedPigs = \App\Models\PigManagement::active()->count();
-                    $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+$weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
                     $recentFarrowings = \App\Models\Farrowing::with('pigletDeaths')
                         ->where('farrowing_date', '>=', now()->subDays($weaningAge))
                         ->where('status', 'active')
@@ -95,21 +95,6 @@
                         <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
-                            </svg>
-                        </div>
-                    </div>
-                </a>
-
-                <!-- Pending Weighing -->
-                <a href="{{ route('all-stocks.index', ['has_recent_weigh_date' => 'false', 'recent_weigh_days' => 7]) }}" class="block bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-lg p-6 text-white hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-orange-100 text-sm font-medium">Pending Weighing</p>
-                            <p class="text-3xl font-bold">{{ $pendingWeighing }}</p>
-                        </div>
-                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
                             </svg>
                         </div>
                     </div>
@@ -639,6 +624,7 @@
             </div>
         </div>
     </div>
+    <x-copyright-minimal />
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

@@ -686,6 +686,137 @@
         <x-copyright-minimal />
     </div>
 
+      <!-- Weighing Alerts Modal -->
+      <div id="weighingAlertsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div class="flex items-center justify-between p-6 border-b border-gray-200">
+                <div>
+                    <h2 class="text-xl font-bold text-gray-900">Weighing Alerts Details</h2>
+                    <p class="text-sm text-gray-600 mt-1">Pigs overdue for weighing with detailed information</p>
+                </div>
+                <button onclick="toggleWeighingAlertsModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+                <div class="mb-4">
+                    <label for="alertSearchInput" class="block text-sm font-medium text-gray-700 mb-1">Search by Ear Tag</label>
+                    <div class="relative">
+                        <input type="text" id="alertSearchInput" placeholder="Type ear tag number..." class="w-full border border-gray-300 rounded-lg px-4 py-2 pl-10 text-sm focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500">
+                        <svg class="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M11 19a8 8 0 110-16 8 8 0 010 16z"/>
+                        </svg>
+                    </div>
+                </div>
+                @php
+                    $allOverduePigs = \App\Models\PigManagement::getOverdueForWeighing();
+                @endphp
+                
+                @if($allOverduePigs->count() > 0)
+                    <div class="space-y-4" id="alertsListContainer">
+                        @foreach($allOverduePigs as $pig)
+                            @php
+                                $weighingStatus = $pig->getWeighingStatus();
+                                $daysSince = $pig->getDaysSinceLastWeighing();
+                                $lastWeighing = $pig->getLastWeighingDate();
+                                $lastWeight = $pig->weights()->latest('weigh_date')->first();
+                                $overdueDays = $daysSince - 30; // 30 is the weighing interval
+                            @endphp
+                            <div class="bg-{{ $weighingStatus['color'] }}-50 border border-{{ $weighingStatus['color'] }}-200 rounded-lg p-4 alert-row" data-ear-tag="{{ strtolower($pig->ear_tag_number ?? '') }}">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <div class="flex items-center mb-2">
+                                            <span class="text-2xl mr-3">{{ $weighingStatus['icon'] }}</span>
+                                            <div>
+                                                <h3 class="text-lg font-semibold text-gray-900">{{ $pig->ear_tag_number }}</h3>
+                                                <p class="text-sm text-gray-600">{{ $pig->breed }} • {{ $pig->gender }} • {{ $pig->stock_type }}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                                            <div class="bg-white rounded-lg p-3 border border-gray-200">
+                                                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Weighing</p>
+                                                <p class="text-sm font-semibold text-gray-900">
+                                                    @if($lastWeighing)
+                                                        {{ $lastWeighing->format('M j, Y') }}
+                                                    @else
+                                                        Never weighed
+                                                    @endif
+                                                </p>
+                                            </div>
+                                            
+                                            <div class="bg-white rounded-lg p-3 border border-gray-200">
+                                                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Weight</p>
+                                                <p class="text-sm font-semibold text-gray-900">
+                                                    @if($lastWeight)
+                                                        {{ number_format($lastWeight->weight, 1) }} {{ $lastWeight->weight_unit }}
+                                                    @else
+                                                        No weight recorded
+                                                    @endif
+                                                </p>
+                                            </div>
+                                            
+                                            <div class="bg-white rounded-lg p-3 border border-gray-200">
+                                                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Overdue By</p>
+                                                <p class="text-sm font-semibold text-{{ $weighingStatus['color'] }}-700">
+                                                    {{ max(0, (int)$overdueDays) }} days
+                                                </p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="mt-3 flex items-center justify-between">
+                                            <div class="flex items-center">
+                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{{ $weighingStatus['color'] }}-100 text-{{ $weighingStatus['color'] }}-800">
+                                                    {{ $weighingStatus['message'] }}
+                                                </span>
+                                                <span class="ml-2 text-xs text-gray-500">
+                                                    {{ (int)$daysSince }} days since last weighing
+                                                </span>
+                                            </div>
+                                            
+                                            <a href="{{ route('weights.create', ['pig_id' => $pig->id]) }}" 
+                                               class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-{{ $weighingStatus['color'] }}-600 hover:bg-{{ $weighingStatus['color'] }}-700 transition-colors">
+                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+                                                </svg>
+                                                Record Weight
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="text-center py-12">
+                        <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">All caught up!</h3>
+                        <p class="text-gray-500">All pigs are up to date with their weighing schedule.</p>
+                    </div>
+                @endif
+            </div>
+            
+            <div class="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+                <div class="text-sm text-gray-600">
+                    <span class="font-medium">{{ $allOverduePigs->count() }}</span> pigs need weighing attention
+                </div>
+                <div class="flex space-x-3">
+                    <a href="{{ route('weights.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                        View All Weights
+                    </a>
+                    <button onclick="toggleWeighingAlertsModal()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -1146,128 +1277,6 @@
 
     </script>
 
-    <!-- Weighing Alerts Modal -->
-    <div id="weighingAlertsModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div class="flex items-center justify-between p-6 border-b border-gray-200">
-                <div>
-                    <h2 class="text-xl font-bold text-gray-900">Weighing Alerts Details</h2>
-                    <p class="text-sm text-gray-600 mt-1">Pigs overdue for weighing with detailed information</p>
-                </div>
-                <button onclick="toggleWeighingAlertsModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-                @php
-                    $allOverduePigs = \App\Models\PigManagement::getOverdueForWeighing();
-                @endphp
-                
-                @if($allOverduePigs->count() > 0)
-                    <div class="space-y-4">
-                        @foreach($allOverduePigs as $pig)
-                            @php
-                                $weighingStatus = $pig->getWeighingStatus();
-                                $daysSince = $pig->getDaysSinceLastWeighing();
-                                $lastWeighing = $pig->getLastWeighingDate();
-                                $lastWeight = $pig->weights()->latest('weigh_date')->first();
-                                $overdueDays = $daysSince - 30; // 30 is the weighing interval
-                            @endphp
-                            <div class="bg-{{ $weighingStatus['color'] }}-50 border border-{{ $weighingStatus['color'] }}-200 rounded-lg p-4">
-                                <div class="flex items-start justify-between">
-                                    <div class="flex-1">
-                                        <div class="flex items-center mb-2">
-                                            <span class="text-2xl mr-3">{{ $weighingStatus['icon'] }}</span>
-                                            <div>
-                                                <h3 class="text-lg font-semibold text-gray-900">{{ $pig->ear_tag_number }}</h3>
-                                                <p class="text-sm text-gray-600">{{ $pig->breed }} • {{ $pig->gender }} • {{ $pig->stock_type }}</p>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
-                                            <div class="bg-white rounded-lg p-3 border border-gray-200">
-                                                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Weighing</p>
-                                                <p class="text-sm font-semibold text-gray-900">
-                                                    @if($lastWeighing)
-                                                        {{ $lastWeighing->format('M j, Y') }}
-                                                    @else
-                                                        Never weighed
-                                                    @endif
-                                                </p>
-                                            </div>
-                                            
-                                            <div class="bg-white rounded-lg p-3 border border-gray-200">
-                                                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Weight</p>
-                                                <p class="text-sm font-semibold text-gray-900">
-                                                    @if($lastWeight)
-                                                        {{ number_format($lastWeight->weight, 1) }} {{ $lastWeight->weight_unit }}
-                                                    @else
-                                                        No weight recorded
-                                                    @endif
-                                                </p>
-                                            </div>
-                                            
-                                            <div class="bg-white rounded-lg p-3 border border-gray-200">
-                                                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Overdue By</p>
-                                                <p class="text-sm font-semibold text-{{ $weighingStatus['color'] }}-700">
-                                                    {{ max(0, (int)$overdueDays) }} days
-                                                </p>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="mt-3 flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-{{ $weighingStatus['color'] }}-100 text-{{ $weighingStatus['color'] }}-800">
-                                                    {{ $weighingStatus['message'] }}
-                                                </span>
-                                                <span class="ml-2 text-xs text-gray-500">
-                                                    {{ (int)$daysSince }} days since last weighing
-                                                </span>
-                                            </div>
-                                            
-                                            <a href="{{ route('weights.create', ['pig_id' => $pig->id]) }}" 
-                                               class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-{{ $weighingStatus['color'] }}-600 hover:bg-{{ $weighingStatus['color'] }}-700 transition-colors">
-                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
-                                                </svg>
-                                                Record Weight
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                @else
-                    <div class="text-center py-12">
-                        <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">All caught up!</h3>
-                        <p class="text-gray-500">All pigs are up to date with their weighing schedule.</p>
-                    </div>
-                @endif
-            </div>
-            
-            <div class="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
-                <div class="text-sm text-gray-600">
-                    <span class="font-medium">{{ $allOverduePigs->count() }}</span> pigs need weighing attention
-                </div>
-                <div class="flex space-x-3">
-                    <a href="{{ route('weights.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-                        View All Weights
-                    </a>
-                    <button onclick="toggleWeighingAlertsModal()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 transition-colors">
-                        Close
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script>
         function toggleWeighingAlertsModal() {
             const modal = document.getElementById('weighingAlertsModal');
@@ -1302,6 +1311,21 @@
                 }
                 // Open the modal
                 toggleWeighingAlertsModal();
+            }
+
+            const searchInput = document.getElementById('alertSearchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', function(e) {
+                    const query = e.target.value.toLowerCase();
+                    document.querySelectorAll('#weighingAlertsModal .alert-row').forEach(row => {
+                        const tag = row.getAttribute('data-ear-tag') || '';
+                        if (tag.toLowerCase().includes(query)) {
+                            row.classList.remove('hidden');
+                        } else {
+                            row.classList.add('hidden');
+                        }
+                    });
+                });
             }
         });
     </script>

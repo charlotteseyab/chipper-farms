@@ -87,7 +87,7 @@
                         </div>
                         <div class="ml-4">
                             <p class="text-sm font-medium text-gray-600">Recorded Piglet Deaths</p>
-                            <p class="text-2xl font-semibold text-red-600">-{{ $totalPigletDeaths }}</p>
+                            <p class="text-2xl font-semibold text-red-600">{{ $totalPigletDeaths }}</p>
                         </div>
                     </div>
                 </div>

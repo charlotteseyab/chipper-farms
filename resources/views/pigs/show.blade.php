@@ -45,6 +45,12 @@
                             </svg>
                             Edit
                         </a>
+                        <a href="{{ route('pigs.export.pdf', $pig->id) }}" class="inline-flex items-center px-4 py-2 bg-gray-700 text-white font-medium rounded-lg hover:bg-gray-800 transition">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v12m0 0l-4-4m4 4l4-4M6 20h12" />
+                            </svg>
+                            Download PDF
+                        </a>
                         <form action="{{ route('breeding-stocks.destroy', $pig->id) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete {{ $pig->ear_tag_number }}? This action cannot be undone.');">
                             @csrf
                             @method('DELETE')
@@ -702,6 +708,127 @@
                     @endif
                 </div>
             @endif
+            @if($pig->gender === 'F' && $pig->farrowingsAsSow->count() > 0)
+<div class="mt-10 bg-white rounded-lg shadow border border-gray-200">
+    <div class="px-6 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-900">Farrowing (Birthing) History</h2>
+        <p class="text-gray-500 text-xs">Detailed history of all farrowings for this sow</p>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-2 text-xs font-semibold text-gray-600 text-left">Date</th>
+                    <th class="px-4 py-2 text-xs font-semibold text-gray-600 text-left">Boar</th>
+                    <th class="px-4 py-2 text-xs font-semibold text-gray-600 text-center">Total Born</th>
+                    <th class="px-4 py-2 text-xs font-semibold text-gray-600 text-center">Live</th>
+                    <th class="px-4 py-2 text-xs font-semibold text-gray-600 text-center">Still</th>
+                    <th class="px-4 py-2 text-xs font-semibold text-gray-600 text-center">Deaths</th>
+                    <th class="px-4 py-2 text-xs font-semibold text-gray-600 text-center">Surviving</th>
+                    <th class="px-4 py-2 text-xs font-semibold text-gray-600 text-center">Status</th>
+                    <th class="px-4 py-2 text-xs font-semibold text-gray-600 text-left">Weaned On</th>
+                    <th class="px-4 py-2 text-xs font-semibold text-gray-600 text-left">Notes</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-100">
+                @foreach($pig->farrowingsAsSow as $farrowing)
+                @php
+                    $surviving = max(0, ($farrowing->live_births ?? 0) - $farrowing->pigletDeaths->sum('count'));
+                    $deathCount = $farrowing->pigletDeaths->sum('count');
+
+                    // Derive a clearer litter status, especially when all piglets die before weaning age
+                    $baseStatus = $farrowing->status ?: 'n/a';
+                    $weaningThreshold = (int) config('breeding.cycle.birth_to_weaning_days', 45);
+                    $litterAgeDays = $farrowing->farrowing_date
+                        ? (int) $farrowing->farrowing_date->diffInDays(now())
+                        : null;
+
+                    $litterStatusLabel = ucfirst($baseStatus);
+                    $litterBadgeClass = $baseStatus === 'completed'
+                        ? 'bg-green-100 text-green-700'
+                        : ($baseStatus === 'active'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-gray-100 text-gray-700');
+
+                    // If all piglets have died and there is no weaning recorded,
+                    // mark this litter as lost instead of leaving it \"active\".
+                    if (
+                        $surviving === 0 &&
+                        ($farrowing->live_births ?? 0) > 0 &&
+                        !$farrowing->date_weaned &&
+                        $litterAgeDays !== null
+                    ) {
+                        // Differentiate pre-weaning vs. late loss in the label, but both use a red badge
+                        if ($litterAgeDays < $weaningThreshold) {
+                            $litterStatusLabel = 'Lost (pre‑weaning)';
+                        } else {
+                            $litterStatusLabel = 'Lost (post‑weaning age)';
+                        }
+                        $litterBadgeClass = 'bg-red-100 text-red-700';
+                    }
+                @endphp
+                <tr>
+                    {{-- Left Aligned --}}
+                    <td class="px-4 py-2 text-sm text-gray-900 text-left">{{ $farrowing->farrowing_date ? $farrowing->farrowing_date->format('M d, Y') : 'N/A' }}</td>
+                    <td class="px-4 py-2 text-sm text-gray-700 text-left">
+                        @if($farrowing->boar)
+                            <a href="{{ route('pigs.show', $farrowing->boar->id) }}" class="text-indigo-600 hover:text-indigo-800">{{ $farrowing->boar->ear_tag_number }}</a>
+                        @else
+                            —
+                        @endif
+                    </td>
+                    {{-- Center Aligned Numbers --}}
+                    <td class="px-4 py-2 text-center text-sm font-bold text-blue-700">{{ $farrowing->total_piglets_born }}</td>
+                    <td class="px-4 py-2 text-center text-sm font-bold text-green-700">{{ $farrowing->live_births }}</td>
+                    <td class="px-4 py-2 text-center text-sm font-bold text-yellow-700">{{ $farrowing->stillbirths }}</td>
+                    <td class="px-4 py-2 text-center text-sm font-bold text-red-700">{{ $deathCount }}</td>
+                    <td class="px-4 py-2 text-center text-lg font-extrabold text-green-600">{{ $surviving }}</td>
+                    {{-- Center Aligned Status --}}
+                    <td class="px-4 py-2 text-center text-xs">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ $litterBadgeClass }}">
+                            {{ $litterStatusLabel }}
+                        </span>
+                    </td>
+                    {{-- Left Aligned --}}
+                    <td class="px-4 py-2 text-xs text-gray-600 text-left">
+                        {{ Str::limit($farrowing->notes, 30) ?? 'N/A' }}
+                    </td>
+                    @php
+                        // Derive weaned-on display with fallbacks for older data
+                        $weanedText = 'N/A';
+                        if ($farrowing->date_weaned) {
+                            $weanedText = \Illuminate\Support\Carbon::parse($farrowing->date_weaned)->format('M d, Y');
+                        } elseif (!empty($farrowing->notes)) {
+                            $notesStr = (string) $farrowing->notes;
+                            $pos = stripos($notesStr, 'litter weaned on');
+                            if ($pos !== false) {
+                                $after = trim(substr($notesStr, $pos + strlen('litter weaned on')));
+                                // Stop at first line break or period
+                                $after = trim(strtok($after, "\r\n."));
+                                try {
+                                    if ($after !== '') {
+                                        $parsed = \Illuminate\Support\Carbon::parse($after);
+                                        $weanedText = $parsed->format('M d, Y');
+                                    }
+                                } catch (\Throwable $e) {
+                                    // leave as N/A if parsing fails
+                                }
+                            }
+                        }
+                    @endphp
+                    <td class="px-4 py-2 text-xs text-gray-700 text-left">
+                        {{ $farrowing->date_weaned ? \Illuminate\Support\Carbon::parse($farrowing->date_weaned)->format('M d, Y') : 'N/A' }}
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+        @if($pig->farrowingsAsSow->isEmpty())
+            <div class="p-6 text-center text-gray-500">No farrowings recorded for this sow.</div>
+        @endif
+    </div>
+</div>
+@endif
         </main>
     </div>
     <x-copyright-minimal />

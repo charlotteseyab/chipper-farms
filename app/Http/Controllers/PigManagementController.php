@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class PigManagementController extends Controller {
 
@@ -1133,6 +1134,12 @@ class PigManagementController extends Controller {
             ->appends(['q' => $q, 'filter_date' => $filterDate]); 
 
         // 6. Prepare Statistics (using user's structure and the corrected average gestation)
+        // Note: overdue should respect the same filters applied to the table (search/date).
+        $overdueFilteredCount = (clone $query)
+            ->where('pregnancy_status', 'pregnant')
+            ->where('expected_farrowing_date', '<', now())
+            ->count();
+
         $stats = [
             'total_pregnant' => Mating::where('pregnancy_status', 'pregnant')->count(),
             'total_farrowed' => Mating::where('pregnancy_status', 'farrowed')->count(),
@@ -1142,9 +1149,8 @@ class PigManagementController extends Controller {
             'due_next_week' => Mating::where('pregnancy_status', 'pregnant')
                 ->whereBetween('expected_farrowing_date', [now()->addWeek(), now()->addWeeks(2)])
                 ->count(),
-            'overdue' => Mating::where('pregnancy_status', 'pregnant')
-                ->where('expected_farrowing_date', '<', now())
-                ->count(),
+            // Use filtered query so the card matches the current table view
+            'overdue' => $overdueFilteredCount,
             'farrowed_this_month' => Mating::where('pregnancy_status', 'farrowed')
                 ->whereMonth('actual_farrowing_date', now()->month)
                 ->whereYear('actual_farrowing_date', now()->year)
@@ -1332,26 +1338,26 @@ class PigManagementController extends Controller {
     {
         $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
         $today = now()->startOfDay();
-
-        // Calculate target weaning dates
         $alerts = [
             'upcoming' => [], // 2 days before weaning
             'today' => [],    // Due today
             'overdue' => []   // 2+ days overdue
         ];
 
-        // Get pigs that haven't been weaned yet
         $unweaned = PigManagement::active()->whereNotNull('date_of_birth')
             ->whereDoesntHave('weaning')
             ->with(['mother', 'father'])
             ->get();
+
+        $notifiables = \App\Models\User::whereHas('role', function($q){
+            $q->whereIn('name', ['admin','superuser','manager','dataentry']);
+        })->get();
 
         foreach ($unweaned as $pig) {
             $birthDate = $pig->date_of_birth;
             $targetWeaningDate = $birthDate->copy()->addDays($weaningAge);
             $daysUntilWeaning = $today->diffInDays($targetWeaningDate, false);
 
-            // 2 days before weaning (upcoming alert)
             if ($daysUntilWeaning == 2) {
                 $alerts['upcoming'][] = [
                     'pig' => $pig,
@@ -1359,8 +1365,10 @@ class PigManagementController extends Controller {
                     'days_until' => 2,
                     'message' => "Weaning due in 2 days"
                 ];
+                foreach ($notifiables as $user) {
+                  $user->notify(new \App\Notifications\PigletWeaningDueNotification($pig, 'upcoming', 2));
             }
-            // Due today or 1 day before
+            }
             elseif ($daysUntilWeaning <= 1 && $daysUntilWeaning >= 0) {
                 $alerts['today'][] = [
                     'pig' => $pig,
@@ -1368,8 +1376,10 @@ class PigManagementController extends Controller {
                     'days_until' => $daysUntilWeaning,
                     'message' => $daysUntilWeaning == 0 ? "Weaning due today" : "Weaning due tomorrow"
                 ];
+                foreach ($notifiables as $user) {
+                  $user->notify(new \App\Notifications\PigletWeaningDueNotification($pig, 'due_today', $daysUntilWeaning));
             }
-            // Overdue (2+ days past due date)
+            }
             elseif ($daysUntilWeaning <= -2) {
                 $daysOverdue = abs($daysUntilWeaning);
                 $alerts['overdue'][] = [
@@ -1378,68 +1388,185 @@ class PigManagementController extends Controller {
                     'days_overdue' => $daysOverdue,
                     'message' => "Weaning overdue by {$daysOverdue} days"
                 ];
+                foreach ($notifiables as $user) {
+                  $user->notify(new \App\Notifications\PigletWeaningDueNotification($pig, 'overdue', $daysOverdue));
             }
         }
-
+        }
         return $alerts;
     }
 
-    // Weaning Status Pages
-    public function weaningPending()
+    // Unified Weaning Dashboard - Litter-Based Approach
+    public function weaningDashboard()
     {
         $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
-        $maxPendingDays = $weaningAge + 7;
+        $maturityAge = config('breeding.cycle.birth_to_maturity_days', 180);
 
-        // --- 1. Fetch Individual Piglets (Original Logic) ---
-        // FIX: Added minimum age check (>= $weaningAge) to ensure this list only contains pigs ready for action (45-51 days).
-        $pendingPigs = PigManagement::active()->whereNotNull('date_of_birth')
-            ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$weaningAge]) // Must be at least weaning age
-            ->whereRaw('DATEDIFF(NOW(), date_of_birth) < ?', [$maxPendingDays])
-            ->whereDoesntHave('weaning')
-            ->with(['mother', 'father'])
-            ->orderBy('date_of_birth', 'desc')
-            ->paginate(10);
+        // READY NOW - Litters 45+ days old, not weaned
+        $rawReadyNowLitters = \App\Models\Farrowing::with(['sow', 'pigletDeaths'])
+            ->where('status', 'active')
+            ->whereRaw('DATEDIFF(NOW(), farrowing_date) >= ?', [$weaningAge])
+            ->whereDoesntHave('weanings')
+            ->orderByRaw('DATEDIFF(NOW(), farrowing_date) DESC')
+            ->get();
+        $filteredReady = $rawReadyNowLitters->filter(function($litter) {
+            return (max(0, ($litter->live_births ?? 0) - $litter->pigletDeaths->sum('count')) > 0);
+        })->values();
+        $readyPage = request()->input('ready_page', 1);
+        $perPage = 15;
+        $readyNowLitters = new LengthAwarePaginator(
+            $filteredReady->forPage($readyPage, $perPage),
+            $filteredReady->count(),
+            $perPage,
+            $readyPage,
+            ['pageName' => 'ready_page']
+        );
+        $readyNowLitters->getCollection()->transform(function ($litter) use ($weaningAge) {
+            $currentAge = (int) $litter->farrowing_date->diffInDays(now());
+            $litter->current_age = $currentAge;
+            $litter->days_overdue = max(0, $currentAge - $weaningAge);
+            $litter->is_overdue = $currentAge >= ($weaningAge + 7);
+            $litter->is_critical = $currentAge >= ($weaningAge + 14);
+            $litter->surviving_piglets = max(0, ($litter->live_births ?? 0) - $litter->pigletDeaths->sum('count'));
+            return $litter;
+        });
 
-        // --- 2. Fetch Sows with Litters (New Logic) ---
-        // Litters from 0 days old up to 7 days past weaning age, and unweaned.
-        $minDays = 0;
-        $pendingSowQuery = $this->getSowsWithLitterStatusQuery($minDays, $maxPendingDays, true);
+        // DUE SOON - Litters 38-44 days old (planning section)
+        $rawDueSoonLitters = \App\Models\Farrowing::with(['sow', 'pigletDeaths'])
+            ->where('status', 'active')
+            ->whereRaw('DATEDIFF(NOW(), farrowing_date) BETWEEN ? AND ?', [$weaningAge - 7, $weaningAge - 1])
+            ->whereDoesntHave('weanings')
+            ->orderBy('farrowing_date', 'asc')
+            ->get();
+        $filteredSoon = $rawDueSoonLitters->filter(function($litter) {
+            return (max(0, ($litter->live_births ?? 0) - $litter->pigletDeaths->sum('count')) > 0);
+        })->values();
+        $soonPage = request()->input('soon_page', 1);
+        $dueSoonLitters = new LengthAwarePaginator(
+            $filteredSoon->forPage($soonPage, $perPage),
+            $filteredSoon->count(),
+            $perPage,
+            $soonPage,
+            ['pageName' => 'soon_page']
+        );
+        $dueSoonLitters->getCollection()->transform(function ($litter) use ($weaningAge) {
+            $currentAge = (int) $litter->farrowing_date->diffInDays(now());
+            $litter->current_age = $currentAge;
+            $litter->days_until_weaning = max(0, $weaningAge - $currentAge);
+            $litter->surviving_piglets = max(0, ($litter->live_births ?? 0) - $litter->pigletDeaths->sum('count'));
+            return $litter;
+        });
 
-        $pendingSows = $pendingSowQuery->with(['litters' => function ($q) use ($minDays, $maxPendingDays) {
-                                // Eager load only the relevant unweaned litter for the sow
-                                $q->whereNull('date_weaned')
-                                  ->whereRaw('DATEDIFF(NOW(), date_of_birth) < ?', [$maxPendingDays])
-                                  ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$minDays])
-                                  ->oldest('date_of_birth'); // Show oldest litter first for urgency
-                            }])
-                            ->orderBy('ear_tag_number', 'asc') // FIX: Changed 'tag_number' to 'tag'
-                            ->get(); // Get all results for the view
+        // IN PROGRESS - Individual weaned pigs growing to maturity
+        $inProgress = PigManagement::active()->whereNotNull('date_of_birth')
+            ->whereHas('weaning', function($query) {
+                $query->where('maturity_completed', false);
+            })
+            ->with(['mother', 'father', 'weaning', 'weights' => function($q) {
+                $q->latest('weigh_date'); // Load all weights sorted, no limit!
+            }])
+            ->orderBy('date_of_birth', 'asc')
+            ->paginate(15, ['*'], 'progress_page');
 
-        // --- 3. Compile Stats ---
-        $stats = [
-            // Individual Piglet Stats
-            // FIX: Replaced (clone $pendingPigs->getQuery())->count() with a direct query count.
-            'total_pending' => PigManagement::active()->whereNotNull('date_of_birth')
-                ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$weaningAge]) // Only count pigs at or above weaning age
-                ->whereRaw('DATEDIFF(NOW(), date_of_birth) < ?', [$maxPendingDays])
-                ->whereDoesntHave('weaning')
-                ->count(),
+        // COMPLETED - Fully mature
+        $completed = \App\Models\Weaning::with(['pig', 'mother', 'recordedBy', 'completedBy'])
+            ->where('maturity_completed', true)
+            ->orderBy('maturity_completion_date', 'desc')
+            ->paginate(15, ['*'], 'completed_page');
+
+        // Calculate additional data for in-progress pigs
+        $inProgress->getCollection()->transform(function ($pig) use ($maturityAge) {
+            if ($pig->weaning) {
+                $weaningDate = $pig->weaning->weaning_date instanceof \Carbon\Carbon ? 
+                    $pig->weaning->weaning_date : \Carbon\Carbon::parse($pig->weaning->weaning_date);
+                $pig->days_since_weaning = (int) $weaningDate->diffInDays(now());
                 
-            'ready_soon' => PigManagement::active()->whereNotNull('date_of_birth')
-                ->whereRaw('DATEDIFF(NOW(), date_of_birth) BETWEEN ? AND ?', [$weaningAge - 7, $weaningAge - 1])
-                ->whereDoesntHave('weaning')
+                $dob = $pig->date_of_birth instanceof \Carbon\Carbon ? 
+                    $pig->date_of_birth : \Carbon\Carbon::parse($pig->date_of_birth);
+                $daysPastWeaning = $dob->diffInDays(now()) - 45;
+                $daysTotalToMaturity = $maturityAge - 45; // 135 days from weaning to maturity
+                $pig->maturity_progress = min(100, max(0, ($daysPastWeaning / $daysTotalToMaturity) * 100));
+            }
+            return $pig;
+        });
+
+        $totalReadyPiglets = $filteredReady->sum(function ($litter) {
+            return max(0, ($litter->live_births ?? 0) - $litter->pigletDeaths->sum('count'));
+        });
+        $totalDueSoonPiglets = $filteredSoon->sum(function ($litter) {
+            return max(0, ($litter->live_births ?? 0) - $litter->pigletDeaths->sum('count'));
+        });
+        $overdueCount = $filteredReady->filter(function ($litter) use ($weaningAge) {
+            return $litter->farrowing_date->diffInDays(now()) >= ($weaningAge + 7);
+        })->count();
+        $criticalOverdueCount = $filteredReady->filter(function ($litter) use ($weaningAge) {
+            return $litter->farrowing_date->diffInDays(now()) >= ($weaningAge + 14);
+        })->count();
+
+        $stats = [
+            'ready_now' => $filteredReady->count(),
+            'ready_now_total' => $totalReadyPiglets,
+            'due_soon' => $filteredSoon->count(),
+            'due_soon_total' => $totalDueSoonPiglets,
+            'in_progress' => $inProgress->total(),
+            'completed_total' => \App\Models\Weaning::where('maturity_completed', true)->count(),
+            'completed_this_month' => \App\Models\Weaning::where('maturity_completed', true)
+                ->whereMonth('maturity_completion_date', now()->month)
+                ->whereYear('maturity_completion_date', now()->year)
                 ->count(),
-            'ready_for_weaning' => PigManagement::active()->whereNotNull('date_of_birth')
-                ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= ?', [$weaningAge])
-                ->whereRaw('DATEDIFF(NOW(), date_of_birth) < ?', [$maxPendingDays])
-                ->whereDoesntHave('weaning')
-                ->count(),
-            // Sow/Litter Stats (using the reusable query)
-            'total_sows_pending' => $pendingSowQuery->count(),
-            'sows_ready_for_weaning' => $this->getSowsWithLitterStatusQuery($weaningAge, $maxPendingDays, true)->count(),
+            'overdue_count' => $overdueCount,
+            'critical_overdue' => $criticalOverdueCount,
         ];
 
-        return view('weaning.pending', compact('pendingPigs', 'pendingSows', 'stats'));
+        return view('weaning.dashboard', compact('readyNowLitters', 'dueSoonLitters', 'inProgress', 'completed', 'stats', 'weaningAge', 'maturityAge'));
+    }
+
+    /**
+     * Batch-wean an entire litter (Farrowing record) from the unified weaning dashboard.
+     * This marks the litter as no longer active so it drops out of the \"Ready Now/Due Soon\" lists.
+     */
+    public function weanLitter(Request $request, Farrowing $farrowing)
+    {
+        $data = $request->validate([
+            'weaning_date' => 'required|date|before_or_equal:today',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        // Ensure this litter is still active and unweaned in our dashboard logic
+        if ($farrowing->status !== 'active') {
+            return back()->withErrors([
+                'weaning' => 'This litter is not active or may have already been processed for weaning.',
+            ]);
+        }
+
+        $weaningAge = (int) config('breeding.cycle.birth_to_weaning_days', 45);
+        $farrowingDate = $farrowing->farrowing_date;
+
+        if ($farrowingDate) {
+            $weaningDate = Carbon::parse($data['weaning_date'])->endOfDay();
+            $litterAgeAtWeaning = (int) $farrowingDate->copy()->startOfDay()->diffInDays($weaningDate);
+
+            if ($litterAgeAtWeaning < $weaningAge) {
+                return back()->withErrors([
+                    'weaning' => "Litter is too young for weaning. Minimum age is {$weaningAge} days.",
+                ]);
+            }
+        }
+
+        // Mark litter as completed so it drops from the \"Ready Now\" / \"Due Soon\" queries
+        $existingNotes = trim((string) $farrowing->notes);
+        $litterNote = 'Litter weaned on ' . $data['weaning_date'];
+        if (!empty($data['notes'])) {
+            $litterNote .= ' - ' . $data['notes'];
+        }
+
+        // status ENUM is ['active','completed','archived'], so use 'completed'
+        $farrowing->status = 'completed';
+        $farrowing->date_weaned = $data['weaning_date'];
+        $farrowing->notes = trim($existingNotes . (empty($existingNotes) ? '' : PHP_EOL) . $litterNote);
+        $farrowing->save();
+
+        return back()->with('success', 'Litter weaning recorded for sow ' . optional($farrowing->sow)->ear_tag_number . '.');
     }
 
     /**
@@ -1895,18 +2022,27 @@ class PigManagementController extends Controller {
     public function show($id)
     {
         $pig = PigManagement::withTrashed()->with([
-            'father',
             'mother',
-            'weights' => function($query) {
-                $query->latest('weigh_date')->limit(10);
+            'father',
+            'weights' => function ($query) {
+                $query->latest('weigh_date'); // Load all weights sorted, no limit!
             },
             'latestWeight',
-            'maleMatings' => function($query) {
+            'maleMatings' => function ($query) {
                 $query->with(['female', 'createdBy'])->latest('created_at');
             },
-            'femaleMatings' => function($query) {
+            'femaleMatings' => function ($query) {
                 $query->with(['male', 'createdBy'])->latest('created_at');
-            }
+            },
+            // Additional: all farrowings (birthing history, for sows / boars)
+            'farrowingsAsSow' => function ($query) {
+                $query->with(['boar', 'weanings', 'pigletDeaths'])->orderBy('farrowing_date', 'desc');
+            },
+            'farrowingsAsBoar' => function ($query) {
+                $query->with(['sow', 'weanings', 'pigletDeaths'])->orderBy('farrowing_date', 'desc');
+            },
+            'sale',
+            'deaths',
         ])->findOrFail($id);
 
         // Get breeding readiness
@@ -1940,11 +2076,27 @@ class PigManagementController extends Controller {
         }
 
         // Calculate statistics
+        // Offspring: use farrowing records but count only **surviving** piglets
+        // (live births minus recorded piglet deaths), so this reflects current living offspring.
+        if ($pig->gender === 'F') {
+            $totalOffspring = $pig->farrowingsAsSow->sum(function ($farrowing) {
+                $live = (int) ($farrowing->live_births ?? 0);
+                $deaths = (int) $farrowing->pigletDeaths->sum('count');
+                return max(0, $live - $deaths);
+            });
+        } else {
+            $totalOffspring = $pig->farrowingsAsBoar->sum(function ($farrowing) {
+                $live = (int) ($farrowing->live_births ?? 0);
+                $deaths = (int) $farrowing->pigletDeaths->sum('count');
+                return max(0, $live - $deaths);
+            });
+        }
+
         $stats = [
             'total_matings' => $pig->maleMatings->count() + $pig->femaleMatings->count(),
             'successful_matings' => $pig->maleMatings->where('successful', true)->count() +
                                    $pig->femaleMatings->where('successful', true)->count(),
-            'total_offspring' => $offspring->count(),
+            'total_offspring' => $totalOffspring,
             'weight_records' => $pig->weights->count(),
             'days_since_last_weight' => $pig->latestWeight ? $pig->latestWeight->days_ago : null,
         ];
@@ -1991,6 +2143,101 @@ class PigManagementController extends Controller {
             'stats',
             'analytics'
         ));
+    }
+
+    /**
+     * Export a single pig's detail profile as PDF.
+     */
+    public function exportPigPdf($id)
+    {
+        $pig = PigManagement::withTrashed()->with([
+            'mother',
+            'father',
+            'weights' => function ($query) {
+                $query->latest('weigh_date');
+            },
+            'latestWeight',
+            'maleMatings' => function ($query) {
+                $query->with(['female', 'createdBy'])->latest('created_at');
+            },
+            'femaleMatings' => function ($query) {
+                $query->with(['male', 'createdBy'])->latest('created_at');
+            },
+            'farrowingsAsSow' => function ($query) {
+                $query->with(['boar', 'weanings', 'pigletDeaths'])->orderBy('farrowing_date', 'desc');
+            },
+            'farrowingsAsBoar' => function ($query) {
+                $query->with(['sow', 'weanings', 'pigletDeaths'])->orderBy('farrowing_date', 'desc');
+            },
+            'sale',
+            'deaths',
+        ])->findOrFail($id);
+
+        $breedingReadiness = $pig->breeding_readiness;
+        $availabilityStatus = $pig->availability_status;
+
+        $offspring = PigManagement::where(function ($query) use ($pig) {
+            if ($pig->gender === 'M') {
+                $query->where('father_id', $pig->id);
+            } else {
+                $query->where('mother_id', $pig->id);
+            }
+        })->with(['father', 'mother'])->get();
+
+        $siblings = collect();
+        if ($pig->father_id || $pig->mother_id) {
+            $siblings = PigManagement::where('id', '!=', $pig->id)
+                ->where(function ($query) use ($pig) {
+                    if ($pig->father_id) {
+                        $query->where('father_id', $pig->father_id);
+                    }
+                    if ($pig->mother_id) {
+                        $query->orWhere('mother_id', $pig->mother_id);
+                    }
+                })
+                ->get();
+        }
+
+        // Keep stats logic in sync with show()
+        if ($pig->gender === 'F') {
+            $totalOffspring = $pig->farrowingsAsSow->sum(function ($farrowing) {
+                $live = (int) ($farrowing->live_births ?? 0);
+                $deaths = (int) $farrowing->pigletDeaths->sum('count');
+                return max(0, $live - $deaths);
+            });
+        } else {
+            $totalOffspring = $pig->farrowingsAsBoar->sum(function ($farrowing) {
+                $live = (int) ($farrowing->live_births ?? 0);
+                $deaths = (int) $farrowing->pigletDeaths->sum('count');
+                return max(0, $live - $deaths);
+            });
+        }
+
+        $stats = [
+            'total_matings' => $pig->maleMatings->count() + $pig->femaleMatings->count(),
+            'successful_matings' => $pig->maleMatings->where('successful', true)->count() +
+                                   $pig->femaleMatings->where('successful', true)->count(),
+            'total_offspring' => $totalOffspring,
+            'weight_records' => $pig->weights->count(),
+            'days_since_last_weight' => $pig->latestWeight ? $pig->latestWeight->days_ago : null,
+        ];
+
+        $analytics = [
+            'weights' => $pig->weights->sortBy('weigh_date')->values(),
+        ];
+
+        $pdf = Pdf::loadView('pigs.show_pdf', compact(
+            'pig',
+            'breedingReadiness',
+            'availabilityStatus',
+            'offspring',
+            'siblings',
+            'stats',
+            'analytics'
+        ));
+
+        $fileName = 'pig_' . ($pig->ear_tag_number ?: $pig->id) . '_' . date('Y-m-d') . '.pdf';
+        return $pdf->download($fileName);
     }
 
     // Sale Management Methods
@@ -2055,9 +2302,9 @@ class PigManagementController extends Controller {
         $data['pig_id'] = $pig->id;
         $data['sold_by'] = auth()->user()->name; // Set the current user as the person who sold the pig
 
-        // Convert sale weight from pounds (input) to kilograms (storage & pricing)
+        // Sale weight is now already in kilograms (no conversion needed)
         if (isset($data['sale_weight'])) {
-            $data['sale_weight'] = round($data['sale_weight'] / 2.20462, 2);
+            $data['sale_weight'] = round($data['sale_weight'], 2);
         }
 
         // Set price rate based on weight type

@@ -1,388 +1,338 @@
 <x-app-layout>
-    <div class="py-6">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <!-- Header -->
-            <!-- <div class="mb-6">
-                <h1 class="text-3xl font-bold text-gray-900">Superuser Dashboard</h1>
-                <p class="text-gray-600 mt-2">Complete system overview and advanced controls</p>
-            </div> -->
+    <div class="py-2">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            @php
 
-            <!-- Weight Analytics Cards -->
-            <x-weight-analytics-cards />
-            
-            <!-- Executive Summary -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
-                <!-- Farm Overview -->
-                <a href="{{ route('all-stocks.index', ['stock_type' => null]) }}" class="block bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow-sm p-6 text-white hover:shadow-md transition">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-green-100 text-sm font-medium">Total Farm Value</p>
-                            <p class="text-2xl font-bold">
-                                @php
-                                    // Align with admin dashboard: total weight (latest per pig) × live weight price
-                                    $totalWeight = \App\Models\PigWeight::whereIn('id', function($query) {
-                                        $query->select(\DB::raw('MAX(id)'))
-                                              ->from('pig_weights')
-                                              ->groupBy('pig_id');
-                                    })->sum('weight');
-                                    $liveWeightPrice = \App\Models\Setting::get('sales.pricing.live_weight_price', 30.00);
-                                    $estimatedValue = $totalWeight * $liveWeightPrice;
-                                @endphp
-                                ₵{{ number_format($estimatedValue, 2) }}
-                            </p>
-                        </div>
-                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
-                            </svg>
-                        </div>
-                    </div>
-                </a>
+                $pendingRequests = \App\Models\FeedPurchaseRequest::where('status', 'pending')
+                    ->orderByDesc('priority')
+                    ->orderBy('needed_by')
+                    ->take(6)
+                    ->get();
 
-                <!-- Production Efficiency -->
-                <a href="{{ route('all-stocks.index', ['has_weights' => 'false']) }}" class="block bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-sm p-6 text-white hover:shadow-md transition">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-blue-100 text-sm font-medium">Data Completeness</p>
-                            <p class="text-2xl font-bold">
-                                @php
-                                    // Use enhanced pig counting for data completeness calculation
-                                    $weanedPigs = \App\Models\PigManagement::count();
-                                    $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
-                                    $pigletsCount = \App\Models\Farrowing::where('farrowing_date', '>=', now()->subDays($weaningAge))
-                                        ->where('status', 'active')
-                                        ->sum('live_births');
-                                    $totalPigs = $weanedPigs + $pigletsCount;
-                                    $pigsWithWeights = \App\Models\PigManagement::whereHas('weights')->count();
-                                    $dataCompleteness = $totalPigs > 0 ? round(($pigsWithWeights / $totalPigs) * 100) : 0;
-                                @endphp
-                                {{ $dataCompleteness }}%
-                            </p>
-                        </div>
-                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                            </svg>
-                        </div>
-                    </div>
-                </a>
+                $pendingRequestCount = \App\Models\FeedPurchaseRequest::where('status', 'pending')->count();
+                $pendingRequestValue = \App\Models\FeedPurchaseRequest::where('status', 'pending')->sum('cost_ghc');
 
-                <!-- Growth Rate -->
-                <a href="{{ route('all-stocks.index', ['created_from' => now()->startOfMonth()->toDateString(), 'created_to' => now()->toDateString()]) }}" class="block bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-sm p-6 text-white hover:shadow-md transition">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-purple-100 text-sm font-medium">Monthly Growth</p>
-                            <p class="text-2xl font-bold">
-                                @php
-                                    $thisMonth = \App\Models\PigManagement::whereMonth('created_at', now()->month)
-                                        ->whereYear('created_at', now()->year)->count();
-                                    $lastMonth = \App\Models\PigManagement::whereMonth('created_at', now()->subMonth()->month)
-                                        ->whereYear('created_at', now()->subMonth()->year)->count();
-                                    $growthRate = $lastMonth > 0 ? round((($thisMonth - $lastMonth) / $lastMonth) * 100) : 0;
-                                    $growthSign = $growthRate >= 0 ? '+' : '';
-                                @endphp
-                                {{ $growthSign }}{{ $growthRate }}%
-                            </p>
-                        </div>
-                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"/>
-                            </svg>
-                        </div>
-                    </div>
-                </a>
+                $recentApprovals = \App\Models\FeedPurchaseRequest::where('status', 'approved')
+                    ->latest('decided_at')
+                    ->latest('updated_at')
+                    ->take(5)
+                    ->get();
 
-                <!-- System Health -->
-                <a href="{{ route('weight-alerts.index', ['acknowledged' => '0']) }}" class="block bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow-sm p-6 text-white hover:shadow-md transition">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-yellow-100 text-sm font-medium">System Health</p>
-                            <p class="text-2xl font-bold">
-                                @php
-                                    // Calculate system health based on real metrics
-                                    $criticalAlerts = \App\Models\WeightAlert::where('severity', 'high')->where('acknowledged', false)->count();
-                                    $totalAlerts = \App\Models\WeightAlert::where('acknowledged', false)->count();
-                                    // Use enhanced pig counting for system health calculation
-                                    $weanedPigs = \App\Models\PigManagement::count();
-                                    $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
-                                    $pigletsCount = \App\Models\Farrowing::where('farrowing_date', '>=', now()->subDays($weaningAge))
-                                        ->where('status', 'active')
-                                        ->sum('live_births');
-                                    $totalPigs = $weanedPigs + $pigletsCount;
-                                    $pigsWithRecentWeights = \App\Models\PigManagement::whereHas('weights', function($query) {
-                                        $query->where('created_at', '>=', now()->subDays(30));
-                                    })->count();
+                $inventory = \App\Models\FeedInventory::with('feedType')->get();
+                $lowStockFeeds = $inventory->filter(function ($item) {
+                    $unit = strtolower($item->unit ?? 'kg');
+                    if (str_contains($unit, 'bag')) {
+                        return $item->quantity < 5;
+                    }
+                    return $item->quantity < 50;
+                })->sortBy('quantity')->values();
+                $lowStockCount = $lowStockFeeds->count();
 
-                                    // Calculate health score
-                                    $dataQuality = $totalPigs > 0 ? ($pigsWithRecentWeights / $totalPigs) * 100 : 0;
+                $overdueWeighings = \App\Models\PigManagement::countOverdueForWeighing();
+                $dueWeighings = \App\Models\PigManagement::countDueForWeighing();
 
-                                    if ($criticalAlerts > 5 || $totalAlerts > 20 || $dataQuality < 50) {
-                                        $healthStatus = 'Critical';
-                                    } elseif ($criticalAlerts > 0 || $totalAlerts > 10 || $dataQuality < 80) {
-                                        $healthStatus = 'Good';
-                                    } else {
-                                        $healthStatus = 'Excellent';
-                                    }
-                                @endphp
-                                {{ $healthStatus }}
-                            </p>
-                        </div>
-                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                            </svg>
-                        </div>
-                    </div>
-                </a>
+                $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+                $readyToWean = \App\Models\Farrowing::where('status', 'active')
+                    ->whereDate('farrowing_date', '<=', now()->subDays($weaningAge))
+                    ->whereDoesntHave('weanings', function ($query) {
+                        $query->where('maturity_completed', true);
+                    })
+                    ->count();
 
-                <!-- Critical Issues -->
-                <a href="{{ route('weight-alerts.index', ['severity' => 'high', 'acknowledged' => '0']) }}" class="block bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow-sm p-6 text-white hover:shadow-md transition">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-red-100 text-sm font-medium">Critical Issues</p>
-                            <p class="text-2xl font-bold">
-                                @php
-                                    $criticalIssues = \App\Models\WeightAlert::where('severity', 'high')
-                                        ->where('acknowledged', false)->count();
-                                @endphp
-                                {{ $criticalIssues }}
-                            </p>
-                        </div>
-                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-                            </svg>
-                        </div>
-                    </div>
-                </a>
+                $weightAlerts = \App\Models\WeightAlert::where('acknowledged', false)->latest()->take(5)->get();
 
-                <!-- Weighing Alerts -->
-                <a href="{{ route('weights.index') }}" class="block bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow-sm p-6 text-white hover:shadow-md transition">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-yellow-100 text-sm font-medium">Weighing Alerts</p>
-                            <p class="text-2xl font-bold">
-                                @php
-                                    $overdueForWeighing = \App\Models\PigManagement::countOverdueForWeighing();
-                                @endphp
-                                {{ $overdueForWeighing }}
-                            </p>
-                        </div>
-                        <div class="w-12 h-12 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
-                            </svg>
-                        </div>
-                    </div>
-                </a>
+                $user = auth()->user();
+                $recentNotifications = $user
+                    ? $user->notifications()->latest()->take(6)->get()
+                    : collect();
+                $unreadNotifications = $user ? $user->unreadNotifications()->count() : 0;
+            @endphp
+
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900">Superuser Command Center</h1>
+                <p class="text-gray-600 mt-2">Approve procurements, monitor stock exposure, and keep the farm moving.</p>
             </div>
 
-            <!-- Advanced Controls -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <a href="{{ route('all-stocks.index') }}" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition group">
-                    <div class="flex items-center">
-                        <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition">
-                            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-green-600 transition">Stock Management</h3>
-                            <p class="text-sm text-gray-600">Complete livestock control</p>
-                        </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex items-start justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Pending Approvals</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-1">{{ number_format($pendingRequestCount) }}</p>
+                        <p class="text-xs text-gray-500 mt-1">₵{{ number_format($pendingRequestValue, 2) }} outstanding</p>
                     </div>
-                </a>
+                    <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </div>
+                </div>
 
-                <a href="{{ route('weights.index') }}" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition group">
-                    <div class="flex items-center">
-                        <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition">
-                            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 00-2 2z"/>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition">Weight Analytics</h3>
-                            <p class="text-sm text-gray-600">View weight records and trends</p>
-                        </div>
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex items-start justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Low Stock Items</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-1">{{ number_format($lowStockCount) }}</p>
+                        <p class="text-xs text-gray-500 mt-1">Trigger &lt;5 bags or &lt;50kg</p>
                     </div>
-                </a>
+                    <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 110 20 10 10 0 010-20z"/>
+                        </svg>
+                    </div>
+                </div>
 
-                <a href="{{ route('weight-alerts.dashboard') }}" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition group">
-                    <div class="flex items-center">
-                        <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 transition">
-                            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-purple-600 transition">Alert Management</h3>
-                            <p class="text-sm text-gray-600">Monitor system alerts and issues</p>
-                        </div>
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex items-start justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Weighing Alerts</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-1">{{ number_format($overdueWeighings) }}</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ number_format($dueWeighings) }} due within window</p>
                     </div>
-                </a>
+                    <div class="w-12 h-12 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                </div>
 
-                <a href="{{ route('admin.dashboard') }}" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition group">
-                    <div class="flex items-center">
-                        <div class="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center group-hover:bg-red-200 transition">
-                            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
-                            </svg>
-                        </div>
-                        <div class="ml-4">
-                            <h3 class="text-lg font-semibold text-gray-900 group-hover:text-red-600 transition">Admin Controls</h3>
-                            <p class="text-sm text-gray-600">Access admin dashboard</p>
-                        </div>
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex items-start justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-gray-500 uppercase tracking-wide">Ready to Wean</p>
+                        <p class="text-3xl font-bold text-gray-900 mt-1">{{ number_format($readyToWean) }}</p>
+                        <p class="text-xs text-gray-500 mt-1">Litters beyond {{ $weaningAge }} days</p>
                     </div>
-                </a>
+                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                    </div>
+                </div>
             </div>
 
-            <!-- Comprehensive Overview -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Farm Performance Metrics -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">🎯 Performance Metrics</h3>
-                    <div class="space-y-4">
-                        @php
-                            // Calculate real farm metrics from database
-                            // Use enhanced pig counting for performance metrics
-                            // Weaned pigs = active pigs (exclude deceased/sold)
-                            $weanedPigs = \App\Models\PigManagement::active()->count();
-                            $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
-                            $recentFarrowings = \App\Models\Farrowing::with('pigletDeaths')
-                                ->where('farrowing_date', '>=', now()->subDays($weaningAge))
-                                ->where('status', 'active')
-                                ->get();
-                            $pigletsCount = 0;
-                            foreach ($recentFarrowings as $f) {
-                                $pigletsCount += max(0, (int)($f->live_births ?? 0) - (int)$f->pigletDeaths->sum('count'));
-                            }
-                            $totalPigs = $weanedPigs + $pigletsCount;
-                            $breedingStock = \App\Models\PigManagement::where('stock_type', 'breeding')->count();
-                            $totalWeights = \App\Models\PigWeight::count();
-                            $recentWeights = \App\Models\PigWeight::where('created_at', '>=', now()->subDays(30))->count();
-                            $weightAlerts = \App\Models\WeightAlert::where('acknowledged', false)->count();
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-10">
+                <div class="xl:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                    <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-900">Pending Purchase Requests</h2>
+                            <p class="text-sm text-gray-500">Top priorities waiting for superuser approval.</p>
+                        </div>
+                        <a href="{{ route('feed-purchase-requests.index') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">View all</a>
+                    </div>
 
-                            // Calculate real changes for breeding stock
-                            $breedingThisMonth = \App\Models\PigManagement::where('stock_type', 'breeding')
-                                ->whereMonth('created_at', now()->month)->count();
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-100 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left font-semibold text-gray-600 uppercase tracking-wide text-xs">Item & Category</th>
+                                    <th class="px-6 py-3 text-left font-semibold text-gray-600 uppercase tracking-wide text-xs">Qty</th>
+                                    <th class="px-6 py-3 text-left font-semibold text-gray-600 uppercase tracking-wide text-xs">Needed</th>
+                                    <th class="px-6 py-3 text-left font-semibold text-gray-600 uppercase tracking-wide text-xs">Priority</th>
+                                    <th class="px-6 py-3 text-left font-semibold text-gray-600 uppercase tracking-wide text-xs">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @forelse($pendingRequests as $request)
+                                    <tr class="hover:bg-gray-50 transition">
+                                        <td class="px-6 py-4">
+                                            <div class="font-semibold text-gray-900">{{ $request->item_name ?? $request->feed_type ?? 'N/A' }}</div>
+                                            <div class="text-xs text-gray-500 mt-1">Requested by {{ optional($request->requestedBy)->name ?? 'Unknown' }}</div>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <p class="font-semibold text-gray-800">{{ number_format($request->quantity, 2) }} {{ $request->unit }}</p>
+                                            <p class="text-xs text-gray-500">₵{{ number_format($request->cost_ghc ?? 0, 2) }}</p>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <p class="font-semibold text-gray-800">
+                                                {{ optional($request->needed_by)->format('M j') ?? 'Flexible' }}
+                                            </p>
+                                            <p class="text-xs text-gray-500">{{ $request->created_at->diffForHumans() }}</p>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            @php
+                                                $priorityColor = match($request->priority) {
+                                                    'critical' => 'bg-rose-100 text-rose-700',
+                                                    'high' => 'bg-amber-100 text-amber-700',
+                                                    'medium' => 'bg-blue-100 text-blue-700',
+                                                    default => 'bg-gray-100 text-gray-600',
+                                                };
+                                            @endphp
+                                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold {{ $priorityColor }}">
+                                                {{ ucfirst($request->priority ?? 'medium') }}
+                                            </span>
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <a href="{{ route('feed-purchase-requests.show', $request) }}" class="inline-flex items-center px-3 py-1.5 border border-indigo-200 text-indigo-700 rounded-full text-xs font-semibold hover:bg-indigo-50">
+                                                Review
+                                            </a>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5" class="px-6 py-6 text-center text-sm text-gray-500">
+                                            All caught up — no pending requests today.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-                            $metrics = [
-                                ['label' => 'Total Farm Stock', 'value' => $totalPigs, 'status' => $totalPigs > 50 ? 'excellent' : 'good', 'change' => '+' . \App\Models\PigManagement::whereMonth('created_at', now()->month)->count()],
-                                ['label' => 'Breeding Stock Ratio', 'value' => $totalPigs > 0 ? round(($breedingStock / $totalPigs) * 100) . '%' : '0%', 'status' => 'good', 'change' => '+' . $breedingThisMonth],
-                                ['label' => 'Weight Records/Pig', 'value' => $totalPigs > 0 ? round($totalWeights / $totalPigs, 1) : '0', 'status' => 'good', 'change' => '+' . $recentWeights],
-                                ['label' => 'Active Monitoring', 'value' => $totalPigs > 0 ? round(($recentWeights / $totalPigs) * 100) . '%' : '0%', 'status' => $weightAlerts < 5 ? 'excellent' : 'good', 'change' => '-' . $weightAlerts]
-                            ];
-                        @endphp
-
-                        @foreach($metrics as $metric)
-                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col">
+                    <div class="border-b border-gray-100 px-6 py-4">
+                        <h2 class="text-lg font-semibold text-gray-900">Notifications & Approvals</h2>
+                        <p class="text-sm text-gray-500">{{ number_format($unreadNotifications) }} unread updates</p>
+                    </div>
+                    <div class="px-6 py-4 space-y-4 flex-1 overflow-y-auto">
+                        @forelse($recentNotifications as $notification)
+                            <div class="flex items-start gap-3">
+                                <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 110 20 10 10 0 010-20z"/>
+                                    </svg>
+                                </div>
                                 <div>
-                                    <p class="text-sm font-medium text-gray-900">{{ $metric['label'] }}</p>
-                                    <p class="text-xs text-gray-500">{{ $metric['value'] }}</p>
-                                </div>
-                                <div class="text-right">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
-                                        {{ $metric['status'] === 'excellent' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800' }}">
-                                        {{ ucfirst($metric['status']) }}
-                                    </span>
-                                    <p class="text-xs text-green-600 mt-1">{{ $metric['change'] }}</p>
+                                    <p class="text-sm font-semibold text-gray-900">{{ $notification->data['title'] ?? 'System Update' }}</p>
+                                    <p class="text-xs text-gray-500">{{ $notification->data['body'] ?? 'No details provided.' }}</p>
+                                    <p class="text-xs text-gray-400 mt-1">{{ $notification->created_at->diffForHumans() }}</p>
                                 </div>
                             </div>
-                        @endforeach
+                        @empty
+                            <p class="text-sm text-gray-500">Nothing new in the last few hours.</p>
+                        @endforelse
                     </div>
-                </div>
 
-                <!-- System Status -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">⚙️ System Status</h3>
-                    <div class="space-y-4">
-                        @php
-                            $systemStatus = [
-                                ['component' => 'Database', 'status' => 'operational', 'uptime' => '99.9%'],
-                                ['component' => 'Web Server', 'status' => 'operational', 'uptime' => '100%'],
-                                ['component' => 'Backup System', 'status' => 'operational', 'uptime' => '98.5%'],
-                                ['component' => 'Alert System', 'status' => 'operational', 'uptime' => '99.7%']
-                            ];
-                        @endphp
-
-                        @foreach($systemStatus as $status)
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center">
-                                    <div class="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                                    <span class="text-sm text-gray-900">{{ $status['component'] }}</span>
+                    <div class="border-t border-gray-100 px-6 py-4">
+                        <h3 class="text-sm font-semibold text-gray-900 mb-3">Recent Approvals</h3>
+                        <div class="space-y-3">
+                            @forelse($recentApprovals as $approval)
+                                <div class="flex items-start gap-3">
+                                    <div class="w-2 h-2 rounded-full bg-emerald-500 mt-2"></div>
+                                    <div>
+                                        <p class="text-sm font-medium text-gray-900">{{ $approval->item_name ?? $approval->feed_type ?? 'Feed Request' }}</p>
+                                        <p class="text-xs text-gray-500">₵{{ number_format($approval->cost_ghc ?? 0, 2) }} • {{ optional($approval->decider)->name ?? 'System' }}</p>
+                                        <p class="text-xs text-gray-400">{{ optional($approval->decided_at ?? $approval->updated_at)->diffForHumans() }}</p>
+                                    </div>
                                 </div>
-                                <div class="text-right">
-                                    <span class="text-xs text-green-600 font-medium">{{ $status['uptime'] }}</span>
-                                    <p class="text-xs text-gray-500">{{ ucfirst($status['status']) }}</p>
-                                </div>
-                            </div>
-                        @endforeach
-
-                        <div class="mt-6 pt-4 border-t border-gray-200">
-                            <div class="flex items-center justify-between text-sm">
-                                <span class="text-gray-600">Last System Check</span>
-                                <span class="text-gray-900 font-medium">{{ now()->format('M j, g:i A') }}</span>
-                            </div>
+                            @empty
+                                <p class="text-sm text-gray-500">No approvals logged yet.</p>
+                            @endforelse
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Quick Stats -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">📊 Quick Stats</h3>
-                    <div class="space-y-4">
-                        @php
-                            // Enhanced pig counting including piglets
-                            $weanedPigs = \App\Models\PigManagement::count();
-                            $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
-                            $pigletsCount = \App\Models\Farrowing::where('farrowing_date', '>=', now()->subDays($weaningAge))
-                                ->where('status', 'active')
-                                ->sum('live_births');
-                            $totalPigs = $weanedPigs + $pigletsCount;
-                            
-                            $quickStats = [
-                                ['label' => 'Total Pigs', 'value' => $totalPigs, 'icon' => 'users', 'subtitle' => $weanedPigs . ' weaned • ' . $pigletsCount . ' piglets'],
-                                ['label' => 'Weight Records', 'value' => \App\Models\PigWeight::count(), 'icon' => 'scale'],
-                                ['label' => 'Active Breeding', 'value' => \App\Models\PigManagement::where('stock_type', 'breeding')->count(), 'icon' => 'heart'],
-                                ['label' => 'Monthly Revenue', 'value' => '₵' . number_format(\App\Models\PigManagement::whereMonth('created_at', now()->month)->count() * 500), 'icon' => 'dollar']
-                            ];
-                        @endphp
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm">
+                    <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-900">Feed Inventory Watchlist</h2>
+                            <p class="text-sm text-gray-500">Items below operational thresholds.</p>
+                        </div>
+                        <a href="{{ route('feeds.index') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">View inventory</a>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-100 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left font-semibold text-gray-600 uppercase tracking-wide text-xs">Feed Type</th>
+                                    <th class="px-6 py-3 text-left font-semibold text-gray-600 uppercase tracking-wide text-xs">Quantity</th>
+                                    <th class="px-6 py-3 text-left font-semibold text-gray-600 uppercase tracking-wide text-xs">Last Updated</th>
+                                    <th class="px-6 py-3 text-left font-semibold text-gray-600 uppercase tracking-wide text-xs">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @forelse($lowStockFeeds->take(6) as $inventory)
+                                    <tr class="hover:bg-gray-50 transition">
+                                        <td class="px-6 py-4">
+                                            <p class="font-semibold text-gray-900">{{ optional($inventory->feedType)->name ?? 'Unnamed Feed' }}</p>
+                                            <p class="text-xs text-gray-500">{{ strtoupper($inventory->unit) }}</p>
+                                        </td>
+                                        <td class="px-6 py-4 text-gray-900 font-semibold">{{ number_format($inventory->quantity, 1) }}</td>
+                                        <td class="px-6 py-4 text-gray-600">
+                                            {{ optional($inventory->last_updated)->format('M j, Y') ?? 'Unknown' }}
+                                        </td>
+                                        <td class="px-6 py-4">
+                                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-700">
+                                                Refill Soon
+                                            </span>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="4" class="px-6 py-6 text-center text-sm text-gray-500">
+                                            All feed items are above the alert threshold.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-                        @foreach($quickStats as $stat)
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm">
+                    <div class="border-b border-gray-100 px-6 py-4">
+                        <h2 class="text-lg font-semibold text-gray-900">Alert Center</h2>
+                        <p class="text-sm text-gray-500">Critical items requiring leadership attention.</p>
+                    </div>
+                    <div class="divide-y divide-gray-100">
+                        <div class="px-6 py-4">
                             <div class="flex items-center justify-between">
-                                <div class="flex items-center">
-                                    <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                                        @if($stat['icon'] === 'users')
-                                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-                                            </svg>
-                                        @elseif($stat['icon'] === 'scale')
-                                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
-                                            </svg>
-                                        @elseif($stat['icon'] === 'heart')
-                                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-                                            </svg>
-                                        @else
-                                            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
-                                            </svg>
-                                        @endif
-                                    </div>
-                                    <div>
-                                        <span class="text-sm text-gray-600">{{ $stat['label'] }}</span>
-                                        @if(isset($stat['subtitle']))
-                                            <p class="text-xs text-gray-500">{{ $stat['subtitle'] }}</p>
-                                        @endif
-                                    </div>
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-900">Weight Alerts</p>
+                                    <p class="text-xs text-gray-500">Unacknowledged deviations from expected weight</p>
                                 </div>
-                                <span class="text-sm font-medium text-gray-900">{{ $stat['value'] }}</span>
+                                <a href="{{ route('weight-alerts.dashboard') }}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-500">Open dashboard</a>
                             </div>
-                        @endforeach
+                            <div class="mt-4 space-y-3">
+                                @forelse($weightAlerts as $alert)
+                                    <div class="flex items-start justify-between">
+                                        <div>
+                                            <p class="text-sm font-medium text-gray-900">
+                                                {{ optional($alert->pig)->ear_tag_number ?? 'Unknown Pig' }}
+                                            </p>
+                                            <p class="text-xs text-gray-500">{{ $alert->alert_message ?? ucfirst($alert->alert_type) }}</p>
+                                            <p class="text-xs text-gray-400 mt-1">{{ $alert->created_at->diffForHumans() }}</p>
+                                        </div>
+                                        @php
+                                            $badgeColor = match($alert->severity) {
+                                                'high' => 'bg-rose-100 text-rose-700',
+                                                'medium' => 'bg-amber-100 text-amber-700',
+                                                default => 'bg-blue-100 text-blue-700',
+                                            };
+                                        @endphp
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ $badgeColor }}">
+                                            {{ ucfirst($alert->severity) }}
+                                        </span>
+                                    </div>
+                                @empty
+                                    <p class="text-sm text-gray-500">No open weight alerts.</p>
+                                @endforelse
+                            </div>
+                        </div>
+
+                        <div class="px-6 py-4 bg-gray-50">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-900">Production Milestones</p>
+                                    <p class="text-xs text-gray-500">Track key events that drive revenue</p>
+                                </div>
+                                <a href="{{ route('weaning.dashboard') }}" class="text-xs font-semibold text-indigo-600 hover:text-indigo-500">Manage weaning</a>
+                            </div>
+                            <dl class="mt-4 grid grid-cols-2 gap-4">
+                                <div class="bg-white rounded-xl border border-gray-100 p-3">
+                                    <dt class="text-xs uppercase text-gray-500 tracking-wide">Ready to Wean</dt>
+                                    <dd class="text-xl font-bold text-gray-900">{{ number_format($readyToWean) }}</dd>
+                                </div>
+                                <div class="bg-white rounded-xl border border-gray-100 p-3">
+                                    <dt class="text-xs uppercase text-gray-500 tracking-wide">Due for Weighing</dt>
+                                    <dd class="text-xl font-bold text-gray-900">{{ number_format($dueWeighings) }}</dd>
+                                </div>
+                            </dl>
+                        </div>
                     </div>
                 </div>
             </div>
+
         </div>
     </div>
+    <x-copyright-minimal />
 </x-app-layout>

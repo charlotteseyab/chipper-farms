@@ -40,8 +40,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         $isSuperuser = $user && optional($user->role)->name === 'superuser';
         if ($isSuperuser) {
             Illuminate\Notifications\DatabaseNotification::query()->whereNull('read_at')->update(['read_at' => now()]);
+            $remaining = Illuminate\Notifications\DatabaseNotification::whereNull('read_at')->count();
         } else {
             $user->unreadNotifications()->update(['read_at' => now()]);
+            $remaining = $user->unreadNotifications()->count();
+        }
+        // Get the current real-time alert count if service available
+        $realTimeAlertCount = 0;
+        if (class_exists(\App\Services\RealTimeNotificationService::class)) {
+            try {
+                $realTimeAlertCount = \App\Services\RealTimeNotificationService::getTotalAlertCount();
+            } catch (\Throwable $e) {}
+        }
+        if (request()->expectsJson() || request()->ajax() || request()->wantsJson()) {
+            return response()->json(['success'=>true,'count' => $remaining + $realTimeAlertCount]);
         }
         return back();
     })->name('notifications.readAll');
@@ -149,15 +161,16 @@ Route::middleware([
     Route::patch('pigs/{id}/restore', [App\Http\Controllers\PigManagementController::class, 'restorePig'])->name('pigs.restore');
     Route::patch('piglet-deaths/{id}/restore', [App\Http\Controllers\PigManagementController::class, 'restorePigletDeath'])->name('pigs.piglet-death-restore');
 
-    // Weaning Period Management Routes
-    Route::get('weaning', function() {
-        return redirect('/weaning/overdue'); // Redirect to most urgent page
-    });
-    Route::get('weaning/pending', [App\Http\Controllers\PigManagementController::class, 'weaningPending'])->name('weaning.pending');
-    Route::get('weaning/in-progress', [App\Http\Controllers\PigManagementController::class, 'weaningInProgress'])->name('weaning.in-progress');
-    Route::get('weaning/weaned', [App\Http\Controllers\PigManagementController::class, 'weaningWeaned'])->name('weaning.weaned');
-    Route::get('weaning/overdue', [App\Http\Controllers\PigManagementController::class, 'weaningOverdue'])->name('weaning.overdue');
+    // Unified Weaning Management Dashboard
+    Route::get('weaning', [App\Http\Controllers\PigManagementController::class, 'weaningDashboard'])->name('weaning.dashboard');
+    
+    // Legacy routes (redirect to unified dashboard)
+    Route::get('weaning/pending', function() { return redirect()->route('weaning.dashboard'); });
+    Route::get('weaning/in-progress', function() { return redirect()->route('weaning.dashboard'); });
+    Route::get('weaning/weaned', function() { return redirect()->route('weaning.dashboard'); });
+    Route::get('weaning/overdue', function() { return redirect()->route('weaning.dashboard'); });
     Route::post('weaning/{id}/wean', [App\Http\Controllers\PigManagementController::class, 'recordWeaning'])->name('weaning.record');
+    Route::post('weaning/litter/{farrowing}/wean', [App\Http\Controllers\PigManagementController::class, 'weanLitter'])->name('weaning.litter-wean');
     Route::post('weaning/{id}/complete-maturity', [App\Http\Controllers\PigManagementController::class, 'completeMaturity'])->name('weaning.complete-maturity');
     Route::post('weaning/{id}/update-status', [App\Http\Controllers\PigManagementController::class, 'updateWeaningStatus'])->name('weaning.update-status');
     Route::post('weaning/{id}/update-weight', [App\Http\Controllers\PigManagementController::class, 'updateWeaningWeight'])->name('weaning.update-weight');
@@ -169,6 +182,7 @@ Route::middleware([
 
     // Pig Detail View Route
     Route::get('pigs/{id}', [App\Http\Controllers\PigManagementController::class, 'show'])->name('pigs.show');
+    Route::get('pigs/{id}/export/pdf', [App\Http\Controllers\PigManagementController::class, 'exportPigPdf'])->name('pigs.export.pdf');
     Route::delete('pigs/{id}', [App\Http\Controllers\PigManagementController::class, 'destroy'])->name('pigs.destroy');
 
     // Sale Management Routes

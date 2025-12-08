@@ -160,4 +160,10 @@ class Farrowing extends Model
 
         return $badges[$this->sow_condition] ?? 'bg-gray-100 text-gray-800';
     }
+
+    public function weanings()
+    {
+    return $this->hasMany(Weaning::class);   
+    }   
+
 }

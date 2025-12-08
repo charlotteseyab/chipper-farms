@@ -15,8 +15,9 @@
                         <input 
                             type="text" 
                             name="search" 
+                            id="pigletSearchInput"
                             value="{{ request('search') }}"
-                            placeholder="Search by Sow Tag or Code..." 
+                            placeholder="Search by Sow Tag..." 
                             class="px-4 py-2 border-none rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm bg-transparent"
                         >
                         <button type="submit" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition shadow-md">
@@ -123,6 +124,7 @@
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Sow Code</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Farrowing Date</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Boar</th>
+                                <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Litter Age</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Born</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Live</th>
                                 <th class="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Still</th>
@@ -132,7 +134,7 @@
                                 <th class="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white divide-y divide-gray-100">
+                        <tbody class="bg-white divide-y divide-gray-100" id="pigletTrackingTableBody">
                             @php
                                 $totalFarrowingCount = 0;
                             @endphp
@@ -168,6 +170,41 @@
                                                 <a href="{{ route('pigs.show', $farrowing->boar->id) }}" class="text-indigo-600 hover:text-indigo-800">
                                                     {{ $farrowing->boar->ear_tag_number }}
                                                 </a>
+                                            @else
+                                                <span class="text-gray-400">—</span>
+                                            @endif
+                                        </td>
+                                        @php
+                                            $weaningThreshold = (int) config('breeding.cycle.birth_to_weaning_days', 45);
+                                            $weanedAtDate = $farrowing->date_weaned ? \Illuminate\Support\Carbon::parse($farrowing->date_weaned) : null;
+                                            if ($farrowing->farrowing_date) {
+                                                if ($weanedAtDate) {
+                                                    $litterAgeDays = (int) $farrowing->farrowing_date->diffInDays($weanedAtDate);
+                                                } else {
+                                                    $litterAgeDays = (int) $farrowing->farrowing_date->diffInDays(now());
+                                                }
+                                            } else {
+                                                $litterAgeDays = null;
+                                            }
+                                            $daysRemaining = $litterAgeDays !== null ? $weaningThreshold - $litterAgeDays : null;
+                                        @endphp
+                                        <td class="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-900">
+                                            @if(!is_null($litterAgeDays))
+                                                <div class="font-semibold {{ $litterAgeDays >= $weaningThreshold ? 'text-red-600' : 'text-gray-900' }}">
+                                                    {{ $litterAgeDays }} <span class="text-xs font-normal text-gray-500">days</span>
+                                                </div>
+                                            <div class="text-xs text-gray-500">
+                                                @php
+                                                    $litterWeaned = $farrowing->date_weaned || $farrowing->weanings()->exists() || $farrowing->status === 'completed';
+                                                @endphp
+                                                @if($litterWeaned)
+                                                    Weaned @if($farrowing->date_weaned) on {{ \Illuminate\Support\Carbon::parse($farrowing->date_weaned)->format('M d, Y') }} @endif
+                                                @elseif($litterAgeDays >= $weaningThreshold)
+                                                        Ready to wean
+                                                    @else
+                                                    {{ max(0, (int) $daysRemaining) }} days to go
+                                                    @endif
+                                                </div>
                                             @else
                                                 <span class="text-gray-400">—</span>
                                             @endif
@@ -229,3 +266,25 @@
         <x-copyright-minimal />
     </div>
 </x-app-layout>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const input = document.getElementById('pigletSearchInput');
+        const tbody = document.getElementById('pigletTrackingTableBody');
+        if (!input || !tbody) return;
+        input.addEventListener('input', function() {
+            const val = this.value.trim().toLowerCase();
+            const rows = tbody.querySelectorAll('tr');
+            let anyVisible = false;
+            rows.forEach(row => {
+                // Only match on Sow Tag (first TD, anchor text)
+                const tagCell = row.querySelector('td:first-child a');
+                const tag = tagCell ? tagCell.textContent.trim().toLowerCase() : '';
+                const match = tag.includes(val);
+                row.style.display = match || val === '' ? '' : 'none';
+                if (match) anyVisible = true;
+            });
+            // Optionally: show a no-results row here if needed
+        });
+    });
+</script>

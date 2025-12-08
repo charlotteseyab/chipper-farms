@@ -29,6 +29,7 @@
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP</th>
                                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Agent</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Meta Data</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -40,13 +41,23 @@
                                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $log->action === 'login' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">{{ ucfirst($log->action) }}</span>
                                         </td>
                                         <td class="px-4 py-2 text-sm text-gray-900">{{ $log->ip_address }}</td>
-                                        <td class="px-4 py-2 text-[10px] text-gray-600">{{ 
-                                            Str::limit($log->user_agent, 100)
-                                        }}</td>
+                                        <td class="px-4 py-2 text-[10px] text-gray-600">{{ Str::limit($log->user_agent, 100) }}</td>
+                                        <td class="px-4 py-2 text-[11px] font-mono text-gray-700 max-w-xs break-words">
+                                            @if(is_array($log->metadata) || is_object($log->metadata))
+                                                <button type="button"
+                                                        class="underline text-blue-600 hover:text-blue-800 cursor-pointer metadata-trigger"
+                                                        data-meta='@json($log->metadata)'>
+                                                    View
+                                                </button>
+                                                <span class="hidden">{!! nl2br(e(json_encode($log->metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES))) !!}</span>
+                                            @else
+                                                <span class="text-gray-400 italic">—</span>
+                                            @endif
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td class="px-4 py-6 text-center text-gray-500 text-sm" colspan="5">No activity found.</td>
+                                        <td class="px-4 py-6 text-center text-gray-500 text-sm" colspan="6">No activity found.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -55,6 +66,17 @@
                     <div class="mt-4">{{ $logs->withQueryString()->links('components.simple-pagination') }}</div>
                 </div>
             </div>
+        </div>
+    </div>
+    <div id="metadataModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 hidden">
+        <div class="bg-white rounded-lg w-full max-w-2xl md:max-w-xl shadow-lg p-6 relative">
+            <button id="closeMetadataModal" class="absolute top-3 right-3 text-gray-400 hover:text-gray-700" aria-label="Close">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Activity Meta Data</h3>
+            <pre id="metadataModalContent" class="text-xs font-mono bg-gray-100 rounded-lg p-4 overflow-x-auto whitespace-pre-wrap"></pre>
         </div>
     </div>
     <script>
@@ -86,6 +108,34 @@
                 });
             }
         })();
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const triggers = document.querySelectorAll('.metadata-trigger');
+            const modal = document.getElementById('metadataModal');
+            const modalContent = document.getElementById('metadataModalContent');
+            const closeBtn = document.getElementById('closeMetadataModal');
+            triggers.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    try {
+                        const meta = JSON.parse(this.dataset.meta);
+                        modalContent.textContent = JSON.stringify(meta, null, 2);
+                    } catch (e) {
+                        modalContent.textContent = this.dataset.meta;
+                    }
+                    modal.classList.remove('hidden');
+                });
+            });
+            closeBtn.addEventListener('click', function() {
+                modal.classList.add('hidden');
+            });
+            // Allow clicking outside modal to close
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.classList.add('hidden');
+                }
+            });
+        });
     </script>
 </x-app-layout>
 

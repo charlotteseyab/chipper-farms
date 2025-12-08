@@ -86,17 +86,7 @@ class FortifyServiceProvider extends ServiceProvider
                 Cache::forget($attemptsKey);
                 Cache::forget($lockKey);
                 Cache::forget($lockUntilKey);
-                // Log successful attempt
-                try {
-                    ActivityLog::create([
-                        'user_id' => $user->id,
-                        'name' => (string) $request->input($username),
-                        'action' => 'login_attempt',
-                        'ip_address' => $request->ip(),
-                        'user_agent' => $request->userAgent(),
-                        'metadata' => [ 'result' => 'success' ],
-                    ]);
-                } catch (\Throwable $e) {}
+                // Do NOT log successful login attempts here; let the Login event handle "login" action logging
                 return $user;
             }
 

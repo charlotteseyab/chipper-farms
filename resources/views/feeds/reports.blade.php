@@ -1,279 +1,490 @@
 <x-app-layout>
-<style>
-    /* Custom style for chart containers */
-    .chart-container {
-        /* Sets a fixed height for consistency and medium size */
-        height: 300px; 
-        min-height: 250px;
-        position: relative;
-    }
-    #feedTypeChart, #ingredientChart {
-        /* Ensure canvas fills its container */
-        height: 100% !important;
-        width: 100% !important;
-    }
-</style>
-
-    <div class="max-w-7xl mx-auto px-4 py-2 sm:px-6 lg:px-8 space-y-6 mb-2">
+    <style>
+        /* Custom scrollbar for tables */
+        .custom-scrollbar::-webkit-scrollbar { height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         
-        <div class="mb-6">
-            <h1 class="text-3xl font-extrabold text-gray-900 leading-tight">
-                Feed Usage Analytics Report 
-            </h1>
-            <!-- <p class="text-gray-500 text-sm mt-1">
-                Detailed analysis of feed consumption and ingredient usage from {{ $from ?? now()->subDays(30)->toDateString() }} to {{ $to ?? now()->toDateString() }}.
-            </p> -->
-        </div>
+        /* Chart container constraint */
+        .chart-container { position: relative; height: 320px; width: 100%; }
 
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-4 rounded-lg shadow-md border mb-6">
-            <form method="GET" class="flex flex-wrap items-end gap-3">
-                <div class="flex-grow">
-                    <label class="block text-xs font-medium text-gray-500">From Date</label>
-                    <input type="date" 
-                           name="start_date" 
-                           value="{{ $from ?? now()->subDays(30)->toDateString() }}" 
-                           class="mt-1 border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-indigo-500 w-full md:w-40"     >
-                </div>
-                <div class="flex-grow">
-                    <label class="block text-xs font-medium text-gray-500">To Date</label>
-                    <input type="date" 
-                           name="end_date" 
-                           value="{{ $to ?? now()->toDateString() }}" 
-                           class="mt-1 border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-indigo-500 w-full md:w-40">
-                </div>
-                <button class="h-9 px-4 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition shadow-md">
-                    Apply Filter
-                </button>
-                <a href="{{ route('feeds.reports.export.pdf', ['start_date' => $from, 'end_date' => $to]) }}" 
-                    class="h-9 px-4 flex items-center justify-center bg-red-600 text-white rounded-lg text-sm font-medium shadow-md hover:bg-red-700 transition">
-                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm0 0l-1.5-3m1.5 3l1.5-3"></path></svg>
-                    Export PDF
-                </a>
-            </form>
-        </div>
+        /* Subtle background pattern */
+        /* .bg-pattern {
+            background-color: #f8fafc;
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 24px 24px;
+        } */
+    </style>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div class="bg-white p-5 rounded-xl shadow-lg border border-indigo-100">
-                <div class="text-sm font-medium text-gray-500">Total Scheduled Feed</div>
-                <div class="mt-1 text-3xl font-bold text-indigo-600">
-                    {{ number_format($totalScheduledKg ?? 0, 2) }} <span class="text-lg font-medium text-gray-700">kg</span>
-                </div>
-            </div>
-            <div class="bg-white p-5 rounded-xl shadow-lg border border-indigo-100">
-                <div class="text-sm font-medium text-gray-500">Feed Types Scheduled</div>
-                <div class="mt-1 text-3xl font-bold text-gray-900">
-                    {{ isset($byType) ? $byType->count() : 0 }}
-                </div>
-            </div>
-            <div class="bg-white p-5 rounded-xl shadow-lg border border-indigo-100">
-                <div class="text-sm font-medium text-gray-500">Total Ingredients Used</div>
-                <div class="mt-1 text-3xl font-bold text-green-600">
-                    {{ isset($ingredientDetails) ? count($ingredientDetails) : 0 }}
-                </div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+    <div class="min-h-screen font-sans text-slate-600 pb-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8 pt-8">
             
-            <div class="bg-white rounded-xl shadow-lg border border-gray-100">
-                <div class="px-5 py-3 border-b border-gray-100 text-lg font-semibold text-gray-800">Feed by Type Usage (kg)</div>
-                <div class="p-5 chart-container">
-                    <canvas id="feedTypeChart"></canvas>
+            <div class="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-6">
+                <div class="relative z-10">
+                    <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
+                        Feed Analytics
+                    </h1>
+                    <p class="mt-2 text-base text-slate-500 max-w-2xl">
+                        Track consumption, optimize recipes, and monitor ingredient costs across your farm.
+                    </p>
+                </div>
+                
+                <div class="relative z-10  p-2 rounded-2xl border border-white shadow-lg shadow-slate-200/50 flex flex-wrap items-center gap-3">
+                    <form method="GET" class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                        <div class="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-1.5 border border-slate-200">
+                            <div class="relative">
+                                <input type="date" name="start_date" value="{{ $from ?? now()->subDays(30)->toDateString() }}" 
+                                    class="border-0 bg-transparent p-0 text-sm font-semibold text-slate-700 focus:ring-0 cursor-pointer w-[110px]">
+                            </div>
+                            <span class="text-slate-300 font-light">|</span>
+                            <div class="relative">
+                                <input type="date" name="end_date" value="{{ $to ?? now()->toDateString() }}" 
+                                    class="border-0 bg-transparent p-0 text-sm font-semibold text-slate-700 focus:ring-0 cursor-pointer w-[110px]">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="inline-flex items-center px-5 py-2 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl text-sm font-bold text-white shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-[1.02] transition-all transform focus:outline-none">
+                            Update View
+                        </button>
+                        <a href="{{ route('feeds.reports.export.pdf', ['start_date' => $from, 'end_date' => $to]) }}" 
+                            class="inline-flex items-center px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:text-rose-600 hover:border-rose-200 hover:bg-rose-50 transition-colors shadow-sm">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            Export PDF
+                        </a>
+                    </form>
                 </div>
             </div>
 
-            <div class="bg-white rounded-xl shadow-lg border border-gray-100">
-                <div class="px-5 py-3 border-b border-gray-100 text-lg font-semibold text-gray-800">Ingredient Usage Distribution</div>
-                <div class="p-5 chart-container">
-                    <canvas id="ingredientChart"></canvas>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="group relative overflow-hidden rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 transition-all hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+                    <div class="absolute top-0 right-0 -mt-4 -mr-4 h-24 w-24 rounded-full bg-violet-50 blur-2xl opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="flex items-center gap-5 relative">
+                        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-lg shadow-violet-500/30">
+                            <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-400 uppercase tracking-wide">Total Scheduled</p>
+                            <p class="mt-1 text-3xl font-black text-slate-800">{{ number_format($totalScheduledKg ?? 0, 1) }} <span class="text-lg font-medium text-slate-400">kg</span></p>
+                        </div>
+                    </div>
                 </div>
-                </div>
-        </div>
 
-        <div class="bg-white rounded-xl shadow-lg border border-gray-100 mt-6" x-data="{ tab: 'daily' }">
-            <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
-                <div class="text-lg font-semibold text-gray-800">Structure Feed Consumption</div>
-                <div class="flex gap-2 text-sm">
-                    <button @click="tab='daily'" :class="tab==='daily' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-1.5 rounded-lg">Daily</button>
-                    <button @click="tab='monthly'" :class="tab==='monthly' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-1.5 rounded-lg">Monthly</button>
-                    <button @click="tab='yearly'" :class="tab==='yearly' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'" class="px-3 py-1.5 rounded-lg">Yearly</button>
+                <div class="group relative overflow-hidden rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 transition-all hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+                    <div class="absolute top-0 right-0 -mt-4 -mr-4 h-24 w-24 rounded-full bg-blue-50 blur-2xl opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="flex items-center gap-5 relative">
+                        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/30">
+                            <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-400 uppercase tracking-wide">Feed Types</p>
+                            <p class="mt-1 text-3xl font-black text-slate-800">{{ isset($byType) ? $byType->count() : 0 }} <span class="text-lg font-medium text-slate-400">vars</span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="group relative overflow-hidden rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 transition-all hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+                    <div class="absolute top-0 right-0 -mt-4 -mr-4 h-24 w-24 rounded-full bg-emerald-50 blur-2xl opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                    <div class="flex items-center gap-5 relative">
+                        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30">
+                            <svg class="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                        </div>
+                        <div>
+                            <p class="text-sm font-bold text-slate-400 uppercase tracking-wide">Ingredients</p>
+                            <p class="mt-1 text-3xl font-black text-slate-800">{{ isset($ingredientDetails) ? count($ingredientDetails) : 0 }} <span class="text-lg font-medium text-slate-400">items</span></p>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="p-5">
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider" x-text="tab==='daily' ? 'Date' : (tab==='monthly' ? 'Month' : 'Year')"></th>
-                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Structure</th>
-                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Total (kg)</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-100" x-show="tab==='daily'">
-                            @forelse(($dailyStructureTotals ?? []) as $date => $rows)
-                                @foreach($rows as $row)
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="px-5 py-2 whitespace-nowrap text-sm text-gray-700">{{ $date }}</td>
-                                        <td class="px-5 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{{ $row['structure_name'] }}</td>
-                                        <td class="px-5 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">{{ number_format($row['total'], 2) }}</td>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100 flex flex-col">
+                    <div class="mb-6 flex items-center justify-between">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-lg">Volume by Feed Type</h3>
+                            <p class="text-xs text-slate-400">Total consumption weight</p>
+                        </div>
+                    </div>
+                    <div class="chart-container flex-1">
+                        <canvas id="feedTypeChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100 flex flex-col">
+                    <div class="mb-6 flex items-center justify-between">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-lg">Ingredient Mix</h3>
+                            <p class="text-xs text-slate-400">Breakdown of composition</p>
+                        </div>
+                    </div>
+                    <div class="chart-container flex-1">
+                        <canvas id="ingredientChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                
+                <div class="rounded-3xl bg-white shadow-sm ring-1 ring-slate-100 flex flex-col h-full" x-data="{ tab: 'daily' }">
+                    <div class="px-6 py-5 border-b border-slate-50 flex items-center justify-between bg-white rounded-t-3xl">
+                        <h3 class="font-bold text-slate-800 text-lg">Structure Consumption</h3>
+                        <div class="bg-slate-100 p-1 rounded-xl flex gap-1">
+                            <button @click="tab='daily'" :class="tab==='daily' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all">Daily</button>
+                            <button @click="tab='weekly'" :class="tab==='weekly' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all">Weekly</button>
+                            <button @click="tab='monthly'" :class="tab==='monthly' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all">Monthly</button>
+                        </div>
+                    </div>
+                    <div class="flex-1 overflow-hidden relative">
+                        <div class="overflow-x-auto custom-scrollbar max-h-[350px]">
+                            <table class="min-w-full divide-y divide-slate-50">
+                                <thead class="bg-slate-50/50 sticky top-0 backdrop-blur-sm z-10">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Date</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Structure</th>
+                                        <th class="px-6 py-3 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Kg</th>
                                     </tr>
-                                @endforeach
-                            @empty
-                                <tr>
-                                    <td colspan="3" class="px-5 py-6 text-center text-gray-400 text-sm">No data available.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                        <tbody class="bg-white divide-y divide-gray-100" x-show="tab==='monthly'">
-                            @forelse(($monthlyStructureTotals ?? []) as $month => $rows)
-                                @foreach($rows as $row)
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="px-5 py-2 whitespace-nowrap text-sm text-gray-700">{{ $month }}</td>
-                                        <td class="px-5 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{{ $row['structure_name'] }}</td>
-                                        <td class="px-5 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">{{ number_format($row['total'], 2) }}</td>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-slate-50" x-show="tab==='daily'">
+                                    @forelse($structureDailyPaginated as $date => $rows)
+                                        @php $periodTotal = collect($rows)->sum('total'); @endphp
+                                        @foreach($rows as $row)
+                                            <tr class="hover:bg-violet-50/30 transition-colors group">
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm text-slate-500 font-medium">{{ $date }}</td>
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm font-semibold text-slate-700 group-hover:text-violet-700 transition-colors">{{ $row['structure_name'] }}</td>
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm text-right font-bold text-slate-800">{{ number_format($row['total'], 2) }}</td>
+                                            </tr>
+                                        @endforeach
+                                        <tr class="bg-violet-50/40 text-violet-900 font-semibold">
+                                            <td class="px-6 py-2 text-xs uppercase tracking-wide">Total for {{ $date }}</td>
+                                            <td class="px-6 py-2 text-xs text-right" colspan="2">{{ number_format($periodTotal, 2) }} kg</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="3" class="px-6 py-6 text-sm text-center text-slate-400">No daily data.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                                <tbody class="bg-white divide-y divide-slate-50" x-show="tab==='weekly'">
+                                    @forelse($structureWeeklyPaginated as $week => $rows)
+                                        @php $periodTotal = collect($rows)->sum('total'); @endphp
+                                        @foreach($rows as $row)
+                                            <tr class="hover:bg-violet-50/30 transition-colors group">
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm text-slate-500 font-medium">{{ $week }}</td>
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm font-semibold text-slate-700 group-hover:text-violet-700 transition-colors">{{ $row['structure_name'] }}</td>
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm text-right font-bold text-slate-800">{{ number_format($row['total'], 2) }}</td>
+                                            </tr>
+                                        @endforeach
+                                        <tr class="bg-violet-50/40 text-violet-900 font-semibold">
+                                            <td class="px-6 py-2 text-xs uppercase tracking-wide">Total for {{ $week }}</td>
+                                            <td class="px-6 py-2 text-xs text-right" colspan="2">{{ number_format($periodTotal, 2) }} kg</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="3" class="px-6 py-6 text-sm text-center text-slate-400">No weekly data.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                                <tbody class="bg-white divide-y divide-slate-50" x-show="tab==='monthly'">
+                                    @forelse($structureMonthlyPaginated as $month => $rows)
+                                        @php $periodTotal = collect($rows)->sum('total'); @endphp
+                                        @foreach($rows as $row)
+                                            <tr class="hover:bg-violet-50/30 transition-colors group">
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm text-slate-500 font-medium">{{ $month }}</td>
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm font-semibold text-slate-700 group-hover:text-violet-700 transition-colors">{{ $row['structure_name'] }}</td>
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm text-right font-bold text-slate-800">{{ number_format($row['total'], 2) }}</td>
+                                            </tr>
+                                        @endforeach
+                                        <tr class="bg-violet-50/40 text-violet-900 font-semibold">
+                                            <td class="px-6 py-2 text-xs uppercase tracking-wide">Total for {{ $month }}</td>
+                                            <td class="px-6 py-2 text-xs text-right" colspan="2">{{ number_format($periodTotal, 2) }} kg</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="3" class="px-6 py-6 text-sm text-center text-slate-400">No monthly data.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    @if($structureDailyPaginated->hasPages())
+                        <div class="px-6 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500" x-show="tab==='daily'">
+                            <div>
+                                @if($structureDailyPaginated->total())
+                                    Showing {{ $structureDailyPaginated->firstItem() }} to {{ $structureDailyPaginated->lastItem() }} of {{ $structureDailyPaginated->total() }} days
+                                @else
+                                    Showing 0 records
+                                @endif
+                            </div>
+                            <x-simple-pagination :paginator="$structureDailyPaginated" />
+                        </div>
+                    @endif
+                    @if($structureWeeklyPaginated->hasPages())
+                        <div class="px-6 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500" x-show="tab==='weekly'">
+                            <div>
+                                @if($structureWeeklyPaginated->total())
+                                    Showing {{ $structureWeeklyPaginated->firstItem() }} to {{ $structureWeeklyPaginated->lastItem() }} of {{ $structureWeeklyPaginated->total() }} weeks
+                                @else
+                                    Showing 0 records
+                                @endif
+                            </div>
+                            <x-simple-pagination :paginator="$structureWeeklyPaginated" />
+                        </div>
+                    @endif
+                    @if($structureMonthlyPaginated->hasPages())
+                        <div class="px-6 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500" x-show="tab==='monthly'">
+                            <div>
+                                @if($structureMonthlyPaginated->total())
+                                    Showing {{ $structureMonthlyPaginated->firstItem() }} to {{ $structureMonthlyPaginated->lastItem() }} of {{ $structureMonthlyPaginated->total() }} months
+                                @else
+                                    Showing 0 records
+                                @endif
+                            </div>
+                            <x-simple-pagination :paginator="$structureMonthlyPaginated" />
+                        </div>
+                    @endif
+                </div>
+
+                <div class="rounded-3xl bg-white shadow-sm ring-1 ring-slate-100 flex flex-col h-full" x-data="{ tab: 'daily' }">
+                    <div class="px-6 py-5 border-b border-slate-50 flex items-center justify-between bg-white rounded-t-3xl">
+                        <h3 class="font-bold text-slate-800 text-lg">Room Consumption</h3>
+                        <div class="bg-slate-100 p-1 rounded-xl flex gap-1">
+                            <button @click="tab='daily'" :class="tab==='daily' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all">Daily</button>
+                            <button @click="tab='weekly'" :class="tab==='weekly' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all">Weekly</button>
+                            <button @click="tab='monthly'" :class="tab==='monthly' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'" class="px-3 py-1.5 text-xs font-semibold rounded-lg transition-all">Monthly</button>
+                        </div>
+                    </div>
+                    <div class="flex-1 overflow-hidden relative">
+                        <div class="overflow-x-auto custom-scrollbar max-h-[350px]">
+                            <table class="min-w-full divide-y divide-slate-50">
+                                <thead class="bg-slate-50/50 sticky top-0 backdrop-blur-sm z-10">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Date</th>
+                                        <th class="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Room</th>
+                                        <th class="px-6 py-3 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Kg</th>
                                     </tr>
-                                @endforeach
-                            @empty
-                                <tr>
-                                    <td colspan="3" class="px-5 py-6 text-center text-gray-400 text-sm">No data available.</td>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-slate-50" x-show="tab==='daily'">
+                                    @forelse($roomDailyPaginated as $date => $rows)
+                                        @php $periodTotal = collect($rows)->sum('total'); @endphp
+                                        @foreach($rows as $row)
+                                            <tr class="hover:bg-emerald-50/30 transition-colors group">
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm text-slate-500 font-medium">{{ $date }}</td>
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm font-semibold text-slate-700 group-hover:text-emerald-700 transition-colors">{{ $row['room_name'] }}</td>
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm text-right font-bold text-slate-800">{{ number_format($row['total'], 2) }}</td>
+                                            </tr>
+                                        @endforeach
+                                        <tr class="bg-emerald-50/40 text-emerald-900 font-semibold">
+                                            <td class="px-6 py-2 text-xs uppercase tracking-wide">Total for {{ $date }}</td>
+                                            <td class="px-6 py-2 text-xs text-right" colspan="2">{{ number_format($periodTotal, 2) }} kg</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="3" class="px-6 py-6 text-sm text-center text-slate-400">No daily data.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                                <tbody class="bg-white divide-y divide-slate-50" x-show="tab==='weekly'">
+                                    @forelse($roomWeeklyPaginated as $week => $rows)
+                                        @php $periodTotal = collect($rows)->sum('total'); @endphp
+                                        @foreach($rows as $row)
+                                            <tr class="hover:bg-emerald-50/30 transition-colors group">
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm text-slate-500 font-medium">{{ $week }}</td>
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm font-semibold text-slate-700 group-hover:text-emerald-700 transition-colors">{{ $row['room_name']  }}</td>
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm text-right font-bold text-slate-800">{{ number_format($row['total'], 2) }}</td>
+                                            </tr>
+                                        @endforeach
+                                        <tr class="bg-emerald-50/40 text-emerald-900 font-semibold">
+                                            <td class="px-6 py-2 text-xs uppercase tracking-wide">Total for {{ $week }}</td>
+                                            <td class="px-6 py-2 text-xs text-right" colspan="2">{{ number_format($periodTotal, 2) }} kg</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="3" class="px-6 py-6 text-sm text-center text-slate-400">No weekly data.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                                <tbody class="bg-white divide-y divide-slate-50" x-show="tab==='monthly'">
+                                    @forelse($roomMonthlyPaginated as $month => $rows)
+                                        @php $periodTotal = collect($rows)->sum('total'); @endphp
+                                        @foreach($rows as $row)
+                                            <tr class="hover:bg-emerald-50/30 transition-colors group">
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm text-slate-500 font-medium">{{ $month }}</td>
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm font-semibold text-slate-700 group-hover:text-emerald-700 transition-colors">{{ $row['room_name'] }}</td>
+                                                <td class="px-6 py-3 whitespace-nowrap text-sm text-right font-bold text-slate-800">{{ number_format($row['total'], 2) }}</td>
+                                            </tr>
+                                        @endforeach
+                                        <tr class="bg-emerald-50/40 text-emerald-900 font-semibold">
+                                            <td class="px-6 py-2 text-xs uppercase tracking-wide">Total for {{ $month }}</td>
+                                            <td class="px-6 py-2 text-xs text-right" colspan="2">{{ number_format($periodTotal, 2) }} kg</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="3" class="px-6 py-6 text-sm text-center text-slate-400">No monthly data.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    @if($roomDailyPaginated->hasPages())
+                        <div class="px-6 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500" x-show="tab==='daily'">
+                            <div>
+                                @if($roomDailyPaginated->total())
+                                    Showing {{ $roomDailyPaginated->firstItem() }} to {{ $roomDailyPaginated->lastItem() }} of {{ $roomDailyPaginated->total() }} days
+                                @else
+                                    Showing 0 records
+                                @endif
+                            </div>
+                            <x-simple-pagination :paginator="$roomDailyPaginated" />
+                        </div>
+                    @endif
+                    @if($roomWeeklyPaginated->hasPages())
+                        <div class="px-6 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500" x-show="tab==='weekly'">
+                            <div>
+                                @if($roomWeeklyPaginated->total())
+                                    Showing {{ $roomWeeklyPaginated->firstItem() }} to {{ $roomWeeklyPaginated->lastItem() }} of {{ $roomWeeklyPaginated->total() }} weeks
+                                @else
+                                    Showing 0 records
+                                @endif
+                            </div>
+                            <x-simple-pagination :paginator="$roomWeeklyPaginated" />
+                        </div>
+                    @endif
+                    @if($roomMonthlyPaginated->hasPages())
+                        <div class="px-6 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500" x-show="tab==='monthly'">
+                            <div>
+                                @if($roomMonthlyPaginated->total())
+                                    Showing {{ $roomMonthlyPaginated->firstItem() }} to {{ $roomMonthlyPaginated->lastItem() }} of {{ $roomMonthlyPaginated->total() }} months
+                                @else
+                                    Showing 0 records
+                                @endif
+                            </div>
+                            <x-simple-pagination :paginator="$roomMonthlyPaginated" />
+                        </div>
+                    @endif
+                </div>
+
+            </div>
+
+            <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-100">
+                <div class="mb-8">
+                    <h3 class="font-bold text-slate-800 text-lg">Consumption Trends vs. Growth</h3>
+                    <p class="text-sm text-slate-500">Analysis of intake efficiency over time.</p>
+                </div>
+                <div class="h-80 w-full">
+                    <canvas id="feedWeightChart"></canvas>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                
+                <div class="rounded-3xl bg-white shadow-sm ring-1 ring-slate-100 flex flex-col overflow-hidden">
+                    <div class="px-6 py-5 bg-slate-50/80 border-b border-slate-100">
+                        <h3 class="font-bold text-slate-800">Feed Type Breakdown</h3>
+                    </div>
+                    <div class="flex-1 overflow-x-auto custom-scrollbar">
+                        <table class="min-w-full divide-y divide-slate-50">
+                            <thead>
+                                <tr class="bg-white">
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Type</th>
+                                    <th class="px-6 py-3 text-center text-xs font-bold text-slate-400 uppercase tracking-wider">Count</th>
+                                    <th class="px-6 py-3 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Total (kg)</th>
                                 </tr>
-                            @endforelse
-                        </tbody>
-                        <tbody class="bg-white divide-y divide-gray-100" x-show="tab==='yearly'">
-                            @forelse(($yearlyStructureTotals ?? []) as $year => $rows)
-                                @foreach($rows as $row)
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="px-5 py-2 whitespace-nowrap text-sm text-gray-700">{{ $year }}</td>
-                                        <td class="px-5 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{{ $row['structure_name'] }}</td>
-                                        <td class="px-5 py-2 whitespace-nowrap text-sm font-semibold text-gray-900">{{ number_format($row['total'], 2) }}</td>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50">
+                                @forelse($feedTypePaginated as $row)
+                                    <tr class="hover:bg-slate-50 transition-colors">
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <div class="flex items-center gap-3">
+                                                <div class="h-2.5 w-2.5 rounded-full bg-indigo-500 shadow-sm shadow-indigo-200"></div>
+                                                <span class="text-sm font-semibold text-slate-700">{{ $row['name'] }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                                            <span class="inline-flex items-center justify-center h-6 min-w-[24px] px-1.5 rounded-md bg-slate-100 text-xs font-bold text-slate-600">{{ $row['count'] }}</span>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-black text-slate-800">{{ number_format($row['total_amount'], 1) }}</td>
                                     </tr>
-                                @endforeach
-                            @empty
-                                <tr>
-                                    <td colspan="3" class="px-5 py-6 text-center text-gray-400 text-sm">No data available.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                                @empty
+                                    <tr>
+                                        <td colspan="3" class="px-6 py-6 text-center text-sm text-slate-400">No feed type data.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                    @if($feedTypePaginated->hasPages())
+                        <div class="px-6 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                            <div>
+                                @if($feedTypePaginated->total())
+                                    Showing {{ $feedTypePaginated->firstItem() }} to {{ $feedTypePaginated->lastItem() }} of {{ $feedTypePaginated->total() }} feed types
+                                @else
+                                    Showing 0 results
+                                @endif
+                            </div>
+                            <x-simple-pagination :paginator="$feedTypePaginated" />
+                        </div>
+                    @endif
                 </div>
-            </div>
-        </div>
 
-        <div class="bg-white rounded-xl shadow-lg border border-gray-100">
-            <div class="px-5 py-3 border-b border-gray-100 text-lg font-semibold text-gray-800">Feed Consumption vs. Average Pig Weights</div>
-            <div class="p-5">
-                <canvas id="feedWeightChart" height="100"></canvas>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div class="bg-white rounded-xl shadow-lg border border-gray-100">
-                <div class="px-5 py-3 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-indigo-700 flex items-center">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                        Feed Types Summary
-                    </h3>
-                    <p class="text-sm text-gray-500 mt-1">Detailed breakdown of scheduled feed types and usage counts.</p>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-indigo-50">
-                            <tr>
-                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Feed Type</th>
-                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Events</th>
-                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Total Amount</th>
-                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Avg/Event</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-100">
-                            @foreach(($byType ?? []) as $row)
-                                <tr class="hover:bg-indigo-50 transition-colors duration-150">
-                                    <td class="px-5 py-3 whitespace-nowrap">
-                                        <div class="flex items-center">
-                                            <div class="w-3 h-3 bg-indigo-500 rounded-full mr-3"></div>
-                                            <span class="text-sm font-medium text-gray-900">{{ $row['name'] }}</span>
-                                        </div>
-                                    </td>
-                                    <td class="px-5 py-3 whitespace-nowrap">
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
-                                            {{ $row['count'] }}
-                                        </span>
-                                    </td>
-                                    <td class="px-5 py-3 whitespace-nowrap text-sm font-bold text-gray-900">{{ number_format($row['total_amount'], 2) }} kg</td>
-                                    <td class="px-5 py-3 whitespace-nowrap text-sm text-gray-600">{{ number_format($row['total_amount'] / max($row['count'], 1), 2) }} kg</td>
+                <div class="rounded-3xl bg-white shadow-sm ring-1 ring-slate-100 flex flex-col overflow-hidden">
+                    <div class="px-6 py-5 bg-slate-50/80 border-b border-slate-100">
+                        <h3 class="font-bold text-slate-800">Nutritional Breakdown</h3>
+                    </div>
+                    <div class="flex-1 overflow-x-auto custom-scrollbar">
+                        <table class="min-w-full divide-y divide-slate-50">
+                            <thead>
+                                <tr class="bg-white">
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase tracking-wider">Item</th>
+                                    <th class="px-6 py-3 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Used</th>
+                                    <th class="px-6 py-3 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Protein</th>
+                                    <th class="px-6 py-3 text-right text-xs font-bold text-slate-400 uppercase tracking-wider">Energy</th>
                                 </tr>
-                            @endforeach
-                            @if(empty($byType) || $byType->isEmpty())
-                                <tr>
-                                    <td colspan="4" class="px-5 py-8 text-center bg-gray-50">
-                                        <span class="text-gray-400 text-sm">No feed type data available for the selected period.</span>
-                                    </td>
-                                </tr>
-                            @endif
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody class="divide-y divide-slate-50">
+                                @forelse($ingredientPaginated as $name => $details)
+                                    <tr class="hover:bg-emerald-50/20 transition-colors">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-slate-700">{{ $name }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-emerald-600">{{ number_format($details['total_used'], 1) }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-500">{{ number_format($details['protein_percentage'], 1) }}%</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-500">{{ number_format($details['energy_kcal'], 0) }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="4" class="px-6 py-6 text-center text-sm text-slate-400">No ingredient data.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                    @if($ingredientPaginated->hasPages())
+                        <div class="px-6 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+                            <div>
+                                @if($ingredientPaginated->total())
+                                    Showing {{ $ingredientPaginated->firstItem() }} to {{ $ingredientPaginated->lastItem() }} of {{ $ingredientPaginated->total() }} ingredients
+                                @else
+                                    Showing 0 results
+                                @endif
+                            </div>
+                            <x-simple-pagination :paginator="$ingredientPaginated" />
+                        </div>
+                    @endif
                 </div>
             </div>
 
-            <div class="bg-white rounded-xl shadow-lg border border-gray-100">
-                <div class="px-5 py-3 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-green-700 flex items-center">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
-                        </svg>
-                        Ingredients Analysis
-                    </h3>
-                    <p class="text-sm text-gray-500 mt-1">Nutritional details and estimated usage based on feed recipes.</p>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-green-50">
-                            <tr>
-                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Ingredient</th>
-                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Used (kg)</th>
-                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Protein %</th>
-                                <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Energy</th>
-                                <!-- <th class="px-5 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Cost (₵/kg)</th> -->
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-100">
-                            @foreach(($ingredientDetails ?? []) as $name => $details)
-                                <tr class="hover:bg-green-50 transition-colors duration-150">
-                                    <td class="px-5 py-3 whitespace-nowrap">
-                                        <div class="flex items-center">
-                                            <div class="w-3 h-3 bg-green-500 rounded-full mr-3"></div>
-                                            <span class="text-sm font-medium text-gray-900">{{ $name }}</span>
-                                        </div>
-                                    </td>
-                                    <td class="px-5 py-3 whitespace-nowrap">
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                                            {{ number_format($details['total_used'], 2) }} kg
-                                        </span>
-                                    </td>
-                                    <td class="px-5 py-3 whitespace-nowrap text-sm text-gray-600">{{ number_format($details['protein_percentage'], 1) }}%</td>
-                                    <td class="px-5 py-3 whitespace-nowrap text-sm text-gray-600">{{ number_format($details['energy_kcal'], 0) }}</td>
-                                    <!-- <td class="px-5 py-3 whitespace-nowrap text-sm font-bold text-gray-900">₵{{ number_format($details['cost_per_kg'], 2) }}</td> -->
-                                </tr>
-                            @endforeach
-                            @if(empty($ingredientDetails))
-                                <tr>
-                                    <td colspan="5" class="px-5 py-8 text-center bg-gray-50">
-                                        <span class="text-gray-400 text-sm">No ingredient data available for the selected period.</span>
-                                    </td>
-                                </tr>
-                            @endif
-                        </tbody>
-                    </table>
-                </div>
-            </div>
         </div>
     </div>
-<x-copyright-minimal />
+    <x-copyright-minimal />
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        // Feed by Type Chart
+        // High Quality Font Settings
+        Chart.defaults.font.family = '"Inter", "system-ui", sans-serif';
+        Chart.defaults.color = '#64748b';
+        Chart.defaults.font.size = 11;
+
+        // 1. Feed by Type (Bar)
         new Chart(document.getElementById('feedTypeChart').getContext('2d'), {
             type: 'bar',
             data: {
@@ -281,48 +492,68 @@
                 datasets: [{
                     label: 'Total Amount (kg)',
                     data: @json(($byType ?? [])->pluck('total_amount')),
-                    backgroundColor: '#4f46e5', // Indigo-600
-                    borderColor: '#4f46e5',
-                    borderWidth: 1
+                    backgroundColor: '#6366f1', // Indigo-500
+                    hoverBackgroundColor: '#4f46e5',
+                    borderRadius: 6,
+                    barThickness: 40,
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false, // Important for fixed height container
+                maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'top' },
-                    title: { display: false }
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        padding: 12,
+                        cornerRadius: 8,
+                        titleFont: { size: 13 },
+                        bodyFont: { size: 12 }
+                    }
                 },
                 scales: {
-                    y: { beginAtZero: true }
+                    y: { 
+                        beginAtZero: true,
+                        grid: { color: '#f1f5f9', borderDash: [4, 4] },
+                        border: { display: false }
+                    },
+                    x: {
+                        grid: { display: false },
+                        border: { display: false }
+                    }
                 }
             }
         });
 
-        // Ingredient Usage Chart
+        // 2. Ingredient Usage (Doughnut)
         new Chart(document.getElementById('ingredientChart').getContext('2d'), {
-            type: 'doughnut', // Changed to Doughnut for a modern look
+            type: 'doughnut',
             data: {
                 labels: @json(array_keys($ingredientDetails ?? [])),
                 datasets: [{
                     label: 'Usage (kg)',
                     data: @json(array_column($ingredientDetails ?? [], 'total_used')),
-                    // Adjusted colors for a clean palette
-                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#34d399', '#6366f1', '#fbbf24']
+                    backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'],
+                    borderWidth: 0,
+                    hoverOffset: 15
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false, // Important for fixed height container
+                maintainAspectRatio: false,
+                cutout: '70%',
                 plugins: {
-                    legend: { position: 'right' }, // Move legend to the side
-                    title: { display: false }
+                    legend: { position: 'right', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 6 } },
                 }
             }
         });
 
-        // Feed vs Pig Weights Chart (Dual-Axis, by Date)
+        // 3. Trends (Line)
         const feedWeightCtx = document.getElementById('feedWeightChart').getContext('2d');
+        const gradientFeed = feedWeightCtx.createLinearGradient(0, 0, 0, 300);
+        gradientFeed.addColorStop(0, 'rgba(99, 102, 241, 0.15)'); // Indigo low opacity
+        gradientFeed.addColorStop(1, 'rgba(99, 102, 241, 0)');
+
         new Chart(feedWeightCtx, {
             type: 'line',
             data: {
@@ -332,50 +563,63 @@
                         label: 'Feed (kg)',
                         data: @json(($feedByDate ?? [])->values()),
                         yAxisID: 'y',
-                        borderColor: '#4f46e5', // Indigo
-                        backgroundColor: 'rgba(79, 70, 229, 0.2)',
+                        borderColor: '#6366f1',
+                        backgroundColor: gradientFeed,
                         borderWidth: 2,
-                        pointRadius: 3,
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: '#6366f1',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2,
                         fill: true,
-                        tension: 0.4 // Smoother lines
+                        tension: 0.4
                     },
                     {
                         label: 'Avg Weight (kg)',
                         data: @json(($avgWeightByDate ?? [])->values()),
                         yAxisID: 'y1',
-                        borderColor: '#10b981', // Emerald/Green
-                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                        borderColor: '#10b981',
+                        backgroundColor: 'transparent',
                         borderWidth: 2,
-                        pointRadius: 3,
-                        fill: false, // No fill on secondary line
+                        borderDash: [6, 6],
+                        pointRadius: 0,
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: '#10b981',
+                        pointBorderColor: '#fff',
+                        fill: false,
                         tension: 0.4
                     }
                 ]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
                 plugins: {
-                    legend: { position: 'top' },
-                    title: { display: false }
+                    legend: { position: 'top', align: 'end', labels: { usePointStyle: true, boxWidth: 8 } },
+                    tooltip: {
+                        backgroundColor: '#1e293b',
+                        padding: 12,
+                        cornerRadius: 8,
+                    }
                 },
                 scales: {
                     x: {
-                        title: { display: true, text: 'Date' },
-                        ticks: { autoSkip: true, maxTicksLimit: 10 }
+                        grid: { display: false },
+                        border: { display: false },
+                        ticks: { autoSkip: true, maxTicksLimit: 8 }
                     },
                     y: {
-                        type: 'linear',
-                        display: true,
                         position: 'left',
-                        title: { display: true, text: 'Feed (kg)' }
+                        title: { display: true, text: 'Feed Consumed (kg)' },
+                        grid: { color: '#f1f5f9', borderDash: [4, 4] },
+                        border: { display: false }
                     },
                     y1: {
-                        type: 'linear',
-                        display: true,
                         position: 'right',
-                        grid: { drawOnChartArea: false },
-                        title: { display: true, text: 'Avg Weight (kg)' }
+                        grid: { display: false },
+                        border: { display: false },
+                        title: { display: true, text: 'Pig Weight (kg)' }
                     }
                 }
             }

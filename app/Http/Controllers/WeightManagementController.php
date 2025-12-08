@@ -429,12 +429,24 @@ class WeightManagementController extends Controller
     /**
      * Get expected weight for a pig based on age and breed
      */
-    public function getExpectedWeight($pigId)
+    public function getExpectedWeight(Request $request, $pigId)
     {
         $pig = PigManagement::findOrFail($pigId);
-        
-        // Calculate pig's current age in weeks
-        $ageInWeeks = $pig->current_age_in_weeks;
+        $referenceDate = $request->query('date') ? Carbon::parse($request->query('date')) : now();
+        $ifUserWeek = $request->query('week');
+        if (is_numeric($ifUserWeek)) {
+            $requestedWeek = max(0, (int) $ifUserWeek);
+        } else {
+            $requestedWeek = null;
+        }
+        $ageInWeeks = $requestedWeek ?? (
+            $pig->date_of_birth
+                ? max(0, $pig->date_of_birth->diffInWeeks($referenceDate))
+                : $pig->current_age_in_weeks
+        );
+        $ageSourceNote = $requestedWeek !== null
+            ? 'Using selected tracking week'
+            : 'Based on pig\'s actual age';
         
         // Get weight standards for this pig's breed, gender, stock type and age
         $weightStandard = \App\Models\ExpectedWeightStandard::where('breed', $pig->breed)
@@ -445,7 +457,19 @@ class WeightManagementController extends Controller
             ->first();
 
         if (!$weightStandard) {
-            // Try to find the closest week standard
+            if ($requestedWeek !== null) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "No expected-weight standard defined for week {$requestedWeek}.",
+                    'data' => [
+                        'week_number' => $requestedWeek,
+                        'pig_age_weeks' => $ageInWeeks,
+                        'note' => $ageSourceNote . '. No standard available for this week.'
+                    ]
+                ]);
+            }
+
+            // Try to find the closest week standard when the week wasn't manually selected
             $closestStandard = \App\Models\ExpectedWeightStandard::where('breed', $pig->breed)
                 ->where('gender', $pig->gender)
                 ->where('stock_type', $pig->stock_type)
@@ -454,7 +478,7 @@ class WeightManagementController extends Controller
                 ->first();
 
             if ($closestStandard) {
-                            return response()->json([
+                return response()->json([
                 'success' => true,
                 'data' => [
                     'min_weight' => $closestStandard->expected_min_weight,
@@ -462,7 +486,7 @@ class WeightManagementController extends Controller
                     'optimal_weight' => $closestStandard->optimal_weight,
                     'week_number' => $closestStandard->week_number,
                     'pig_age_weeks' => $ageInWeeks,
-                    'note' => 'Using standard for week ' . $closestStandard->week_number . ' (closest to pig\'s age)'
+                    'note' => $ageSourceNote . '. Using closest available standard (week ' . $closestStandard->week_number . ')'
                 ]
             ]);
             }
@@ -482,7 +506,7 @@ class WeightManagementController extends Controller
                 'optimal_weight' => $weightStandard->optimal_weight,
                 'week_number' => $weightStandard->week_number,
                 'pig_age_weeks' => $ageInWeeks,
-                'note' => 'Exact match for pig\'s age'
+                'note' => $ageSourceNote . '. Exact match for week ' . $weightStandard->week_number
             ]
         ]);
     }

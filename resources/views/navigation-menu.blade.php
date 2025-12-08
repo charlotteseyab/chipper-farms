@@ -72,13 +72,13 @@
                     </button>
 
                     <!-- Dropdown Panel -->
-                    <div x-show="openBell" x-transition class="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-y-auto">
+                    <div x-show="openBell" x-transition class="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50 max-h-96 overflow-y-scroll">
                         <div class="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
                             <span class="text-sm font-semibold text-gray-800">Notifications & Alerts</span>
                             @if($unreadStoredCount > 0)
-                                <form action="{{ route('notifications.readAll') }}" method="POST">
+                                <form id="markReadForm" action="{{ route('notifications.readAll') }}" method="POST">
                                     @csrf
-                                    <button class="text-xs text-gray-500 hover:text-gray-700">Mark all as read</button>
+                                    <button type="button" id="markAllReadBtn" class="text-xs text-gray-500 hover:text-gray-700">Mark all as read</button>
                                 </form>
                             @endif
                         </div>
@@ -425,3 +425,46 @@
         </div>
     </div>
 </nav>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const markReadBtn = document.getElementById('markAllReadBtn');
+        const markReadForm = document.getElementById('markReadForm');
+        const bellBadge = document.querySelector('span.absolute.bg-red-600'); // the notification count badge
+        if (markReadBtn && markReadForm && bellBadge) {
+            markReadBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                fetch(markReadForm.action, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': markReadForm.querySelector('input[name=_token]').value
+                    },
+                    body: new FormData(markReadForm)
+                })
+                .then(resp => resp.ok ? resp.json() : Promise.reject())
+                .then(data => {
+                    // If response returns new count, update badge; otherwise, set to realtime alerts only
+                    let newCount = 0;
+                    if (typeof data.count === 'number') {
+                        newCount = data.count;
+                    } else {
+                        // Fallback: try decrementing by unreadStoredCount
+                        const current = parseInt(bellBadge.textContent) || 0;
+                        const unread = parseInt({{ $unreadStoredCount }}) || 0;
+                        newCount = Math.max(0, current - unread);
+                    }
+                    if (newCount === 0) {
+                        bellBadge.style.display = 'none';
+                    } else {
+                        bellBadge.textContent = newCount;
+                    }
+                    // Optionally, hide the form/button after
+                    markReadForm.style.display = 'none';
+                })
+                .catch(() => window.location.reload());
+            });
+        }
+    });
+</script>

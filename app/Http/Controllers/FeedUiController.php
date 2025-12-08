@@ -10,6 +10,8 @@ use App\Models\GroupFeeding;
 use App\Models\PigWeight;
 use App\Models\FeedAllocation; // Model to track individual pig feed events
 use Carbon\Carbon;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class FeedUiController extends Controller
 {
@@ -139,19 +141,33 @@ class FeedUiController extends Controller
             return (float) $group->sum('planned_amount');
         });
 
-        // --- Structure consumption breakdowns ---
-        // Prefer counting only completed feedings; if none exist, fall back to all statuses
-        $completed = $schedules->where('status', 'fed');
-        $source = $completed->isNotEmpty() ? $completed : $schedules;
+        // --- Structure & Room consumption breakdowns ---
+        // Use all scheduled entries (planned + fed + skipped) so the cards reflect
+        // everything queued for the selected period.
+        $source = $schedules;
 
-        // Map structure IDs to names for quick lookup
+        // Map structure and room IDs to names for quick lookup
         $structureNames = \App\Models\Structure::pluck('name', 'id');
+        $roomNames = \App\Models\Room::pluck('name', 'id');
 
         // Daily: group by structure and calendar day within range
         $dailyStructureTotals = $source
             ->groupBy(function ($item) { return optional($item->scheduled_for)->format('Y-m-d'); })
             ->map(function ($byDate) use ($structureNames) {
                 return $byDate->groupBy('structure_id')->map(function ($rows, $structureId) use ($structureNames) {
+                    return [
+                        'structure_id' => $structureId,
+                        'structure_name' => $structureNames[$structureId] ?? ('Structure #'.$structureId),
+                        'total' => (float) $rows->sum('planned_amount'),
+                    ];
+                });
+            });
+
+        // Weekly: group by structure and ISO year-week (e.g. 2025-W10)
+        $weeklyStructureTotals = $source
+            ->groupBy(function ($item) { return optional($item->scheduled_for)->format('o-\WW'); })
+            ->map(function ($byWeek) use ($structureNames) {
+                return $byWeek->groupBy('structure_id')->map(function ($rows, $structureId) use ($structureNames) {
                     return [
                         'structure_id' => $structureId,
                         'structure_name' => $structureNames[$structureId] ?? ('Structure #'.$structureId),
@@ -173,31 +189,77 @@ class FeedUiController extends Controller
                 });
             });
 
-        // Yearly: group by structure and YYYY
-        $yearlyStructureTotals = $source
-            ->groupBy(function ($item) { return optional($item->scheduled_for)->format('Y'); })
-            ->map(function ($byYear) use ($structureNames) {
-                return $byYear->groupBy('structure_id')->map(function ($rows, $structureId) use ($structureNames) {
+        // Daily room totals: by date and room
+        $dailyRoomTotals = $source
+            ->groupBy(function ($item) { return optional($item->scheduled_for)->format('Y-m-d'); })
+            ->map(function ($byDate) use ($roomNames) {
+                return $byDate->groupBy('room_id')->map(function ($rows, $roomId) use ($roomNames) {
                     return [
-                        'structure_id' => $structureId,
-                        'structure_name' => $structureNames[$structureId] ?? ('Structure #'.$structureId),
+                        'room_id' => $roomId,
+                        'room_name' => $roomNames[$roomId] ?? ('Room #'.$roomId),
                         'total' => (float) $rows->sum('planned_amount'),
                     ];
                 });
             });
+
+        // Weekly room totals: by ISO week
+        $weeklyRoomTotals = $source
+            ->groupBy(function ($item) { return optional($item->scheduled_for)->format('o-\WW'); })
+            ->map(function ($byWeek) use ($roomNames) {
+                return $byWeek->groupBy('room_id')->map(function ($rows, $roomId) use ($roomNames) {
+                    return [
+                        'room_id' => $roomId,
+                        'room_name' => $roomNames[$roomId] ?? ('Room #'.$roomId),
+                        'total' => (float) $rows->sum('planned_amount'),
+                    ];
+                });
+            });
+
+        // Monthly room totals: by YYYY-MM
+        $monthlyRoomTotals = $source
+            ->groupBy(function ($item) { return optional($item->scheduled_for)->format('Y-m'); })
+            ->map(function ($byMonth) use ($roomNames) {
+                return $byMonth->groupBy('room_id')->map(function ($rows, $roomId) use ($roomNames) {
+                    return [
+                        'room_id' => $roomId,
+                        'room_name' => $roomNames[$roomId] ?? ('Room #'.$roomId),
+                        'total' => (float) $rows->sum('planned_amount'),
+                    ];
+                });
+            });
+
+        // Paginate structure & room summaries
+        $structureDailyPaginated = $this->paginateCollectionData($dailyStructureTotals, 5, 'structure_daily_page');
+        $structureWeeklyPaginated = $this->paginateCollectionData($weeklyStructureTotals, 5, 'structure_weekly_page');
+        $structureMonthlyPaginated = $this->paginateCollectionData($monthlyStructureTotals, 5, 'structure_monthly_page');
+        $roomDailyPaginated = $this->paginateCollectionData($dailyRoomTotals, 5, 'room_daily_page');
+        $roomWeeklyPaginated = $this->paginateCollectionData($weeklyRoomTotals, 5, 'room_weekly_page');
+        $roomMonthlyPaginated = $this->paginateCollectionData($monthlyRoomTotals, 5, 'room_monthly_page');
+        $feedTypePaginated = $this->paginateCollectionData($byType, 7, 'feed_type_page');
+        $ingredientPaginated = $this->paginateCollectionData($ingredientDetails, 7, 'ingredient_page');
 
         return view('feeds.reports', [
             'from' => $from,
             'to' => $to,
             'totalScheduledKg' => $totalScheduledKg,
             'byType' => $byType,
-            'ingredientUsage' => $ingredientUsage,
             'ingredientDetails' => $ingredientDetails,
+            'feedTypePaginated' => $feedTypePaginated,
+            'ingredientPaginated' => $ingredientPaginated,
             'avgWeightByDate' => $avgWeightByDate,
             'feedByDate' => $feedByDate,
+            'structureDailyPaginated' => $structureDailyPaginated,
+            'structureWeeklyPaginated' => $structureWeeklyPaginated,
+            'structureMonthlyPaginated' => $structureMonthlyPaginated,
+            'roomDailyPaginated' => $roomDailyPaginated,
+            'roomWeeklyPaginated' => $roomWeeklyPaginated,
+            'roomMonthlyPaginated' => $roomMonthlyPaginated,
             'dailyStructureTotals' => $dailyStructureTotals,
+            'weeklyStructureTotals' => $weeklyStructureTotals,
             'monthlyStructureTotals' => $monthlyStructureTotals,
-            'yearlyStructureTotals' => $yearlyStructureTotals,
+            'dailyRoomTotals' => $dailyRoomTotals,
+            'weeklyRoomTotals' => $weeklyRoomTotals,
+            'monthlyRoomTotals' => $monthlyRoomTotals,
         ]);
     }
 
@@ -275,19 +337,12 @@ class FeedUiController extends Controller
 
         $feedByDate = $schedules->groupBy('scheduled_for')->map(fn($g) => (float)$g->sum('planned_amount'));
 
-        // =======================================================================
-        // FIX: Re-added Structure consumption breakdowns logic from reports()
-        // =======================================================================
-        
-        // --- Structure consumption breakdowns ---
-        // Prefer counting only completed feedings; if none exist, fall back to all statuses
-        $completed = $schedules->where('status', 'fed');
-        $source = $completed->isNotEmpty() ? $completed : $schedules;
-
-        // Map structure IDs to names for quick lookup
+        // --- Structure & Room breakdowns for PDF ---
+        $source = $schedules;
         $structureNames = \App\Models\Structure::pluck('name', 'id');
+        $roomNames = \App\Models\Room::pluck('name', 'id');
 
-        // Daily: group by structure and calendar day within range
+        // Structures
         $dailyStructureTotals = $source
             ->groupBy(function ($item) { return optional($item->scheduled_for)->format('Y-m-d'); })
             ->map(function ($byDate) use ($structureNames) {
@@ -300,7 +355,18 @@ class FeedUiController extends Controller
                 });
             });
 
-        // Monthly: group by structure and YYYY-MM
+        $weeklyStructureTotals = $source
+            ->groupBy(function ($item) { return optional($item->scheduled_for)->format('o-\WW'); })
+            ->map(function ($byWeek) use ($structureNames) {
+                return $byWeek->groupBy('structure_id')->map(function ($rows, $structureId) use ($structureNames) {
+                    return [
+                        'structure_id' => $structureId,
+                        'structure_name' => $structureNames[$structureId] ?? ('Structure #'.$structureId),
+                        'total' => (float) $rows->sum('planned_amount'),
+                    ];
+                });
+            });
+
         $monthlyStructureTotals = $source
             ->groupBy(function ($item) { return optional($item->scheduled_for)->format('Y-m'); })
             ->map(function ($byMonth) use ($structureNames) {
@@ -313,7 +379,6 @@ class FeedUiController extends Controller
                 });
             });
 
-        // Yearly: group by structure and YYYY
         $yearlyStructureTotals = $source
             ->groupBy(function ($item) { return optional($item->scheduled_for)->format('Y'); })
             ->map(function ($byYear) use ($structureNames) {
@@ -326,9 +391,42 @@ class FeedUiController extends Controller
                 });
             });
 
-        // =======================================================================
-        // END FIX
-        // =======================================================================
+        // Rooms
+        $dailyRoomTotals = $source
+            ->groupBy(function ($item) { return optional($item->scheduled_for)->format('Y-m-d'); })
+            ->map(function ($byDate) use ($roomNames) {
+                return $byDate->groupBy('room_id')->map(function ($rows, $roomId) use ($roomNames) {
+                    return [
+                        'room_id' => $roomId,
+                        'room_name' => $roomNames[$roomId] ?? ('Room #'.$roomId),
+                        'total' => (float) $rows->sum('planned_amount'),
+                    ];
+                });
+            });
+
+        $weeklyRoomTotals = $source
+            ->groupBy(function ($item) { return optional($item->scheduled_for)->format('o-\WW'); })
+            ->map(function ($byWeek) use ($roomNames) {
+                return $byWeek->groupBy('room_id')->map(function ($rows, $roomId) use ($roomNames) {
+                    return [
+                        'room_id' => $roomId,
+                        'room_name' => $roomNames[$roomId] ?? ('Room #'.$roomId),
+                        'total' => (float) $rows->sum('planned_amount'),
+                    ];
+                });
+            });
+
+        $monthlyRoomTotals = $source
+            ->groupBy(function ($item) { return optional($item->scheduled_for)->format('Y-m'); })
+            ->map(function ($byMonth) use ($roomNames) {
+                return $byMonth->groupBy('room_id')->map(function ($rows, $roomId) use ($roomNames) {
+                    return [
+                        'room_id' => $roomId,
+                        'room_name' => $roomNames[$roomId] ?? ('Room #'.$roomId),
+                        'total' => (float) $rows->sum('planned_amount'),
+                    ];
+                });
+            });
 
         $pdf = \PDF::loadView('feeds.reports_pdf', [
             'from' => $from,
@@ -340,9 +438,14 @@ class FeedUiController extends Controller
             'avgWeightByDate' => $avgWeightByDate,
             'feedByDate' => $feedByDate,
             'schedules' => $schedules,
+            'roomNames' => $roomNames,
+            'weeklyStructureTotals' => $weeklyStructureTotals,
             'dailyStructureTotals' => $dailyStructureTotals, // Now defined
             'monthlyStructureTotals' => $monthlyStructureTotals, // Now defined
             'yearlyStructureTotals' => $yearlyStructureTotals, // Now defined
+            'dailyRoomTotals' => $dailyRoomTotals,
+            'weeklyRoomTotals' => $weeklyRoomTotals,
+            'monthlyRoomTotals' => $monthlyRoomTotals,
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download("feed_reports_{$from}_to_{$to}.pdf");
@@ -414,6 +517,7 @@ class FeedUiController extends Controller
         // 5. Create a planned FeedSchedule entry (do not auto-mark as fed)
         \App\Models\FeedSchedule::create([
             'structure_id' => $data['structure_id'],
+            'room_id' => $data['room_id'], 
             'feed_type_id' => $data['feed_type_id'],
             'planned_amount' => $data['feed_amount'],
             'unit' => $data['unit'],
@@ -432,7 +536,7 @@ class FeedUiController extends Controller
             return back()->with('success', 'Entry already processed.');
         }
         
-        // Assign ID to the fed_by_id column as requested
+        // Assign ID to the fed_by_id column as requested/ <-- REQUIRED for DATE_FORMAT
         $schedule->status = 'fed';
         $schedule->fed_at = now();
         $schedule->fed_by = auth()->id(); 
@@ -544,4 +648,26 @@ class FeedUiController extends Controller
         ]);
     }
 
+    /**
+     * Paginate an in-memory collection (preserving keys) with a custom page name.
+     */
+    protected function paginateCollectionData($items, int $perPage, string $pageName = 'page'): LengthAwarePaginator
+    {
+        $collection = $items instanceof Collection ? $items : collect($items);
+        $page = max(1, (int) request()->input($pageName, 1));
+        $total = $collection->count();
+        $results = $collection->slice(($page - 1) * $perPage, $perPage, true);
+
+        return new LengthAwarePaginator(
+            $results,
+            $total,
+            $perPage,
+            $page,
+            [
+                'path' => request()->url(),
+                'query' => request()->query(),
+                'pageName' => $pageName,
+            ]
+        );
+    }
 }
