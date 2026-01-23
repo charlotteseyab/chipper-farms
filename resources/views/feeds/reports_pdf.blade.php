@@ -153,6 +153,33 @@
         </div>
     </div>
 
+@php
+    $pdfWeekKey = collect($weeklyIdealTotals ?? [])->keys()->first();
+    $pdfMonthKey = collect($monthlyIdealTotals ?? [])->keys()->first();
+    $pdfWeekTotal = $pdfWeekKey ? ($weeklyIdealTotals[$pdfWeekKey]['total'] ?? $weeklyIdealTotals[$pdfWeekKey] ?? 0) : 0;
+    $pdfMonthTotal = $pdfMonthKey ? ($monthlyIdealTotals[$pdfMonthKey]['total'] ?? $monthlyIdealTotals[$pdfMonthKey] ?? 0) : 0;
+@endphp
+
+<h3>Estimated Feed Need (Summary)</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Period</th>
+            <th style="text-align:right;">Total (kg)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Week ({{ $pdfWeekKey ?? 'N/A' }})</td>
+            <td style="text-align:right;">{{ number_format($pdfWeekTotal, 1) }}</td>
+        </tr>
+        <tr>
+            <td>Month ({{ $pdfMonthKey ?? 'N/A' }})</td>
+            <td style="text-align:right;">{{ number_format($pdfMonthTotal, 1) }}</td>
+        </tr>
+    </tbody>
+</table>
+
     <h2>Feed Scheduling Overview</h2>
     <table>
         <thead>
@@ -171,6 +198,74 @@
                 </tr>
             @empty
                 <tr><td colspan="3" style="text-align:center;">No feed data recorded.</td></tr>
+            @endforelse
+        </tbody>
+    </table>
+
+    <h3>Weekly Feed Need vs Used (kg)</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Week</th>
+                <th style="text-align:right;">Planned (kg)</th>
+                <th style="text-align:right;">Fed (kg)</th>
+                <th style="text-align:right;">Variance</th>
+            </tr>
+        </thead>
+        <tbody>
+            @php
+                $weeks = collect($weeklyRequiredTotals ?? [])->keys()
+                    ->merge(collect($weeklyFedTotals ?? [])->keys())
+                    ->unique()->sort();
+            @endphp
+            @forelse($weeks as $week)
+                @php
+                    $planned = ($weeklyRequiredTotals[$week] ?? 0);
+                    $fed = ($weeklyFedTotals[$week] ?? 0);
+                    $variance = $fed - $planned;
+                @endphp
+                <tr>
+                    <td>{{ $week }}</td>
+                    <td style="text-align:right;">{{ number_format($planned, 2) }}</td>
+                    <td style="text-align:right;">{{ number_format($fed, 2) }}</td>
+                    <td style="text-align:right; {{ $variance >= 0 ? 'color: #15803d;' : 'color: #b91c1c;' }}">{{ number_format($variance, 2) }}</td>
+                </tr>
+            @empty
+                <tr><td colspan="4" style="text-align:center;">No data</td></tr>
+            @endforelse
+        </tbody>
+    </table>
+
+    <h3>Monthly Feed Need vs Used (kg)</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Month</th>
+                <th style="text-align:right;">Planned (kg)</th>
+                <th style="text-align:right;">Fed (kg)</th>
+                <th style="text-align:right;">Variance</th>
+            </tr>
+        </thead>
+        <tbody>
+            @php
+                $months = collect($monthlyRequiredTotals ?? [])->keys()
+                    ->merge(collect($monthlyFedTotals ?? [])->keys())
+                    ->unique()->sort();
+            @endphp
+            @forelse($months as $month)
+                @php
+                    $planned = ($monthlyRequiredTotals[$month] ?? 0);
+                    $fed = ($monthlyFedTotals[$month] ?? 0);
+                    $variance = $fed - $planned;
+                @endphp
+                <tr>
+                    <td>{{ $month }}</td>
+                    <td style="text-align:right;">{{ number_format($planned, 2) }}</td>
+                    <td style="text-align:right;">{{ number_format($fed, 2) }}</td>
+                    <td style="text-align:right; {{ $variance >= 0 ? 'color: #15803d;' : 'color: #b91c1c;' }}">{{ number_format($variance, 2) }}</td>
+                </tr>
+            @empty
+                <tr><td colspan="4" style="text-align:center;">No data</td></tr>
             @endforelse
         </tbody>
     </table>
@@ -466,6 +561,104 @@
             @empty
                 <tr><td colspan="6" style="text-align: center;">No scheduled feedings in this period.</td></tr>
             @endforelse
+        </tbody>
+    </table>
+
+    <h2>Ideal Feed Requirement (Theoretical, by Stage)</h2>
+    <p style="color:#15803d; margin-bottom: 6px;">Calculated using population & per-stage setup</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th style="text-align:right;">Piglets</th>
+                <th style="text-align:right;">Weaners</th>
+                <th style="text-align:right;">Growers</th>
+                <th style="text-align:right;">Finishers</th>
+                <th style="text-align:right;">Boars</th>
+                <th style="text-align:right;">Preg. Sows</th>
+                <th style="text-align:right;">Other Sows</th>
+                <th style="text-align:right;color:#166534">Total (kg)</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($dailyIdealFeed as $date => $info)
+            <tr>
+                <td>{{ $date }}</td>
+                <td style="text-align:right;">{{ number_format($info['needed']['piglets'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($info['needed']['weaners'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($info['needed']['growers'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($info['needed']['finishers'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($info['needed']['boars'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($info['needed']['pregnant_sows'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($info['needed']['other_sows'] ?? 0, 1) }}</td>
+                <td style="text-align:right;color:#166534;font-weight:bold">{{ number_format($info['needed']['total'] ?? 0, 1) }}</td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
+
+    <h3 style="margin-top:18px;">Weekly Required Feed by Stage (kg)</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Week</th>
+                <th style="text-align:right;">Piglets</th>
+                <th style="text-align:right;">Weaners</th>
+                <th style="text-align:right;">Growers</th>
+                <th style="text-align:right;">Finishers</th>
+                <th style="text-align:right;">Boars</th>
+                <th style="text-align:right;">Preg. Sows</th>
+                <th style="text-align:right;">Other Sows</th>
+                <th style="text-align:right;color:#166534">Total (kg)</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($weeklyIdealTotals as $week => $totals)
+            <tr>
+                <td>{{ $week }}</td>
+                <td style="text-align:right;">{{ number_format($totals['piglets'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($totals['weaners'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($totals['growers'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($totals['finishers'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($totals['boars'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($totals['pregnant_sows'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($totals['other_sows'] ?? 0, 1) }}</td>
+                <td style="text-align:right;color:#166534;font-weight:bold">{{ number_format($totals['total'] ?? 0, 1) }}</td>
+            </tr>
+            @endforeach
+        </tbody>
+    </table>
+
+    <h3 style="margin-top:18px;">Monthly Required Feed by Stage (kg)</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Month</th>
+                <th style="text-align:right;">Piglets</th>
+                <th style="text-align:right;">Weaners</th>
+                <th style="text-align:right;">Growers</th>
+                <th style="text-align:right;">Finishers</th>
+                <th style="text-align:right;">Boars</th>
+                <th style="text-align:right;">Preg. Sows</th>
+                <th style="text-align:right;">Other Sows</th>
+                <th style="text-align:right;color:#166534">Total (kg)</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($monthlyIdealTotals as $month => $totals)
+            <tr>
+                <td>{{ $month }}</td>
+                <td style="text-align:right;">{{ number_format($totals['piglets'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($totals['weaners'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($totals['growers'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($totals['finishers'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($totals['boars'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($totals['pregnant_sows'] ?? 0, 1) }}</td>
+                <td style="text-align:right;">{{ number_format($totals['other_sows'] ?? 0, 1) }}</td>
+                <td style="text-align:right;color:#166534;font-weight:bold">{{ number_format($totals['total'] ?? 0, 1) }}</td>
+            </tr>
+            @endforeach
         </tbody>
     </table>
 

@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Carbon\Carbon;
-
 class PigDeath extends Model
 {
     use SoftDeletes;
@@ -21,7 +20,7 @@ class PigDeath extends Model
         'disposal_method',
         'disposal_date',
         'death_notes',
-        'recorded_by'
+        'recorded_by',
     ];
 
     protected $casts = [

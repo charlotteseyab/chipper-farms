@@ -8,7 +8,6 @@ use Illuminate\Support\Carbon;
 use App\Helpers\BreedingCalculator;
 use App\Models\User; // Added for relationship consistency
 use App\Models\PigManagement; // Added for relationship consistency
-
 class Mating extends Model
 {
     protected $fillable = [
@@ -36,7 +35,7 @@ class Mating extends Model
         'farrowing_notes',
         'pregnancy_status_date',
         'pregnancy_status_notes',
-        'expected_weaning_date'
+        'expected_weaning_date',
     ];
 
     protected $casts = [

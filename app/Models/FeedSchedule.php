@@ -12,7 +12,7 @@ class FeedSchedule extends Model
     protected $fillable = [
         'group_id',
         'structure_id',
-        'room_id', // newly added
+        'room_id', 
         'feed_type_id',
         'planned_amount',
         'unit',
@@ -20,8 +20,7 @@ class FeedSchedule extends Model
         'status',
         'fed_at',
         'notes',
-        // CRITICAL FIXES: 
-        'skip_reason', // Needed for the skip reason to save
+        'skip_reason', 
         'feeder_id',   // Used for 'Skipped By' (Controller: markSkipped)
         'fed_by',      // Used for 'Fed By' (Controller: markFed)
     ];

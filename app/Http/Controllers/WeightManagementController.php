@@ -8,6 +8,7 @@ use App\Models\PigWeight;
 use App\Helpers\FlashHelper;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Response;
 
 class WeightManagementController extends Controller
 {
@@ -235,6 +236,80 @@ class WeightManagementController extends Controller
     }
 
     /**
+     * Export detailed weekly gain analysis as CSV (Excel-friendly)
+     */
+    public function exportWeeklyExcel(Request $request)
+    {
+        $weightsQuery = PigWeight::with('pig')
+            ->orderBy('pig_id')
+            ->orderBy('weigh_date');
+
+        // Optional month filter: expects input like 2025-07
+        if ($request->filled('month')) {
+            $monthInput = $request->string('month');
+            if (preg_match('/^(\\d{4})-(\\d{2})$/', $monthInput, $m)) {
+                $year = (int) $m[1];
+                $month = (int) $m[2];
+                $start = Carbon::create($year, $month, 1)->startOfMonth();
+                $end = (clone $start)->endOfMonth();
+                $weightsQuery->whereBetween('weigh_date', [$start->toDateString(), $end->toDateString()]);
+            }
+        }
+
+        $weights = $weightsQuery->get();
+
+        // Pre-compute growth rows for the view
+        $rows = [];
+        $grouped = $weights->groupBy('pig_id');
+        foreach ($grouped as $pigWeights) {
+            $prev = null;
+            foreach ($pigWeights as $w) {
+                $pig = $w->pig;
+                $pigEarTag = $pig->ear_tag_number ?? 'N/A';
+                $pigCode = $pig->code ?? 'N/A';
+                $pigGender = $pig ? ($pig->gender === 'M' ? 'Male' : ($pig->gender === 'F' ? 'Female' : 'N/A')) : 'N/A';
+                $prevWeek = $prev?->target_week;
+                $prevWeight = $prev?->weight;
+                $prevDate = $prev?->weigh_date;
+
+                $days = $prevDate ? $prevDate->diffInDays($w->weigh_date) : null;
+                $gain = ($prevWeight !== null) ? $w->weight - $prevWeight : null;
+                $gainPerDay = ($gain !== null && $days && $days > 0) ? $gain / $days : null;
+                $weekDelta = ($prevWeek !== null && $w->target_week !== null) ? ($w->target_week - $prevWeek) : null;
+                $gainPerWeek = ($gain !== null && $weekDelta && $weekDelta != 0) ? $gain / $weekDelta : null;
+
+                $rows[] = [
+                    'ear_tag' => $pigEarTag,
+                    'code' => $pigCode,
+                    'gender' => $pigGender,
+                    'weigh_date' => $w->weigh_date?->format('Y-m-d'),
+                    'target_week' => $w->target_week,
+                    'weight' => $w->weight,
+                    'prev_weigh_date' => $prevDate?->format('Y-m-d'),
+                    'prev_week' => $prevWeek,
+                    'prev_weight' => $prevWeight,
+                    'days_since_prev' => $days,
+                    'gain' => $gain,
+                    'gain_per_day' => $gainPerDay,
+                    'gain_per_week' => $gainPerWeek,
+                    'notes' => $w->notes ?? '',
+                ];
+
+                $prev = $w;
+            }
+        }
+
+        $fileName = 'weekly_weight_gains_' . now()->format('Y-m-d_H-i') . '.csv';
+        $headers = [
+            'Content-Type' => 'text/csv',
+        ];
+
+        return response()->streamDownload(function () use ($rows) {
+            echo view('weights.export_excel', ['rows' => $rows])->render();
+        }, $fileName, $headers);
+    }
+
+    /**
      * Calculate weight analytics for a pig
      */
     private function calculateWeightAnalytics($weights)
@@ -245,7 +320,7 @@ class WeightManagementController extends Controller
 
         $analytics = [];
         $weightData = $weights->sortBy('weigh_date');
-
+        
         // Basic stats
         $analytics['total_records'] = $weightData->count();
         $analytics['first_weight'] = $weightData->first();

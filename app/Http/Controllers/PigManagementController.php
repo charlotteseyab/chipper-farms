@@ -144,7 +144,7 @@ class PigManagementController extends Controller {
         }
 
         if ($request->gender) {
-            $query->where('gender', $request->gender);
+            $query->where('gender', $request->gender);  
         }
 
         if ($request->age) {
@@ -2222,9 +2222,38 @@ class PigManagementController extends Controller {
             'days_since_last_weight' => $pig->latestWeight ? $pig->latestWeight->days_ago : null,
         ];
 
-        $analytics = [
-            'weights' => $pig->weights->sortBy('weigh_date')->values(),
-        ];
+        // Calculate weight analytics (growth periods) - same logic as show() method
+        $analytics = [];
+        $allWeightsAsc = $pig->weights()->orderBy('weigh_date', 'asc')->get();
+        if ($allWeightsAsc->count() >= 2) {
+            $analytics['total_records'] = $allWeightsAsc->count();
+            $analytics['first_weight'] = $allWeightsAsc->first();
+            $analytics['latest_weight'] = $allWeightsAsc->last();
+            $analytics['weight_gain'] = $analytics['latest_weight']->weight - $analytics['first_weight']->weight;
+
+            $daysBetween = $analytics['first_weight']->weigh_date->diffInDays($analytics['latest_weight']->weigh_date);
+            $analytics['avg_daily_gain'] = $daysBetween > 0 ? $analytics['weight_gain'] / $daysBetween : 0;
+
+            $analytics['growth_periods'] = [];
+            for ($i = 1; $i < $allWeightsAsc->count(); $i++) {
+                $current = $allWeightsAsc->values()[$i];
+                $previous = $allWeightsAsc->values()[$i - 1];
+
+                $days = $previous->weigh_date->diffInDays($current->weigh_date);
+                $gain = $current->weight - $previous->weight;
+                $dailyGain = $days > 0 ? $gain / $days : 0;
+
+                $analytics['growth_periods'][] = [
+                    'from_date' => $previous->weigh_date,
+                    'to_date' => $current->weigh_date,
+                    'days' => $days,
+                    'weight_gain' => $gain,
+                    'daily_gain' => $dailyGain,
+                    'from_weight' => $previous->weight,
+                    'to_weight' => $current->weight,
+                ];
+            }
+        }
 
         $pdf = Pdf::loadView('pigs.show_pdf', compact(
             'pig',

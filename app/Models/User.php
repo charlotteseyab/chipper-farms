@@ -30,6 +30,11 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'role_id',
+        'first_name',
+        'last_name',
+        'phone',
+        'active_status',
         'last_seen',
         'last_active_at'
     ];
@@ -77,20 +82,52 @@ class User extends Authenticatable
 
 
     // Role helpers
-    public function isDataEntry()
+    protected function roleName(): ?string
     {
-        return $this->role && $this->role->name === 'dataentry';
+        // First try to get role from relationship if loaded.
+        // Note: this app also has a string column named "role", so `$this->role` can be a string.
+        if ($this->relationLoaded('role')) {
+            $related = $this->getRelation('role');
+            if (is_object($related) && isset($related->name)) {
+                return $related->name;
+            }
+        }
+        
+        // Fall back to string column if present
+        if (isset($this->attributes['role']) && is_string($this->attributes['role']) && !empty($this->attributes['role'])) {
+            return $this->attributes['role'];
+        }
+        
+        // Last resort: try to load role from database if role_id exists
+        if ($this->role_id) {
+            try {
+                $role = Role::find($this->role_id);
+                return $role ? $role->name : null;
+            } catch (\Exception $e) {
+                return null;
+            }
+        }
+        
+        return null;
     }
-    public function isAdmin()
+
+    public function isDataEntry(): bool
     {
-        return $this->role && $this->role->name === 'admin';
+        return $this->roleName() === 'dataentry';
     }
-    public function isManager()
+
+    public function isAdmin(): bool
     {
-        return $this->role && $this->role->name === 'farmmanager';
+        return $this->roleName() === 'admin';
     }
-    public function isSuperuser()
+
+    public function isManager(): bool
     {
-        return $this->role && $this->role->name === 'superuser';
+        return $this->roleName() === 'farmmanager';
+    }
+
+    public function isSuperuser(): bool
+    {
+        return $this->roleName() === 'superuser';
     }
 }

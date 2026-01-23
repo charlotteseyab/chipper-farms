@@ -3,71 +3,31 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PigHealthController;
 use App\Http\Controllers\FarmManagerDashboardController;
+use App\Http\Controllers\SuperuserController;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Notifications\DatabaseNotification;
 use App\Http\Controllers\RoomController;
-// Import the new Controller
 use App\Http\Controllers\PerformanceMetricController;
-
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/notifications', function() {
-        $user = auth()->user();
-        $isSuperuser = $user && optional($user->role)->name === 'superuser';
-        if ($isSuperuser) {
-            // Superuser sees all notifications
-            $notifications = Illuminate\Notifications\DatabaseNotification::query()->latest()->paginate(15);
-        } else {
-            // Others see only their own
-            $notifications = $user->notifications()->latest()->paginate(15);
-        }
-        return view('notifications.index', compact('notifications'));
-    })->name('notifications.index');
-
-    Route::post('/notifications/{id}/read', function(string $id) {
-        $user = auth()->user();
-        $isSuperuser = $user && optional($user->role)->name === 'superuser';
-        $notification = $isSuperuser
-            ? Illuminate\Notifications\DatabaseNotification::query()->where('id', $id)->firstOrFail()
-            : $user->notifications()->where('id', $id)->firstOrFail();
-        if (is_null($notification->read_at)) {
-            $notification->forceFill(['read_at' => now()])->save();
-        }
-        return back();
-    })->name('notifications.read');
-
-    Route::post('/notifications/read-all', function() {
-        $user = auth()->user();
-        $isSuperuser = $user && optional($user->role)->name === 'superuser';
-        if ($isSuperuser) {
-            Illuminate\Notifications\DatabaseNotification::query()->whereNull('read_at')->update(['read_at' => now()]);
-            $remaining = Illuminate\Notifications\DatabaseNotification::whereNull('read_at')->count();
-        } else {
-            $user->unreadNotifications()->update(['read_at' => now()]);
-            $remaining = $user->unreadNotifications()->count();
-        }
-        // Get the current real-time alert count if service available
-        $realTimeAlertCount = 0;
-        if (class_exists(\App\Services\RealTimeNotificationService::class)) {
-            try {
-                $realTimeAlertCount = \App\Services\RealTimeNotificationService::getTotalAlertCount();
-            } catch (\Throwable $e) {}
-        }
-        if (request()->expectsJson() || request()->ajax() || request()->wantsJson()) {
-            return response()->json(['success'=>true,'count' => $remaining + $realTimeAlertCount]);
-        }
-        return back();
-    })->name('notifications.readAll');
-});
 
 Route::get('/', function () {
     return view('welcome');
 });
 
-Route::middleware([
+$protectedMiddleware = [
     'auth:sanctum',
     config('jetstream.auth_session'),
     'verified',
-])->group(function () {
+    'activity',
+];
+
+Route::middleware($protectedMiddleware)->group(function () {
+    // Notifications
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.readAll');
+
+    // Health
     Route::get('/health', [PigHealthController::class, 'index'])->name('health.index');
     Route::put('/health/{health_record}', [HealthRecordController::class, 'update'])->name('health.update');
     Route::get('/health/create-health', [PigHealthController::class, 'createHealth'])->name('health.create');
@@ -91,20 +51,16 @@ Route::middleware([
     Route::delete('/health/{pig}', [PigHealthController::class, 'destroy'])->name('health.destroy');
     Route::get('/export/health.csv', [PigHealthController::class, 'exportHealthCsv'])->name('health.export');
     Route::get('/export/medications.csv', [PigHealthController::class, 'exportMedicationsCsv'])->name('medications.export');
+
     Route::get('/dashboard', function () {
         return view('dashboard');
     })->name('dashboard');
-});
 
-Route::middleware([
-    'auth:sanctum',
-    config('jetstream.auth_session'),
-    'verified',
-    'activity'
-])->group(function () {
-    Route::view('/admin/dashboard', 'admin.dashboard')->name('admin.dashboard');
+    Route::get('/admin/dashboard', [App\Http\Controllers\AdminController::class, 'dashboard'])->name('admin.dashboard');
     Route::get('/manager/dashboard', FarmManagerDashboardController::class)->name('manager.dashboard');
-    Route::view('/superuser/dashboard', 'superuser.dashboard')->name('superuser.dashboard');
+    Route::get('/superuser/dashboard', [SuperuserController::class, 'dashboard'])->name('superuser.dashboard');
+    Route::get('/superuser/dashboard/export/pdf', [SuperuserController::class, 'exportPdf'])->name('superuser.dashboard.export.pdf');
+    Route::get('/superuser/dashboard/export/csv', [SuperuserController::class, 'exportCsv'])->name('superuser.dashboard.export.csv');
     Route::view('/dataentry/dashboard', 'dataentry.dashboard')->name('dataentry.dashboard');
     
     // Admin API routes
@@ -209,6 +165,7 @@ Route::middleware([
     Route::get('weights/{weight}/edit', [App\Http\Controllers\WeightManagementController::class, 'edit'])->name('weights.edit');
     Route::put('weights/{weight}', [App\Http\Controllers\WeightManagementController::class, 'update'])->name('weights.update');
     Route::get('weights/reports', [App\Http\Controllers\WeightManagementController::class, 'reports'])->name('weights.reports');
+    Route::get('weights/export/excel', [App\Http\Controllers\WeightManagementController::class, 'exportWeeklyExcel'])->name('weights.index.export-excel');
     Route::get('api/pigs/{pig}/previous-weight', [App\Http\Controllers\WeightManagementController::class, 'getPreviousWeight'])->name('api.pigs.previous-weight');
     Route::get('api/pigs/{pig}/expected-weight', [App\Http\Controllers\WeightManagementController::class, 'getExpectedWeight'])->name('api.pigs.expected-weight');
     Route::get('weights/reports/export-pdf', [App\Http\Controllers\WeightManagementController::class, 'exportPDF'])->name('weights.reports.export-pdf');
@@ -252,6 +209,19 @@ Route::middleware([
     Route::post('settings/setup/breeding', [App\Http\Controllers\SettingsController::class, 'saveBreeding'])->name('settings.setup.breeding.save');
     Route::post('settings/setup/breeding/reset', [App\Http\Controllers\SettingsController::class, 'resetBreeding'])->name('settings.setup.breeding.reset');
     Route::get('settings/activity-log', [App\Http\Controllers\SettingsController::class, 'activityLog'])->name('settings.activity-log');
+    
+    // User Management Routes (Superuser only)
+    Route::get('settings/users', [App\Http\Controllers\SettingsController::class, 'users'])->name('settings.users');
+    Route::post('settings/users', [App\Http\Controllers\SettingsController::class, 'storeUser'])->name('settings.users.store');
+    Route::put('settings/users/{user}', [App\Http\Controllers\SettingsController::class, 'updateUser'])->name('settings.users.update');
+    Route::patch('settings/users/{user}/status', [App\Http\Controllers\SettingsController::class, 'updateUserStatus'])->name('settings.users.status');
+    Route::delete('settings/users/{user}', [App\Http\Controllers\SettingsController::class, 'deleteUser'])->name('settings.users.delete');
+
+    // Email Settings Routes (Superuser only)
+    Route::get('settings/email', [App\Http\Controllers\EmailSettingController::class, 'index'])->name('settings.email');
+    Route::put('settings/email', [App\Http\Controllers\EmailSettingController::class, 'update'])->name('settings.email.update');
+    Route::post('settings/email/test-connection', [App\Http\Controllers\EmailSettingController::class, 'testConnection'])->name('settings.email.test-connection');
+    Route::post('settings/email/send-test', [App\Http\Controllers\EmailSettingController::class, 'sendTestEmail'])->name('settings.email.send-test');
 
     // PERFORMANCE METRICS ROUTE (NEW)
     Route::get('metrics', [PerformanceMetricController::class, 'index'])->name('performance_metrics.index');

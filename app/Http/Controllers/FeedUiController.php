@@ -9,6 +9,9 @@ use App\Models\PigManagement; // Assuming PigManagement is used in other methods
 use App\Models\GroupFeeding;
 use App\Models\PigWeight;
 use App\Models\FeedAllocation; // Model to track individual pig feed events
+use App\Models\Farrowing;
+use App\Models\Weaning;
+use App\Models\Mating;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -229,6 +232,19 @@ class FeedUiController extends Controller
             });
 
         // Paginate structure & room summaries
+        // Aggregate weekly/monthly required totals (planned) across structures
+        $weeklyRequiredTotals = $weeklyStructureTotals->map(fn($rows) => collect($rows)->sum('total'));
+        $monthlyRequiredTotals = $monthlyStructureTotals->map(fn($rows) => collect($rows)->sum('total'));
+
+        // Actual fed totals per week/month (status = 'fed')
+        $fedSource = $schedules->where('status', 'fed');
+        $weeklyFedTotals = $fedSource
+            ->groupBy(fn($item) => optional($item->scheduled_for)->format('o-\WW'))
+            ->map(fn($group) => (float) $group->sum('planned_amount'));
+        $monthlyFedTotals = $fedSource
+            ->groupBy(fn($item) => optional($item->scheduled_for)->format('Y-m'))
+            ->map(fn($group) => (float) $group->sum('planned_amount'));
+
         $structureDailyPaginated = $this->paginateCollectionData($dailyStructureTotals, 5, 'structure_daily_page');
         $structureWeeklyPaginated = $this->paginateCollectionData($weeklyStructureTotals, 5, 'structure_weekly_page');
         $structureMonthlyPaginated = $this->paginateCollectionData($monthlyStructureTotals, 5, 'structure_monthly_page');
@@ -237,6 +253,39 @@ class FeedUiController extends Controller
         $roomMonthlyPaginated = $this->paginateCollectionData($monthlyRoomTotals, 5, 'room_monthly_page');
         $feedTypePaginated = $this->paginateCollectionData($byType, 7, 'feed_type_page');
         $ingredientPaginated = $this->paginateCollectionData($ingredientDetails, 7, 'ingredient_page');
+
+        // --- DYNAMIC FEED REQUIREMENTS ---
+        // 1. Obtain feed setup (from settings table or config)
+        $feedSetup = [
+            'piglet_starter_kg_day' => (float) (\App\Models\Setting::get('feed.stages.piglet_starter_kg_day', config('feed.stages.piglet_starter_kg_day', 0.5))),
+            'weaner_kg_day' => (float) (\App\Models\Setting::get('feed.stages.weaner_kg_day', config('feed.stages.weaner_kg_day', 1.0))),
+            'grower_kg_day' => (float) (\App\Models\Setting::get('feed.stages.grower_kg_day', 1.5)),
+            'finisher_kg_day' => (float) (\App\Models\Setting::get('feed.stages.finisher_kg_day', 2.0)),
+            'boar_kg_day' => (float) (\App\Models\Setting::get('feed.stages.boar_kg_day', 2.5)),
+            'pregnant_sow_kg_day' => (float) (\App\Models\Setting::get('feed.stages.pregnant_sow_kg_day', 3.0)),
+        ];
+        $requirementSeries = $this->computeFeedRequirementSeries($from, $to, $feedSetup);
+        $dailyIdealFeed = $requirementSeries['perDay'];
+        $weeklyIdealTotals = $requirementSeries['weeklyTotals'];
+        $monthlyIdealTotals = $requirementSeries['monthlyTotals'];
+
+        // Helper to paginate associative arrays
+        $makePaginator = function($items, $perPage, $pageName) {
+            $items = collect($items);
+            $page = LengthAwarePaginator::resolveCurrentPage($pageName);
+            $results = $items->slice(($page-1)*$perPage, $perPage, true);
+            return new LengthAwarePaginator(
+                $results,
+                $items->count(),
+                $perPage,
+                $page,
+                [ 'path' => LengthAwarePaginator::resolveCurrentPath(), 'pageName' => $pageName ]
+            );
+        };
+
+        $dailyFeedPaginator = $makePaginator($requirementSeries['perDay'], 10, 'feed_daily_page');
+        $weeklyFeedPaginator = $makePaginator($requirementSeries['weeklyTotals'], 10, 'feed_weekly_page');
+        $monthlyFeedPaginator = $makePaginator($requirementSeries['monthlyTotals'], 10, 'feed_monthly_page');
 
         return view('feeds.reports', [
             'from' => $from,
@@ -260,6 +309,17 @@ class FeedUiController extends Controller
             'dailyRoomTotals' => $dailyRoomTotals,
             'weeklyRoomTotals' => $weeklyRoomTotals,
             'monthlyRoomTotals' => $monthlyRoomTotals,
+            'weeklyRequiredTotals' => $weeklyRequiredTotals,
+            'monthlyRequiredTotals' => $monthlyRequiredTotals,
+            'weeklyFedTotals' => $weeklyFedTotals,
+            'monthlyFedTotals' => $monthlyFedTotals,
+            'feedSetup' => $feedSetup,
+            'dailyIdealFeed' => $dailyIdealFeed,
+            'weeklyIdealTotals' => $weeklyIdealTotals,
+            'monthlyIdealTotals' => $monthlyIdealTotals,
+            'dailyFeedPaginator' => $dailyFeedPaginator,
+            'weeklyFeedPaginator' => $weeklyFeedPaginator,
+            'monthlyFeedPaginator' => $monthlyFeedPaginator,
         ]);
     }
 
@@ -428,6 +488,20 @@ class FeedUiController extends Controller
                 });
             });
 
+        // --- DYNAMIC FEED REQUIREMENTS ---
+        $feedSetup = [
+            'piglet_starter_kg_day' => (float) (\App\Models\Setting::get('feed.stages.piglet_starter_kg_day', config('feed.stages.piglet_starter_kg_day', 0.5))),
+            'weaner_kg_day' => (float) (\App\Models\Setting::get('feed.stages.weaner_kg_day', 1.0)),
+            'grower_kg_day' => (float) (\App\Models\Setting::get('feed.stages.grower_kg_day', 1.5)),
+            'finisher_kg_day' => (float) (\App\Models\Setting::get('feed.stages.finisher_kg_day', 2.0)),
+            'boar_kg_day' => (float) (\App\Models\Setting::get('feed.stages.boar_kg_day', 2.5)),
+            'pregnant_sow_kg_day' => (float) (\App\Models\Setting::get('feed.stages.pregnant_sow_kg_day', 3.0)),
+        ];
+        $requirementSeries = $this->computeFeedRequirementSeries($from, $to, $feedSetup);
+        $dailyIdealFeed = $requirementSeries['perDay'];
+        $weeklyIdealTotals = $requirementSeries['weeklyTotals'];
+        $monthlyIdealTotals = $requirementSeries['monthlyTotals'];
+
         $pdf = \PDF::loadView('feeds.reports_pdf', [
             'from' => $from,
             'to' => $to,
@@ -446,6 +520,18 @@ class FeedUiController extends Controller
             'dailyRoomTotals' => $dailyRoomTotals,
             'weeklyRoomTotals' => $weeklyRoomTotals,
             'monthlyRoomTotals' => $monthlyRoomTotals,
+            'weeklyRequiredTotals' => $weeklyStructureTotals->map(fn($rows) => collect($rows)->sum('total')),
+            'monthlyRequiredTotals' => $monthlyStructureTotals->map(fn($rows) => collect($rows)->sum('total')),
+            'weeklyFedTotals' => $schedules->where('status', 'fed')
+                ->groupBy(fn($item) => optional($item->scheduled_for)->format('o-\WW'))
+                ->map(fn($group) => (float) $group->sum('planned_amount')),
+            'monthlyFedTotals' => $schedules->where('status', 'fed')
+                ->groupBy(fn($item) => optional($item->scheduled_for)->format('Y-m'))
+                ->map(fn($group) => (float) $group->sum('planned_amount')),
+            'feedSetup' => $feedSetup,
+            'dailyIdealFeed' => $dailyIdealFeed,
+            'weeklyIdealTotals' => $weeklyIdealTotals,
+            'monthlyIdealTotals' => $monthlyIdealTotals,
         ])->setPaper('a4', 'portrait');
 
         return $pdf->download("feed_reports_{$from}_to_{$to}.pdf");
@@ -669,5 +755,140 @@ class FeedUiController extends Controller
                 'pageName' => $pageName,
             ]
         );
+    }
+
+    /**
+     * Get animal counts per feed stage for a single day.
+     * Returns [
+     *   'piglets' => N, 'weaners' => N, 'growers' => N, 'finishers' => N, 'boars' => N, 'pregnant_sows' => N, 'other_sows' => N
+     * ]
+     */
+    protected function getDailyAnimalFeedHeadcounts($date)
+    {
+        // Settings
+        $weaningDays = config('breeding.cycle.birth_to_weaning_days', 45);
+        // Age cutoffs in days (set here for demo; replace with your config/setting)
+        $weanerDays = $weaningDays; // below this: piglet; weaner: >= this and < growerDays
+        $growerDays = $weaningDays + 60; // demo: 45 piglet + 60 weaner = 105; grower -> finisher at eg. 150d
+        $finisherDays = $weaningDays + 135; // piglet 45, weaner 60, grower 75
+
+        // (1) Piglets (active litters, alive, not weaned)
+        $pigletCount = Farrowing::where('farrowing_date', '<=', $date)
+            ->whereRaw('DATEDIFF(?, farrowing_date) < ?', [$date, $weaningDays]) // only this criteria
+            ->whereIn('status', ['active'])
+            ->get()
+            ->sum(fn($far) => $far->net_live_piglets);
+
+        // (2) Weaners (weaned, with age since weaning < grower threshold)
+        $weanerCount = PigManagement::whereDate('date_of_birth', '<=', date('Y-m-d', strtotime("$date - $growerDays days")))
+            ->whereDoesntHave('deaths')
+            ->whereDoesntHave('sales')
+            ->whereHas('weaning', function($q) use($date) {
+                $q->whereDate('weaning_date', '<=', $date);
+            })
+            ->get()
+            ->filter(function ($pig) use ($date, $growerDays, $weanerDays) {
+                $daysSinceBirth = \Carbon\Carbon::parse($pig->date_of_birth)->diffInDays($date);
+                return $daysSinceBirth >= $weanerDays && $daysSinceBirth < $growerDays;
+            })->count();
+
+        // (3) Growers (age between growerDays and finisherDays)
+        $growerCount = PigManagement::whereDate('date_of_birth', '<=', date('Y-m-d', strtotime("$date - $finisherDays days")))
+            ->whereDoesntHave('deaths')->whereDoesntHave('sales')
+            ->whereHas('weaning', function($q) use($date) {
+                $q->whereDate('weaning_date', '<=', $date);
+            })
+            ->get()
+            ->filter(function($pig) use($date, $growerDays, $finisherDays) {
+                $days = \Carbon\Carbon::parse($pig->date_of_birth)->diffInDays($date);
+                return $days >= $growerDays && $days < $finisherDays;
+            })->count();
+
+        // (4) Finishers (oldest, after finisherDays)
+        $finisherCount = PigManagement::whereDate('date_of_birth', '<=', date('Y-m-d', strtotime("$date - $finisherDays days")))
+            ->whereDoesntHave('deaths')->whereDoesntHave('sales')
+            ->whereHas('weaning', function($q) use($date) {
+                $q->whereDate('weaning_date', '<=', $date);
+            })
+            ->get()->filter(function($pig) use($date, $finisherDays) {
+                $days = \Carbon\Carbon::parse($pig->date_of_birth)->diffInDays($date);
+                return $days >= $finisherDays;
+            })->count();
+
+        // (5) Boars
+        $boarCount = PigManagement::where('gender', 'M')->where('stock_type', 'breeding')
+            ->whereDoesntHave('deaths')->whereDoesntHave('sales')->count();
+
+        // (6) Pregnant sows (female, breeding, alive, currently pregnant on this date)
+        // Find matings where pregnancy_status='pregnant', date covers this day
+        $pregnantSowIds = Mating::where('pregnancy_status', 'pregnant')
+            ->whereDate('actual_date', '<=', $date)
+            ->whereDate('expected_farrowing_date', '>=', $date)
+            ->pluck('female_id');
+        $pregnantSowCount = PigManagement::whereIn('id', $pregnantSowIds)
+            ->where('gender', 'F')->whereDoesntHave('deaths')->whereDoesntHave('sales')->count();
+
+        // (7) Other sows (non-pregnant, non-dead/sold, breeding)
+        $otherSowCount = PigManagement::where('gender', 'F')
+            ->where('stock_type', 'breeding')
+            ->whereDoesntHave('deaths')->whereDoesntHave('sales')
+            ->whereNotIn('id', $pregnantSowIds)
+            ->count();
+
+        return [
+            'piglets' => $pigletCount,
+            'weaners' => $weanerCount,
+            'growers' => $growerCount,
+            'finishers' => $finisherCount,
+            'boars' => $boarCount,
+            'pregnant_sows' => $pregnantSowCount,
+            'other_sows' => $otherSowCount,
+        ];
+    }
+
+    /**
+     * For date range, produces series of [date => [counts]] per day, and [date => feed needed array] (kg).
+     */
+    protected function computeFeedRequirementSeries($from, $to, $feedSetup)
+    {
+        $period = \Carbon\CarbonPeriod::create($from, $to);
+        $perDay = [];
+        foreach ($period as $dateObj) {
+            $date = $dateObj->format('Y-m-d');
+            $counts = $this->getDailyAnimalFeedHeadcounts($date);
+            $needed = [
+                'piglets' => $counts['piglets'] * $feedSetup['piglet_starter_kg_day'],
+                'weaners' => $counts['weaners'] * $feedSetup['weaner_kg_day'],
+                'growers' => $counts['growers'] * $feedSetup['grower_kg_day'],
+                'finishers' => $counts['finishers'] * $feedSetup['finisher_kg_day'],
+                'boars' => $counts['boars'] * $feedSetup['boar_kg_day'],
+                'pregnant_sows' => $counts['pregnant_sows'] * $feedSetup['pregnant_sow_kg_day'],
+                'other_sows' => $counts['other_sows'] * $feedSetup['grower_kg_day'], // fallback: same as grower
+                'total' => 0,
+            ];
+            $needed['total'] = array_sum($needed);
+            $perDay[$date] = [
+                'counts' => $counts,
+                'needed' => $needed
+            ];
+        }
+        // Weekly and monthly sums
+        $perWeek = collect($perDay)->groupBy(fn($v, $date) => \Carbon\Carbon::parse($date)->format('o-\WW'));
+        $perMonth = collect($perDay)->groupBy(fn($v, $date) => \Carbon\Carbon::parse($date)->format('Y-m'));
+        $weeklyTotals = $perWeek->map(function($days) {
+            $sum = ['piglets'=>0,'weaners'=>0,'growers'=>0,'finishers'=>0,'boars'=>0,'pregnant_sows'=>0,'other_sows'=>0,'total'=>0];
+            foreach ($days as $info) {
+                foreach ($info['needed'] as $cat=>$val) { $sum[$cat] += $val; }
+            }
+            return $sum;
+        });
+        $monthlyTotals = $perMonth->map(function($days) {
+            $sum = ['piglets'=>0,'weaners'=>0,'growers'=>0,'finishers'=>0,'boars'=>0,'pregnant_sows'=>0,'other_sows'=>0,'total'=>0];
+            foreach ($days as $info) {
+                foreach ($info['needed'] as $cat=>$val) { $sum[$cat] += $val; }
+            }
+            return $sum;
+        });
+        return compact('perDay','weeklyTotals','monthlyTotals');
     }
 }

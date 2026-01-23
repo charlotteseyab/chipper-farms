@@ -1,168 +1,131 @@
 <x-app-layout>
-    <div class="bg-gradient-to-tr from-emerald-100 via-white to-lime-50 py-10 min-h-screen">
-        <div class="max-w-7xl mx-auto px-4 lg:px-8 space-y-12">
+    <div class="min-h-screen bg-slate-50/50 p-4 lg:p-8 font-sans antialiased text-slate-900">
+        <div class="max-w-[1400px] mx-auto">
+            
+            <header class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div>
+                    <h1 class="text-2xl font-black tracking-tight text-slate-800">Farm Manager</h1>
+                    <!-- <p class="text-sm font-medium text-slate-500">Real-time herd analytics and priorities</p> -->
+                </div>
 
-            {{-- HERO STATS --}}
-            <section class="flex flex-col md:flex-row md:items-center md:justify-between gap-10 md:gap-16 bg-gradient-to-tr from-emerald-500 via-teal-400 to-lime-300 p-8 rounded-3xl shadow-xl text-white">
-                        <div>
-                    <div class="uppercase text-xs tracking-widest text-white/80 mb-2">Manager Dashboard</div>
-                    <h1 class="font-black text-4xl leading-none mb-3">Comprehensive Farm Overview</h1>
-                    <p class="text-white/90 max-w-md">All critical figures update live. Track animal numbers, alerts, and herd status efficiently.</p>
-                    <div class="mt-6 flex gap-4">
-                        <a href="{{ route('all-stocks.index') }}" class="rounded-xl bg-white px-5 py-2 font-semibold text-emerald-600 hover:bg-emerald-50 transition">Manage Inventory</a>
-                        <a href="{{ route('weight-alerts.dashboard') }}" class="rounded-xl border border-white px-5 py-2 font-semibold text-white hover:bg-white/15 transition">Alert Center</a>
+                <div class="flex items-center gap-2 bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200/60">
+                    <div class="px-4 py-2 border-r border-slate-100 text-center">
+                        <span class="block text-xs font-bold text-slate-400 uppercase tracking-tighter">Total Stock</span>
+                        <span class="text-lg font-black text-emerald-600">{{ $totalStockActive }}</span>
                     </div>
-                        </div>
-                <div class="grid grid-cols-2 gap-4 text-center font-black">
-                    <div class="rounded-xl bg-white/20 p-5">
-                        <div class="text-xs uppercase tracking-wide text-white/80">Total Stock</div>
-                        <div class="text-4xl">{{ $totalStockActive }}</div>
-                        <div class="text-xs font-medium">{{ $weanedActive }} weaned • {{ $activePigletsAdjusted }} piglets</div>
+                    <div class="px-4 py-2 border-r border-slate-100 text-center">
+                        <span class="block text-xs font-bold text-slate-400 uppercase tracking-tighter">Breeding</span>
+                        <span class="text-lg font-black text-blue-600">{{ $breedingStockTotal }}</span>
                     </div>
-                    <div class="rounded-xl bg-white/20 p-5">
-                        <div class="text-xs uppercase tracking-wide text-white/80">Breeding</div>
-                        <div class="text-4xl">{{ $breedingStockTotal }}</div>
-                        <div class="text-xs font-medium">{{ $breedingFemales }}♀ • {{ $breedingMales }}♂</div>
-                    </div>
-                    <div class="rounded-xl bg-white/20 p-5">
-                        <div class="text-xs uppercase tracking-wide text-white/80">Critical Alerts</div>
-                        <div class="text-4xl">{{ $criticalAlerts }}</div>
-                        <div class="text-xs font-medium">Immediate action</div>
-                    </div>
-                    <div class="rounded-xl bg-white/20 p-5">
-                        <div class="text-xs uppercase tracking-wide text-white/80">Overdue Weigh</div>
-                        <div class="text-4xl">{{ $overdueForWeighing }}</div>
-                        <div class="text-xs font-medium">Pending weigh-ins</div>
+                    <div class="px-4 py-2 text-center group cursor-pointer" onclick="window.location='{{ route('weight-alerts.dashboard') }}'">
+                        <span class="block text-xs font-bold text-rose-400 uppercase tracking-tighter">Alerts</span>
+                        <span class="text-lg font-black text-rose-600">{{ $criticalAlerts }}</span>
                     </div>
                 </div>
-            </section>
+            </header>
 
-            {{-- STAT GRID --}}
-            <section class="grid gap-8 md:grid-cols-2 xl:grid-cols-4">
-                <div class="rounded-2xl bg-white p-6 text-center shadow border border-slate-100">
-                    <div class="text-xs uppercase text-slate-400 tracking-widest mb-1">Total Stock</div>
-                    <div class="text-3xl font-black text-slate-900">{{ $totalStockActive }}</div>
-                    <div class="text-xs text-slate-500">{{ $breedingStockActive }} breeding • {{ $standardStockActive }} standard</div>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <div class="lg:col-span-8 space-y-6">
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/50">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-sm font-bold text-slate-500 uppercase">Stock Composition</h3>
+                                <div class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]"></div>
+                            </div>
+                            <div class="h-48"><canvas id="stockDistributionChart"></canvas></div>
                         </div>
-                <div class="rounded-2xl bg-white p-6 text-center shadow border border-slate-100">
-                    <div class="text-xs uppercase text-slate-400 tracking-widest mb-1">Breeding Herd</div>
-                    <div class="text-3xl font-black text-slate-900">{{ $breedingStockTotal }}</div>
-                    <div class="text-xs text-slate-500">{{ $breedingFemales }}♀ • {{ $breedingMales }}♂</div>
-                    </div>
-                <div class="rounded-2xl bg-white p-6 text-center shadow border border-slate-100">
-                    <div class="text-xs uppercase text-slate-400 tracking-widest mb-1">Critical Alerts</div>
-                    <div class="text-3xl font-black text-slate-900">{{ $criticalAlerts }}</div>
-                    <div class="text-xs text-rose-600 font-medium">Immediate action</div>
-                        </div>
-                <div class="rounded-2xl bg-white p-6 text-center shadow border border-slate-100">
-                    <div class="text-xs uppercase text-slate-400 tracking-widest mb-1">Overdue Weigh</div>
-                    <div class="text-3xl font-black text-slate-900">{{ $overdueForWeighing }}</div>
-                    <div class="text-xs text-amber-600 font-medium">Pending weigh-ins</div>
-                        </div>
-            </section>
 
-            {{-- CHARTS --}}
-            <section class="grid grid-cols-1 xl:grid-cols-2 gap-10">
-                <div class="rounded-2xl border border-slate-200 bg-white shadow p-8 flex flex-col">
-                    <h3 class="font-bold text-lg text-slate-800 mb-4">Stock Distribution</h3>
-                    <div class="grow flex flex-col justify-center"><canvas id="stockDistributionChart" class="w-full h-64"></canvas></div>
-                    <div class="mt-4 flex justify-center gap-5 text-xs text-slate-500">
-                        <span class="flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>Breeding</span>
-                        <span class="flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-blue-500"></span>Standard</span>
+                        <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/50">
+                            <h3 class="text-sm font-bold text-slate-500 uppercase mb-4">Weight Velocity</h3>
+                            <div class="h-48"><canvas id="weightTrendsChart"></canvas></div>
+                        </div>
                     </div>
-                </div>
-                <div class="rounded-2xl border border-slate-200 bg-white shadow p-8 flex flex-col">
-                    <h3 class="font-bold text-lg text-slate-800 mb-4">Breed Composition</h3>
-                    <div class="grow flex flex-col justify-center"><canvas id="breedDistributionChart" class="w-full h-64"></canvas></div>
-                </div>
-            </section>
 
-            <section class="grid grid-cols-1 xl:grid-cols-2 gap-10">
-                <div class="rounded-2xl border border-slate-200 bg-white shadow p-8 flex flex-col">
-                    <h3 class="font-bold text-lg text-slate-800 mb-4">Weekly Weight Activity</h3>
-                    <div class="grow flex flex-col justify-center"><canvas id="weightTrendsChart" class="w-full h-64"></canvas></div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="bg-white p-5 rounded-3xl border border-slate-200/50 text-center">
+                            <span class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Fertility</span>
+                            <span class="text-xl font-black text-slate-800">{{ number_format($fertilityRate, 1) }}%</span>
                         </div>
-                <div class="rounded-2xl border border-slate-200 bg-white shadow p-8 flex flex-col">
-                    <h3 class="font-bold text-lg text-slate-800 mb-4">Alert Severity</h3>
-                    <div class="grow flex flex-col justify-center"><canvas id="weightAlertsChart" class="w-full h-64"></canvas></div>
-                    <div class="mt-4 flex flex-col gap-2">
-                        <div class="flex items-center justify-between text-xs"><span class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-rose-500"></span>High</span><span class="font-bold text-slate-700">{{ $highAlerts }}</span></div>
-                        <div class="flex items-center justify-between text-xs"><span class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-amber-500"></span>Medium</span><span class="font-bold text-slate-700">{{ $mediumAlerts }}</span></div>
-                        <div class="flex items-center justify-between text-xs"><span class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>Low</span><span class="font-bold text-slate-700">{{ $lowAlerts }}</span></div>
+                        <div class="bg-white p-5 rounded-3xl border border-slate-200/50 text-center">
+                            <span class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Accuracy</span>
+                            <span class="text-xl font-black text-slate-800">{{ $breedingStats['data_completeness'] }}%</span>
+                        </div>
+                        <div class="bg-white p-5 rounded-3xl border border-slate-200/50 text-center">
+                            <span class="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Mortality</span>
+                            <span class="text-xl font-black text-rose-500">{{ number_format($mortalityRate, 1) }}%</span>
+                        </div>
+                        <div class="bg-amber-50/50 p-5 rounded-3xl border border-amber-100 text-center">
+                            <span class="block text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Overdue</span>
+                            <span class="text-xl font-black text-amber-700">{{ $overdueForWeighing }}</span>
+                        </div>
                     </div>
-            </div>
-            </section>
 
-            <section class="grid grid-cols-1 gap-8 xl:grid-cols-2">
-                <div class="rounded-2xl border border-slate-200 bg-white shadow p-8">
-                    <h3 class="font-bold text-lg text-slate-800 mb-4">Herd Health Indicators</h3>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                        <div>
-                            <div class="text-slate-500 text-xs font-semibold">Fertility Rate</div>
-                            <div class="flex items-center justify-between"><span class="text-2xl font-black">{{ number_format($fertilityRate, 1) }}%</span></div>
-                            <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-purple-500" style="width: {{ $fertilityRate }}%"></div></div>
-                        </div>
-                        <div>
-                            <div class="text-slate-500 text-xs font-semibold">Breeding Stock Ratio</div>
-                            <div class="flex items-center justify-between"><span class="text-2xl font-black">{{ $breedingStats['breeding_stock_ratio'] }}%</span></div>
-                            <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-500" style="width: {{ $breedingStats['breeding_stock_ratio'] }}%"></div></div>
-                        </div>
-                        <div>
-                            <div class="text-slate-500 text-xs font-semibold">Data Completeness</div>
-                            <div class="flex items-center justify-between"><span class="text-2xl font-black">{{ $breedingStats['data_completeness'] }}%</span></div>
-                            <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-blue-500" style="width: {{ $breedingStats['data_completeness'] }}%"></div></div>
-                        </div>
-                        <div>
-                            <div class="text-slate-500 text-xs font-semibold">Mortality Rate</div>
-                            <div class="flex items-center justify-between"><span class="text-2xl font-black">{{ number_format($mortalityRate, 1) }}%</span></div>
-                            <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-rose-500" style="width: {{ $mortalityRate }}%"></div></div>
-                        </div>
-                    </div>
-                    <div class="mt-8 grid grid-cols-2 gap-4">
-                        <div class="text-center">
-                            <p class="text-xs text-slate-400 uppercase tracking-wide">Total Deaths</p>
-                            <p class="text-xl font-bold text-slate-900">{{ $totalDeaths }}</p>
-                        </div>
-                        <div class="text-center border-l border-slate-100">
-                            <p class="text-xs text-slate-400 uppercase tracking-wide">Active Piglets</p>
-                            <p class="text-xl font-bold text-slate-900">{{ $activePigletsAdjusted }}</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="rounded-2xl border border-slate-200 bg-white shadow p-8">
-                    <h3 class="font-bold text-lg text-slate-800 mb-4">Upcoming Priorities</h3>
-                    <div class="divide-y divide-slate-100">
-                        @forelse ($upcomingEvents as $event)
-                            <div class="py-4 flex items-center gap-5">
-                                <span class="inline-flex items-center justify-center h-9 w-9 rounded-full bg-{{ $event['color'] }}-100 text-{{ $event['color'] }}-600">
-                                    @if ($event['icon'] === 'scale')
-                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/></svg>
-                                    @elseif ($event['icon'] === 'heart')
-                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-                                        @else
-                                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                        @endif
-                                </span>
-                                <div class="flex-1 min-w-0">
-                                    <div class="font-medium text-slate-900">{{ $event['title'] }}</div>
-                                    <div class="text-xs text-slate-500">{{ optional($event['date'])->format('M j') }}</div>
-                                </div>
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/50">
+                        <h3 class="text-sm font-bold text-slate-800 mb-6">Breed Performance Mix</h3>
+                        <div class="grid grid-cols-3 gap-8">
+                            <div class="flex items-center gap-3">
+                                <div class="w-3 h-12 bg-blue-500 rounded-full"></div>
                                 <div>
-                                    @if ($event['days_until'] <= 0)
-                                        <span class="inline-flex items-center rounded-md bg-rose-50 px-2 py-1 text-xs font-medium text-rose-700 ring-1 ring-inset ring-rose-600/20">Overdue</span>
-                                    @else
-                                        <span class="inline-flex items-center rounded-md bg-slate-50 px-2 py-1 text-xs font-medium text-slate-600 ring-1 ring-inset ring-slate-500/10">{{ $event['days_until'] }}d</span>
-                                    @endif
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase">LW</p>
+                                    <p class="text-lg font-black">{{ $breedCounts['lw'] }}</p>
                                 </div>
                             </div>
-                        @empty
-                            <div class="py-8 text-center">
-                                <p class="text-sm text-slate-500">No upcoming tasks.</p>
+                            <div class="flex items-center gap-3">
+                                <div class="w-3 h-12 bg-emerald-500 rounded-full"></div>
+                                <div>
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase">Duroc</p>
+                                    <p class="text-lg font-black">{{ $breedCounts['dr'] }}</p>
+                                </div>
                             </div>
-                        @endforelse
+                            <div class="flex items-center gap-3">
+                                <div class="w-3 h-12 bg-purple-500 rounded-full"></div>
+                                <div>
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase">LWDR</p>
+                                    <p class="text-lg font-black">{{ $breedCounts['lwdr'] }}</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </section>
+
+                <div class="lg:col-span-4 flex flex-col gap-6">
+                    
+                    <div class="bg-slate-900 rounded-3xl p-6 text-white shadow-xl">
+                        <h3 class="text-sm font-bold text-emerald-400 uppercase tracking-widest mb-4">Quick Actions</h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <a href="{{ route('all-stocks.index') }}" class="flex flex-col items-center justify-center p-4 bg-white/5 hover:bg-white/10 rounded-2xl transition-all border border-white/10 group">
+                                <svg class="w-5 h-5 mb-2 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                                <span class="text-[10px] font-bold uppercase tracking-tighter">Add Stock</span>
+                            </a>
+                            <a href="{{ route('weight-alerts.dashboard') }}" class="flex flex-col items-center justify-center p-4 bg-white/5 hover:bg-white/10 rounded-2xl transition-all border border-white/10 group">
+                                <svg class="w-5 h-5 mb-2 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                                <span class="text-[10px] font-bold uppercase tracking-tighter">View Alerts</span>
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200/50 flex-1">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-sm font-bold text-slate-800 uppercase tracking-widest">Tasks</h3>
+                            <span class="text-[10px] font-black text-slate-400 px-2 py-1 bg-slate-50 rounded-lg">Upcoming</span>
+                        </div>
+                        <div class="space-y-5">
+                            @forelse ($upcomingEvents as $event)
+                                <div class="relative pl-6 border-l-2 border-slate-100 group">
+                                    <div class="absolute -left-[6px] top-1 w-2.5 h-2.5 rounded-full bg-{{ $event['color'] }}-500 ring-4 ring-white"></div>
+                                    <h4 class="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors leading-none mb-1">{{ $event['title'] }}</h4>
+                                    <p class="text-[10px] font-medium text-slate-500 uppercase tracking-tighter">{{ optional($event['date'])->format('M d') }} • {{ $event['days_until'] }} Days left</p>
+                                </div>
+                            @empty
+                                <p class="text-xs text-slate-400 italic text-center py-8">No tasks found</p>
+                            @endforelse
+                        </div>
+                    </div>
+
+                </div>
+            </div>
         </div>
     </div>
     <x-copyright-minimal />

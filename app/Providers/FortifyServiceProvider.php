@@ -20,6 +20,7 @@ use Illuminate\Validation\ValidationException;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use App\Models\ActivityLog;
+use Illuminate\Support\Facades\Gate;
 
 class FortifyServiceProvider extends ServiceProvider
 {
@@ -42,6 +43,12 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::redirectUserForTwoFactorAuthenticationUsing(RedirectIfTwoFactorAuthenticatable::class);
 
+        Fortify::registerView(function () {
+            $user = auth()->user();
+            abort_unless($user && $user->isSuperuser(), 403, 'Only a superuser can register new users.');
+            return view('auth.register');
+        });
+
         // Relax Fortify built-in throttle; we'll enforce our custom 20s lock below
         RateLimiter::for('login', function (Request $request) {
             $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())).'|'.$request->ip());
@@ -59,6 +66,12 @@ class FortifyServiceProvider extends ServiceProvider
             $attemptsKey = 'login:attempts:'.$identifier;
             $lockKey = 'login:lock:'.$identifier;
             $lockUntilKey = $lockKey.':until';
+
+            if ($request->filled('password_confirmation') && $request->input('password') !== $request->input('password_confirmation')) {
+                throw ValidationException::withMessages([
+                    'password_confirmation' => __('Passwords must match.'),
+                ]);
+            }
 
             if (Cache::has($lockKey)) {
                 $remaining = max(1, (int) Cache::get($lockUntilKey, time()) - time());
@@ -83,6 +96,26 @@ class FortifyServiceProvider extends ServiceProvider
 
             $user = User::where($username, $request->input($username))->first();
             if ($user && Hash::check($request->input('password'), $user->password)) {
+                // Check if user is active
+                if (!$user->active_status) {
+                    // Log inactive login attempt
+                    try {
+                        ActivityLog::create([
+                            'user_id' => $user->id,
+                            'name' => (string) $request->input($username),
+                            'action' => 'login_attempt',
+                            'ip_address' => $request->ip(),
+                            'user_agent' => $request->userAgent(),
+                            'metadata' => [
+                                'result' => 'inactive_account',
+                            ],
+                        ]);
+                    } catch (\Throwable $e) {}
+                    throw ValidationException::withMessages([
+                        $username => __('Your account has been deactivated. Please contact an administrator.'),
+                    ]);
+                }
+                
                 Cache::forget($attemptsKey);
                 Cache::forget($lockKey);
                 Cache::forget($lockUntilKey);
@@ -143,15 +176,18 @@ class FortifyServiceProvider extends ServiceProvider
                 public function toResponse($request)
                 {
                     $user = Auth::user();
-                    if ($user->role && $user->role->name === 'admin') {
-                        return redirect('/admin/dashboard');
-                    } elseif ($user->role && $user->role->name === 'farmmanager') {
-                        return redirect('/manager/dashboard');
-                    } elseif ($user->role && $user->role->name === 'superuser') {
+                    
+                    // Use User model helper methods which handle both string and relationship roles
+                    if ($user->isSuperuser()) {
                         return redirect('/superuser/dashboard');
-                    } elseif ($user->role && $user->role->name === 'dataentry') {
+                    } elseif ($user->isAdmin()) {
+                        return redirect('/admin/dashboard');
+                    } elseif ($user->isManager()) {
+                        return redirect('/manager/dashboard');
+                    } elseif ($user->isDataEntry()) {
                         return redirect('/dataentry/dashboard');
                     }
+                    
                     return redirect('/dashboard');
                 }
             };

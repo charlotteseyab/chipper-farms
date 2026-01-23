@@ -1,9 +1,9 @@
 <x-app-layout>
-    <main class="flex-1 p-8">
+    <main class="flex-1 pt-0 p-8">
         <div class="max-w-7xl mx-auto">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-gray-900">Weight Management</h2>
-                <div class="flex gap-2">
+                <div class="flex gap-2 flex-wrap">
                     <a href="{{ route('weights.create') }}" class="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition">
                         <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
@@ -25,6 +25,19 @@
                               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
                             </svg>
                             Export PDF
+                        </button>
+                    </form>
+                    <form method="GET" action="{{ route('weights.index.export-excel') }}" class="inline flex items-center gap-2">
+                        @foreach(request()->except(['page','month']) as $key => $value)
+                            <input type="hidden" name="{{ $key }}" value="{{ $value }}" />
+                        @endforeach
+                        <label class="text-xs text-gray-600">Month</label>
+                        <input type="month" name="month" value="{{ request('month') }}" class="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-emerald-500 focus:border-emerald-500">
+                        <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition" title="Download weekly gain analysis (Excel/CSV)">
+                            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5h14a2 2 0 012 2v6a2 2 0 01-2 2h-4l-4 4v-4H5a2 2 0 01-2-2V7a2 2 0 012-2z"/>
+                            </svg>
+                            Export Excel
                         </button>
                     </form>
                 </div>
@@ -117,18 +130,19 @@
                             <tbody class="bg-white divide-y divide-gray-200">
                                 @foreach($weights as $weight)
                                     <tr class="hover:bg-gray-50">
+                                        @php $pig = $weight->pig; @endphp
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center">
                                                 <div>
-                                                    <div class="text-sm font-medium text-gray-900">{{ $weight->pig->ear_tag_number }}</div>
-                                                    <div class="text-sm text-gray-500">{{ $weight->pig->code }}</div>
+                                                    <div class="text-sm font-medium text-gray-900">{{ $pig->ear_tag_number ?? 'N/A' }}</div>
+                                                    <div class="text-sm text-gray-500">{{ $pig->code ?? 'N/A' }}</div>
                                                 </div>
                                             </div>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
-                                            @if($weight->pig->gender)
+                                            @if($pig && $pig->gender)
                                                 <span class="inline-flex items-center">
-                                                    @if($weight->pig->gender === 'M')
+                                                    @if($pig->gender === 'M')
                                                         <svg class="w-4 h-4 text-blue-600 mr-1" fill="currentColor" viewBox="0 0 24 24">
                                                             <circle cx="9" cy="15" r="6" stroke="currentColor" stroke-width="2" fill="none"/>
                                                             <path d="M15 9L21 3M21 3h-5M21 3v5" stroke="currentColor" stroke-width="2" fill="none"/>
@@ -197,9 +211,9 @@
                                             </span>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            @if($weight->pig->date_of_birth)
+                                            @if($pig && $pig->date_of_birth)
                                                 @php
-                                                    $ageAtWeighing = $weight->pig->date_of_birth->diffInDays($weight->weigh_date);
+                                                    $ageAtWeighing = $pig->date_of_birth->diffInDays($weight->weigh_date);
                                                     $years = floor($ageAtWeighing / 365);
                                                     $remainingDays = $ageAtWeighing % 365;
                                                     $months = floor($remainingDays / 30);
@@ -249,7 +263,9 @@
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div class="flex gap-2">
                                                 <a href="{{ route('weights.edit', $weight) }}" class="text-green-600 hover:text-green-900">Edit</a>
-                                                <a href="{{ route('pigs.show', $weight->pig->id) }}#weight" class="text-blue-600 hover:text-blue-900">View Pig</a>
+                                                @if($pig)
+                                                    <a href="{{ route('pigs.show', $pig->id) }}#weight" class="text-blue-600 hover:text-blue-900">View Pig</a>
+                                                @endif
                                             </div>
                                         </td>
                                     </tr>

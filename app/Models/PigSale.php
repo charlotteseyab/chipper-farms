@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Carbon\Carbon;
-
 class PigSale extends Model
 {
     use SoftDeletes;
@@ -43,7 +42,7 @@ class PigSale extends Model
         'sale_method',
         'transport_details',
         'final_weight',
-        'sale_notes'
+        'sale_notes',
     ];
 
     protected $casts = [

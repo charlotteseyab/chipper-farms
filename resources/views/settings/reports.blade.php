@@ -18,13 +18,13 @@
                                 </svg>
                                 Export PDF
                             </a>
-                            <!-- <a href="{{ route('settings.reports.export.csv', request()->query()) }}" 
+                            <a href="{{ route('settings.reports.export.csv', request()->query()) }}"
                                class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 focus:bg-green-700 active:bg-green-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition ease-in-out duration-150">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                 </svg>
-                                Export CSV
-                            </a> -->
+                                Export Excel
+                            </a>
                         </div>
                     </div>
                     <form method="GET" class="mt-4">
@@ -120,6 +120,99 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Compact Analytics Grid: All new summary cards as one grid row -->
+            <div class="grid md:grid-cols-4 lg:grid-cols-4 gap-4 mb-6">
+                <!-- Notifications & Alerts -->
+                <div class="bg-blue-50 border-l-4 border-blue-400 rounded-lg shadow-sm p-3 h-full flex flex-col justify-between">
+                    <span class="font-semibold text-blue-700 text-xs mb-1">Alerts & Notifications</span>
+                    <div class="space-y-1">
+                        <div class="text-[11px] text-gray-500 flex justify-between"><span>Unread/Total</span><span class="font-bold text-gray-900">{{ $storedNotifications['unread'] ?? 0 }}/{{ $storedNotifications['total'] ?? 0 }}</span></div>
+                        <div class="text-[11px] text-gray-500 flex justify-between"><span>Weight Alerts</span><span class="font-bold text-orange-600">{{ $realTimeAlerts['weight'] ?? 0 }}</span></div>
+                        <div class="text-[11px] text-gray-500 flex justify-between"><span>Critical</span><span class="font-bold text-red-600">{{ $realTimeAlerts['critical'] ?? 0 }}</span></div>
+                        <div class="text-[11px] text-gray-500 flex justify-between"><span>Weaning Alerts</span><span class="font-bold text-yellow-600">{{ $realTimeAlerts['pending_weaning_alerts'] ?? 0 }}</span></div>
+                    </div>
+                </div>
+                <!-- Archive summary -->
+                <div class="bg-gray-50 border-l-4 border-gray-400 rounded-lg shadow-sm p-3 h-full">
+                    <span class="font-semibold text-gray-800 text-xs mb-1">Archive/Soft Deletes</span>
+                    <div class="space-y-1 text-[11px] text-gray-500">
+                        <div class="flex justify-between"><span>Pigs (arch.)</span><span class="font-bold text-gray-700">{{ $softDeletes['pigs_archived'] ?? 0 }}</span></div>
+                        <div class="flex justify-between"><span>Piglet Deaths</span><span class="font-bold text-gray-700">{{ $softDeletes['piglet_deaths_archived'] ?? 0 }}</span></div>
+                        <div class="flex justify-between"><span>Sales (arch.)</span><span class="font-bold text-gray-700">{{ $softDeletes['sales_archived'] ?? 0 }}</span></div>
+                        <div class="flex justify-between"><span>Deaths</span><span class="font-bold text-gray-700">{{ $softDeletes['deaths_archived'] ?? 0 }}</span></div>
+                    </div>
+                </div>
+                <!-- Piglet Survivability -->
+                <div class="bg-pink-50 border-l-4 border-pink-400 rounded-lg shadow-sm p-3 h-full">
+                    <span class="font-semibold text-pink-700 text-xs mb-1">Piglet Survivability</span>
+                    <div class="space-y-1 text-[11px]">
+                        <div class="flex justify-between text-gray-500"><span>Live Births</span><span class="font-bold text-gray-900">{{ number_format($liveBirths ?? 0) }}</span></div>
+                        <div class="flex justify-between text-gray-500"><span>Deaths (pre-wean)</span><span class="font-bold text-red-700">{{ number_format($preWeaningDeaths ?? 0) }}</span></div>
+                        <div class="flex justify-between text-gray-500"><span>Survival Rate</span><span class="font-bold text-emerald-700">{{ $pigletSurvivalRate !== null ? $pigletSurvivalRate.'%' : 'N/A' }}</span></div>
+                    </div>
+                </div>
+                <!-- Weaning -->
+                <div class="bg-purple-50 border-l-4 border-purple-400 rounded-lg shadow-sm p-3 h-full">
+                    <span class="font-semibold text-purple-700 text-xs mb-1">Weaning</span>
+                    <div class="space-y-1 text-[11px]">
+                        <div class="flex justify-between text-gray-500"><span>Litters</span><span class="font-bold text-gray-900">{{ number_format($totalLittersWeaned ?? 0) }}</span></div>
+                        <div class="flex justify-between text-gray-500"><span>Piglets</span><span class="font-bold text-gray-900">{{ number_format($totalPigletsWeaned ?? 0) }}</span></div>
+                        <div class="flex justify-between text-gray-500"><span>Avg Age</span><span class="font-bold text-indigo-800">{{ $avgWeaningAge!==null ? number_format($avgWeaningAge,0).'d':'N/A' }}</span></div>
+                        <div class="flex justify-between text-gray-500"><span>Avg Wt</span><span class="font-bold text-indigo-800">{{ $avgWeaningWeight!==null ? number_format($avgWeaningWeight,1).'kg':'N/A' }}</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Growth Stages & Age Requirements Card -->
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 rounded-lg shadow-sm mb-6 p-6">
+                <h2 class="text-lg font-bold text-yellow-800 mb-4">Growth Stages & Age Requirements</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <span class="block text-xs text-gray-500">Piglet Stage</span>
+                        <span class="text-lg font-semibold text-gray-900">Max: {{ $stages['piglet_max_days'] ?? '?' }} days</span>
+                    </div>
+                    <div>
+                        <span class="block text-xs text-gray-500">Weaner Stage</span>
+                        <span class="text-lg font-semibold text-gray-900">Max: {{ $stages['weaner_max_days'] ?? '?' }} days</span>
+                    </div>
+                    <div>
+                        <span class="block text-xs text-gray-500">Grower Stage</span>
+                        <span class="text-lg font-semibold text-gray-900">Max: {{ $stages['grower_max_days'] ?? '?' }} days</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feed Setup Card -->
+            <div class="bg-emerald-50 border-l-4 border-emerald-400 rounded-lg shadow-sm mb-6 p-6">
+                <h2 class="text-lg font-bold text-emerald-800 mb-4">Feed Setup</h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    <div>
+                        <span class="block text-xs text-gray-500">Piglet Starter</span>
+                        <span class="text-lg font-semibold text-gray-900">{{ $feed['piglet_starter'] ?? '?' }} kg/day</span>
+                    </div>
+                    <div>
+                        <span class="block text-xs text-gray-500">Weaner</span>
+                        <span class="text-lg font-semibold text-gray-900">{{ $feed['weaner'] ?? '?' }} kg/day</span>
+                    </div>
+                    <div>
+                        <span class="block text-xs text-gray-500">Grower</span>
+                        <span class="text-lg font-semibold text-gray-900">{{ $feed['grower'] ?? '?' }} kg/day</span>
+                    </div>
+                    <div>
+                        <span class="block text-xs text-gray-500">Finisher</span>
+                        <span class="text-lg font-semibold text-gray-900">{{ $feed['finisher'] ?? '?' }} kg/day</span>
+                    </div>
+                    <div>
+                        <span class="block text-xs text-gray-500">Boar</span>
+                        <span class="text-lg font-semibold text-gray-900">{{ $feed['boar'] ?? '?' }} kg/day</span>
+                    </div>
+                    <div>
+                        <span class="block text-xs text-gray-500">Pregnant Sow</span>
+                        <span class="text-lg font-semibold text-gray-900">{{ $feed['pregnant_sow'] ?? '?' }} kg/day</span>
                     </div>
                 </div>
             </div>

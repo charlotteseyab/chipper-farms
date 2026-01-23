@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Helpers\BreedingCalculator;
-
 class PigManagement extends Model 
 {
     use SoftDeletes;
@@ -16,12 +15,23 @@ class PigManagement extends Model
 
     protected $fillable = [
         'ear_tag_number', 'breed', 'gender', 'stock_type', 'date_of_birth',
-        'code', 'age_in_days', 'father_id', 'mother_id', 'room_id'
+        'code', 'age_in_days', 'father_id', 'mother_id', 'room_id', 'local_id'
     ];
 
     protected $casts = [
         'date_of_birth' => 'date',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function ($pig) {
+            // Auto-generate local_id if not provided (global sequential ID)
+            if (!$pig->local_id) {
+                $maxLocalId = static::max('local_id') ?? 0;
+                $pig->local_id = $maxLocalId + 1;
+            }
+        });
+    }
 
     // Relationship to the father pig
     public function father(): BelongsTo

@@ -14,9 +14,11 @@ use App\Models\Weaning;
 use App\Models\Structure;
 use App\Models\Room;
 use App\Models\User;
+use App\Models\Role;
 use App\Helpers\FlashHelper;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use App\Models\ActivityLog;
 
 class SettingsController extends Controller
@@ -41,12 +43,25 @@ class SettingsController extends Controller
             'lactation_days' => Setting::get('breeding.parameters.lactation_days', config('breeding.parameters.lactation_days')),
         ];
 
+        $feed = [
+            'piglet_starter' => Setting::get('feed.stages.piglet_starter', 1.0), // kg/day
+            'weaner' => Setting::get('feed.stages.weaner', 1.5),
+            'grower' => Setting::get('feed.stages.grower', 2.5),
+            'finisher' => Setting::get('feed.stages.finisher', 3.0),
+            'boar' => Setting::get('feed.stages.boar', 2.5),
+            'pregnant_sow' => Setting::get('feed.stages.pregnant_sow', 3.5),
+        ];
+        $stages = [
+            'piglet_max_days' => Setting::get('stages.piglet.max_days', 45),
+            'weaner_max_days' => Setting::get('stages.weaner.max_days', 105),
+            'grower_max_days' => Setting::get('stages.grower.max_days', 180),
+        ];
         $pricing = [
             'live_weight_price' => Setting::get('sales.pricing.live_weight_price', 30.00),
             'carcass_weight_price' => Setting::get('sales.pricing.carcass_weight_price', 50.00),
         ];
 
-        return view('settings.setup', compact('breeding', 'pricing'));
+        return view('settings.setup', compact('breeding', 'pricing', 'feed', 'stages'));
     }
 
     /**
@@ -69,6 +84,16 @@ class SettingsController extends Controller
             'lactation_days' => 'required|integer|min:21|max:120',
             'live_weight_price' => 'required|numeric|min:1|max:1000',
             'carcass_weight_price' => 'required|numeric|min:1|max:1000',
+            // Feed setup (kg/day)
+            'piglet_starter' => 'required|numeric|min:0|max:50',
+            'weaner' => 'required|numeric|min:0|max:50',
+            'grower' => 'required|numeric|min:0|max:50',
+            'finisher' => 'required|numeric|min:0|max:50',
+            'boar' => 'required|numeric|min:0|max:50',
+            'pregnant_sow' => 'required|numeric|min:0|max:50',
+            'piglet_max_days' => 'required|integer|min:1|max:300',
+            'weaner_max_days' => 'required|integer|min:' . ($request->input('piglet_max_days', 1)+1) . '|max:400',
+            'grower_max_days' => 'required|integer|min:' . ($request->input('weaner_max_days', 2)+1) . '|max:600',
         ]);
 
         // Save individual keys to allow partial overrides
@@ -92,6 +117,17 @@ class SettingsController extends Controller
         // Save pricing settings
         Setting::set('sales.pricing.live_weight_price', (float) $data['live_weight_price']);
         Setting::set('sales.pricing.carcass_weight_price', (float) $data['carcass_weight_price']);
+
+        // Save feed setup
+        Setting::set('feed.stages.piglet_starter', (float) $data['piglet_starter']);
+        Setting::set('feed.stages.weaner', (float) $data['weaner']);
+        Setting::set('feed.stages.grower', (float) $data['grower']);
+        Setting::set('feed.stages.finisher', (float) $data['finisher']);
+        Setting::set('feed.stages.boar', (float) $data['boar']);
+        Setting::set('feed.stages.pregnant_sow', (float) $data['pregnant_sow']);
+        Setting::set('stages.piglet.max_days', (int)$data['piglet_max_days']);
+        Setting::set('stages.weaner.max_days', (int)$data['weaner_max_days']);
+        Setting::set('stages.grower.max_days', (int)$data['grower_max_days']);
 
         return FlashHelper::successAndRedirect('Settings saved successfully.', 'settings.setup');
     }
@@ -224,6 +260,57 @@ class SettingsController extends Controller
             'detailed_structures' => Structure::withCount('rooms')->get(),
         ];
 
+        // Growth Stages & Feed Setup
+        $feed = [
+            'piglet_starter' => Setting::get('feed.stages.piglet_starter', 1.0),
+            'weaner' => Setting::get('feed.stages.weaner', 1.5),
+            'grower' => Setting::get('feed.stages.grower', 2.5),
+            'finisher' => Setting::get('feed.stages.finisher', 3.0),
+            'boar' => Setting::get('feed.stages.boar', 2.5),
+            'pregnant_sow' => Setting::get('feed.stages.pregnant_sow', 3.5),
+        ];
+        $stages = [
+            'piglet_max_days' => Setting::get('stages.piglet.max_days', 45),
+            'weaner_max_days' => Setting::get('stages.weaner.max_days', 105),
+            'grower_max_days' => Setting::get('stages.grower.max_days', 180)
+        ];
+
+        // Notification/Alert Analytics (live count by alert type)
+        $realTimeAlerts = [
+            'weight' => \App\Models\WeightAlert::where('acknowledged', false)->count(),
+            'critical' => \App\Models\WeightAlert::where('severity', 'high')->where('acknowledged', false)->count(),
+            'pending_weaning_alerts' => \App\Models\PigManagement::active()->whereNotNull('date_of_birth')->whereDoesntHave('weaning')->count(),
+        ];
+        $storedNotifications = [
+            'total' => \DB::table('notifications')->count(),
+            'unread' => \DB::table('notifications')->whereNull('read_at')->count(),
+        ];
+        // Soft deletes/archival
+        $softDeletes = [
+            'pigs_archived' => \App\Models\PigManagement::onlyTrashed()->count(),
+            'piglet_deaths_archived' => \App\Models\PigletDeath::onlyTrashed()->count(),
+            'sales_archived' => \App\Models\PigSale::onlyTrashed()->count(),
+            'deaths_archived' => \App\Models\PigDeath::onlyTrashed()->count(),
+            'pigs_active' => \App\Models\PigManagement::count(),
+        ];
+        // Piglet survivability
+        $liveBirths = \App\Models\Farrowing::sum('live_births');
+        $preWeaningDeaths = \App\Models\PigletDeath::whereHas('farrowing', function($q){ $q->where('status', 'active'); })->count();
+        $pigletSurvivalRate = $liveBirths > 0 ? round(100 * ($liveBirths - $preWeaningDeaths) / $liveBirths, 2) : null;
+        // Weaning details
+        $totalLittersWeaned = \App\Models\Weaning::distinct('mother_id')->count('mother_id');
+        $totalPigletsWeaned = \App\Models\Weaning::count();
+        $avgWeaningAge = \App\Models\Weaning::avg('age_at_weaning_days');
+        $avgWeaningWeight = \App\Models\Weaning::avg('weaning_weight');
+        // Sales/Procurement breakdown
+        $paidSales = \App\Models\PigSale::where('payment_status', 'paid')->count();
+        $unpaidSales = \App\Models\PigSale::where('payment_status', '!=', 'paid')->count();
+        $approvedFprs = \App\Models\FeedPurchaseRequest::where('status', 'approved')->count();
+        $pendingFprs = \App\Models\FeedPurchaseRequest::where('status', 'pending')->count();
+        $paidFprs = \App\Models\FeedPurchaseRequest::where('is_paid', true)->count();
+        // User roles
+        $roleCounts = \App\Models\User::with('role')->get()->groupBy(fn($u)=>optional($u->role)->name ?? 'unknown')->map->count();
+
         return view('settings.reports', compact(
             'summary',
             'pigDistribution', 
@@ -232,7 +319,23 @@ class SettingsController extends Controller
             'breedingStats',
             'healthStats',
             'weightAnalytics',
-            'structureStats'
+            'structureStats',
+            'feed',
+            'stages',
+            'realTimeAlerts',
+            'storedNotifications',
+            'softDeletes',
+            'pigletSurvivalRate',
+            'totalLittersWeaned',
+            'totalPigletsWeaned',
+            'avgWeaningAge',
+            'avgWeaningWeight',
+            'paidSales',
+            'unpaidSales',
+            'approvedFprs',
+            'pendingFprs',
+            'paidFprs',
+            'roleCounts'
         ));
     }
 
@@ -356,7 +459,20 @@ class SettingsController extends Controller
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ];
 
-        $callback = function() {
+        $feed = [
+            'piglet_starter' => Setting::get('feed.stages.piglet_starter', 1.0),
+            'weaner' => Setting::get('feed.stages.weaner', 1.5),
+            'grower' => Setting::get('feed.stages.grower', 2.5),
+            'finisher' => Setting::get('feed.stages.finisher', 3.0),
+            'boar' => Setting::get('feed.stages.boar', 2.5),
+            'pregnant_sow' => Setting::get('feed.stages.pregnant_sow', 3.5),
+        ];
+        $stages = [
+            'piglet_max_days' => Setting::get('stages.piglet.max_days', 45),
+            'weaner_max_days' => Setting::get('stages.weaner.max_days', 105),
+            'grower_max_days' => Setting::get('stages.grower.max_days', 180)
+        ];
+        $callback = function() use ($feed, $stages) {
             $file = fopen('php://output', 'w');
             
             // Executive Summary
@@ -404,11 +520,11 @@ class SettingsController extends Controller
             fputcsv($file, ['HEALTH & MORTALITY']);
             fputcsv($file, ['Total Deaths', PigDeath::count()]);
             fputcsv($file, ['Cause of Death', 'Count']);
-            $deathsByCause = PigDeath::selectRaw('cause_of_death, COUNT(*) as count')
-                ->groupBy('cause_of_death')
+            $deathsByCause = PigDeath::selectRaw('death_cause, COUNT(*) as count')
+                ->groupBy('death_cause')
                 ->get();
             foreach ($deathsByCause as $death) {
-                fputcsv($file, [$death->cause_of_death, $death->count]);
+                fputcsv($file, [$death->death_cause, $death->count]);
             }
             fputcsv($file, []); // Empty row
             
@@ -463,9 +579,159 @@ class SettingsController extends Controller
                 ]);
             }
             
+            // New: Growth Stages & Feed Setup section
+            fputcsv($file, []);
+            fputcsv($file, ['GROWTH STAGES & AGE REQUIREMENTS']);
+            fputcsv($file, ['Stage', 'Max Age (days)']);
+            fputcsv($file, ['Piglet', $stages['piglet_max_days']]);
+            fputcsv($file, ['Weaner', $stages['weaner_max_days']]);
+            fputcsv($file, ['Grower', $stages['grower_max_days']]);
+            fputcsv($file, []);
+            fputcsv($file, ['FEED SETUP (kg/day)']);
+            fputcsv($file, ['Piglet Starter', $feed['piglet_starter']]);
+            fputcsv($file, ['Weaner', $feed['weaner']]);
+            fputcsv($file, ['Grower', $feed['grower']]);
+            fputcsv($file, ['Finisher', $feed['finisher']]);
+            fputcsv($file, ['Boar', $feed['boar']]);
+            fputcsv($file, ['Pregnant Sow', $feed['pregnant_sow']]);
+            
             fclose($file);
         };
 
         return response()->stream($callback, 200, $headers);
     }
+
+    /**
+     * Show users management page
+     */
+    public function users(Request $request)
+    {
+        // Restrict to superuser only
+        abort_unless(auth()->check() && auth()->user()->isSuperuser(), 403);
+
+        $users = User::with(['role'])->orderBy('created_at', 'desc')->paginate(10);
+        $roles = Role::all();
+
+        return view('settings.users', compact('users', 'roles'));
+    }
+
+    /**
+     * Store a new user
+     */
+    public function storeUser(Request $request)
+    {
+        // Restrict to superuser only
+        abort_unless(auth()->check() && auth()->user()->isSuperuser(), 403);
+
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'max:50'],
+            'last_name' => ['required', 'string', 'max:50'],
+            'email' => ['required', 'string', 'email', 'max:50', 'unique:users'],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'role' => ['required', 'string', 'max:50'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'active_status' => ['sometimes', 'boolean'],
+        ]);
+
+        // Find or create role
+        $role = Role::firstOrCreate(['name' => $validated['role']]);
+
+        $user = User::create([
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
+            'name' => $validated['first_name'] . ' ' . $validated['last_name'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'] ?? null,
+            'role' => $validated['role'],
+            'role_id' => $role->id,
+            'password' => Hash::make($validated['password']),
+            'active_status' => $request->has('active_status') ? (bool)$request->input('active_status') : false,
+        ]);
+
+        return redirect()->route('settings.users')->with('success', 'User created successfully.');
+    }
+
+    /**
+     * Update a user
+     */
+    public function updateUser(Request $request, User $user)
+    {
+        // Restrict to superuser only
+        abort_unless(auth()->check() && auth()->user()->isSuperuser(), 403);
+
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'max:50'],
+            'last_name' => ['required', 'string', 'max:50'],
+            'email' => ['required', 'string', 'email', 'max:50', 'unique:users,email,' . $user->id],
+            'phone' => ['nullable', 'string', 'max:20'],
+            'role' => ['required', 'string', 'max:50'],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+            'active_status' => ['sometimes', 'boolean'],
+        ]);
+
+        // Find or create role
+        $role = Role::firstOrCreate(['name' => $validated['role']]);
+
+        $user->update([
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
+            'name' => $validated['first_name'] . ' ' . $validated['last_name'],
+            'email' => $validated['email'],
+            'phone' => $validated['phone'] ?? null,
+            'role' => $validated['role'],
+            'role_id' => $role->id,
+            'active_status' => $request->has('active_status') ? (bool)$request->input('active_status') : false,
+        ]);
+
+        if (!empty($validated['password'])) {
+            $user->update(['password' => Hash::make($validated['password'])]);
+        }
+
+        return redirect()->route('settings.users')->with('success', 'User updated successfully.');
+    }
+
+    /**
+     * Update user active status
+     */
+    public function updateUserStatus(Request $request, User $user)
+    {
+        // Restrict to superuser only
+        abort_unless(auth()->check() && auth()->user()->isSuperuser(), 403);
+
+        $validated = $request->validate([
+            'active_status' => ['required', 'boolean'],
+        ]);
+
+        $user->update(['active_status' => $validated['active_status']]);
+
+        $message = $validated['active_status']
+            ? 'User has been activated successfully.'
+            : 'User has been deactivated successfully.';
+
+        return response()->json(['success' => true, 'message' => $message]);
+    }
+
+    /**
+     * Delete a user
+     */
+    public function deleteUser(User $user)
+    {
+        // Restrict to superuser only
+        abort_unless(auth()->check() && auth()->user()->isSuperuser(), 403);
+
+        // Prevent deleting any superuser account (protects the system even if UI is bypassed)
+        if ($user->isSuperuser()) {
+            return redirect()->route('settings.users')->with('error', 'You cannot delete a superuser account.');
+        }
+
+        // Prevent deleting yourself
+        if ($user->id === auth()->id()) {
+            return redirect()->route('settings.users')->with('error', 'You cannot delete your own account.');
+        }
+
+        $user->delete();
+
+        return redirect()->route('settings.users')->with('success', 'User deleted successfully.');
+    }
+
 }

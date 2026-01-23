@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
-
 class PigWeight extends Model
 {
     protected $fillable = [
@@ -20,7 +19,7 @@ class PigWeight extends Model
         'purpose',
         'is_estimated',
         'body_condition_score',
-        'health_status'
+        'health_status',
     ];
 
     protected $casts = [

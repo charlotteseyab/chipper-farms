@@ -520,6 +520,74 @@
         @endif
     </div>
 
+    <!-- System Notifications & Alerts -->
+    <div class="section">
+        <h2>System Notifications & Alerts</h2>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Type</th><th>Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td>Stored Notifications (Unread / Total)</td><td>{{ $storedNotifications['unread'] ?? 0 }} / {{ $storedNotifications['total'] ?? 0 }}</td></tr>
+                <tr><td>Live Weighing Alerts</td><td>{{ $realTimeAlerts['weight'] ?? 0 }}</td></tr>
+                <tr><td>Critical Alerts</td><td>{{ $realTimeAlerts['critical'] ?? 0 }}</td></tr>
+                <tr><td>Pending Weaning Alerts</td><td>{{ $realTimeAlerts['pending_weaning_alerts'] ?? 0 }}</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <!-- Archival & Soft-deleted Records -->
+    <div class="section">
+        <h2>Archival & Soft-deleted Records</h2>
+        <table class="data-table"><tbody>
+            <tr><td>Archived Pigs</td><td>{{ $softDeletes['pigs_archived'] ?? 0 }}</td></tr>
+            <tr><td>Archived Piglet Deaths</td><td>{{ $softDeletes['piglet_deaths_archived'] ?? 0 }}</td></tr>
+            <tr><td>Archived Sales</td><td>{{ $softDeletes['sales_archived'] ?? 0 }}</td></tr>
+            <tr><td>Archived Deaths</td><td>{{ $softDeletes['deaths_archived'] ?? 0 }}</td></tr>
+            <tr><td>Active Pigs</td><td>{{ $softDeletes['pigs_active'] ?? 0 }}</td></tr>
+        </tbody></table>
+    </div>
+    <!-- Piglet Survivability Analytics -->
+    <div class="section">
+        <h2>Piglet Survivability Summary</h2>
+        <table class="data-table"><tbody>
+            <tr><td>Total Live Births</td><td>{{ number_format($liveBirths ?? 0) }}</td></tr>
+            <tr><td>Pre-Weaning Deaths</td><td>{{ number_format($preWeaningDeaths ?? 0) }}</td></tr>
+            <tr><td>Piglet Survival Rate</td><td>{{ $pigletSurvivalRate !== null ? $pigletSurvivalRate.'%' : 'N/A' }}</td></tr>
+        </tbody></table>
+    </div>
+    <!-- Weaning Summary -->
+    <div class="section">
+        <h2>Weaning Statistics</h2>
+        <table class="data-table"><tbody>
+            <tr><td>Total Litters Weaned</td><td>{{ number_format($totalLittersWeaned ?? 0) }}</td></tr>
+            <tr><td>Total Piglets Weaned</td><td>{{ number_format($totalPigletsWeaned ?? 0) }}</td></tr>
+            <tr><td>Avg Weaning Age (days)</td><td>{{ $avgWeaningAge !== null ? number_format($avgWeaningAge,1) : 'N/A' }}</td></tr>
+            <tr><td>Avg Weaning Weight (kg)</td><td>{{ $avgWeaningWeight !== null ? number_format($avgWeaningWeight,1) : 'N/A' }}</td></tr>
+        </tbody></table>
+    </div>
+    <!-- Sales/Procurement Card -->
+    <div class="section">
+        <h2>Sales & Procurement</h2>
+        <table class="data-table"><tbody>
+            <tr><td>Paid Sales</td><td>{{ $paidSales ?? 0 }}</td></tr>
+            <tr><td>Unpaid Sales</td><td>{{ $unpaidSales ?? 0 }}</td></tr>
+            <tr><td>Approved Purchase Req.</td><td>{{ $approvedFprs ?? 0 }}</td></tr>
+            <tr><td>Pending Purchase Req.</td><td>{{ $pendingFprs ?? 0 }}</td></tr>
+            <tr><td>Paid Purchase Req.</td><td>{{ $paidFprs ?? 0 }}</td></tr>
+        </tbody></table>
+    </div>
+    <!-- User Roles Card -->
+    <div class="section">
+        <h2>User Role Breakdown</h2>
+        <table class="data-table"><thead><tr><th>Role</th><th>Count</th></tr></thead><tbody>
+        @foreach($roleCounts ?? [] as $role => $count)
+            <tr><td>{{ ucfirst($role) }}</td><td>{{ $count }}</td></tr>
+        @endforeach
+        </tbody></table>
+    </div>
+
     <div class="footer">
         <p>This report was generated automatically by the Chipper Farms Management System</p>
     </div>

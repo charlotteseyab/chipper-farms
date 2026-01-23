@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
 class Weaning extends Model
 {
     use HasFactory;
@@ -32,7 +31,7 @@ class Weaning extends Model
         'next_destination',
         'growth_performance',
         'maturity_notes',
-        'completed_by'
+        'completed_by',
     ];
 
     protected $casts = [

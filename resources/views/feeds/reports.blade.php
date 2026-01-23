@@ -56,7 +56,154 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Weekly / Monthly Required Totals -->
+            <!-- <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-white rounded-2xl shadow border border-gray-100 p-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-lg font-semibold text-gray-900">Weekly Feed Need vs Used</h3>
+                        <span class="text-xs text-gray-500">Planned vs fed (kg) per ISO week</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-100 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Week</th>
+                                    <th class="px-4 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Planned (kg)</th>
+                                    <th class="px-4 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Fed (kg)</th>
+                                    <th class="px-4 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Variance</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @php
+                                    $weeks = collect($weeklyRequiredTotals ?? [])->keys()
+                                        ->merge(collect($weeklyFedTotals ?? [])->keys())
+                                        ->unique()->sort();
+                                @endphp
+                                @forelse($weeks as $week)
+                                    @php
+                                        $planned = ($weeklyRequiredTotals[$week] ?? 0);
+                                        $fed = ($weeklyFedTotals[$week] ?? 0);
+                                        $variance = $fed - $planned;
+                                    @endphp
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-4 py-2 text-sm text-gray-900">{{ $week }}</td>
+                                        <td class="px-4 py-2 text-sm text-right font-semibold text-gray-900">{{ number_format($planned, 2) }}</td>
+                                        <td class="px-4 py-2 text-sm text-right font-semibold text-gray-900">{{ number_format($fed, 2) }}</td>
+                                        <td class="px-4 py-2 text-sm text-right font-semibold {{ $variance >= 0 ? 'text-green-700' : 'text-red-700' }}">
+                                            {{ number_format($variance, 2) }}
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="4" class="px-4 py-4 text-center text-gray-500 text-sm">No data</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow border border-gray-100 p-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-lg font-semibold text-gray-900">Monthly Feed Need vs Used</h3>
+                        <span class="text-xs text-gray-500">Planned vs fed (kg) per month</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-100 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Month</th>
+                                    <th class="px-4 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Planned (kg)</th>
+                                    <th class="px-4 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Fed (kg)</th>
+                                    <th class="px-4 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">Variance</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @php
+                                    $months = collect($monthlyRequiredTotals ?? [])->keys()
+                                        ->merge(collect($monthlyFedTotals ?? [])->keys())
+                                        ->unique()->sort();
+                                @endphp
+                                @forelse($months as $month)
+                                    @php
+                                        $planned = ($monthlyRequiredTotals[$month] ?? 0);
+                                        $fed = ($monthlyFedTotals[$month] ?? 0);
+                                        $variance = $fed - $planned;
+                                    @endphp
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="px-4 py-2 text-sm text-gray-900">{{ $month }}</td>
+                                        <td class="px-4 py-2 text-sm text-right font-semibold text-gray-900">{{ number_format($planned, 2) }}</td>
+                                        <td class="px-4 py-2 text-sm text-right font-semibold text-gray-900">{{ number_format($fed, 2) }}</td>
+                                        <td class="px-4 py-2 text-sm text-right font-semibold {{ $variance >= 0 ? 'text-green-700' : 'text-red-700' }}">
+                                            {{ number_format($variance, 2) }}
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="4" class="px-4 py-4 text-center text-gray-500 text-sm">No data</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div> -->
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                @php
+                    $defaultWeekKey = collect($weeklyIdealTotals ?? [])->keys()->first();
+                    $defaultMonthKey = collect($monthlyIdealTotals ?? [])->keys()->first();
+                    $defaultWeekTotal = $defaultWeekKey ? ($weeklyIdealTotals[$defaultWeekKey]['total'] ?? $weeklyIdealTotals[$defaultWeekKey] ?? 0) : 0;
+                    $defaultMonthTotal = $defaultMonthKey ? ($monthlyIdealTotals[$defaultMonthKey]['total'] ?? $monthlyIdealTotals[$defaultMonthKey] ?? 0) : 0;
+                @endphp
+
+                <div class="group relative overflow-hidden rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-emerald-100 transition-all hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]" x-data="{
+                    mode: 'week',
+                    week: '{{ $defaultWeekKey }}',
+                    month: '{{ $defaultMonthKey }}',
+                    totals: {
+                        weeks: {
+                        @foreach($weeklyIdealTotals ?? [] as $wKey => $val)
+                            '{{ $wKey }}': {{ is_array($val) ? ($val['total'] ?? 0) : $val }},
+                        @endforeach
+                        },
+                        months: {
+                        @foreach($monthlyIdealTotals ?? [] as $mKey => $val)
+                            '{{ $mKey }}': {{ is_array($val) ? ($val['total'] ?? 0) : $val }},
+                        @endforeach
+                        }
+                    },
+                    formatted(val){ return (val ?? 0).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' kg'; }
+                }">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-xs font-bold uppercase text-emerald-500">Estimated Feed Need</p>
+                        <div class="bg-emerald-50 p-1 rounded-lg flex gap-1">
+                            <button type="button" @click="mode='week'" :class="mode==='week' ? 'bg-emerald-600 text-white' : 'text-emerald-700'" class="px-2 py-1 rounded-md text-[11px] font-semibold">Week</button>
+                            <button type="button" @click="mode='month'" :class="mode==='month' ? 'bg-emerald-600 text-white' : 'text-emerald-700'" class="px-2 py-1 rounded-md text-[11px] font-semibold">Month</button>
+                        </div>
+                    </div>
+                    <div class="mt-1">
+                        <template x-if="mode==='week'">
+                            <div>
+                                <select x-model="week" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                                    @foreach($weeklyIdealTotals ?? [] as $wKey => $val)
+                                        <option value="{{ $wKey }}">{{ $wKey }}</option>
+                                    @endforeach
+                                </select>
+                                <p class="text-[11px] text-slate-500 mt-1">Total for <span class="font-semibold" x-text="week"></span></p>
+                                <p class="text-2xl font-black text-emerald-700" x-text="formatted(totals.weeks[week])">{{ number_format($defaultWeekTotal,1) }} kg</p>
+                            </div>
+                        </template>
+                        <template x-if="mode==='month'">
+                            <div>
+                                <select x-model="month" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                                    @foreach($monthlyIdealTotals ?? [] as $mKey => $val)
+                                        <option value="{{ $mKey }}">{{ $mKey }}</option>
+                                    @endforeach
+                                </select>
+                                <p class="text-[11px] text-slate-500 mt-1">Total for <span class="font-semibold" x-text="month"></span></p>
+                                <p class="text-2xl font-black text-emerald-700" x-text="formatted(totals.months[month])">{{ number_format($defaultMonthTotal,1) }} kg</p>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
                 <div class="group relative overflow-hidden rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 transition-all hover:-translate-y-1 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
                     <div class="absolute top-0 right-0 -mt-4 -mr-4 h-24 w-24 rounded-full bg-violet-50 blur-2xl opacity-50 group-hover:opacity-100 transition-opacity"></div>
                     <div class="flex items-center gap-5 relative">
@@ -472,6 +619,159 @@
                     @endif
                 </div>
             </div>
+
+            @php
+                $dailyPage = request()->input('feed_daily_page', 1);
+                $dailyPaginate = collect($dailyIdealFeed)->slice(($dailyPage-1)*10, 10);
+                $totalDays = count($dailyIdealFeed);
+                $maxPage = ceil($totalDays/10);
+
+                $weeklyPage = request()->input('feed_weekly_page', 1);
+                $weeklyPaginate = collect($weeklyIdealTotals)->slice(($weeklyPage-1)*10, 10);
+                $totalWeeks = count($weeklyIdealTotals);
+                $maxWeeklyPage = ceil($totalWeeks/10);
+
+                $monthlyPage = request()->input('feed_monthly_page', 1);
+                $monthlyPaginate = collect($monthlyIdealTotals)->slice(($monthlyPage-1)*10, 10);
+                $totalMonths = count($monthlyIdealTotals);
+                $maxMonthlyPage = ceil($totalMonths/10);
+            @endphp
+
+            <div class="bg-white rounded-2xl shadow border border-green-200 p-6 mt-12" id="feed-ideal-table">
+  <h3 class="text-lg font-extrabold text-green-900 mb-2">Ideal Feed Requirement — Based on Animal Population</h3>
+  <p class="text-xs text-green-700 mb-2">Feed (kg) calculated per live animal category per day using the actual stage population and your setup settings. <span title="Feed/day set on Settings > Feed Setup">&#9432;</span></p>
+  <ul class="flex flex-wrap gap-6 items-end mb-4">
+    @foreach($feedSetup as $stage=>$kgDay)
+      @if(str_ends_with($stage,'kg_day'))
+      <li class="flex flex-col mr-2">
+        <span class="font-bold text-sm uppercase">{{ Str::title(str_replace(['_kg_day','_'],['', ' '], $stage)) }}</span>
+        <span class="font-mono text-emerald-900 text-lg">{{ $kgDay }}</span>
+        <span class="text-xs text-slate-400">kg/animal/day</span>
+      </li>
+      @endif
+    @endforeach
+  </ul>
+
+  <div class="overflow-x-auto custom-scrollbar mb-6 max-h-[430px]">
+    <h4 class="font-bold text-green-900 text-xs uppercase mb-1">Daily Requirement</h4>
+    <table class="min-w-full text-xs border mb-2">
+      <thead class="bg-green-50 sticky top-0 z-20">
+        <tr>
+          <th class="px-3 py-2 font-bold text-left uppercase sticky left-0 bg-green-50">Date</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Piglets (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Weaners (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Growers (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Finishers (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Boars (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Preg. Sows (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Other Sows (kg)</th>
+          <th class="px-2 py-2 font-bold text-right uppercase text-green-900">Total (kg)</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach($dailyFeedPaginator as $date => $info)
+        <tr class="hover:bg-green-200/5 border-b">
+          <td class="px-3 py-1 text-slate-600">{{ $date }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($info['needed']['piglets'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($info['needed']['weaners'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($info['needed']['growers'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($info['needed']['finishers'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($info['needed']['boars'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($info['needed']['pregnant_sows'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($info['needed']['other_sows'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-right font-bold text-green-900">{{ number_format($info['needed']['total'] ?? 0, 1) }}</td>
+        </tr>
+        @endforeach
+      </tbody>
+    </table>
+    <div class="flex items-center justify-between mt-3 text-xs">
+      <span>
+        Showing {{ $dailyFeedPaginator->firstItem() }} to {{ $dailyFeedPaginator->lastItem() }} of {{ $dailyFeedPaginator->total() }} days
+      </span>
+      <x-simple-pagination :paginator="$dailyFeedPaginator" />
+    </div>
+  </div>
+
+  <div class="overflow-x-auto custom-scrollbar mb-6 max-h-[430px] mt-6">
+    <h4 class="font-bold text-green-900 text-xs uppercase mb-1">Weekly Requirement</h4>
+    <table class="min-w-full text-xs border mb-2">
+      <thead class="bg-green-50 sticky top-0 z-20">
+        <tr>
+          <th class="px-3 py-2 font-bold text-left uppercase sticky left-0 bg-green-50">Week</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Piglets (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Weaners (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Growers (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Finishers (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Boars (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Preg. Sows (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Other Sows (kg)</th>
+          <th class="px-2 py-2 font-bold text-right uppercase text-green-900">Total (kg)</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach($weeklyFeedPaginator as $week => $totals)
+        <tr class="hover:bg-green-200/5 border-b">
+          <td class="px-3 py-1 text-slate-600">{{ $week }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($totals['piglets'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($totals['weaners'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($totals['growers'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($totals['finishers'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($totals['boars'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($totals['pregnant_sows'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($totals['other_sows'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-right font-bold text-green-900">{{ number_format($totals['total'] ?? 0, 1) }}</td>
+        </tr>
+        @endforeach
+      </tbody>
+    </table>
+    <div class="flex items-center justify-between mt-3 text-xs">
+      <span>
+        Showing {{ $weeklyFeedPaginator->firstItem() }} to {{ $weeklyFeedPaginator->lastItem() }} of {{ $weeklyFeedPaginator->total() }} weeks
+      </span>
+      <x-simple-pagination :paginator="$weeklyFeedPaginator" />
+    </div>
+  </div>
+
+  <div class="overflow-x-auto custom-scrollbar mb-6 max-h-[430px] mt-6">
+    <h4 class="font-bold text-green-900 text-xs uppercase mb-1">Monthly Requirement</h4>
+    <table class="min-w-full text-xs border mb-2">
+      <thead class="bg-green-50 sticky top-0 z-20">
+        <tr>
+          <th class="px-3 py-2 font-bold text-left uppercase sticky left-0 bg-green-50">Month</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Piglets (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Weaners (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Growers (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Finishers (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Boars (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Preg. Sows (kg)</th>
+          <th class="px-2 py-2 font-bold text-center uppercase">Other Sows (kg)</th>
+          <th class="px-2 py-2 font-bold text-right uppercase text-green-900">Total (kg)</th>
+        </tr>
+      </thead>
+      <tbody>
+        @foreach($monthlyFeedPaginator as $month => $totals)
+        <tr class="hover:bg-green-200/5 border-b">
+          <td class="px-3 py-1 text-slate-600">{{ $month }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($totals['piglets'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($totals['weaners'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($totals['growers'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($totals['finishers'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($totals['boars'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($totals['pregnant_sows'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-center">{{ number_format($totals['other_sows'] ?? 0, 1) }}</td>
+          <td class="px-2 py-1 text-right font-bold text-green-900">{{ number_format($totals['total'] ?? 0, 1) }}</td>
+        </tr>
+        @endforeach
+      </tbody>
+    </table>
+    <div class="flex items-center justify-between mt-3 text-xs">
+      <span>
+        Showing {{ $monthlyFeedPaginator->firstItem() }} to {{ $monthlyFeedPaginator->lastItem() }} of {{ $monthlyFeedPaginator->total() }} months
+      </span>
+      <x-simple-pagination :paginator="$monthlyFeedPaginator" />
+    </div>
+  </div>
+</div>
 
         </div>
     </div>

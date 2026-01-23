@@ -158,7 +158,7 @@
                 $breeds = $pigs->groupBy('breed');
                 $breedCounts = [];
                 foreach($breeds as $breed => $group) {
-                    $breedName = $breed == 'LW' ? 'Large White' : ($breed == 'DR' ? 'Duroc' : 'Mixed Breed');
+                    $breedName = $breed == 'LW' ? 'Large White' : ($breed == 'DR' ? 'Duroc' : ($breed == 'LWDR' ? 'Large White Duroc' : $breed));
                     $breedCounts[] = $breedName . ' (' . count($group) . ')';
                 }
                 echo implode(', ', $breedCounts);

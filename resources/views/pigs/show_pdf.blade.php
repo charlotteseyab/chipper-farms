@@ -22,12 +22,6 @@
         .mt-1 { margin-top: 4px; }
         .mt-2 { margin-top: 8px; }
         .mt-3 { margin-top: 12px; }
-        .footer {
-            margin-top: 24px;
-            text-align: center;
-            color: #94a3b8;
-            font-size: 9px;
-        }
     </style>
 </head>
 <body>
@@ -135,6 +129,73 @@
             </tbody>
         </table>
     </div>
+
+    @if(isset($analytics['total_records']) && $analytics['total_records'] >= 2)
+        <div class="section">
+            <h2>Growth Period Analysis</h2>
+            
+            <div class="mt-2">
+                <table>
+                    <tbody>
+                        <tr>
+                            <th>First Weight</th>
+                            <td>{{ number_format($analytics['first_weight']->weight, 2) }} kg</td>
+                            <th>Date</th>
+                            <td>{{ $analytics['first_weight']->weigh_date->format('Y-m-d') }}</td>
+                        </tr>
+                        <tr>
+                            <th>Latest Weight</th>
+                            <td>{{ number_format($analytics['latest_weight']->weight, 2) }} kg</td>
+                            <th>Date</th>
+                            <td>{{ $analytics['latest_weight']->weigh_date->format('Y-m-d') }}</td>
+                        </tr>
+                        <tr>
+                            <th>Total Weight Gain</th>
+                            <td>{{ number_format($analytics['weight_gain'], 2) }} kg</td>
+                            <th>Average Daily Gain</th>
+                            <td>{{ number_format($analytics['avg_daily_gain'], 3) }} kg/day</td>
+                        </tr>
+                        <tr>
+                            <th>Total Period</th>
+                            <td>{{ $analytics['first_weight']->weigh_date->diffInDays($analytics['latest_weight']->weigh_date) }} days</td>
+                            <th>Weight Records</th>
+                            <td>{{ $analytics['total_records'] }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            @if(isset($analytics['growth_periods']) && count($analytics['growth_periods']) > 0)
+                <h3 class="mt-3" style="font-size: 12px; margin-top: 12px;">Growth Periods Breakdown</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>From Date</th>
+                            <th>To Date</th>
+                            <th>Days</th>
+                            <th>From Weight (kg)</th>
+                            <th>To Weight (kg)</th>
+                            <th>Weight Gain (kg)</th>
+                            <th>Daily Gain (kg/day)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($analytics['growth_periods'] as $period)
+                            <tr>
+                                <td>{{ $period['from_date']->format('Y-m-d') }}</td>
+                                <td>{{ $period['to_date']->format('Y-m-d') }}</td>
+                                <td>{{ $period['days'] }}</td>
+                                <td>{{ number_format($period['from_weight'], 2) }}</td>
+                                <td>{{ number_format($period['to_weight'], 2) }}</td>
+                                <td>{{ number_format($period['weight_gain'], 2) }}</td>
+                                <td>{{ number_format($period['daily_gain'], 3) }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @endif
+        </div>
+    @endif
 
     @if($offspring->count() > 0)
         <div class="section">
@@ -264,10 +325,6 @@
             </table>
         </div>
     @endif
-
-    <div class="footer">
-        Generated automatically by Chipper Farms • {{ now()->format('Y-m-d H:i:s') }}
-    </div>
 
 </body>
 </html>
