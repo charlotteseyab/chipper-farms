@@ -18,11 +18,6 @@ class Group extends Model
         return $this->hasMany(PigManagement::class, 'group_id');
     }
 
-    public function groupFeedings(): HasMany
-    {
-        return $this->hasMany(GroupFeeding::class);
-    }
-
     public function structure(): BelongsTo
     {
         return $this->belongsTo(Structure::class);

@@ -13,10 +13,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('weights:notify')->everyMinute();
         // Gestation notifications: run continuously to catch events in real-time
         $schedule->command('gestation:notify')->everyMinute();
-        
-        // Check feed inventory levels daily at 02:00
-        $schedule->command('feeds:check-inventory')->dailyAt('02:00');
-        
+                
         // Process notifications every 5 minutes
         $schedule->command('notifications:process')->everyFiveMinutes();
     }

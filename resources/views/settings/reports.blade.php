@@ -186,37 +186,6 @@
                 </div>
             </div>
 
-            <!-- Feed Setup Card -->
-            <div class="bg-emerald-50 border-l-4 border-emerald-400 rounded-lg shadow-sm mb-6 p-6">
-                <h2 class="text-lg font-bold text-emerald-800 mb-4">Feed Setup</h2>
-                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    <div>
-                        <span class="block text-xs text-gray-500">Piglet Starter</span>
-                        <span class="text-lg font-semibold text-gray-900">{{ $feed['piglet_starter'] ?? '?' }} kg/day</span>
-                    </div>
-                    <div>
-                        <span class="block text-xs text-gray-500">Weaner</span>
-                        <span class="text-lg font-semibold text-gray-900">{{ $feed['weaner'] ?? '?' }} kg/day</span>
-                    </div>
-                    <div>
-                        <span class="block text-xs text-gray-500">Grower</span>
-                        <span class="text-lg font-semibold text-gray-900">{{ $feed['grower'] ?? '?' }} kg/day</span>
-                    </div>
-                    <div>
-                        <span class="block text-xs text-gray-500">Finisher</span>
-                        <span class="text-lg font-semibold text-gray-900">{{ $feed['finisher'] ?? '?' }} kg/day</span>
-                    </div>
-                    <div>
-                        <span class="block text-xs text-gray-500">Boar</span>
-                        <span class="text-lg font-semibold text-gray-900">{{ $feed['boar'] ?? '?' }} kg/day</span>
-                    </div>
-                    <div>
-                        <span class="block text-xs text-gray-500">Pregnant Sow</span>
-                        <span class="text-lg font-semibold text-gray-900">{{ $feed['pregnant_sow'] ?? '?' }} kg/day</span>
-                    </div>
-                </div>
-            </div>
-
             <!-- Detailed Statistics Grid -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <!-- Pig Distribution -->

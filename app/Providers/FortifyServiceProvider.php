@@ -49,7 +49,7 @@ class FortifyServiceProvider extends ServiceProvider
             return view('auth.register');
         });
 
-        // Relax Fortify built-in throttle; we'll enforce our custom 20s lock below
+        // Relax Fortify built-in throttle; we'll enforce our custom 60s lock below
         RateLimiter::for('login', function (Request $request) {
             $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())).'|'.$request->ip());
             return Limit::perMinute(1000)->by($throttleKey);
@@ -59,7 +59,7 @@ class FortifyServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by($request->session()->get('login.id'));
         });
 
-        // Custom authentication to enforce 20-second lock after 5 failed attempts
+        // Custom authentication to enforce 60-second lock after 5 failed attempts
         Fortify::authenticateUsing(function (Request $request) {
             $username = Fortify::username();
             $identifier = Str::transliterate(Str::lower((string) $request->input($username)).'|'.$request->ip());
@@ -130,11 +130,11 @@ class FortifyServiceProvider extends ServiceProvider
             $attempts = (int) Cache::increment($attemptsKey);
 
             if ($attempts >= 5) {
-                $until = time() + 20;
-                Cache::put($lockKey, true, now()->addSeconds(20));
-                Cache::put($lockUntilKey, $until, now()->addSeconds(20));
+                $until = time() + 60;
+                Cache::put($lockKey, true, now()->addSeconds(60));
+                Cache::put($lockUntilKey, $until, now()->addSeconds(60));
                 Cache::forget($attemptsKey);
-                $remaining = 20;
+                $remaining = 60;
                 // Log locked-on-threshold attempt
                 try {
                     ActivityLog::create([

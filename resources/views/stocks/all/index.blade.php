@@ -1,12 +1,20 @@
 <x-app-layout>
-    <main class="flex-1 p-8">
+    <main class="flex-1 p-8 pt-0">
         <div class="max-w-6xl mx-auto">
             <div class="flex justify-between items-center mb-6">
                 <div>
                     <!-- <h2 class="text-3xl font-bold text-gray-900">🐷 All Stock Management</h2>
                     <p class="text-gray-600 mt-1">Manage and monitor all pigs in your farm</p> -->
                 </div>
-                <div class="flex gap-3">
+            </div>
+
+
+            <div class="bg-white shadow-xl rounded-lg">
+                <div class="flex items-center justify-end p-4 ">
+                    <!-- <div class="flex items-center">
+                        <input id="quickSearch" type="text" placeholder="Quick search..." class="w-64 border-gray-300 rounded-lg shadow-sm focus:ring-[#1C6C51] focus:border-[#1C6C51]">
+                    </div> -->
+                    <div class="flex gap-3">
                     <a href="{{ route('all-stocks.create') }}"
                        class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition shadow-sm">
                         <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -15,16 +23,6 @@
                         Add New Stock
                     </a>
                 </div>
-            </div>
-
-            <!-- Weight Alerts Summary -->
-            <x-weight-alerts-summary />
-
-            <div class="bg-white shadow-xl rounded-lg">
-                <div class="flex items-center justify-end p-4 ">
-                    <!-- <div class="flex items-center">
-                        <input id="quickSearch" type="text" placeholder="Quick search..." class="w-64 border-gray-300 rounded-lg shadow-sm focus:ring-[#1C6C51] focus:border-[#1C6C51]">
-                    </div> -->
                 </div>
                 <!-- Filters and Export Buttons integrated with table -->
                 <div class="p-6 border-b border-gray-200">
@@ -292,25 +290,25 @@
                                     </div>
                                 </div>
                             </td>
-        </tr>
-      @empty
-        <tr>
-          <td colspan="11" class="px-6 py-12 text-center text-sm text-gray-500">
-            No stock found
-          </td>
-        </tr>
-      @endforelse
-      <tr id="clientNoMatchRow" class="hidden">
-        <td colspan="11" class="px-6 py-12 text-center text-sm text-gray-500">No matches for your search.</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+                        </tr>
+                    @empty
+                        <tr>
+                        <td colspan="11" class="px-6 py-12 text-center text-sm text-gray-500">
+                            No stock found
+                        </td>
+                        </tr>
+                    @endforelse
+                    <tr id="clientNoMatchRow" class="hidden">
+                        <td colspan="11" class="px-6 py-12 text-center text-sm text-gray-500">No matches for your search.</td>
+                    </tr>
+                    </tbody>
+                </table>
+                </div>
 
 
                 
                 <!-- Pagination (embedded, simple style) -->
-                @if($pigmanagement->hasPages())
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
                     <div class="px-6 py-4 border-t border-gray-200 bg-white">
                         <div class="flex items-center justify-between">
                             <div class="text-sm text-gray-700">
@@ -321,7 +319,7 @@
                             </div>
                         </div>
                     </div>
-                @endif
+                
             </div>
         </div>
     </main>

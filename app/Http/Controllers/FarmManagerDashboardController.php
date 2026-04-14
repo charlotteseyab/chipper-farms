@@ -13,99 +13,170 @@ use Illuminate\Support\Collection;
 class FarmManagerDashboardController extends Controller
 {
     public function __invoke()
-    {
-        $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+{
+    $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
 
-        $weanedActive = PigManagement::active()->count();
-        $recentFarrowings = Farrowing::with('pigletDeaths')
-            ->where('farrowing_date', '>=', now()->subDays($weaningAge))
-            ->where('status', 'active')
-            ->get();
+    $activeBaseQuery = PigManagement::active();
 
-        $activePigletsAdjusted = $recentFarrowings->reduce(function ($carry, Farrowing $farrowing) {
-            $liveBirths = (int) ($farrowing->live_births ?? 0);
-            $deaths = (int) $farrowing->pigletDeaths->sum('count');
-            return $carry + max(0, $liveBirths - $deaths);
-        }, 0);
+    $weanedActive = (clone $activeBaseQuery)->count();
 
-        $totalStockActive = $weanedActive + $activePigletsAdjusted;
-        $breedingStockActive = PigManagement::active()->where('stock_type', 'breeding')->count();
-        $standardStockActive = PigManagement::active()->where('stock_type', 'standard')->count();
+    $recentFarrowings = Farrowing::with('pigletDeaths')
+        ->where('farrowing_date', '>=', now()->subDays($weaningAge))
+        ->where('status', 'active')
+        ->get();
 
-        $breedingStockTotal = PigManagement::where('stock_type', 'breeding')->count();
-        $breedingFemales = PigManagement::where('stock_type', 'breeding')->where('gender', 'F')->count();
-        $breedingMales = PigManagement::where('stock_type', 'breeding')->where('gender', 'M')->count();
+    $activePigletsAdjusted = $recentFarrowings->reduce(function ($carry, Farrowing $farrowing) {
+        $liveBirths = (int) ($farrowing->live_births ?? 0);
+        $deaths = (int) $farrowing->pigletDeaths->sum('count');
+        return $carry + max(0, $liveBirths - $deaths);
+    }, 0);
 
-        $criticalAlerts = WeightAlert::where('severity', 'high')->where('acknowledged', false)->count();
+    $totalStockActive = $weanedActive + $activePigletsAdjusted;
 
-        $totalWeaned = PigManagement::count();
-        $totalPiglets = Farrowing::where('farrowing_date', '>=', now()->subDays($weaningAge))
-            ->where('status', 'active')
-            ->sum('live_births');
-        $totalPigsAll = $totalWeaned + $totalPiglets;
-        $totalDeaths = PigDeath::count();
-        $mortalityRate = $totalPigsAll > 0 ? ($totalDeaths / $totalPigsAll) * 100 : 0;
+    $breedingStockActive = (clone $activeBaseQuery)
+        ->where('stock_type', 'breeding')
+        ->count();
 
-        $totalMatings = Mating::count();
-        $successfulMatings = Mating::where('pregnancy_status', 'pregnant')->count();
-        $fertilityRate = $totalMatings > 0 ? ($successfulMatings / $totalMatings) * 100 : 0;
+    $standardStockActive = (clone $activeBaseQuery)
+        ->where('stock_type', 'standard')
+        ->count();
 
-        $overdueForWeighing = PigManagement::countOverdueForWeighing();
+    $breedingStockTotal = $breedingStockActive;
 
-        $highAlerts = WeightAlert::where('severity', 'high')->where('acknowledged', false)->count();
-        $mediumAlerts = WeightAlert::where('severity', 'medium')->where('acknowledged', false)->count();
-        $lowAlerts = WeightAlert::where('severity', 'low')->where('acknowledged', false)->count();
+    $breedingFemales = (clone $activeBaseQuery)
+        ->where('stock_type', 'breeding')
+        ->where('gender', 'F')
+        ->count();
 
-        $totalWeightRecords = PigWeight::count();
-        $recentWeightRecords = PigWeight::where('created_at', '>=', now()->subDays(30))->count();
+    $breedingMales = (clone $activeBaseQuery)
+        ->where('stock_type', 'breeding')
+        ->where('gender', 'M')
+        ->count();
 
-        $breedingStats = [
-            'breeding_stock_ratio' => $totalPigsAll > 0 ? round(($breedingStockTotal / $totalPigsAll) * 100) : 0,
-            'avg_weight_records' => $totalPigsAll > 0 ? round($totalWeightRecords / max($totalPigsAll, 1), 1) : 0,
-            'recent_activity_rate' => $totalPigsAll > 0 ? round(($recentWeightRecords / $totalPigsAll) * 100) : 0,
-            'data_completeness' => $totalPigsAll > 0 ? round((PigManagement::whereHas('weights')->count() / $totalPigsAll) * 100) : 0,
+    $criticalAlerts = WeightAlert::where('severity', 'high')
+        ->where('acknowledged', false)
+        ->count();
+
+    $totalWeaned = PigManagement::count();
+
+    $totalPiglets = Farrowing::where('farrowing_date', '>=', now()->subDays($weaningAge))
+        ->where('status', 'active')
+        ->sum('live_births');
+
+    $totalPigsAll = $totalWeaned + $totalPiglets;
+
+    $totalDeaths = PigDeath::count();
+    $mortalityRate = $totalPigsAll > 0 ? ($totalDeaths / $totalPigsAll) * 100 : 0;
+
+    $totalMatings = Mating::count();
+    $successfulMatings = Mating::where('pregnancy_status', 'pregnant')->count();
+    $fertilityRate = $totalMatings > 0 ? ($successfulMatings / $totalMatings) * 100 : 0;
+
+    $overdueForWeighing = PigManagement::countOverdueForWeighing();
+
+    $highAlerts = WeightAlert::where('severity', 'high')->where('acknowledged', false)->count();
+    $mediumAlerts = WeightAlert::where('severity', 'medium')->where('acknowledged', false)->count();
+    $lowAlerts = WeightAlert::where('severity', 'low')->where('acknowledged', false)->count();
+
+    $totalWeightRecords = PigWeight::count();
+    $recentWeightRecords = PigWeight::where('created_at', '>=', now()->subDays(30))->count();
+
+    $breedingStats = [
+        'breeding_stock_ratio' => $totalStockActive > 0 ? round(($breedingStockActive / $totalStockActive) * 100) : 0,
+        'avg_weight_records' => $totalPigsAll > 0 ? round($totalWeightRecords / max($totalPigsAll, 1), 1) : 0,
+        'recent_activity_rate' => $totalPigsAll > 0 ? round(($recentWeightRecords / $totalPigsAll) * 100) : 0,
+        'data_completeness' => $totalPigsAll > 0 ? round((PigManagement::whereHas('weights')->count() / $totalPigsAll) * 100) : 0,
+    ];
+
+    $stockDistributionTotals = [
+        'breeding' => $breedingStockActive,
+        'standard' => $standardStockActive,
+        'piglets' => $activePigletsAdjusted,
+    ];
+
+    $breedCounts = [
+        'lw' => (clone $activeBaseQuery)->where('breed', 'LW')->count(),
+        'dr' => (clone $activeBaseQuery)->where('breed', 'DR')->count(),
+        'lwdr' => (clone $activeBaseQuery)->where('breed', 'LWDR')->count(),
+    ];
+
+    $upcomingEvents = $this->buildUpcomingEvents();
+
+    $allOverduePigs = PigManagement::query()
+    ->get()
+    ->filter(function ($pig) {
+        return $pig->isOverdueForWeighing();
+    })
+    ->values();
+
+    $overduePigsPreview = $allOverduePigs->take(5)->map(function ($pig) {
+        $lastWeight = $pig->weights()->latest('weigh_date')->first();
+        $lastWeighing = $lastWeight?->weigh_date ? \Carbon\Carbon::parse($lastWeight->weigh_date) : null;
+        $daysSince = $lastWeighing ? $lastWeighing->diffInDays(now()) : null;
+    
+        return [
+            'pig' => $pig,
+            'lastWeight' => $lastWeight,
+            'lastWeighing' => $lastWeighing,
+            'daysSince' => $daysSince,
+            'overdueDays' => $daysSince,
+            'weighingStatus' => [
+                'message' => 'Overdue for weighing',
+                'color' => 'red',
+                'icon' => '⚠️',
+            ],
         ];
-
-        $stockDistributionTotals = [
-            'breeding' => $breedingStockTotal,
-            'standard' => PigManagement::where('stock_type', 'standard')->count(),
+    });
+    
+    $allOverduePigsDetails = $allOverduePigs->map(function ($pig) {
+        $lastWeight = $pig->weights()->latest('weigh_date')->first();
+        $lastWeighing = $lastWeight?->weigh_date ? \Carbon\Carbon::parse($lastWeight->weigh_date) : null;
+        $daysSince = $lastWeighing ? $lastWeighing->diffInDays(now()) : null;
+    
+        return [
+            'pig' => $pig,
+            'lastWeight' => $lastWeight,
+            'lastWeighing' => $lastWeighing,
+            'daysSince' => $daysSince,
+            'overdueDays' => $daysSince,
+            'weighingStatus' => [
+                'message' => 'Overdue for weighing',
+                'color' => 'red',
+                'icon' => '⚠️',
+            ],
         ];
+    });
 
-        $breedCounts = [
-            'lw' => PigManagement::where('breed', 'LW')->count(),
-            'dr' => PigManagement::where('breed', 'DR')->count(),
-            'lwdr' => PigManagement::where('breed', 'LWDR')->count(),
-        ];
-
-        $upcomingEvents = $this->buildUpcomingEvents();
-
-        return view('manager.dashboard', [
-            'totalStockActive' => $totalStockActive,
-            'weanedActive' => $weanedActive,
-            'activePigletsAdjusted' => $activePigletsAdjusted,
-            'breedingStockActive' => $breedingStockActive,
-            'standardStockActive' => $standardStockActive,
-            'breedingStockTotal' => $breedingStockTotal,
-            'breedingFemales' => $breedingFemales,
-            'breedingMales' => $breedingMales,
-            'criticalAlerts' => $criticalAlerts,
-            'mortalityRate' => $mortalityRate,
-            'totalDeaths' => $totalDeaths,
-            'totalMatings' => $totalMatings,
-            'successfulMatings' => $successfulMatings,
-            'fertilityRate' => $fertilityRate,
-            'overdueForWeighing' => $overdueForWeighing,
-            'highAlerts' => $highAlerts,
-            'mediumAlerts' => $mediumAlerts,
-            'lowAlerts' => $lowAlerts,
-            'totalWeightRecords' => $totalWeightRecords,
-            'recentWeightRecords' => $recentWeightRecords,
-            'breedingStats' => $breedingStats,
-            'stockDistributionTotals' => $stockDistributionTotals,
-            'breedCounts' => $breedCounts,
-            'upcomingEvents' => $upcomingEvents,
-        ]);
-    }
+    return view('manager.dashboard', [
+        'totalStockActive' => $totalStockActive,
+        'weanedActive' => $weanedActive,
+        'activePigletsAdjusted' => $activePigletsAdjusted,
+        'breedingStockActive' => $breedingStockActive,
+        'standardStockActive' => $standardStockActive,
+        'breedingStockTotal' => $breedingStockTotal,
+        'breedingFemales' => $breedingFemales,
+        'breedingMales' => $breedingMales,
+        'criticalAlerts' => $criticalAlerts,
+        'mortalityRate' => $mortalityRate,
+        'totalDeaths' => $totalDeaths,
+        'totalMatings' => $totalMatings,
+        'successfulMatings' => $successfulMatings,
+        'fertilityRate' => $fertilityRate,
+        'overdueForWeighing' => $overdueForWeighing,
+        'highAlerts' => $highAlerts,
+        'mediumAlerts' => $mediumAlerts,
+        'lowAlerts' => $lowAlerts,
+        'totalWeightRecords' => $totalWeightRecords,
+        'recentWeightRecords' => $recentWeightRecords,
+        'breedingStats' => $breedingStats,
+        'stockDistributionTotals' => $stockDistributionTotals,
+        'breedCounts' => $breedCounts,
+        'upcomingEvents' => $upcomingEvents,
+        'allOverduePigs' => $allOverduePigs,
+        'overduePigsPreview' => $overduePigsPreview,
+        'allOverduePigsDetails' => $allOverduePigsDetails,
+    ]);
+}
 
     protected function buildUpcomingEvents(): array
     {

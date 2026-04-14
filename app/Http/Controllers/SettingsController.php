@@ -43,29 +43,36 @@ class SettingsController extends Controller
             'lactation_days' => Setting::get('breeding.parameters.lactation_days', config('breeding.parameters.lactation_days')),
         ];
 
-        $feed = [
-            'piglet_starter' => Setting::get('feed.stages.piglet_starter', 1.0), // kg/day
-            'weaner' => Setting::get('feed.stages.weaner', 1.5),
-            'grower' => Setting::get('feed.stages.grower', 2.5),
-            'finisher' => Setting::get('feed.stages.finisher', 3.0),
-            'boar' => Setting::get('feed.stages.boar', 2.5),
-            'pregnant_sow' => Setting::get('feed.stages.pregnant_sow', 3.5),
-        ];
         $stages = [
             'piglet_max_days' => Setting::get('stages.piglet.max_days', 45),
             'weaner_max_days' => Setting::get('stages.weaner.max_days', 105),
             'grower_max_days' => Setting::get('stages.grower.max_days', 180),
         ];
+
         $pricing = [
             'live_weight_price' => Setting::get('sales.pricing.live_weight_price', 30.00),
             'carcass_weight_price' => Setting::get('sales.pricing.carcass_weight_price', 50.00),
         ];
 
-        return view('settings.setup', compact('breeding', 'pricing', 'feed', 'stages'));
+        $feedBagWeights = [
+            'default_bag_weight_kg' => Setting::get('feed.units.default_bag_weight_kg', 50),
+            'maize_bag_weight_kg' => Setting::get('feed.units.maize_bag_weight_kg', 50),
+            'soybean_meal_bag_weight_kg' => Setting::get('feed.units.soybean_meal_bag_weight_kg', 50),
+            'wheat_bran_bag_weight_kg' => Setting::get('feed.units.wheat_bran_bag_weight_kg', 50),
+            'premix_bag_weight_kg' => Setting::get('feed.units.premix_bag_weight_kg', 25),
+            'concentrate_bag_weight_kg' => Setting::get('feed.units.concentrate_bag_weight_kg', 50),
+        ];
+        
+        return view('settings.setup', compact(
+            'breeding',
+            'pricing',
+            'stages',
+            'feedBagWeights',
+        ));
     }
 
     /**
-     * Persist breeding settings
+     * Persist breeding/settings page values
      */
     public function saveBreeding(Request $request)
     {
@@ -84,16 +91,16 @@ class SettingsController extends Controller
             'lactation_days' => 'required|integer|min:21|max:120',
             'live_weight_price' => 'required|numeric|min:1|max:1000',
             'carcass_weight_price' => 'required|numeric|min:1|max:1000',
-            // Feed setup (kg/day)
-            'piglet_starter' => 'required|numeric|min:0|max:50',
-            'weaner' => 'required|numeric|min:0|max:50',
-            'grower' => 'required|numeric|min:0|max:50',
-            'finisher' => 'required|numeric|min:0|max:50',
-            'boar' => 'required|numeric|min:0|max:50',
-            'pregnant_sow' => 'required|numeric|min:0|max:50',
             'piglet_max_days' => 'required|integer|min:1|max:300',
-            'weaner_max_days' => 'required|integer|min:' . ($request->input('piglet_max_days', 1)+1) . '|max:400',
-            'grower_max_days' => 'required|integer|min:' . ($request->input('weaner_max_days', 2)+1) . '|max:600',
+            'weaner_max_days' => 'required|integer|min:' . ($request->input('piglet_max_days', 1) + 1) . '|max:400',
+            'grower_max_days' => 'required|integer|min:' . ($request->input('weaner_max_days', 2) + 1) . '|max:600',
+
+            'default_bag_weight_kg' => 'nullable|numeric|min:0.01|max:500',
+            'maize_bag_weight_kg' => 'nullable|numeric|min:0.01|max:500',
+            'soybean_meal_bag_weight_kg' => 'nullable|numeric|min:0.01|max:500',
+            'wheat_bran_bag_weight_kg' => 'nullable|numeric|min:0.01|max:500',
+            'premix_bag_weight_kg' => 'nullable|numeric|min:0.01|max:500',
+            'concentrate_bag_weight_kg' => 'nullable|numeric|min:0.01|max:500',
         ]);
 
         // Save individual keys to allow partial overrides
@@ -118,16 +125,18 @@ class SettingsController extends Controller
         Setting::set('sales.pricing.live_weight_price', (float) $data['live_weight_price']);
         Setting::set('sales.pricing.carcass_weight_price', (float) $data['carcass_weight_price']);
 
-        // Save feed setup
-        Setting::set('feed.stages.piglet_starter', (float) $data['piglet_starter']);
-        Setting::set('feed.stages.weaner', (float) $data['weaner']);
-        Setting::set('feed.stages.grower', (float) $data['grower']);
-        Setting::set('feed.stages.finisher', (float) $data['finisher']);
-        Setting::set('feed.stages.boar', (float) $data['boar']);
-        Setting::set('feed.stages.pregnant_sow', (float) $data['pregnant_sow']);
-        Setting::set('stages.piglet.max_days', (int)$data['piglet_max_days']);
-        Setting::set('stages.weaner.max_days', (int)$data['weaner_max_days']);
-        Setting::set('stages.grower.max_days', (int)$data['grower_max_days']);
+        // Save growth stage settings
+        Setting::set('stages.piglet.max_days', (int) $data['piglet_max_days']);
+        Setting::set('stages.weaner.max_days', (int) $data['weaner_max_days']);
+        Setting::set('stages.grower.max_days', (int) $data['grower_max_days']);
+
+        // Save feed purchase unit / bag weight settings
+        Setting::set('feed.units.default_bag_weight_kg', (float) ($data['default_bag_weight_kg'] ?? 50));
+        Setting::set('feed.units.maize_bag_weight_kg', (float) ($data['maize_bag_weight_kg'] ?? 50));
+        Setting::set('feed.units.soybean_meal_bag_weight_kg', (float) ($data['soybean_meal_bag_weight_kg'] ?? 50));
+        Setting::set('feed.units.wheat_bran_bag_weight_kg', (float) ($data['wheat_bran_bag_weight_kg'] ?? 50));
+        Setting::set('feed.units.premix_bag_weight_kg', (float) ($data['premix_bag_weight_kg'] ?? 25));
+        Setting::set('feed.units.concentrate_bag_weight_kg', (float) ($data['concentrate_bag_weight_kg'] ?? 50));
 
         return FlashHelper::successAndRedirect('Settings saved successfully.', 'settings.setup');
     }
@@ -151,6 +160,15 @@ class SettingsController extends Controller
             'breeding.parameters.lactation_days',
             'sales.pricing.live_weight_price',
             'sales.pricing.carcass_weight_price',
+            'stages.piglet.max_days',
+            'stages.weaner.max_days',
+            'stages.grower.max_days',
+            'feed.units.default_bag_weight_kg',
+            'feed.units.maize_bag_weight_kg',
+            'feed.units.soybean_meal_bag_weight_kg',
+            'feed.units.wheat_bran_bag_weight_kg',
+            'feed.units.premix_bag_weight_kg',
+            'feed.units.concentrate_bag_weight_kg',
         ] as $key) {
             \App\Models\Setting::query()->where('key', $key)->delete();
         }
@@ -260,15 +278,6 @@ class SettingsController extends Controller
             'detailed_structures' => Structure::withCount('rooms')->get(),
         ];
 
-        // Growth Stages & Feed Setup
-        $feed = [
-            'piglet_starter' => Setting::get('feed.stages.piglet_starter', 1.0),
-            'weaner' => Setting::get('feed.stages.weaner', 1.5),
-            'grower' => Setting::get('feed.stages.grower', 2.5),
-            'finisher' => Setting::get('feed.stages.finisher', 3.0),
-            'boar' => Setting::get('feed.stages.boar', 2.5),
-            'pregnant_sow' => Setting::get('feed.stages.pregnant_sow', 3.5),
-        ];
         $stages = [
             'piglet_max_days' => Setting::get('stages.piglet.max_days', 45),
             'weaner_max_days' => Setting::get('stages.weaner.max_days', 105),
@@ -305,9 +314,6 @@ class SettingsController extends Controller
         // Sales/Procurement breakdown
         $paidSales = \App\Models\PigSale::where('payment_status', 'paid')->count();
         $unpaidSales = \App\Models\PigSale::where('payment_status', '!=', 'paid')->count();
-        $approvedFprs = \App\Models\FeedPurchaseRequest::where('status', 'approved')->count();
-        $pendingFprs = \App\Models\FeedPurchaseRequest::where('status', 'pending')->count();
-        $paidFprs = \App\Models\FeedPurchaseRequest::where('is_paid', true)->count();
         // User roles
         $roleCounts = \App\Models\User::with('role')->get()->groupBy(fn($u)=>optional($u->role)->name ?? 'unknown')->map->count();
 
@@ -320,7 +326,6 @@ class SettingsController extends Controller
             'healthStats',
             'weightAnalytics',
             'structureStats',
-            'feed',
             'stages',
             'realTimeAlerts',
             'storedNotifications',
@@ -332,9 +337,6 @@ class SettingsController extends Controller
             'avgWeaningWeight',
             'paidSales',
             'unpaidSales',
-            'approvedFprs',
-            'pendingFprs',
-            'paidFprs',
             'roleCounts'
         ));
     }
@@ -459,20 +461,12 @@ class SettingsController extends Controller
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ];
 
-        $feed = [
-            'piglet_starter' => Setting::get('feed.stages.piglet_starter', 1.0),
-            'weaner' => Setting::get('feed.stages.weaner', 1.5),
-            'grower' => Setting::get('feed.stages.grower', 2.5),
-            'finisher' => Setting::get('feed.stages.finisher', 3.0),
-            'boar' => Setting::get('feed.stages.boar', 2.5),
-            'pregnant_sow' => Setting::get('feed.stages.pregnant_sow', 3.5),
-        ];
         $stages = [
             'piglet_max_days' => Setting::get('stages.piglet.max_days', 45),
             'weaner_max_days' => Setting::get('stages.weaner.max_days', 105),
             'grower_max_days' => Setting::get('stages.grower.max_days', 180)
         ];
-        $callback = function() use ($feed, $stages) {
+        $callback = function() use ($stages) {
             $file = fopen('php://output', 'w');
             
             // Executive Summary
@@ -579,21 +573,13 @@ class SettingsController extends Controller
                 ]);
             }
             
-            // New: Growth Stages & Feed Setup section
+            // Growth stages section
             fputcsv($file, []);
             fputcsv($file, ['GROWTH STAGES & AGE REQUIREMENTS']);
             fputcsv($file, ['Stage', 'Max Age (days)']);
             fputcsv($file, ['Piglet', $stages['piglet_max_days']]);
             fputcsv($file, ['Weaner', $stages['weaner_max_days']]);
             fputcsv($file, ['Grower', $stages['grower_max_days']]);
-            fputcsv($file, []);
-            fputcsv($file, ['FEED SETUP (kg/day)']);
-            fputcsv($file, ['Piglet Starter', $feed['piglet_starter']]);
-            fputcsv($file, ['Weaner', $feed['weaner']]);
-            fputcsv($file, ['Grower', $feed['grower']]);
-            fputcsv($file, ['Finisher', $feed['finisher']]);
-            fputcsv($file, ['Boar', $feed['boar']]);
-            fputcsv($file, ['Pregnant Sow', $feed['pregnant_sow']]);
             
             fclose($file);
         };
@@ -734,4 +720,43 @@ class SettingsController extends Controller
         return redirect()->route('settings.users')->with('success', 'User deleted successfully.');
     }
 
+        
+    public function general()
+    {
+        // Use your Model's custom getAll logic or pluck manually
+        // We use Setting::all() to get everything from the 'settings' table
+        $settings = Setting::all()->pluck('value', 'key');
+
+        return view('settings.general-settings', compact('settings'));
+    }
+
+    /**
+     * 2. THE SAVING LOGIC: Your current function
+     */
+    public function updateGeneral(Request $request)
+    {
+        $request->validate([
+            'app_name'    => 'required|string|max:255',
+            'currency'    => 'required|string|max:10',
+            'date_format' => 'required|string',
+            'time_format' => 'required|string',
+            'logo'        => 'nullable|image|mimes:jpeg,png,jpg,svg|max:2048',
+        ]);
+
+        if ($request->hasFile('logo')) {
+            $oldLogo = Setting::get('logo');
+            if ($oldLogo) {
+                \Storage::disk('public')->delete($oldLogo);
+            }
+            $path = $request->file('logo')->store('uploads/settings', 'public');
+            Setting::set('logo', $path);
+        }
+
+        $data = $request->except(['_token', '_method', 'logo']);
+        foreach ($data as $key => $value) {
+            Setting::set($key, $value); 
+        }
+
+        return back()->with('success', 'General settings updated successfully.');
+    }
 }

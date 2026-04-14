@@ -9,6 +9,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Notifications\DatabaseNotification;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\PerformanceMetricController;
+use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\PurchaseRequestController;
+use App\Http\Controllers\RawMaterialController;
+use App\Http\Controllers\FeedProductionController;
+use App\Http\Controllers\FeedPlanningController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -61,7 +66,7 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::get('/superuser/dashboard', [SuperuserController::class, 'dashboard'])->name('superuser.dashboard');
     Route::get('/superuser/dashboard/export/pdf', [SuperuserController::class, 'exportPdf'])->name('superuser.dashboard.export.pdf');
     Route::get('/superuser/dashboard/export/csv', [SuperuserController::class, 'exportCsv'])->name('superuser.dashboard.export.csv');
-    Route::view('/dataentry/dashboard', 'dataentry.dashboard')->name('dataentry.dashboard');
+    Route::get('/dataentry/dashboard', [App\Http\Controllers\DataEntryController::class, 'dashboard'])->name('dataentry.dashboard');
     
     // Admin API routes
     Route::get('/admin/weight-trends-data', [App\Http\Controllers\AdminController::class, 'getWeightTrendsData'])->name('admin.weight-trends-data');
@@ -217,11 +222,46 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::patch('settings/users/{user}/status', [App\Http\Controllers\SettingsController::class, 'updateUserStatus'])->name('settings.users.status');
     Route::delete('settings/users/{user}', [App\Http\Controllers\SettingsController::class, 'deleteUser'])->name('settings.users.delete');
 
+
+    //Feed Management Routes
+    Route::get('/purchase-requests', [PurchaseRequestController::class, 'index'])->name('purchase-requests.index');
+    Route::get('/purchase-requests/create', [PurchaseRequestController::class, 'create'])->name('purchase-requests.create');
+    Route::post('/purchase-requests', [PurchaseRequestController::class, 'store'])->name('purchase-requests.store');
+    Route::get('/purchase-requests/{purchaseRequest}/edit', [PurchaseRequestController::class, 'edit'])->name('purchase-requests.edit');
+    Route::put('/purchase-requests/{purchaseRequest}', [PurchaseRequestController::class, 'update'])->name('purchase-requests.update');
+    Route::delete('/purchase-requests/{purchaseRequest}', [PurchaseRequestController::class, 'destroy'])->name('purchase-requests.destroy');
+
+    Route::post('/purchase-requests/{purchaseRequest}/approve', [PurchaseRequestController::class, 'approve'])->name('purchase-requests.approve');
+    Route::post('/purchase-requests/{purchaseRequest}/decline', [PurchaseRequestController::class, 'decline'])->name('purchase-requests.decline');
+    Route::post('/purchase-requests/{purchaseRequest}/mark-paid', [PurchaseRequestController::class, 'markAsPaid'])->name('purchase-requests.mark-paid');
+    Route::get('/purchase-requests/{purchaseRequest}/edit', [PurchaseRequestController::class, 'edit'])->name('purchase-requests.edit');
+    Route::put('/purchase-requests/{purchaseRequest}', [PurchaseRequestController::class, 'update'])->name('purchase-requests.update');
+    Route::get('/purchase-requests/{purchaseRequest}', [PurchaseRequestController::class, 'show'])->name('purchase-requests.show');
+    Route::get('/raw-materials-stock', [RawMaterialController::class, 'index'])->name('raw-materials.index');
+    Route::post('/raw-materials-stock', [RawMaterialController::class, 'store'])->name('raw-materials.store');
+    Route::put('/raw-materials-stock/{rawMaterial}', [RawMaterialController::class, 'update'])->name('raw-materials.update');
+    Route::post('/raw-materials-stock/{rawMaterial}/receive', [RawMaterialController::class, 'receiveStock'])->name('raw-materials.receive');
+    Route::post('/raw-materials-stock/{rawMaterial}/adjust', [RawMaterialController::class, 'adjustStock'])->name('raw-materials.adjust');
+    Route::get('/feed-production', [FeedProductionController::class, 'index'])->name('feed-production.index');
+    Route::post('/feed-production/feed-types', [FeedProductionController::class, 'storeFeedType'])->name('feed-production.feed-types.store');
+    Route::post('/feed-production/recipes', [FeedProductionController::class, 'storeRecipe'])->name('feed-production.recipes.store');
+    Route::post('/feed-production/mix', [FeedProductionController::class, 'mixFeed'])->name('feed-production.mix');
+    Route::get('/feed-production', [FeedProductionController::class, 'index'])->name('feed-production.index');
+    Route::post('/feed-production/feed-types', [FeedProductionController::class, 'storeFeedType'])->name('feed-production.feed-types.store');
+    Route::post('/feed-production/recipes', [FeedProductionController::class, 'storeRecipe'])->name('feed-production.recipes.store');
+    Route::post('/feed-production/mix', [FeedProductionController::class, 'mixFeed'])->name('feed-production.mix');
+    Route::get('/planning-reports', [FeedPlanningController::class, 'index'])->name('planning-reports.index');
+
     // Email Settings Routes (Superuser only)
     Route::get('settings/email', [App\Http\Controllers\EmailSettingController::class, 'index'])->name('settings.email');
     Route::put('settings/email', [App\Http\Controllers\EmailSettingController::class, 'update'])->name('settings.email.update');
     Route::post('settings/email/test-connection', [App\Http\Controllers\EmailSettingController::class, 'testConnection'])->name('settings.email.test-connection');
     Route::post('settings/email/send-test', [App\Http\Controllers\EmailSettingController::class, 'sendTestEmail'])->name('settings.email.send-test');
+
+    //General Settings Route(Superuser and Amdin only)
+    // Add 'settings.' to the name here
+    Route::get('settings/general-settings', [SettingsController::class, 'general'])->name('settings.general');
+    Route::put('settings/general-settings', [SettingsController::class, 'updateGeneral'])->name('settings.general.update');
 
     // PERFORMANCE METRICS ROUTE (NEW)
     Route::get('metrics', [PerformanceMetricController::class, 'index'])->name('performance_metrics.index');
@@ -241,29 +281,6 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::get('deaths-export/csv', [App\Http\Controllers\PigManagementController::class, 'deathsExportCsv'])->name('deaths.export.csv');
     Route::get('deaths-export/pdf', [App\Http\Controllers\PigManagementController::class, 'deathsExportPdf'])->name('deaths.export.pdf');
 
-    // Feed Management (Scheduling) Routes
-    Route::get('feeds/schedule/create', [App\Http\Controllers\FeedUiController::class, 'createSchedule'])->name('feeds.schedule.create');
-    Route::get('feeds/schedule', [App\Http\Controllers\FeedUiController::class, 'schedule'])->name('feeds.schedule');
-    Route::post('feeds/schedule', [App\Http\Controllers\FeedUiController::class, 'storeSchedule'])->name('feeds.schedule.store');
-    Route::get('feeds/schedule/{schedule}', [App\Http\Controllers\FeedUiController::class, 'showSchedule'])->name('feeds.schedule.show');
-    Route::post('feeds/schedule/{schedule}/fed', [App\Http\Controllers\FeedUiController::class, 'markFed'])->name('feeds.schedule.mark-fed');
-    Route::post('feeds/schedule/{schedule}/skipped', [App\Http\Controllers\FeedUiController::class, 'markSkipped'])->name('feeds.schedule.mark-skipped');
-
-    // Granular Feed Allocation Route (for Modal submission)
-    Route::post('feeds/schedule', [App\Http\Controllers\FeedUiController::class, 'storeSchedule'])->name('feeds.allocation.store');
-
-    // Feed Reports Routes
-    Route::get('feeds/reports', [App\Http\Controllers\FeedUiController::class, 'reports'])->name('feeds.reports');
-    Route::get('feeds/reports/export/pdf', [App\Http\Controllers\FeedUiController::class, 'exportReportsPdf'])->name('feeds.reports.export.pdf');
-
-    // Feed Management (Inventory) Routes
-    Route::get('feeds', [App\Http\Controllers\FeedUiController::class, 'index'])->name('feeds.index');
-    Route::get('feeds/create', [App\Http\Controllers\FeedUiController::class, 'create'])->name('feeds.create');
-    Route::post('feeds', [App\Http\Controllers\FeedUiController::class, 'store'])->name('feeds.store');
-    Route::get('feeds/{feed}', [App\Http\Controllers\FeedUiController::class, 'show'])->name('feeds.show');
-    Route::get('feeds/{feed}/edit', [App\Http\Controllers\FeedUiController::class, 'edit'])->name('feeds.edit'); // Corrected typo in controller name
-    Route::put('feeds/{feed}', [App\Http\Controllers\FeedUiController::class, 'update'])->name('feeds.update');
-    Route::delete('feeds/{feed}', [App\Http\Controllers\FeedUiController::class, 'destroy'])->name('feeds.destroy');
 
     // === Location API Routes (NEW) ===
 
@@ -279,40 +296,4 @@ Route::middleware($protectedMiddleware)->group(function () {
 
    
 
-    // Feed Inventory & Purchase Requests (all roles now)
-    //Route::middleware(['role:manager,admin'])->group(function () {
-        // Feed Inventory
-        Route::get('feed-inventory', [App\Http\Controllers\FeedInventoryController::class, 'index'])->name('feed-inventory.index');
-        Route::get('feed-inventory/create', [App\Http\Controllers\FeedInventoryController::class, 'create'])->name('feed-inventory.create');
-        Route::post('feed-inventory', [App\Http\Controllers\FeedInventoryController::class, 'store'])->name('feed-inventory.store');
-        Route::get('feed-inventory/analytics', [App\Http\Controllers\FeedInventoryController::class, 'analytics'])->name('feed-inventory.analytics');
-        Route::get('feed-inventory/{inventory}/edit', [App\Http\Controllers\FeedInventoryController::class, 'edit'])->name('feed-inventory.edit');
-        Route::put('feed-inventory/{inventory}', [App\Http\Controllers\FeedInventoryController::class, 'update'])->name('feed-inventory.update');
-        Route::delete('feed-inventory/{inventory}', [App\Http\Controllers\FeedInventoryController::class, 'destroy'])->name('feed-inventory.destroy');
-        // Feed Purchase Requests
-        Route::get('feed-purchase-requests', [App\Http\Controllers\FeedPurchaseRequestController::class, 'index'])->name('feed-purchase-requests.index');
-        Route::get('feed-purchase-requests/create', [App\Http\Controllers\FeedPurchaseRequestController::class, 'create'])->name('feed-purchase-requests.create');
-        Route::post('feed-purchase-requests', [App\Http\Controllers\FeedPurchaseRequestController::class, 'store'])->name('feed-purchase-requests.store');
-        Route::get('feed-purchase-requests/{request}', [App\Http\Controllers\FeedPurchaseRequestController::class, 'show'])->name('feed-purchase-requests.show');
-        Route::post('feed-purchase-requests/{request}/approve', [App\Http\Controllers\FeedPurchaseRequestController::class, 'approve'])->middleware('role:admin,superuser')->name('feed-purchase-requests.approve');
-        Route::post('feed-purchase-requests/{request}/reject', [App\Http\Controllers\FeedPurchaseRequestController::class, 'reject'])->middleware('role:admin,superuser')->name('feed-purchase-requests.reject');
-        // Add route for marking payment status.
-        Route::post('feed-purchase-requests/{request}/mark-paid', [App\Http\Controllers\FeedPurchaseRequestController::class, 'markPaid'])->name('feed-purchase-requests.mark-paid');
-        Route::delete('feed-purchase-requests/{request}', [App\Http\Controllers\FeedPurchaseRequestController::class, 'destroy'])->middleware('role:superuser')->name('feed-purchase-requests.destroy');
-        Route::get('feed-purchase-requests/{request}/edit', [App\Http\Controllers\FeedPurchaseRequestController::class, 'edit'])->name('feed-purchase-requests.edit');
-        Route::put('feed-purchase-requests/{request}', [App\Http\Controllers\FeedPurchaseRequestController::class, 'update'])->name('feed-purchase-requests.update');
-    //});
-
-    // Feed Management Setup
-    Route::middleware(['role:admin,superuser,manager'])->group(function () {
-        Route::resource('feed-types', App\Http\Controllers\FeedTypeController::class);
-        Route::resource('feeding-standards', App\Http\Controllers\FeedingStandardController::class);
-    });
-
-    // Grouping Rules
-    Route::resource('grouping-rules', App\Http\Controllers\GroupingRuleController::class)->middleware('role:admin,superuser,manager');
-
-    // Ingredients & Recipes
-    Route::resource('ingredients', App\Http\Controllers\IngredientController::class)->middleware('role:admin,superuser,manager');
-    Route::resource('recipes', App\Http\Controllers\FeedRecipeController::class)->middleware('role:admin,superuser,manager');
 });

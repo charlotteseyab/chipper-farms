@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\PigManagement;
 use App\Models\Mating;
-use App\Models\FeedInventory;
 use App\Models\IngredientInventory;
 use Carbon\Carbon;
 
@@ -20,7 +19,7 @@ class RealTimeNotificationService
         return [
             'weight' => self::getWeightAlerts(),
             'gestation' => self::getGestationAlerts(),
-            'feed' => self::getFeedAlerts(),
+            'ingredient' => self::getIngredientAlerts(),
         ];
     }
 
@@ -256,42 +255,15 @@ class RealTimeNotificationService
     }
 
     /**
-     * Get feed inventory alerts (low stock, critical stock)
-     * 
+     * Get ingredient inventory alerts (low stock, critical stock)
+     *
      * @return array
      */
-    public static function getFeedAlerts(): array
+    public static function getIngredientAlerts(): array
     {
-        $inventories = FeedInventory::with('feedType')->get();
         $ingredientInventories = IngredientInventory::with('ingredient')->get();
-        
         $criticalStock = collect();
-        
-        // Check feed inventories
-        foreach ($inventories as $inventory) {
-            $quantity = (float) $inventory->quantity;
-            $unit = strtolower($inventory->unit ?? 'kg');
-            
-            // Skip if quantity is null or zero
-            if ($quantity <= 0) {
-                continue;
-            }
-            
-            [$threshold, $thresholdLabel] = self::resolveFeedThreshold($unit);
-            
-            if ($quantity < $threshold) {
-                $criticalStock->push([
-                    'type' => 'feed',
-                    'name' => $inventory->feedType->name ?? 'Unknown',
-                    'quantity' => $quantity,
-                    'unit' => $inventory->unit,
-                    'threshold' => "{$threshold} {$thresholdLabel}",
-                    'link' => route('feed-inventory.index'),
-                ]);
-            }
-        }
-        
-        // Check ingredient inventories
+
         foreach ($ingredientInventories as $inventory) {
             $quantity = (float) ($inventory->quantity ?? 0);
             $unit = strtolower($inventory->unit ?? 'kg');
@@ -310,24 +282,23 @@ class RealTimeNotificationService
                     'quantity' => $quantity,
                     'unit' => $inventory->unit ?? 'kg',
                     'threshold' => "{$threshold} {$thresholdLabel}",
-                    'link' => route('feed-inventory.index'),
+                    'link' => route('notifications.index'),
                 ]);
             }
         }
-        
+
         $alerts = [];
-        
-        // Critical stock alerts
+
         if ($criticalStock->count() > 0) {
             $alerts[] = [
-                'type' => 'feed_critical',
-                'title' => 'Critical Feed Stock',
+                'type' => 'ingredient_critical',
+                'title' => 'Critical Ingredient Stock',
                 'message' => "{$criticalStock->count()} item(s) are below minimum stock levels (<5 bags or <50 kg)",
                 'count' => $criticalStock->count(),
                 'severity' => 'high',
                 'color' => 'red',
                 'icon' => '🚨',
-                'link' => route('feed-inventory.index'),
+                'link' => route('notifications.index'),
                 'items' => $criticalStock->take(5)->toArray(),
             ];
         }
@@ -361,9 +332,9 @@ class RealTimeNotificationService
 
         $weightAlerts = count($allAlerts['weight']['alerts'] ?? []);
         $gestationAlerts = count($allAlerts['gestation']['alerts'] ?? []);
-        $feedAlerts = count($allAlerts['feed']['alerts'] ?? []);
+        $ingredientAlerts = count($allAlerts['ingredient']['alerts'] ?? []);
 
-        return $weightAlerts + $gestationAlerts + $feedAlerts;
+        return $weightAlerts + $gestationAlerts + $ingredientAlerts;
     }
 
     /**

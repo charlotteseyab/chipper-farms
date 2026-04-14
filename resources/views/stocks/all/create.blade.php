@@ -2,10 +2,6 @@
     <main class="flex-1 pl-8 pr-4 pt-2 pb-8">
         <div class="max-w-7xl mx-auto">
             <!-- Book Title -->
-            <!-- <div class="text-center mb-8">
-                <h2 class="text-3xl font-bold text-gray-800 mb-2">📖 Pig Registration</h2>
-                <p class="text-gray-600">Fill out both pages to register your new pig</p>
-            </div> -->
 
             <!-- Book Container -->
             <div class="p-8 rounded-2xl shadow-2xl">
@@ -45,56 +41,56 @@
 
                             <!-- Stock Type Selection -->
                             <div class="mb-6">
-  <div class="text-sm font-semibold text-gray-700 mb-3">🐷 Stock Type</div>
+                            <div class="text-sm font-semibold text-gray-700 mb-3">🐷 Stock Type</div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-	<!-- Standard -->
-	<label class="relative block cursor-pointer select-none">
-  	<input
-    	type="radio"
-    	name="stock_type"
-    	value="standard"
-    	class="peer absolute inset-0 z-10 w-full h-full opacity-0 appearance-none cursor-pointer"
-    	{{ old('stock_type') == 'standard' ? 'checked' : '' }}
-    	required
-  	>
-  	<div class="pointer-events-none rounded-xl border border-gray-200 p-5 text-center transition
-              	hover:border-blue-400 peer-checked:border-blue-600
-              	peer-checked:bg-blue-50 peer-checked:shadow">
-    	<div class="text-2xl mb-2">🐖</div>
-    	<div class="font-semibold text-gray-800">Standard Stock</div>
-    	<div class="text-xs text-gray-600 mt-1">For fattening & Sale</div>
-    	<span class="hidden peer-checked:inline-block absolute top-2 right-2
-                 	text-[10px] px-2 py-0.5 rounded-full bg-blue-600 text-white">
-      	Selected
-    	</span>
-  	</div>
-	</label>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <!-- Standard -->
+                                <label class="relative block cursor-pointer select-none">
+                                <input
+                                    type="radio"
+                                    name="stock_type"
+                                    value="standard"
+                                    class="peer absolute inset-0 z-10 w-full h-full opacity-0 appearance-none cursor-pointer"
+                                    {{ old('stock_type') == 'standard' ? 'checked' : '' }}
+                                    required
+                                >
+                                <div class="pointer-events-none rounded-xl border border-gray-200 p-5 text-center transition
+                                            hover:border-blue-400 peer-checked:border-blue-600
+                                            peer-checked:bg-blue-50 peer-checked:shadow">
+                                    <div class="text-2xl mb-2">🐖</div>
+                                    <div class="font-semibold text-gray-800">Standard Stock</div>
+                                    <div class="text-xs text-gray-600 mt-1">For fattening & Sale</div>
+                                    <span class="hidden peer-checked:inline-block absolute top-2 right-2
+                                                text-[10px] px-2 py-0.5 rounded-full bg-blue-600 text-white">
+                                    Selected
+                                    </span>
+                                </div>
+                                </label>
 
-	<!-- Breeding -->
-	<label class="relative block cursor-pointer select-none">
-  	<input
-    	type="radio"
-    	name="stock_type"
-    	value="breeding"
-    	class="peer absolute inset-0 z-10 w-full h-full opacity-0 appearance-none cursor-pointer"
-    	{{ old('stock_type') == 'breeding' ? 'checked' : '' }}
-    	required
-  	>
-  	<div class="pointer-events-none rounded-xl border border-gray-200 p-5 text-center transition
-              	hover:border-green-400 peer-checked:border-green-600
-              	peer-checked:bg-green-50 peer-checked:shadow">
-    	<div class="text-2xl mb-2">👑</div>
-    	<div class="font-semibold text-gray-800">Breeding Stock</div>
-    	<div class="text-xs text-gray-600 mt-1">For reproduction</div>
-    	<span class="hidden peer-checked:inline-block absolute top-2 right-2
-                 	text-[10px] px-2 py-0.5 rounded-full bg-green-600 text-white">
-      	Selected
-    	</span>
-  	</div>
-	</label>
-  </div>
-</div>
+                                <!-- Breeding -->
+                                <label class="relative block cursor-pointer select-none">
+                                <input
+                                    type="radio"
+                                    name="stock_type"
+                                    value="breeding"
+                                    class="peer absolute inset-0 z-10 w-full h-full opacity-0 appearance-none cursor-pointer"
+                                    {{ old('stock_type') == 'breeding' ? 'checked' : '' }}
+                                    required
+                                >
+                                <div class="pointer-events-none rounded-xl border border-gray-200 p-5 text-center transition
+                                            hover:border-green-400 peer-checked:border-green-600
+                                            peer-checked:bg-green-50 peer-checked:shadow">
+                                    <div class="text-2xl mb-2">👑</div>
+                                    <div class="font-semibold text-gray-800">Breeding Stock</div>
+                                    <div class="text-xs text-gray-600 mt-1">For reproduction</div>
+                                    <span class="hidden peer-checked:inline-block absolute top-2 right-2
+                                                text-[10px] px-2 py-0.5 rounded-full bg-green-600 text-white">
+                                    Selected
+                                    </span>
+                                </div>
+                                </label>
+                            </div>
+                            </div>
 
 
                             <!-- Basic Details -->

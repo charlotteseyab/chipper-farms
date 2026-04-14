@@ -1,476 +1,1069 @@
 <x-app-layout>
-    <div class="py-6 bg-gray-180 min-h-screen">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+    <style>
+        .admin-page{
+            min-height: 100vh;
+        }
 
-            <!-- Filter Section -->
-            <div class="bg-white rounded-lg shadow-sm border p-6 mb-8">
-                <form method="GET" action="{{ route('admin.dashboard') }}" class="flex flex-wrap items-end gap-4">
-                    <div class="flex-1 min-w-[200px]">
-                        <label for="date_from" class="block text-sm font-medium text-gray-700 mb-2">From Date</label>
-                        <input type="date" 
-                               id="date_from" 
-                               name="date_from" 
-                               value="{{ $dateFrom }}" 
-                               class="w-full rounded-lg border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+        .admin-wrap{
+            max-width: 1500px;
+            margin: 0 auto;
+            padding: 20px 14px 56px;
+        }
+
+        .admin-hero{
+            background: linear-gradient(135deg, #14532d 0%, #166534 50%, #15803d 100%);
+            border-radius: 30px;
+            padding: 20px;
+            box-shadow: 0 22px 52px rgba(22,101,52,.18);
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 18px;
+        }
+
+        .admin-hero::before{
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at top right, rgba(255,255,255,.12), transparent 26%),
+                radial-gradient(circle at bottom left, rgba(255,255,255,.08), transparent 22%);
+            pointer-events: none;
+        }
+
+        .admin-hero-inner{
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+
+        .admin-hero h1{
+            margin: 0;
+            font-size: clamp(1.9rem, 3vw, 2.8rem);
+            line-height: 1.02;
+            color: #fff;
+            font-weight: 900;
+            letter-spacing: -.04em;
+        }
+
+        .admin-hero p{
+            margin: 8px 0 0;
+            color: #dcfce7;
+            font-size: .95rem;
+            line-height: 1.75;
+            max-width: 760px;
+        }
+
+        .admin-hero-pills{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .admin-hero-pill{
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: rgba(255,255,255,.12);
+            border: 1px solid rgba(255,255,255,.14);
+            color: #ecfdf5;
+            font-size: .78rem;
+            font-weight: 700;
+        }
+
+        .admin-filter{
+            background: rgba(255,255,255,.92);
+            border: 1px solid #e2e8f0;
+            border-radius: 24px;
+            box-shadow: 0 12px 32px rgba(15,23,42,.05);
+            padding: 20px;
+            margin-bottom: 18px;
+        }
+
+        .admin-filter-title{
+            font-size: 1rem;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 14px;
+        }
+
+        .admin-input{
+            width: 100%;
+            border-radius: 14px;
+            border: 1px solid #cbd5e1;
+            background: #fff;
+            padding: 10px 12px;
+            font-size: .88rem;
+            color: #0f172a;
+            outline: none;
+        }
+
+        .admin-input:focus{
+            border-color: #22c55e;
+            box-shadow: 0 0 0 3px rgba(34,197,94,.12);
+        }
+
+        .admin-btn{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 11px 16px;
+            border-radius: 14px;
+            font-size: .84rem;
+            font-weight: 700;
+            transition: .22s ease;
+            text-decoration: none;
+            border: none;
+        }
+
+        .admin-btn-green{
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            color: #fff;
+            box-shadow: 0 12px 24px rgba(34,197,94,.18);
+        }
+
+        .admin-btn-green:hover{
+            transform: translateY(-1px);
+        }
+
+        .admin-btn-gray{
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .admin-card{
+            background: rgba(255,255,255,.94);
+            border: 1px solid #e2e8f0;
+            border-radius: 24px;
+            box-shadow: 0 10px 28px rgba(15,23,42,.05);
+            overflow: hidden;
+        }
+
+        .admin-card-head{
+            padding: 22px 24px 14px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+        }
+
+        .admin-card-title{
+            margin: 0;
+            font-size: 1.04rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .admin-card-sub{
+            margin-top: 4px;
+            font-size: .82rem;
+            color: #64748b;
+        }
+
+        .admin-badge{
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            font-size: .74rem;
+            font-weight: 700;
+            color: #475569;
+        }
+
+        .admin-chart-wrap{
+            padding: 0 24px 24px;
+        }
+
+        .admin-chart{
+            height: 320px;
+            border-radius: 20px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            border: 1px solid #eef2f7;
+            padding: 14px;
+        }
+
+        .admin-value-icon{
+            width: 54px;
+            height: 54px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+            color: #16a34a;
+            flex-shrink: 0;
+        }
+
+        .admin-value-label{
+            font-size: .72rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .12em;
+            color: #94a3b8;
+            margin-bottom: 6px;
+        }
+
+        .admin-value-number{
+            font-size: 1.7rem;
+            font-weight: 900;
+            color: #0f172a;
+            line-height: 1;
+        }
+
+        .admin-value-note{
+            margin-top: 8px;
+            font-size: .78rem;
+            color: #64748b;
+        }
+
+        .admin-small-top{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0,1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .admin-small-card-body{
+            padding: 0 24px 24px;
+        }
+
+        .admin-small-value{
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .admin-alert-card{
+            background: linear-gradient(135deg, #fff7ed 0%, #fffbeb 100%);
+            border: 1px solid #fed7aa;
+            border-radius: 22px;
+            box-shadow: 0 8px 24px rgba(249,115,22,.08);
+            overflow: hidden;
+        }
+
+        .admin-alert-list{
+            padding: 0 20px 20px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .admin-alert-item{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 14px;
+            background: rgba(255,255,255,.78);
+            border: 1px solid #fed7aa;
+            border-radius: 16px;
+        }
+
+        .admin-alert-code{
+            font-size: .82rem;
+            font-weight: 800;
+            color: #9a3412;
+        }
+
+        .admin-alert-meta{
+            font-size: .72rem;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+
+        .admin-alert-pill{
+            font-size: .72rem;
+            font-weight: 800;
+            color: #b45309;
+            background: #fef3c7;
+            border-radius: 999px;
+            padding: 6px 10px;
+            flex-shrink: 0;
+        }
+
+        .admin-stat-grid{
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0,1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .admin-stat{
+            position: relative;
+            overflow: hidden;
+            border-radius: 22px;
+            padding: 18px;
+            color: #fff;
+            box-shadow: 0 10px 24px rgba(15,23,42,.08);
+            text-decoration: none;
+            transition: .22s ease;
+        }
+
+        .admin-stat:hover{
+            transform: translateY(-3px);
+        }
+
+        .admin-stat::after{
+            content:"";
+            position:absolute;
+            right:-16px;
+            top:-16px;
+            width:84px;
+            height:84px;
+            border-radius:999px;
+            background: rgba(255,255,255,.10);
+        }
+
+        .admin-stat-green{ background: linear-gradient(135deg, #16a34a, #15803d); }
+        .admin-stat-blue{ background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+        .admin-stat-purple{ background: linear-gradient(135deg, #9333ea, #7e22ce); }
+        .admin-stat-red{ background: linear-gradient(135deg, #ef4444, #dc2626); }
+
+        .admin-stat-label{
+            font-size: .78rem;
+            font-weight: 700;
+            color: rgba(255,255,255,.88);
+            margin-bottom: 10px;
+        }
+
+        .admin-stat-value{
+            font-size: 1.7rem;
+            font-weight: 900;
+            line-height: 1.05;
+            margin: 0;
+        }
+
+        .admin-stat-sub{
+            margin-top: 8px;
+            font-size: .74rem;
+            color: rgba(255,255,255,.82);
+        }
+
+        .admin-section{
+            margin-bottom: 18px;
+        }
+
+        .admin-section-head{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            margin-bottom: 12px;
+        }
+
+        .admin-section-head h2{
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 900;
+            color: #111827;
+        }
+
+        .admin-section-head p{
+            margin: 4px 0 0;
+            font-size: .82rem;
+            color: #6b7280;
+        }
+
+        .admin-link{
+            color: #16a34a;
+            text-decoration: none;
+            font-size: .82rem;
+            font-weight: 700;
+        }
+
+        .admin-link:hover{
+            color: #15803d;
+        }
+
+        .admin-mini-grid{
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0,1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .admin-mini-card{
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 20px;
+            padding: 18px;
+            box-shadow: 0 6px 18px rgba(15,23,42,.04);
+            text-decoration: none;
+            transition: .2s ease;
+        }
+
+        .admin-mini-card:hover{
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(15,23,42,.06);
+        }
+
+        .admin-mini-label{
+            font-size: .74rem;
+            font-weight: 800;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .admin-mini-value{
+            font-size: 1.45rem;
+            font-weight: 900;
+            color: #0f172a;
+            line-height: 1;
+        }
+
+        .admin-mini-sub{
+            font-size: .74rem;
+            color: #94a3b8;
+            margin-top: 8px;
+        }
+
+        .admin-two-col{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0,1fr));
+            gap: 16px;
+        }
+
+        .admin-list{
+            padding: 0 24px 24px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .admin-list-row{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 16px;
+            background: #f8fafc;
+            border: 1px solid #eef2f7;
+        }
+
+        .admin-list-row span:first-child{
+            color: #334155;
+            font-size: .85rem;
+            font-weight: 700;
+        }
+
+        .admin-list-row span:last-child{
+            color: #0f172a;
+            font-size: 1rem;
+            font-weight: 900;
+        }
+
+        .admin-divider{
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #cbd5e1, transparent);
+            margin: 24px 0;
+        }
+
+        @media (max-width: 1280px){
+            .admin-stat-grid,
+            .admin-mini-grid{
+                grid-template-columns: repeat(2, minmax(0,1fr));
+            }
+        }
+
+        @media (max-width: 1024px){
+            .admin-small-top,
+            .admin-two-col{
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px){
+            .admin-wrap{
+                padding: 14px 10px 40px;
+            }
+
+            .admin-stat-grid,
+            .admin-mini-grid{
+                grid-template-columns: 1fr;
+            }
+
+            .admin-card-head,
+            .admin-chart-wrap,
+            .admin-list,
+            .admin-alert-list,
+            .admin-small-card-body{
+                padding-left: 18px;
+                padding-right: 18px;
+            }
+
+            .admin-small-value{
+                align-items: flex-start;
+            }
+        }
+    </style>
+
+    <div class="admin-page">
+        <div class="admin-wrap">
+
+            <!-- <div class="admin-hero">
+                <div class="admin-hero-inner">
+                    <div>
+                        <h1>Admin Dashboard</h1>
+                        <p>
+                            Monitor stock levels, breeding activity, weight performance, health records, and overall farm value from one central dashboard.
+                            Start with the stock overview below for a quick picture of the farm today.
+                        </p>
                     </div>
-                    <div class="flex-1 min-w-[200px]">
-                        <label for="date_to" class="block text-sm font-medium text-gray-700 mb-2">To Date</label>
-                        <input type="date" 
-                               id="date_to" 
-                               name="date_to" 
-                               value="{{ $dateTo }}" 
-                               class="w-full rounded-lg border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+
+                    <div class="admin-hero-pills">
+                        <div class="admin-hero-pill">Stock overview</div>
+                        <div class="admin-hero-pill">Performance tracking</div>
+                        <div class="admin-hero-pill">Operational insights</div>
                     </div>
-                    <div class="flex gap-2">
-                        <button type="submit" 
-                                class="px-6 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors shadow-sm">
-                            Apply Filter
-                        </button>
-                        <a href="{{ route('admin.dashboard') }}" 
-                           class="px-6 py-2.5 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition-colors">
-                            Reset
-                        </a>
+                </div>
+            </div> -->
+
+            <div class="admin-filter">
+                <div class="admin-filter-title">Dashboard Filters</div>
+                <form method="GET" action="{{ route('admin.dashboard') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                    <div>
+                        <label for="date_from" class="block text-sm font-medium text-slate-700 mb-2">From Date</label>
+                        <input type="date" id="date_from" name="date_from" value="{{ $dateFrom }}" class="admin-input">
+                    </div>
+
+                    <div>
+                        <label for="date_to" class="block text-sm font-medium text-slate-700 mb-2">To Date</label>
+                        <input type="date" id="date_to" name="date_to" value="{{ $dateTo }}" class="admin-input">
+                    </div>
+
+                    <div class="flex gap-2 md:col-span-2">
+                        <button type="submit" class="admin-btn admin-btn-green">Apply Filter</button>
+                        <a href="{{ route('admin.dashboard') }}" class="admin-btn admin-btn-gray">Reset</a>
                     </div>
                 </form>
             </div>
 
-            <!-- ========== STOCK SECTION ========== -->
-            <section class="mb-12">
-                <div class="flex items-center justify-between mb-6">
+            <section class="admin-section">
+                <div class="admin-section-head">
                     <div>
-                        <h2 class="text-2xl font-bold text-gray-900">Stock Overview</h2>
-                        <p class="text-gray-600 text-sm mt-1">Current inventory and stock distribution</p>
+                        <h2>Stock Overview</h2>
+                        <p>Current inventory and stock distribution</p>
                     </div>
-                    <a href="{{ route('all-stocks.index') }}" class="text-green-600 hover:text-green-700 font-medium text-sm flex items-center gap-1">
-                        View All <span>→</span>
+                    <a href="{{ route('all-stocks.index') }}" class="admin-link">View All →</a>
+                </div>
+
+                <div class="admin-stat-grid">
+                    <a href="{{ route('all-stocks.index') }}" class="admin-stat admin-stat-green">
+                        <div class="admin-stat-label">Total Pigs</div>
+                        <p class="admin-stat-value">{{ number_format($totalPigs) }}</p>
+                        <div class="admin-stat-sub">{{ number_format($weanedPigs) }} weaned • {{ number_format($pigletsCount) }} piglets</div>
+                    </a>
+
+                    <a href="{{ route('all-stocks.index') }}" class="admin-stat admin-stat-blue">
+                        <div class="admin-stat-label">Active Pigs</div>
+                        <p class="admin-stat-value">{{ number_format($activePigs) }}</p>
+                        <div class="admin-stat-sub">{{ number_format($activeMaleCount) }} males • {{ number_format($activeFemaleCount) }} females</div>
+                    </a>
+
+                    <a href="{{ route('all-stocks.index') }}" class="admin-stat admin-stat-purple">
+                        <div class="admin-stat-label">Breeding Stock</div>
+                        <p class="admin-stat-value">{{ number_format($breedingStock) }}</p>
+                        <div class="admin-stat-sub">{{ number_format($standardStock) }} standard stock</div>
+                    </a>
+
+                    <a href="{{ route('deaths.index') }}" class="admin-stat admin-stat-red">
+                        <div class="admin-stat-label">Mortality Rate</div>
+                        <p class="admin-stat-value">{{ number_format($mortalityRate, 1) }}%</p>
+                        <div class="admin-stat-sub">{{ number_format($deceasedPigs) }} deceased • {{ number_format($soldPigs) }} sold</div>
                     </a>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
-                    <a href="{{ route('all-stocks.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-green-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-green-700 text-sm font-medium mb-1">Total Pigs</p>
-                        <p class="text-3xl font-bold text-green-900">{{ number_format($totalPigs) }}</p>
-                        <p class="text-green-600 text-xs mt-2">{{ number_format($weanedPigs) }} weaned • {{ number_format($pigletsCount) }} piglets</p>
-                    </a>
-                    <a href="{{ route('all-stocks.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-blue-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-blue-700 text-sm font-medium mb-1">Active Pigs</p>
-                        <p class="text-3xl font-bold text-blue-900">{{ number_format($activePigs) }}</p>
-                        <p class="text-blue-600 text-xs mt-2">{{ number_format($activeMaleCount) }} males • {{ number_format($activeFemaleCount) }} females</p>
-                    </a>
-                    <a href="{{ route('all-stocks.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-purple-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-purple-700 text-sm font-medium mb-1">Breeding Stock</p>
-                        <p class="text-3xl font-bold text-purple-900">{{ number_format($breedingStock) }}</p>
-                        <p class="text-purple-600 text-xs mt-2">{{ number_format($standardStock) }} standard stock</p>
-                    </a>
-                    <a href="{{ route('deaths.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-red-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-red-700 text-sm font-medium mb-1">Mortality Rate</p>
-                        <p class="text-3xl font-bold text-red-900">{{ number_format($mortalityRate, 1) }}%</p>
-                        <p class="text-red-600 text-xs mt-2">{{ number_format($deceasedPigs) }} deceased • {{ number_format($soldPigs) }} sold</p>
-                    </a>
-                </div>
-
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white rounded-lg p-6 shadow-sm border border-green-100">
-                        <h3 class="text-lg font-semibold text-green-900 mb-4">Breed Distribution</h3>
-                        <div class="space-y-3">
-                            <div class="flex items-center justify-between py-2 border-b border-green-200">
-                                <span class="text-green-800 font-medium">LW (Large White)</span>
-                                <span class="font-bold text-green-900 text-lg">{{ number_format($breedCounts['LW'] ?? 0) }}</span>
-                            </div>
-                            <div class="flex items-center justify-between py-2 border-b border-green-200">
-                                <span class="text-green-800 font-medium">DR (Duroc)</span>
-                                <span class="font-bold text-green-900 text-lg">{{ number_format($breedCounts['DR'] ?? 0) }}</span>
-                            </div>
-                            <div class="flex items-center justify-between py-2">
-                                <span class="text-green-800 font-medium">LWDR (Large White Duroc)</span>
-                                <span class="font-bold text-green-900 text-lg">{{ number_format($breedCounts['LWDR'] ?? 0) }}</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="bg-white rounded-lg p-6 shadow-sm border border-blue-100">
-                        <h3 class="text-lg font-semibold text-blue-900 mb-4">Stock Trends (6 Months)</h3>
-                        <div class="h-64">
-                            <canvas id="stockTrendsChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <div class="border-t-2 border-gray-300 my-8"></div>
-
-            <!-- ========== MATING SECTION ========== -->
-            <section class="mb-12">
-                <div class="flex items-center justify-between mb-6">
-                    <div>
-                        <h2 class="text-2xl font-bold text-gray-900">Mating Management</h2>
-                        <p class="text-gray-600 text-sm mt-1">Breeding activities and pregnancy tracking</p>
-                    </div>
-                    <a href="{{ route('mating.manage') }}" class="text-blue-600 hover:text-blue-700 font-medium text-sm flex items-center gap-1">
-                        View All <span>→</span>
-                    </a>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
-                    <a href="{{ route('mating.manage') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-blue-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-blue-700 text-sm font-medium mb-1">Total Matings</p>
-                        <p class="text-3xl font-bold text-blue-900">{{ number_format($totalMatings) }}</p>
-                        <p class="text-blue-600 text-xs mt-2">{{ number_format($plannedMatings) }} planned • {{ number_format($completedMatings) }} completed</p>
-                    </a>
-                    <a href="{{ route('mating.manage') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-green-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-green-700 text-sm font-medium mb-1">Pregnant</p>
-                        <p class="text-3xl font-bold text-green-900">{{ number_format($pregnantMatings) }}</p>
-                        <p class="text-green-600 text-xs mt-2">{{ number_format($pregnancyRate, 1) }}% pregnancy rate</p>
-                    </a>
-                    <a href="{{ route('mating.manage') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-yellow-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-yellow-700 text-sm font-medium mb-1">Checks Due</p>
-                        <p class="text-3xl font-bold text-yellow-900">{{ number_format($pregnancyChecksDue) }}</p>
-                        <p class="text-yellow-600 text-xs mt-2">{{ number_format($pregnancyChecksOverdue) }} overdue</p>
-                    </a>
-                    <a href="{{ route('mating.manage') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-purple-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-purple-700 text-sm font-medium mb-1">Fertility Rate</p>
-                        <p class="text-3xl font-bold text-purple-900">{{ number_format($fertilityRate, 1) }}%</p>
-                        <p class="text-purple-600 text-xs mt-2">{{ number_format($upcomingMatings) }} upcoming</p>
-                    </a>
-                </div>
-
-                <div class="bg-white rounded-lg p-6 shadow-sm border border-blue-100">
-                    <h3 class="text-lg font-semibold text-blue-900 mb-4">Mating Activity (6 Months)</h3>
-                    <div class="h-64" style="position: relative; width: 100%; height: 300px;"> 
-                        <canvas id="matingTrendsChart"></canvas>
-                    </div>
-                </div>
-            </section>
-
-            <div class="border-t-2 border-gray-300 my-8"></div>
-
-            <!-- ========== GESTATION SECTION ========== -->
-            <section class="mb-12">
-                <div class="flex items-center justify-between mb-6">
-                    <div>
-                        <h2 class="text-2xl font-bold text-gray-900">Gestation Tracking</h2>
-                        <p class="text-gray-600 text-sm mt-1">Pregnancy monitoring and farrowing preparation</p>
-                    </div>
-                    <a href="{{ route('gestation.index') }}" class="text-indigo-600 hover:text-indigo-700 font-medium text-sm flex items-center gap-1">
-                        View All <span>→</span>
-                    </a>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
-                    <a href="{{ route('gestation.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-indigo-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-indigo-700 text-sm font-medium mb-1">Pregnant</p>
-                        <p class="text-3xl font-bold text-indigo-900">{{ number_format($totalPregnant) }}</p>
-                        <p class="text-indigo-600 text-xs mt-2">{{ number_format($avgGestationDays, 1) }} avg days</p>
-                    </a>
-                    <a href="{{ route('gestation.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-green-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-green-700 text-sm font-medium mb-1">Due This Week</p>
-                        <p class="text-3xl font-bold text-green-900">{{ number_format($dueThisWeek) }}</p>
-                        <p class="text-yellow-600 text-xs mt-2">{{ number_format($dueNextWeek) }} due next week</p>
-                    </a>
-                    <a href="{{ route('gestation.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-red-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-red-700 text-sm font-medium mb-1">Overdue</p>
-                        <p class="text-3xl font-bold text-red-900">{{ number_format($overdueGestation) }}</p>
-                        <p class="text-red-600 text-xs mt-2">Requires attention</p>
-                    </a>
-                    <a href="{{ route('farrowing.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-purple-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-purple-700 text-sm font-medium mb-1">Farrowed This Month</p>
-                        <p class="text-3xl font-bold text-purple-900">{{ number_format($farrowedThisMonth) }}</p>
-                        <p class="text-purple-600 text-xs mt-2">{{ number_format($totalFarrowed) }} total</p>
-                    </a>
-                </div>
-
-                <div class="bg-white rounded-lg p-6 shadow-sm border border-indigo-100">
-                    <h3 class="text-lg font-semibold text-indigo-900 mb-4">Gestation Status Distribution</h3>
-                    <div class="h-64" style="position: center; width: 100%; height: 300px;"> 
-                        <canvas id="gestationStatusChart"></canvas>
-                    </div>
-                </div>
-            </section>
-
-            <div class="border-t-2 border-gray-300 my-8"></div>
-
-            <!-- ========== FARROWING SECTION ========== -->
-            <section class="mb-12">
-                <div class="flex items-center justify-between mb-6">
-                    <div>
-                        <h2 class="text-2xl font-bold text-gray-900">Farrowing Records</h2>
-                        <p class="text-gray-600 text-sm mt-1">Birth records and piglet statistics</p>
-                    </div>
-                    <a href="{{ route('farrowing.index') }}" class="text-pink-600 hover:text-pink-700 font-medium text-sm flex items-center gap-1">
-                        View All <span>→</span>
-                    </a>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
-                    <a href="{{ route('farrowing.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-pink-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-pink-700 text-sm font-medium mb-1">Total Farrowings</p>
-                        <p class="text-3xl font-bold text-pink-900">{{ number_format($totalFarrowings) }}</p>
-                        <p class="text-pink-600 text-xs mt-2">{{ number_format($farrowingsThisMonth) }} this month</p>
-                    </a>
-                    <a href="{{ route('farrowing.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-green-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-green-700 text-sm font-medium mb-1">Total Born</p>
-                        <p class="text-3xl font-bold text-green-900">{{ number_format($totalBorn) }}</p>
-                        <p class="text-green-600 text-xs mt-2">{{ number_format($avgLitterSize, 1) }} avg litter size</p>
-                    </a>
-                    <a href="{{ route('farrowing.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-blue-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-blue-700 text-sm font-medium mb-1">Survival Rate</p>
-                        <p class="text-3xl font-bold text-blue-900">{{ number_format($survivalRate, 1) }}%</p>
-                        <p class="text-blue-600 text-xs mt-2">{{ number_format($avgStillborns, 1) }} avg stillborns</p>
-                    </a>
-                    <a href="{{ route('farrowing.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-purple-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-purple-700 text-sm font-medium mb-1">Avg Birth Weight</p>
-                        <p class="text-3xl font-bold text-purple-900">{{ number_format($avgBirthWeight ?? 0, 2) }} kg</p>
-                        <p class="text-purple-600 text-xs mt-2">{{ number_format($farrowingsThisYear) }} this year</p>
-                    </a>
-                </div>
-
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white rounded-lg p-6 shadow-sm border border-pink-100">
-                        <h3 class="text-lg font-semibold text-pink-900 mb-4">Farrowing Trends (6 Months)</h3>
-                        <div class="h-64">
-                            <canvas id="farrowingTrendsChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="bg-white rounded-lg p-6 shadow-sm border border-green-100">
-                        <h3 class="text-lg font-semibold text-green-900 mb-4">Piglets Born (6 Months)</h3>
-                        <div class="h-64">
-                            <canvas id="pigletsBornChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <div class="border-t-2 border-gray-300 my-8"></div>
-
-            <!-- ========== WEANING SECTION ========== -->
-            <section class="mb-12">
-                <div class="flex items-center justify-between mb-6">
-                    <div>
-                        <h2 class="text-2xl font-bold text-gray-900">Weaning Management</h2>
-                        <p class="text-gray-600 text-sm mt-1">Piglet weaning and maturity tracking</p>
-                    </div>
-                    <a href="{{ route('weaning.dashboard') }}" class="text-teal-600 hover:text-teal-700 font-medium text-sm flex items-center gap-1">
-                        View All <span>→</span>
-                    </a>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
-                    <a href="{{ route('weaning.dashboard') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-teal-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-teal-700 text-sm font-medium mb-1">Total Weaned</p>
-                        <p class="text-3xl font-bold text-teal-900">{{ number_format($totalWeaned) }}</p>
-                        <p class="text-teal-600 text-xs mt-2">{{ number_format($weaningPercentage, 1) }}% weaning rate</p>
-                    </a>
-                    <a href="{{ route('weaning.dashboard') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-green-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-green-700 text-sm font-medium mb-1">Ready to Wean</p>
-                        <p class="text-3xl font-bold text-green-900">{{ number_format($readyToWean) }}</p>
-                        <p class="text-green-600 text-xs mt-2">{{ number_format($dueSoonWeaning) }} due soon</p>
-                    </a>
-                    <a href="{{ route('weaning.dashboard') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-red-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-red-700 text-sm font-medium mb-1">Overdue</p>
-                        <p class="text-3xl font-bold text-red-900">{{ number_format($overdueWeaning) }}</p>
-                        <p class="text-red-600 text-xs mt-2">Past {{ $weaningAge + 7 }} days</p>
-                    </a>
-                    <a href="{{ route('weaning.dashboard') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-purple-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-purple-700 text-sm font-medium mb-1">Avg Weaning</p>
-                        <p class="text-3xl font-bold text-purple-900">{{ number_format($avgWeaningAge ?? 0, 0) }} days</p>
-                        <p class="text-purple-600 text-xs mt-2">{{ number_format($avgWeaningWeight ?? 0, 2) }} kg avg weight</p>
-                    </a>
-                </div>
-
-                <div class="bg-white rounded-lg p-6 shadow-sm border border-teal-100">
-                    <h3 class="text-lg font-semibold text-teal-900 mb-4">Weaning Activity (6 Months)</h3>
-                    <div class="h-64" style="position: relative; width: 100%; height: 300px;"> 
-                        <canvas id="weaningTrendsChart"></canvas>
-                    </div>
-                </div>
-            </section>
-
-            <div class="border-t-2 border-gray-300 my-8"></div>
-
-            <!-- ========== WEIGHT MANAGEMENT SECTION ========== -->
-            <section class="mb-12">
-                <div class="flex items-center justify-between mb-6">
-                    <div>
-                        <h2 class="text-2xl font-bold text-gray-900">Weight Management</h2>
-                        <p class="text-gray-600 text-sm mt-1">Weight tracking and growth monitoring</p>
-                    </div>
-                    <a href="{{ route('weights.index') }}" class="text-orange-600 hover:text-orange-700 font-medium text-sm flex items-center gap-1">
-                        View All <span>→</span>
-                    </a>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
-                    <a href="{{ route('weights.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-orange-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-orange-700 text-sm font-medium mb-1">Total Records</p>
-                        <p class="text-3xl font-bold text-orange-900">{{ number_format($totalWeights) }}</p>
-                        <p class="text-orange-600 text-xs mt-2">{{ number_format($weightsThisWeek) }} this week</p>
-                    </a>
-                    <a href="{{ route('weights.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-red-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-red-700 text-sm font-medium mb-1">Overdue</p>
-                        <p class="text-3xl font-bold text-red-900">{{ number_format($overdueForWeighing) }}</p>
-                        <p class="text-red-600 text-xs mt-2">{{ number_format($dueForWeighing) }} due soon</p>
-                    </a>
-                    <a href="{{ route('weights.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-blue-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-blue-700 text-sm font-medium mb-1">Avg Weight</p>
-                        <p class="text-3xl font-bold text-blue-900">{{ number_format($avgWeight ?? 0, 1) }} kg</p>
-                        <p class="text-blue-600 text-xs mt-2">{{ number_format($totalWeight ?? 0, 1) }} kg total</p>
-                    </a>
-                    <a href="{{ route('weights.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-green-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-green-700 text-sm font-medium mb-1">Farm Value</p>
-                        <p class="text-3xl font-bold text-green-900">₵{{ number_format($totalFarmValue ?? 0, 0) }}</p>
-                        <p class="text-green-600 text-xs mt-2">₵{{ number_format($liveWeightPrice, 2) }}/kg</p>
-                    </a>
-                </div>
-
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                    <div class="bg-white rounded-lg p-6 shadow-sm border border-orange-100">
-                        <h3 class="text-lg font-semibold text-orange-900 mb-4">Weight Trends (30 Days)</h3>
-                        <div class="h-64">
-                            <canvas id="weightTrendsChart"></canvas>
-                        </div>
-                    </div>
-                    <div class="bg-white rounded-lg p-6 shadow-sm border border-blue-100">
-                        <h3 class="text-lg font-semibold text-blue-900 mb-4">Average Weight (6 Months)</h3>
-                        <div class="h-64">
-                            <canvas id="weightMonthlyChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Weighing Alerts Card -->
-                <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-6 shadow-sm border-l-4 border-red-500">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-red-900">Weighing Alerts</h3>
-                        <button onclick="toggleWeighingAlertsModal()" class="text-red-700 hover:text-red-900 font-medium text-sm flex items-center gap-1">
-                            View All <span>→</span>
-                        </button>
-                    </div>
-                    @if($overduePigsData->count() > 0)
-                    <div class="space-y-2 mb-4">
-                        @foreach($overduePigsData->take(5) as $item)
-                        <div class="flex items-center justify-between bg-white rounded-lg p-3 hover:bg-red-50 transition-colors border border-red-200">
+                <div class="admin-two-col">
+                    <div class="admin-card">
+                        <div class="admin-card-head">
                             <div>
-                                <p class="font-medium text-gray-900">{{ $item['pig']->ear_tag_number ?? 'N/A' }}</p>
-                                <p class="text-sm text-gray-600">{{ $item['days_since'] }} days since last weighing</p>
+                                <h3 class="admin-card-title">Breed Distribution</h3>
+                                <div class="admin-card-sub">Current breakdown by main breed groups</div>
                             </div>
-                            <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
-                                {{ $item['overdue_days'] }} days overdue
-                            </span>
                         </div>
-                        @endforeach
-                    </div>
-                    <div class="text-center">
-                        <button onclick="toggleWeighingAlertsModal()" class="w-full px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors">
-                            View All {{ $allOverduePigsData->count() }} Overdue Pigs
-                        </button>
-                    </div>
-                    @else
-                    <div class="text-center py-4">
-                        <p class="text-red-700">All pigs are up to date with weighing!</p>
-                    </div>
-                    @endif
-                </div>
-            </section>
 
-            <div class="border-t-2 border-gray-300 my-8"></div>
-
-            <!-- ========== FEED MANAGEMENT SECTION ========== -->
-            <section class="mb-12">
-                <div class="flex items-center justify-between mb-6">
-                    <div>
-                        <h2 class="text-2xl font-bold text-gray-900">Feed Management</h2>
-                        <p class="text-gray-600 text-sm mt-1">Inventory, scheduling, and procurement</p>
-                    </div>
-                    <a href="{{ route('feed-inventory.index') }}" class="text-amber-600 hover:text-amber-700 font-medium text-sm flex items-center gap-1">
-                        View All <span>→</span>
-                    </a>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
-                    <a href="{{ route('feed-inventory.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-amber-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-amber-700 text-sm font-medium mb-1">Low Stock Items</p>
-                        <p class="text-3xl font-bold text-amber-900">{{ number_format($lowStockCount) }}</p>
-                        <p class="text-amber-600 text-xs mt-2">{{ number_format($totalFeedItems) }} total items</p>
-                    </a>
-                    <a href="{{ route('feed-purchase-requests.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-blue-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-blue-700 text-sm font-medium mb-1">Pending Requests</p>
-                        <p class="text-3xl font-bold text-blue-900">{{ number_format($pendingRequests) }}</p>
-                        <p class="text-blue-600 text-xs mt-2">₵{{ number_format($pendingRequestValue, 0) }} value</p>
-                    </a>
-                    <a href="{{ route('feeds.schedule') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-green-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-green-700 text-sm font-medium mb-1">Fed Today</p>
-                        <p class="text-3xl font-bold text-green-900">{{ number_format($fedToday) }}</p>
-                        <p class="text-green-600 text-xs mt-2">{{ number_format($scheduledFeeds) }} scheduled</p>
-                    </a>
-                    <a href="{{ route('feed-inventory.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-purple-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-purple-700 text-sm font-medium mb-1">Total Inventory</p>
-                        <p class="text-3xl font-bold text-purple-900">{{ number_format($totalFeedQuantity, 0) }}</p>
-                        <p class="text-purple-600 text-xs mt-2">{{ number_format($totalScheduled) }} scheduled</p>
-                    </a>
-                </div>
-
-                <div class="bg-white rounded-lg p-6 shadow-sm border">
-                    <h3 class="text-lg font-semibold text-amber-900 mb-4">Feed Consumption Trends (6 Months)</h3>
-                    <div class="h-64" style="position: center; width: 100%; height: 300px;"> 
-                        <canvas id="feedTrendsChart"></canvas>
-                    </div>
-                </div>
-            </section>
-
-            <div class="border-t-2 border-gray-300 my-8"></div>
-
-            <!-- ========== HEALTH & PERFORMANCE SECTION ========== -->
-            <section class="mb-12">
-                <div class="flex items-center justify-between mb-6">
-                    <div>
-                        <h2 class="text-2xl font-bold text-gray-900">Health & Performance</h2>
-                        <p class="text-gray-600 text-sm mt-1">Health records and medication administration</p>
-                    </div>
-                    <a href="{{ route('health.index') }}" class="text-rose-600 hover:text-rose-700 font-medium text-sm flex items-center gap-1">
-                        View All <span>→</span>
-                    </a>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
-                    <a href="{{ route('health.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-rose-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-rose-700 text-sm font-medium mb-1">Health Records</p>
-                        <p class="text-3xl font-bold text-rose-900">{{ number_format($totalHealthRecords) }}</p>
-                        <p class="text-rose-600 text-xs mt-2">{{ number_format($healthRecordsThisMonth) }} this month</p>
-                    </a>
-                    <a href="{{ route('medications.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-blue-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-blue-700 text-sm font-medium mb-1">Medications</p>
-                        <p class="text-3xl font-bold text-blue-900">{{ number_format($totalMedications) }}</p>
-                        <p class="text-blue-600 text-xs mt-2">{{ number_format($medicationsThisMonth) }} this month</p>
-                    </a>
-                    <a href="{{ route('health.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-yellow-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-yellow-700 text-sm font-medium mb-1">Critical Alerts</p>
-                        <p class="text-3xl font-bold text-yellow-900">{{ number_format($criticalAlerts) }}</p>
-                        <p class="text-yellow-600 text-xs mt-2">{{ number_format($totalAlerts) }} total alerts</p>
-                    </a>
-                    <a href="{{ route('sales.index') }}" class="bg-white rounded-lg p-6 shadow-sm border-l-4 border-green-500 hover:shadow-md transition-shadow cursor-pointer">
-                        <p class="text-green-700 text-sm font-medium mb-1">Total Sales</p>
-                        <p class="text-3xl font-bold text-green-900">{{ number_format($totalSales) }}</p>
-                        <p class="text-green-600 text-xs mt-2">₵{{ number_format($totalRevenue, 0) }} revenue</p>
-                    </a>
-                </div>
-
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div class="bg-white rounded-lg p-6 shadow-sm border">
-                        <h3 class="text-lg font-semibold text-rose-900 mb-4">Top Health Conditions</h3>
-                        <div class="space-y-3">
-                            @forelse($topConditions as $condition)
-                            <div class="flex items-center justify-between py-2 border-b border-rose-200 last:border-0">
-                                <span class="text-rose-800 font-medium">{{ $condition->condition }}</span>
-                                <span class="font-bold text-rose-900">{{ $condition->count }} cases</span>
+                        <div class="admin-list">
+                            <div class="admin-list-row">
+                                <span>LW (Large White)</span>
+                                <span>{{ number_format($breedCounts['LW'] ?? 0) }}</span>
                             </div>
+                            <div class="admin-list-row">
+                                <span>DR (Duroc)</span>
+                                <span>{{ number_format($breedCounts['DR'] ?? 0) }}</span>
+                            </div>
+                            <div class="admin-list-row">
+                                <span>LWDR (Large White Duroc)</span>
+                                <span>{{ number_format($breedCounts['LWDR'] ?? 0) }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="admin-card">
+                        <div class="admin-card-head">
+                            <div>
+                                <h3 class="admin-card-title">Stock Trends</h3>
+                                <div class="admin-card-sub">Active, sold, and deceased over 6 months</div>
+                            </div>
+                        </div>
+
+                        <div class="admin-chart-wrap">
+                            <div class="admin-chart">
+                                <canvas id="stockTrendsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="admin-small-top">
+                <div class="admin-card">
+                    <div class="admin-card-head">
+                        <div>
+                            <h3 class="admin-card-title">Farm Value</h3>
+                            <div class="admin-card-sub">Current estimated live value of the farm</div>
+                        </div>
+                        <div class="admin-badge">Live snapshot</div>
+                    </div>
+
+                    <div class="admin-small-card-body">
+                        <div class="admin-small-value">
+                            <div class="admin-value-icon">
+                                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+
+                            <div>
+                                <div class="admin-value-number">GHS {{ number_format($totalFarmValue, 2) }}</div>
+                                <div class="admin-value-note">
+                                    {{ number_format($totalWeight, 1) }}kg total live weight @ GHS {{ number_format($liveWeightPrice, 2) }}/kg
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div onclick="toggleWeighingAlertsModal()" class="admin-alert-card cursor-pointer hover:-translate-y-1 transition-all duration-300">
+                    <div class="admin-card-head">
+                        <div>
+                            <h3 class="admin-card-title">Weighing Alerts</h3>
+                            <div class="admin-card-sub">Click to view pigs overdue for weighing</div>
+                        </div>
+                        <div class="admin-badge">Attention needed</div>
+                    </div>
+
+                    <div class="admin-small-card-body">
+                        <div class="admin-small-value">
+                            <div class="admin-value-icon" style="background: linear-gradient(135deg, #fee2e2, #fecaca); color: #dc2626;">
+                                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-7.938 4h15.876c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                                </svg>
+                            </div>
+
+                            <div>
+                                <div class="admin-value-number">{{ number_format($allOverduePigsData->count()) }}</div>
+                                <div class="admin-value-note">
+                                    @if($allOverduePigsData->count() > 0)
+                                        Pigs currently overdue for weighing
+                                    @else
+                                        All pigs are up to date with weighing
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="admin-card mb-4">
+                <div class="admin-card-head">
+                    <div>
+                        <h3 class="admin-card-title">Farm Value Trend</h3>
+                        <div class="admin-card-sub">Trend based on average weight and live price over recent months</div>
+                    </div>
+                    <div class="admin-badge">Last 6 months</div>
+                </div>
+
+                <div class="admin-chart-wrap">
+                    <div class="admin-chart">
+                        <canvas id="farmValueTrendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="admin-divider"></div>
+
+            <section class="admin-section">
+                <div class="admin-section-head">
+                    <div>
+                        <h2>Mating Management</h2>
+                        <p>Breeding activities and pregnancy tracking</p>
+                    </div>
+                    <a href="{{ route('mating.manage') }}" class="admin-link">View All →</a>
+                </div>
+
+                <div class="admin-mini-grid">
+                    <a href="{{ route('mating.manage') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Total Matings</div>
+                        <div class="admin-mini-value">{{ number_format($totalMatings) }}</div>
+                        <div class="admin-mini-sub">{{ number_format($plannedMatings) }} planned • {{ number_format($completedMatings) }} completed</div>
+                    </a>
+
+                    <a href="{{ route('mating.manage') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Pregnant</div>
+                        <div class="admin-mini-value">{{ number_format($pregnantMatings) }}</div>
+                        <div class="admin-mini-sub">{{ number_format($pregnancyRate, 1) }}% pregnancy rate</div>
+                    </a>
+
+                    <a href="{{ route('mating.manage') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Checks Due</div>
+                        <div class="admin-mini-value">{{ number_format($pregnancyChecksDue) }}</div>
+                        <div class="admin-mini-sub">{{ number_format($pregnancyChecksOverdue) }} overdue</div>
+                    </a>
+
+                    <a href="{{ route('mating.manage') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Fertility Rate</div>
+                        <div class="admin-mini-value">{{ number_format($fertilityRate, 1) }}%</div>
+                        <div class="admin-mini-sub">{{ number_format($upcomingMatings) }} upcoming</div>
+                    </a>
+                </div>
+
+                <div class="admin-card">
+                    <div class="admin-card-head">
+                        <div>
+                            <h3 class="admin-card-title">Mating Activity</h3>
+                            <div class="admin-card-sub">Six-month breeding activity chart</div>
+                        </div>
+                    </div>
+
+                    <div class="admin-chart-wrap">
+                        <div class="admin-chart">
+                            <canvas id="matingTrendsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="admin-divider"></div>
+
+            <section class="admin-section">
+                <div class="admin-section-head">
+                    <div>
+                        <h2>Gestation Tracking</h2>
+                        <p>Pregnancy monitoring and farrowing preparation</p>
+                    </div>
+                    <a href="{{ route('gestation.index') }}" class="admin-link">View All →</a>
+                </div>
+
+                <div class="admin-mini-grid">
+                    <a href="{{ route('gestation.index') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Pregnant</div>
+                        <div class="admin-mini-value">{{ number_format($totalPregnant) }}</div>
+                        <div class="admin-mini-sub">{{ number_format($avgGestationDays, 1) }} avg days</div>
+                    </a>
+
+                    <a href="{{ route('gestation.index') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Due This Week</div>
+                        <div class="admin-mini-value">{{ number_format($dueThisWeek) }}</div>
+                        <div class="admin-mini-sub">{{ number_format($dueNextWeek) }} due next week</div>
+                    </a>
+
+                    <a href="{{ route('gestation.index') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Overdue</div>
+                        <div class="admin-mini-value">{{ number_format($overdueGestation) }}</div>
+                        <div class="admin-mini-sub">Requires attention</div>
+                    </a>
+
+                    <a href="{{ route('farrowing.index') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Farrowed This Month</div>
+                        <div class="admin-mini-value">{{ number_format($farrowedThisMonth) }}</div>
+                        <div class="admin-mini-sub">{{ number_format($totalFarrowed) }} total</div>
+                    </a>
+                </div>
+
+                <div class="admin-card">
+                    <div class="admin-card-head">
+                        <div>
+                            <h3 class="admin-card-title">Gestation Status Distribution</h3>
+                            <div class="admin-card-sub">Distribution across tracked gestation states</div>
+                        </div>
+                    </div>
+
+                    <div class="admin-chart-wrap">
+                        <div class="admin-chart">
+                            <canvas id="gestationStatusChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="admin-divider"></div>
+
+            <section class="admin-section">
+                <div class="admin-section-head">
+                    <div>
+                        <h2>Farrowing Records</h2>
+                        <p>Birth records and piglet statistics</p>
+                    </div>
+                    <a href="{{ route('farrowing.index') }}" class="admin-link">View All →</a>
+                </div>
+
+                <div class="admin-mini-grid">
+                    <a href="{{ route('farrowing.index') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Total Farrowings</div>
+                        <div class="admin-mini-value">{{ number_format($totalFarrowings) }}</div>
+                        <div class="admin-mini-sub">{{ number_format($farrowingsThisMonth) }} this month</div>
+                    </a>
+
+                    <a href="{{ route('farrowing.index') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Total Born</div>
+                        <div class="admin-mini-value">{{ number_format($totalBorn) }}</div>
+                        <div class="admin-mini-sub">{{ number_format($avgLitterSize, 1) }} avg litter size</div>
+                    </a>
+
+                    <a href="{{ route('farrowing.index') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Survival Rate</div>
+                        <div class="admin-mini-value">{{ number_format($survivalRate, 1) }}%</div>
+                        <div class="admin-mini-sub">{{ number_format($avgStillborns, 1) }} avg stillborns</div>
+                    </a>
+
+                    <a href="{{ route('farrowing.index') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Avg Birth Weight</div>
+                        <div class="admin-mini-value">{{ number_format($avgBirthWeight ?? 0, 2) }} kg</div>
+                        <div class="admin-mini-sub">{{ number_format($farrowingsThisYear) }} this year</div>
+                    </a>
+                </div>
+
+                <div class="admin-two-col">
+                    <div class="admin-card">
+                        <div class="admin-card-head">
+                            <div>
+                                <h3 class="admin-card-title">Farrowing Trends</h3>
+                                <div class="admin-card-sub">Six-month farrowing activity</div>
+                            </div>
+                        </div>
+                        <div class="admin-chart-wrap">
+                            <div class="admin-chart">
+                                <canvas id="farrowingTrendsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="admin-card">
+                        <div class="admin-card-head">
+                            <div>
+                                <h3 class="admin-card-title">Piglets Born</h3>
+                                <div class="admin-card-sub">Six-month piglet birth totals</div>
+                            </div>
+                        </div>
+                        <div class="admin-chart-wrap">
+                            <div class="admin-chart">
+                                <canvas id="pigletsBornChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="admin-divider"></div>
+
+            <section class="admin-section">
+                <div class="admin-section-head">
+                    <div>
+                        <h2>Weaning Management</h2>
+                        <p>Piglet weaning and maturity tracking</p>
+                    </div>
+                    <a href="{{ route('weaning.dashboard') }}" class="admin-link">View All →</a>
+                </div>
+
+                <div class="admin-mini-grid">
+                    <a href="{{ route('weaning.dashboard') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Total Weaned</div>
+                        <div class="admin-mini-value">{{ number_format($totalWeaned) }}</div>
+                        <div class="admin-mini-sub">{{ number_format($weaningPercentage, 1) }}% weaning rate</div>
+                    </a>
+
+                    <a href="{{ route('weaning.dashboard') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Ready to Wean</div>
+                        <div class="admin-mini-value">{{ number_format($readyToWean) }}</div>
+                        <div class="admin-mini-sub">{{ number_format($dueSoonWeaning) }} due soon</div>
+                    </a>
+
+                    <a href="{{ route('weaning.dashboard') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Overdue</div>
+                        <div class="admin-mini-value">{{ number_format($overdueWeaning) }}</div>
+                        <div class="admin-mini-sub">Past {{ $weaningAge + 7 }} days</div>
+                    </a>
+
+                    <a href="{{ route('weaning.dashboard') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Avg Weaning</div>
+                        <div class="admin-mini-value">{{ number_format($avgWeaningAge ?? 0, 0) }} days</div>
+                        <div class="admin-mini-sub">{{ number_format($avgWeaningWeight ?? 0, 2) }} kg avg weight</div>
+                    </a>
+                </div>
+
+                <div class="admin-card">
+                    <div class="admin-card-head">
+                        <div>
+                            <h3 class="admin-card-title">Weaning Activity</h3>
+                            <div class="admin-card-sub">Six-month weaning trend</div>
+                        </div>
+                    </div>
+                    <div class="admin-chart-wrap">
+                        <div class="admin-chart">
+                            <canvas id="weaningTrendsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="admin-divider"></div>
+
+            <section class="admin-section">
+                <div class="admin-section-head">
+                    <div>
+                        <h2>Weight Management</h2>
+                        <p>Weight tracking, growth monitoring, and farm value</p>
+                    </div>
+                    <a href="{{ route('weights.index') }}" class="admin-link">View All →</a>
+                </div>
+
+                <div class="admin-mini-grid">
+                    <a href="{{ route('weights.index') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Total Records</div>
+                        <div class="admin-mini-value">{{ number_format($totalWeights) }}</div>
+                        <div class="admin-mini-sub">{{ number_format($weightsThisWeek) }} this week</div>
+                    </a>
+
+                    <a href="{{ route('weights.index') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Overdue</div>
+                        <div class="admin-mini-value">{{ number_format($overdueForWeighing) }}</div>
+                        <div class="admin-mini-sub">{{ number_format($dueForWeighing) }} due soon</div>
+                    </a>
+
+                    <a href="{{ route('weights.index') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Avg Weight</div>
+                        <div class="admin-mini-value">{{ number_format($avgWeight ?? 0, 1) }} kg</div>
+                        <div class="admin-mini-sub">{{ number_format($totalWeight ?? 0, 1) }} kg total</div>
+                    </a>
+
+                    <a href="{{ route('weights.index') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Farm Value</div>
+                        <div class="admin-mini-value">₵{{ number_format($totalFarmValue ?? 0, 0) }}</div>
+                        <div class="admin-mini-sub">₵{{ number_format($liveWeightPrice, 2) }}/kg</div>
+                    </a>
+                </div>
+
+                <div class="admin-two-col mb-6">
+                    <div class="admin-card">
+                        <div class="admin-card-head">
+                            <div>
+                                <h3 class="admin-card-title">Weight Trends</h3>
+                                <div class="admin-card-sub">Last 30 days average weight movement</div>
+                            </div>
+                        </div>
+                        <div class="admin-chart-wrap">
+                            <div class="admin-chart">
+                                <canvas id="weightTrendsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="admin-card">
+                        <div class="admin-card-head">
+                            <div>
+                                <h3 class="admin-card-title">Average Weight</h3>
+                                <div class="admin-card-sub">Six-month average weight trend</div>
+                            </div>
+                        </div>
+                        <div class="admin-chart-wrap">
+                            <div class="admin-chart">
+                                <canvas id="weightMonthlyChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="admin-divider"></div>
+
+            <section class="admin-section">
+                <div class="admin-section-head">
+                    <div>
+                        <h2>Health & Performance</h2>
+                        <p>Health records and medication administration</p>
+                    </div>
+                    <a href="{{ route('health.index') }}" class="admin-link">View All →</a>
+                </div>
+
+                <div class="admin-mini-grid">
+                    <a href="{{ route('health.index') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Health Records</div>
+                        <div class="admin-mini-value">{{ number_format($totalHealthRecords) }}</div>
+                        <div class="admin-mini-sub">{{ number_format($healthRecordsThisMonth) }} this month</div>
+                    </a>
+
+                    <a href="{{ route('medications.index') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Medications</div>
+                        <div class="admin-mini-value">{{ number_format($totalMedications) }}</div>
+                        <div class="admin-mini-sub">{{ number_format($medicationsThisMonth) }} this month</div>
+                    </a>
+
+                    <a href="{{ route('health.index') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Critical Alerts</div>
+                        <div class="admin-mini-value">{{ number_format($criticalAlerts) }}</div>
+                        <div class="admin-mini-sub">{{ number_format($totalAlerts) }} total alerts</div>
+                    </a>
+
+                    <a href="{{ route('sales.index') }}" class="admin-mini-card">
+                        <div class="admin-mini-label">Total Sales</div>
+                        <div class="admin-mini-value">{{ number_format($totalSales) }}</div>
+                        <div class="admin-mini-sub">₵{{ number_format($totalRevenue, 0) }} revenue</div>
+                    </a>
+                </div>
+
+                <div class="admin-two-col">
+                    <div class="admin-card">
+                        <div class="admin-card-head">
+                            <div>
+                                <h3 class="admin-card-title">Top Health Conditions</h3>
+                                <div class="admin-card-sub">Most frequent recorded conditions</div>
+                            </div>
+                        </div>
+
+                        <div class="admin-list">
+                            @forelse($topConditions as $condition)
+                                <div class="admin-list-row">
+                                    <span>{{ $condition->condition }}</span>
+                                    <span>{{ $condition->count }} cases</span>
+                                </div>
                             @empty
-                            <p class="text-rose-600 text-sm">No health records yet</p>
+                                <div class="text-sm text-rose-600">No health records yet</div>
                             @endforelse
                         </div>
                     </div>
-                    <div class="bg-white rounded-lg p-6 shadow-sm border">
-                        <h3 class="text-lg font-semibold text-blue-900 mb-4">Health Activity (6 Months)</h3>
-                        <div class="h-64">
-                            <canvas id="healthTrendsChart"></canvas>
+
+                    <div class="admin-card">
+                        <div class="admin-card-head">
+                            <div>
+                                <h3 class="admin-card-title">Health Activity</h3>
+                                <div class="admin-card-sub">Health and medication activity over 6 months</div>
+                            </div>
+                        </div>
+
+                        <div class="admin-chart-wrap">
+                            <div class="admin-chart">
+                                <canvas id="healthTrendsChart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -616,7 +1209,6 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        // Stock Trends Chart
         new Chart(document.getElementById('stockTrendsChart'), {
             type: 'line',
             data: {
@@ -654,7 +1246,6 @@
             }
         });
 
-        // Mating Trends Chart
         new Chart(document.getElementById('matingTrendsChart'), {
             type: 'bar',
             data: {
@@ -669,70 +1260,55 @@
             },
             options: {
                 responsive: true,
-                // 1. Set this to false to let the chart fill the container's height/width
-                maintainAspectRatio: false, 
-                plugins: { 
-                    legend: { display: false } 
-                },
-                scales: { 
-                    y: { 
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
                         beginAtZero: true,
-                        // Optional: clean up the grid lines for a more "full width" look
-                        grid: {
-                            display: false
-                        }
+                        grid: { display: false }
                     },
                     x: {
-                        grid: {
-                            display: false
-                        }
+                        grid: { display: false }
                     }
                 },
-                // Optional: reduce padding to touch the edges of the card
-                layout: {
-                    padding: 0
-                }
+                layout: { padding: 0 }
             }
         });
 
-        // Gestation Status Chart
         new Chart(document.getElementById('gestationStatusChart'), {
-            type: 'doughnut', 
+            type: 'doughnut',
             data: {
                 labels: Object.keys(@json($gestationStatusData)),
                 datasets: [{
                     data: Object.values(@json($gestationStatusData)),
                     backgroundColor: [
-                        'rgba(99, 102, 241, 0.8)', // Indigo
-                        'rgba(34, 197, 94, 0.8)',  // Green
-                        'rgba(245, 158, 11, 0.6)',  // yellow
-                        'rgba(239, 68, 68, 0.8)'   // Red
+                        'rgba(99, 102, 241, 0.8)',
+                        'rgba(34, 197, 94, 0.8)',
+                        'rgba(245, 158, 11, 0.6)',
+                        'rgba(239, 68, 68, 0.8)'
                     ],
                     hoverOffset: 4,
                     borderWidth: 2,
-                    borderColor: '#ffffff' // Adds a clean gap between segments
+                    borderColor: '#ffffff'
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false, // Allows the CSS container to dictate size
-                plugins: { 
-                    legend: { 
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
                         position: 'bottom',
-                        align: 'center', // Ensures the legend is also centered
+                        align: 'center',
                         labels: {
                             padding: 20,
-                            usePointStyle: true // Circular legend icons look cleaner
+                            usePointStyle: true
                         }
-                    } 
+                    }
                 },
-                layout: {
-                    padding: 10 // Gives the chart room to breathe so it doesn't touch the edges
-                }
+                layout: { padding: 10 }
             }
         });
 
-        // Farrowing Trends Chart
         new Chart(document.getElementById('farrowingTrendsChart'), {
             type: 'line',
             data: {
@@ -754,7 +1330,6 @@
             }
         });
 
-        // Piglets Born Chart
         new Chart(document.getElementById('pigletsBornChart'), {
             type: 'bar',
             data: {
@@ -776,7 +1351,6 @@
             }
         });
 
-        // Weaning Trends Chart
         new Chart(document.getElementById('weaningTrendsChart'), {
             type: 'line',
             data: {
@@ -787,42 +1361,30 @@
                     borderColor: 'rgb(20, 184, 166)',
                     backgroundColor: 'rgba(20, 184, 166, 0.1)',
                     tension: 0.4,
-                    fill: true, // This fills the area under the curve with your teal color
+                    fill: true,
                     pointRadius: 4,
                     pointBackgroundColor: 'rgb(20, 184, 166)'
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false, // Allows it to stretch to the container width
-                plugins: { 
-                    legend: { display: false } 
-                },
-                scales: { 
-                    y: { 
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: {
                         beginAtZero: true,
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.05)' // Light grid lines for a cleaner look
-                        }
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' }
                     },
                     x: {
-                        grid: {
-                            display: false // Hide vertical lines to make it look wider
-                        }
+                        grid: { display: false }
                     }
                 },
                 layout: {
-                    padding: {
-                        left: 0,
-                        right: 10,
-                        top: 10,
-                        bottom: 0
-                    }
+                    padding: { left: 0, right: 10, top: 10, bottom: 0 }
                 }
             }
         });
 
-        // Weight Trends Chart
         new Chart(document.getElementById('weightTrendsChart'), {
             type: 'line',
             data: {
@@ -844,7 +1406,6 @@
             }
         });
 
-        // Weight Monthly Chart
         new Chart(document.getElementById('weightMonthlyChart'), {
             type: 'bar',
             data: {
@@ -866,71 +1427,6 @@
             }
         });
 
-        // Feed Trends Chart
-        new Chart(document.getElementById('feedTrendsChart'), {
-            type: 'line',
-            data: {
-                labels: @json($feedTrendsLabels),
-                datasets: [
-                    {
-                        label: 'Scheduled',
-                        data: @json($feedTrendsScheduled),
-                        borderColor: 'rgb(245, 158, 11)',
-                        backgroundColor: 'rgba(245, 158, 11, 0.1)', // Amber
-                        tension: 0.4,
-                        fill: true // Helps visualize the volume of scheduled feed
-                    },
-                    {
-                        label: 'Fed',
-                        data: @json($feedTrendsFed),
-                        borderColor: 'rgb(34, 197, 94)',
-                        backgroundColor: 'rgba(34, 197, 94, 0.1)', // Green
-                        tension: 0.4,
-                        fill: true // Helps visualize the actual consumption
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false, // Forces the chart to fill the 100% width of the card
-                plugins: { 
-                    legend: { 
-                        position: 'bottom',
-                        labels: {
-                            usePointStyle: true,
-                            padding: 20
-                        }
-                    } 
-                },
-                scales: { 
-                    y: { 
-                        beginAtZero: true,
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.05)'
-                        },
-                        title: {
-                            display: true,
-                            text: 'Quantity (kg)' // Adds context to the numbers
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false 
-                        }
-                    }
-                },
-                layout: {
-                    padding: {
-                        top: 10,
-                        bottom: 10,
-                        left: 0,
-                        right: 10
-                    }
-                }
-            }
-        });
-
-        // Health Trends Chart
         new Chart(document.getElementById('healthTrendsChart'), {
             type: 'line',
             data: {
@@ -960,22 +1456,53 @@
                 scales: { y: { beginAtZero: true } }
             }
         });
-    </script>
 
-    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const ctx = document.getElementById('farmValueTrendChart').getContext('2d');
+            const labels = @json($weightMonthlyLabels);
+            const avgWeights = @json($weightMonthlyAvg);
+            const pricePerKg = {{ $liveWeightPrice }};
+            const valueData = avgWeights.map(weight => (weight * pricePerKg).toFixed(2));
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Farm Value (GHS)',
+                        data: valueData,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: (value) => 'GHS ' + value.toLocaleString()
+                            }
+                        }
+                    }
+                }
+            });
+        });
+
         function toggleWeighingAlertsModal() {
             const modal = document.getElementById('weighingAlertsModal');
             modal.classList.toggle('hidden');
         }
 
-        // Close modal when clicking outside
         document.getElementById('weighingAlertsModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 toggleWeighingAlertsModal();
             }
         });
 
-        // Close modal with Escape key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 const modal = document.getElementById('weighingAlertsModal');

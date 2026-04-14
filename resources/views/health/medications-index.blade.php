@@ -157,10 +157,14 @@
                         <tr class="hover:bg-indigo-50/50 transition duration-100">
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700">{{ $m->administration_date->format('M d, Y') }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                <a href="{{ route('health.show', $m->pig) }}" class="text-indigo-600 hover:text-indigo-800 font-semibold transition duration-150">
-                                    {{ $m->pig->code ?? $m->pig->ear_tag_number }}
-                                </a>
-                            </td>
+    @if($m->pig)
+        <a href="{{ route('health.show', $m->pig->id) }}" class="text-indigo-600 hover:text-indigo-800 font-semibold transition duration-150">
+            {{ $m->pig->code ?? $m->pig->ear_tag_number ?? 'Pig #' . $m->pig->id }}
+        </a>
+    @else
+        <span class="text-gray-400 italic">No pig linked</span>
+    @endif
+</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $m->medication_name }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $m->dosage }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $m->purpose ?? 'N/A' }}</td>

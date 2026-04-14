@@ -14,9 +14,6 @@ use App\Models\Weaning;
 use App\Models\WeightAlert;
 use App\Models\User;
 use App\Models\Setting;
-use App\Models\FeedInventory;
-use App\Models\FeedPurchaseRequest;
-use App\Models\FeedSchedule;
 use App\Models\HealthRecord;
 use App\Models\MedicationAdministration;
 use Carbon\Carbon;
@@ -265,45 +262,22 @@ class AdminController extends Controller
             $weightMonthlyAvg[] = round($monthWeights ?? 0, 1);
         }
 
-        // ========== FEED MANAGEMENT SECTION ==========
-        $feedInventories = FeedInventory::with('feedType')->get();
-        $lowStockFeeds = $feedInventories->filter(function ($item) {
-            $unit = strtolower($item->unit ?? 'kg');
-            if (str_contains($unit, 'bag')) {
-                return $item->quantity < 5;
-            }
-            return $item->quantity < 50;
-        });
-        $lowStockCount = $lowStockFeeds->count();
-        $totalFeedItems = $feedInventories->count();
-        $totalFeedQuantity = $feedInventories->sum('quantity');
-
-        $pendingRequests = FeedPurchaseRequest::where('status', 'pending')->count();
-        $approvedRequests = FeedPurchaseRequest::where('status', 'approved')->count();
-        $rejectedRequests = FeedPurchaseRequest::where('status', 'rejected')->count();
-        $totalRequests = FeedPurchaseRequest::count();
-        $pendingRequestValue = FeedPurchaseRequest::where('status', 'pending')->sum('cost_ghc');
-
-        $scheduledFeeds = FeedSchedule::where('status', 'planned')->count();
-        $fedToday = FeedSchedule::whereDate('scheduled_for', today())
-            ->where('status', 'fed')->count();
-        $skippedToday = FeedSchedule::whereDate('scheduled_for', today())
-            ->where('status', 'skipped')->count();
-        $totalScheduled = FeedSchedule::count();
-
-        // Feed consumption trends (last 6 months)
+        // Feed management has been removed from the system.
+        $lowStockCount = 0;
+        $totalFeedItems = 0;
+        $totalFeedQuantity = 0;
+        $pendingRequests = 0;
+        $approvedRequests = 0;
+        $rejectedRequests = 0;
+        $totalRequests = 0;
+        $pendingRequestValue = 0;
+        $scheduledFeeds = 0;
+        $fedToday = 0;
+        $skippedToday = 0;
+        $totalScheduled = 0;
         $feedTrendsLabels = [];
         $feedTrendsScheduled = [];
         $feedTrendsFed = [];
-        for ($i = 5; $i >= 0; $i--) {
-            $monthDate = now()->subMonths($i);
-            $feedTrendsLabels[] = $monthDate->format('M Y');
-            $feedTrendsScheduled[] = FeedSchedule::whereMonth('scheduled_for', $monthDate->month)
-                ->whereYear('scheduled_for', $monthDate->year)->sum('planned_amount');
-            $feedTrendsFed[] = FeedSchedule::whereMonth('scheduled_for', $monthDate->month)
-                ->whereYear('scheduled_for', $monthDate->year)
-                ->where('status', 'fed')->sum('planned_amount');
-        }
 
         // ========== HEALTH & PERFORMANCE SECTION ==========
         $totalHealthRecords = HealthRecord::count();
