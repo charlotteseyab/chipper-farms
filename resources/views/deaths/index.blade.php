@@ -222,7 +222,6 @@
                 @endif
             </div>
         </main>
-        <x-copyright-minimal />
     </div>
 </x-app-layout>
 

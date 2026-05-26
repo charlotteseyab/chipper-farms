@@ -17,12 +17,14 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
-                @if($purchaseRequest->status === 'pending')
+                @can('update', $purchaseRequest)
                     <a href="{{ route('purchase-requests.edit', $purchaseRequest) }}"
                        class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
                         Edit Request
                     </a>
+                @endcan
 
+                @can('delete', $purchaseRequest)
                     <form action="{{ route('purchase-requests.destroy', $purchaseRequest) }}" method="POST"
                           onsubmit="return confirm('Are you sure you want to delete this purchase request?');">
                         @csrf
@@ -32,9 +34,9 @@
                             Delete Request
                         </button>
                     </form>
-                @endif
+                @endcan
 
-                @if(!in_array($purchaseRequest->status, ['approved', 'declined', 'paid']))
+                @can('approve', $purchaseRequest)
                     <form action="{{ route('purchase-requests.approve', $purchaseRequest) }}" method="POST">
                         @csrf
                         <button type="submit"
@@ -42,7 +44,9 @@
                             Approve Request
                         </button>
                     </form>
+                @endcan
 
+                @can('decline', $purchaseRequest)
                     <form action="{{ route('purchase-requests.decline', $purchaseRequest) }}" method="POST" class="flex flex-wrap items-center gap-2">
                         @csrf
                         <input type="text"
@@ -55,9 +59,9 @@
                             Decline Request
                         </button>
                     </form>
-                @endif
+                @endcan
 
-                @if($purchaseRequest->status === 'approved')
+                @can('markPaid', $purchaseRequest)
                     <form action="{{ route('purchase-requests.mark-paid', $purchaseRequest) }}" method="POST">
                         @csrf
                         <label class="inline-flex items-center gap-3 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-lg cursor-pointer">
@@ -67,7 +71,7 @@
                             <span class="text-sm font-semibold text-emerald-800">Mark as Paid</span>
                         </label>
                     </form>
-                @endif
+                @endcan
 
                 <a href="{{ route('purchase-requests.index') }}"
                    class="inline-flex items-center px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-semibold rounded-lg transition">
@@ -85,6 +89,13 @@
                 <div>
                     <p class="text-sm text-gray-500 mb-1">Request No</p>
                     <p class="text-base font-semibold text-gray-800">{{ $purchaseRequest->request_no }}</p>
+                </div>
+
+                <div>
+                    <p class="text-sm text-gray-500 mb-1">Request Type</p>
+                    <p class="inline-flex px-3 py-1 rounded-full text-sm font-semibold {{ ($purchaseRequest->purchase_type ?? 'other') === 'feed' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800' }}">
+                        {{ ($purchaseRequest->purchase_type ?? 'other') === 'feed' ? 'Feed Purchase' : 'Other Purchase' }}
+                    </p>
                 </div>
 
                 <div>
@@ -122,15 +133,30 @@
                     </p>
                 </div>
 
-                <div class="md:col-span-2">
+                <!-- <div class="md:col-span-2">
                     <p class="text-sm text-gray-500 mb-1">Purpose</p>
                     <p class="text-base text-gray-800">{{ $purchaseRequest->purpose ?: '—' }}</p>
+                </div> -->
+
+                <div class="md:col-span-2">
+                    <p class="text-sm text-gray-500 mb-1">Reason for Request</p>
+                    <p class="text-base text-gray-800 whitespace-pre-line">{{ $purchaseRequest->reason ?: '—' }}</p>
                 </div>
 
                 <div class="md:col-span-2">
                     <p class="text-sm text-gray-500 mb-1">Notes</p>
                     <p class="text-base text-gray-800">{{ $purchaseRequest->notes ?: '—' }}</p>
                 </div>
+
+                @if($purchaseRequest->evidence_image_path)
+                    <div class="md:col-span-2">
+                        <p class="text-sm text-gray-500 mb-2">Attachments</p>
+                        <a href="{{ asset('storage/'.$purchaseRequest->evidence_image_path) }}" target="_blank" class="inline-block rounded-2xl border border-gray-200 bg-gray-50 p-3 hover:bg-gray-100 transition">
+                            <img src="{{ asset('storage/'.$purchaseRequest->evidence_image_path) }}" alt="Purchase request evidence" class="max-h-64 rounded-xl object-contain">
+                            <span class="mt-2 block text-sm font-semibold text-blue-700">Open full image</span>
+                        </a>
+                    </div>
+                @endif
 
                 @if($purchaseRequest->status === 'declined')
                     <div class="md:col-span-2">

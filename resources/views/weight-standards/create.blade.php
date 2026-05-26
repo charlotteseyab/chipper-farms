@@ -156,7 +156,7 @@
         </form>
     </div>
 </div>
-<x-copyright-minimal />
+
 <script>
     // Weight range preview
     function updateWeightPreview() {

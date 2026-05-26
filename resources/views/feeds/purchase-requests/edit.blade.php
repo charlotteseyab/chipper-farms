@@ -1,5 +1,5 @@
 <x-app-layout>
-    <div class="max-w-5xl mx-auto py-6 px-4">
+    <div class="max-w-6xl mx-auto py-6 px-4">
         <div class="mb-6 flex items-center justify-between">
             <div>
                 <h1 class="text-2xl font-bold text-gray-800">Edit Purchase Request</h1>
@@ -23,11 +23,37 @@
             </div>
         @endif
 
-        <form action="{{ route('purchase-requests.update', $purchaseRequest) }}" method="POST" x-data="purchaseRequestEditForm()">
+        <form action="{{ route('purchase-requests.update', $purchaseRequest) }}" method="POST" enctype="multipart/form-data" x-data="purchaseRequestEditForm(@js($feedItems), @js(old('purchase_type', $purchaseRequest->purchase_type ?: 'other')))" >
             @csrf
             @method('PUT')
+            <input type="hidden" name="purchase_type" x-model="purchaseType">
 
             <div class="bg-white rounded-2xl shadow border border-gray-100 overflow-hidden">
+                <div class="p-6 border-b border-gray-100">
+                    <h2 class="text-lg font-semibold text-gray-800">Request Type</h2>
+                    <p class="text-sm text-gray-500 mt-1">Feed requests use the approved feed item dropdown. Other purchases allow free typing.</p>
+                </div>
+
+                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button type="button"
+                            @click="purchaseType = 'feed'"
+                            :class="purchaseType === 'feed' ? 'border-green-500 bg-green-50 text-green-800 ring-2 ring-green-100' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'"
+                            class="rounded-2xl border p-5 text-left transition">
+                        <span class="block text-base font-bold">Feed Purchase</span>
+                        <span class="mt-1 block text-sm">Select feed items already configured in Settings.</span>
+                    </button>
+
+                    <button type="button"
+                            @click="purchaseType = 'other'"
+                            :class="purchaseType === 'other' ? 'border-blue-500 bg-blue-50 text-blue-800 ring-2 ring-blue-100' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'"
+                            class="rounded-2xl border p-5 text-left transition">
+                        <span class="block text-base font-bold">Other Purchases</span>
+                        <span class="mt-1 block text-sm">Type the requested items and attach evidence if needed.</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow border border-gray-100 overflow-hidden mt-6">
                 <div class="p-6 border-b border-gray-100">
                     <h2 class="text-lg font-semibold text-gray-800">Request Details</h2>
                 </div>
@@ -50,6 +76,31 @@
                     </div>
 
                     <div class="md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Reason for Request <span class="text-red-500">*</span></label>
+                        <textarea name="reason"
+                                  rows="4"
+                                  class="w-full rounded-lg border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">{{ old('reason', $purchaseRequest->reason) }}</textarea>
+                    </div>
+
+                    <div class="md:col-span-2" x-show="purchaseType === 'other'" x-transition>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Attach Image Evidence</label>
+                        <input type="file"
+                               name="evidence_image"
+                               accept="image/*"
+                               class="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 shadow-sm focus:border-green-500 focus:ring-green-500">
+                        <p class="mt-2 text-xs text-gray-500">Optional. Uploading a new image will replace the current evidence image.</p>
+
+                        @if($purchaseRequest->evidence_image_path)
+                            <div class="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Current Evidence</p>
+                                <a href="{{ asset('storage/'.$purchaseRequest->evidence_image_path) }}" target="_blank" class="mt-1 inline-flex text-sm font-semibold text-blue-700 hover:text-blue-900">
+                                    View uploaded evidence image
+                                </a>
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
                         <textarea name="notes"
                                   rows="3"
@@ -60,7 +111,10 @@
 
             <div class="bg-white rounded-2xl shadow border border-gray-100 overflow-hidden mt-6">
                 <div class="p-6 border-b border-gray-100 flex items-center justify-between">
-                    <h2 class="text-lg font-semibold text-gray-800">Request Items</h2>
+                    <div>
+                        <h2 class="text-lg font-semibold text-gray-800">Request Items</h2>
+                        <p class="text-sm text-gray-500 mt-1" x-text="purchaseType === 'feed' ? 'Select feed items from the dropdown.' : 'Type the item descriptions manually.'"></p>
+                    </div>
 
                     <button type="button"
                             @click="addItem()"
@@ -70,6 +124,10 @@
                 </div>
 
                 <div class="p-6 overflow-x-auto">
+                    <div x-show="purchaseType === 'feed' && feedItems.length === 0" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        No feed items have been configured yet. Add them under Settings before editing this as a feed request.
+                    </div>
+
                     <table class="min-w-full border border-gray-200 rounded-lg overflow-hidden">
                         <thead class="bg-gray-50">
                             <tr>
@@ -82,12 +140,25 @@
                         </thead>
                         <tbody>
                             <template x-for="(item, index) in items" :key="index">
-                                <tr class="border-t border-gray-200">
-                                    <td class="px-4 py-3">
-                                        <input type="text"
-                                               :name="`items[${index}][description]`"
-                                               x-model="item.description"
-                                               class="w-full rounded-lg border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+                                <tr class="border-t border-gray-200 align-top">
+                                    <td class="px-4 py-3 min-w-[280px]">
+                                        <template x-if="purchaseType === 'feed'">
+                                            <select :name="`items[${index}][description]`"
+                                                    x-model="item.description"
+                                                    class="w-full rounded-lg border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+                                                <option value="">Select feed item</option>
+                                                <template x-for="feedItem in feedItems" :key="feedItem">
+                                                    <option :value="feedItem" x-text="feedItem"></option>
+                                                </template>
+                                            </select>
+                                        </template>
+
+                                        <template x-if="purchaseType === 'other'">
+                                            <input type="text"
+                                                   :name="`items[${index}][description]`"
+                                                   x-model="item.description"
+                                                   class="w-full rounded-lg border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+                                        </template>
                                     </td>
                                     <td class="px-4 py-3">
                                         <input type="number"
@@ -105,7 +176,7 @@
                                                x-model="item.unit_price"
                                                class="w-full rounded-lg border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
                                     </td>
-                                    <td class="px-4 py-3 text-sm font-semibold text-gray-700">
+                                    <td class="px-4 py-3 text-sm font-semibold text-gray-700 whitespace-nowrap">
                                         <span x-text="formatMoney((parseFloat(item.quantity || 0) * parseFloat(item.unit_price || 0)))"></span>
                                     </td>
                                     <td class="px-4 py-3">
@@ -146,21 +217,15 @@
     </div>
 
     <script>
-        function purchaseRequestEditForm() {
+        function purchaseRequestEditForm(feedItems, selectedType) {
             return {
-                items: [
-                    @foreach(old('items', $purchaseRequest->items->map(fn($item) => [
-                        'description' => $item->description,
-                        'quantity' => (float) $item->quantity,
-                        'unit_price' => (float) $item->unit_price,
-                    ])->values()->all()) as $item)
-                    {
-                        description: @js($item['description']),
-                        quantity: @js($item['quantity']),
-                        unit_price: @js($item['unit_price']),
-                    },
-                    @endforeach
-                ],
+                feedItems: Array.isArray(feedItems) ? feedItems : [],
+                purchaseType: selectedType === 'feed' ? 'feed' : 'other',
+                items: @js(old('items', $purchaseRequest->items->map(fn($item) => [
+                    'description' => $item->description,
+                    'quantity' => (float) $item->quantity,
+                    'unit_price' => (float) $item->unit_price,
+                ])->values()->all())),
 
                 addItem() {
                     this.items.push({ description: '', quantity: 1, unit_price: 0 });

@@ -3,6 +3,8 @@
 namespace Database\Factories;
 
 use App\Models\Team;
+use App\Models\Organization;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -26,6 +28,10 @@ class UserFactory extends Factory
      */
     public function definition(): array
     {
+        $org = Organization::query()->first()
+            ?? Organization::create(['slug' => 'chipper-farms', 'name' => 'Chipper Farms']);
+        $role = Role::firstOrCreate(['name' => 'admin']);
+
         return [
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
@@ -36,6 +42,10 @@ class UserFactory extends Factory
             'remember_token' => Str::random(10),
             'profile_photo_path' => null,
             'current_team_id' => null,
+            'active_status' => true,
+            'role' => 'admin',
+            'role_id' => $role->id,
+            'organization_id' => $org->id,
         ];
     }
 

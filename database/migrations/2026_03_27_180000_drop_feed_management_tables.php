@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!filter_var(env('CHIPPER_ALLOW_FEED_TABLE_DROP', false), FILTER_VALIDATE_BOOL)) {
+            return;
+        }
+
         // Drop all tables related to legacy and new feed management features.
         Schema::disableForeignKeyConstraints();
 
@@ -53,4 +57,3 @@ return new class extends Migration
         // which is out of scope for this cleanup migration.
     }
 };
-

@@ -1375,5 +1375,4 @@
         </script>
     @endif
 
-    <x-copyright-minimal />
 </x-app-layout>

@@ -7,7 +7,6 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Laravel\Fortify\Contracts\UpdatesUserProfileInformation;
-use Illuminate\Validation\ValidationException;
 
 class UpdateUserProfileInformation implements UpdatesUserProfileInformation
 {
@@ -21,11 +20,15 @@ class UpdateUserProfileInformation implements UpdatesUserProfileInformation
         $isSuperuser = $user->isSuperuser();
 
         Validator::make($input, [
-            'first_name' => ['required', 'string', 'max:50'],
-            'last_name' => ['required', 'string', 'max:50'],
-            'email' => ['required', 'email', 'max:50', Rule::unique('users')->ignore($user->id)],
+            // Jetstream's default profile form updates `name` + `email`.
+            // Our app also supports first_name/last_name, but keep `name` as the
+            // primary input to remain compatible with upstream features/tests.
+            'name' => ['required', 'string', 'max:255'],
+            'first_name' => ['nullable', 'string', 'max:50'],
+            'last_name' => ['nullable', 'string', 'max:50'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
             'phone' => ['nullable', 'regex:/^[0-9]{0,20}$/'],
-            'role' => [$isSuperuser ? 'required' : 'nullable', 'string', 'max:50'],
+            'role' => [$isSuperuser ? 'required' : 'nullable', 'string', 'in:' . implode(',', User::allowedRoleNames())],
             'active_status' => [$isSuperuser ? 'boolean' : 'nullable'],
             'photo' => ['nullable', 'mimes:jpg,jpeg,png', 'max:1024'],
         ])->validateWithBag('updateProfileInformation');
@@ -38,28 +41,31 @@ class UpdateUserProfileInformation implements UpdatesUserProfileInformation
         $nextActive = $isSuperuser ? ($input['active_status'] ?? $user->active_status) : $user->active_status;
 
         $payload = [
-            'first_name' => $input['first_name'],
-            'last_name' => $input['last_name'],
-            'name' => trim(($input['first_name'] ?? '').' '.($input['last_name'] ?? '')),
+            'first_name' => $input['first_name'] ?? $user->first_name,
+            'last_name' => $input['last_name'] ?? $user->last_name,
+            'name' => $input['name'],
             'email' => $input['email'],
             'phone' => $input['phone'] ?? null,
-            'role' => $nextRole,
             'active_status' => $nextActive,
         ];
 
         if ($input['email'] !== $user->email && $user instanceof MustVerifyEmail) {
-            $this->updateVerifiedUser($user, $payload);
-        } else {
-            $user->forceFill($payload)->save();
+            $this->updateVerifiedUser($user, $payload, $nextRole);
+
+            return;
         }
+
+        $user->forceFill($payload);
+        $user->syncRoleFields($nextRole);
+        $user->save();
     }
 
     /**
      * Update the given verified user's profile information.
      *
-     * @param  array<string, string>  $input
+     * @param  array<string, mixed>  $input
      */
-    protected function updateVerifiedUser(User $user, array $input): void
+    protected function updateVerifiedUser(User $user, array $input, string $role): void
     {
         $user->forceFill([
             'first_name' => $input['first_name'],
@@ -68,9 +74,10 @@ class UpdateUserProfileInformation implements UpdatesUserProfileInformation
             'email' => $input['email'],
             'email_verified_at' => null,
             'phone' => $input['phone'] ?? null,
-            'role' => $input['role'] ?? $user->role,
             'active_status' => $input['active_status'] ?? $user->active_status,
-        ])->save();
+        ]);
+        $user->syncRoleFields($role);
+        $user->save();
 
         $user->sendEmailVerificationNotification();
     }

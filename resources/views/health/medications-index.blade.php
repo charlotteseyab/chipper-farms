@@ -218,7 +218,6 @@
                     </div>
                 @endif
             </div>
-        </div>
-        <x-copyright-minimal />                                 
+        </div>                               
     </div>
 </x-app-layout>

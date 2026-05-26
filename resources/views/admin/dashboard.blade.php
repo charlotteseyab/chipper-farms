@@ -509,24 +509,6 @@
     <div class="admin-page">
         <div class="admin-wrap">
 
-            <!-- <div class="admin-hero">
-                <div class="admin-hero-inner">
-                    <div>
-                        <h1>Admin Dashboard</h1>
-                        <p>
-                            Monitor stock levels, breeding activity, weight performance, health records, and overall farm value from one central dashboard.
-                            Start with the stock overview below for a quick picture of the farm today.
-                        </p>
-                    </div>
-
-                    <div class="admin-hero-pills">
-                        <div class="admin-hero-pill">Stock overview</div>
-                        <div class="admin-hero-pill">Performance tracking</div>
-                        <div class="admin-hero-pill">Operational insights</div>
-                    </div>
-                </div>
-            </div> -->
-
             <div class="admin-filter">
                 <div class="admin-filter-title">Dashboard Filters</div>
                 <form method="GET" action="{{ route('admin.dashboard') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
@@ -656,7 +638,7 @@
                     <div class="admin-card-head">
                         <div>
                             <h3 class="admin-card-title">Weighing Alerts</h3>
-                            <div class="admin-card-sub">Click to view pigs overdue for weighing</div>
+                            <div class="admin-card-sub">Click to view overdue routine weighing and first-weight pending pigs</div>
                         </div>
                         <div class="admin-badge">Attention needed</div>
                     </div>
@@ -670,13 +652,12 @@
                             </div>
 
                             <div>
-                                <div class="admin-value-number">{{ number_format($allOverduePigsData->count()) }}</div>
+                                <div class="admin-value-number">
+                                    {{ number_format(($allOverduePigsData->count() ?? 0) + ($allFirstWeightPendingData->count() ?? 0)) }}
+                                </div>
                                 <div class="admin-value-note">
-                                    @if($allOverduePigsData->count() > 0)
-                                        Pigs currently overdue for weighing
-                                    @else
-                                        All pigs are up to date with weighing
-                                    @endif
+                                    {{ number_format($allOverduePigsData->count() ?? 0) }} overdue •
+                                    {{ number_format($allFirstWeightPendingData->count() ?? 0) }} first weight pending
                                 </div>
                             </div>
                         </div>
@@ -1070,7 +1051,6 @@
             </section>
 
         </div>
-        <x-copyright-minimal />
     </div>
 
     <!-- Weighing Alerts Modal -->
@@ -1089,110 +1069,236 @@
             </div>
             
             <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-                @if($allOverduePigsData->count() > 0)
-                    <div class="space-y-4">
-                        @foreach($allOverduePigsData as $item)
-                            @php
-                                $pig = $item['pig'];
-                                $weighingStatus = $item['weighing_status'];
-                                $daysSince = $item['days_since'];
-                                $lastWeighing = $item['last_weighing'];
-                                $lastWeight = $item['last_weight'];
-                                $overdueDays = $item['overdue_days'];
-                                $isCritical = $overdueDays > 14;
-                                $isOverdue = $overdueDays > 7;
-                            @endphp
-                            <div class="rounded-lg p-4 hover:shadow-md transition-shadow {{ $isCritical ? 'bg-red-50 border border-red-200' : ($isOverdue ? 'bg-orange-50 border border-orange-200' : 'bg-yellow-50 border border-yellow-200') }}">
-                                <div class="flex items-start justify-between">
-                                    <div class="flex-1">
-                                        <div class="flex items-center mb-2">
-                                            <span class="text-2xl mr-3">
-                                                @if($isCritical) ⚠️
-                                                @elseif($isOverdue) ⏰
-                                                @else 📅
+            @if(($allOverduePigsData->count() ?? 0) > 0 || ($allFirstWeightPendingData->count() ?? 0) > 0)
+    <div class="space-y-8">
+
+        @if(($allOverduePigsData->count() ?? 0) > 0)
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <h3 class="text-base font-semibold text-gray-900">Routine Weighing Overdue</h3>
+                        <p class="text-sm text-gray-500">Pigs already in the weighing cycle that are late for their next weighing.</p>
+                    </div>
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                        {{ number_format($allOverduePigsData->count()) }} overdue
+                    </span>
+                </div>
+
+                <div class="space-y-4">
+                    @foreach($allOverduePigsData as $item)
+                        @php
+                            $pig = $item['pig'];
+                            $status = $item['status'] ?? 'unknown';
+                            $statusMessage = $item['status_message'] ?? 'Unknown';
+                            $daysSince = $item['days_since'];
+                            $lastWeighing = $item['last_weighing'];
+                            $lastWeight = $item['last_weight'];
+                            $overdueDays = $item['overdue_days'] ?? 0;
+
+                            $isCritical = $status === 'critical';
+                            $isOverdue = $status === 'overdue';
+                            $isDueSoon = $status === 'due_soon';
+
+                            $cardClass = $isCritical
+                                ? 'bg-red-50 border border-red-200'
+                                : ($isOverdue ? 'bg-orange-50 border border-orange-200' : 'bg-yellow-50 border border-yellow-200');
+
+                            $textClass = $isCritical
+                                ? 'text-red-700'
+                                : ($isOverdue ? 'text-orange-700' : 'text-yellow-700');
+
+                            $badgeClass = $isCritical
+                                ? 'bg-red-100 text-red-800'
+                                : ($isOverdue ? 'bg-orange-100 text-orange-800' : 'bg-yellow-100 text-yellow-800');
+
+                            $buttonClass = $isCritical
+                                ? 'bg-red-600 hover:bg-red-700'
+                                : ($isOverdue ? 'bg-orange-600 hover:bg-orange-700' : 'bg-yellow-600 hover:bg-yellow-700');
+                        @endphp
+
+                        <div class="rounded-lg p-4 hover:shadow-md transition-shadow {{ $cardClass }}">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center mb-2">
+                                        <span class="text-2xl mr-3">
+                                            @if($isCritical) 🚨
+                                            @elseif($isOverdue) ⏰
+                                            @else ⚠️
+                                            @endif
+                                        </span>
+                                        <div>
+                                            <h3 class="text-lg font-semibold text-gray-900">{{ $pig->ear_tag_number ?? 'N/A' }}</h3>
+                                            <p class="text-sm text-gray-600">
+                                                {{ $pig->breed ?? 'N/A' }} • {{ $pig->gender ?? 'N/A' }} • {{ ucfirst($pig->stock_type ?? 'N/A') }}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                                        <div class="bg-white rounded-lg p-3 border border-gray-200">
+                                            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Weighing</p>
+                                            <p class="text-sm font-semibold text-gray-900">
+                                                @if($lastWeighing)
+                                                    {{ $lastWeighing->format('M j, Y') }}
+                                                @else
+                                                    Never weighed
+                                                @endif
+                                            </p>
+                                        </div>
+
+                                        <div class="bg-white rounded-lg p-3 border border-gray-200">
+                                            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Weight</p>
+                                            <p class="text-sm font-semibold text-gray-900">
+                                                @if($lastWeight)
+                                                    {{ number_format($lastWeight->weight, 1) }} {{ $lastWeight->weight_unit ?? 'kg' }}
+                                                @else
+                                                    No weight recorded
+                                                @endif
+                                            </p>
+                                        </div>
+
+                                        <div class="bg-white rounded-lg p-3 border border-gray-200">
+                                            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Overdue By</p>
+                                            <p class="text-sm font-semibold {{ $textClass }}">
+                                                {{ max(0, (int) $overdueDays) }} days
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-3 flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $badgeClass }}">
+                                                @if($isCritical) Critical
+                                                @elseif($isOverdue) Overdue
+                                                @else Due Soon
                                                 @endif
                                             </span>
-                                            <div>
-                                                <h3 class="text-lg font-semibold text-gray-900">{{ $pig->ear_tag_number ?? 'N/A' }}</h3>
-                                                <p class="text-sm text-gray-600">
-                                                    {{ $pig->breed ?? 'N/A' }} • {{ $pig->gender ?? 'N/A' }} • {{ ucfirst($pig->stock_type ?? 'N/A') }}
-                                                </p>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
-                                            <div class="bg-white rounded-lg p-3 border border-gray-200">
-                                                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Weighing</p>
-                                                <p class="text-sm font-semibold text-gray-900">
-                                                    @if($lastWeighing)
-                                                        {{ $lastWeighing->format('M j, Y') }}
-                                                    @else
-                                                        Never weighed
-                                                    @endif
-                                                </p>
-                                            </div>
-                                            
-                                            <div class="bg-white rounded-lg p-3 border border-gray-200">
-                                                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Weight</p>
-                                                <p class="text-sm font-semibold text-gray-900">
-                                                    @if($lastWeight)
-                                                        {{ number_format($lastWeight->weight, 1) }} {{ $lastWeight->weight_unit ?? 'kg' }}
-                                                    @else
-                                                        No weight recorded
-                                                    @endif
-                                                </p>
-                                            </div>
-                                            
-                                            <div class="bg-white rounded-lg p-3 border border-gray-200">
-                                                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Overdue By</p>
-                                                <p class="text-sm font-semibold {{ $isCritical ? 'text-red-700' : ($isOverdue ? 'text-orange-700' : 'text-yellow-700') }}">
-                                                    {{ max(0, (int)$overdueDays) }} days
-                                                </p>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="mt-3 flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $isCritical ? 'bg-red-100 text-red-800' : ($isOverdue ? 'bg-orange-100 text-orange-800' : 'bg-yellow-100 text-yellow-800') }}">
-                                                    @if($isCritical) Critical
-                                                    @elseif($isOverdue) Overdue
-                                                    @else Due Soon
-                                                    @endif
-                                                </span>
+
+                                            @if(!is_null($daysSince))
                                                 <span class="ml-2 text-xs text-gray-500">
-                                                    {{ (int)$daysSince }} days since last weighing
+                                                    {{ (int) $daysSince }} days since last weighing
                                                 </span>
-                                            </div>
-                                            
-                                            @if($pig)
-                                            <a href="{{ route('weights.create', ['pig_id' => $pig->id]) }}" 
-                                               class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white {{ $isCritical ? 'bg-red-600 hover:bg-red-700' : ($isOverdue ? 'bg-orange-600 hover:bg-orange-700' : 'bg-yellow-600 hover:bg-yellow-700') }} transition-colors">
+                                            @endif
+                                        </div>
+
+                                        @if($pig)
+                                            <a href="{{ route('weights.create', ['pig_id' => $pig->id]) }}"
+                                               class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white {{ $buttonClass }} transition-colors">
                                                 <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
                                                 </svg>
                                                 Record Weight
                                             </a>
-                                            @endif
-                                        </div>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
-                        @endforeach
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+        @if(($allFirstWeightPendingData->count() ?? 0) > 0)
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <h3 class="text-base font-semibold text-gray-900">First Weight Pending</h3>
+                        <p class="text-sm text-gray-500">Pigs that have not yet received their first recorded weight.</p>
                     </div>
-                @else
-                    <div class="text-center py-12">
-                        <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">All caught up!</h3>
-                        <p class="text-gray-500">All pigs are up to date with their weighing schedule.</p>
-                    </div>
-                @endif
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
+                        {{ number_format($allFirstWeightPendingData->count()) }} pending
+                    </span>
+                </div>
+
+                <div class="space-y-4">
+                    @foreach($allFirstWeightPendingData as $item)
+                        @php
+                            $pig = $item['pig'];
+                            $overdueDays = $item['overdue_days'] ?? 0;
+                        @endphp
+
+                        <div class="rounded-lg p-4 hover:shadow-md transition-shadow bg-yellow-50 border border-yellow-200">
+                            <div class="flex items-start justify-between">
+                                <div class="flex-1">
+                                    <div class="flex items-center mb-2">
+                                        <span class="text-2xl mr-3">📝</span>
+                                        <div>
+                                            <h3 class="text-lg font-semibold text-gray-900">{{ $pig->ear_tag_number ?? 'N/A' }}</h3>
+                                            <p class="text-sm text-gray-600">
+                                                {{ $pig->breed ?? 'N/A' }} • {{ $pig->gender ?? 'N/A' }} • {{ ucfirst($pig->stock_type ?? 'N/A') }}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                                        <div class="bg-white rounded-lg p-3 border border-gray-200">
+                                            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Weighing</p>
+                                            <p class="text-sm font-semibold text-gray-900">Never weighed</p>
+                                        </div>
+
+                                        <div class="bg-white rounded-lg p-3 border border-gray-200">
+                                            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Last Weight</p>
+                                            <p class="text-sm font-semibold text-gray-900">No weight recorded</p>
+                                        </div>
+
+                                        <div class="bg-white rounded-lg p-3 border border-gray-200">
+                                            <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Pending By</p>
+                                            <p class="text-sm font-semibold text-yellow-700">
+                                                {{ max(0, (int) $overdueDays) }} days
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-3 flex items-center justify-between">
+                                        <div class="flex items-center">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                                First Weight Pending
+                                            </span>
+                                            <span class="ml-2 text-xs text-gray-500">
+                                                Initial weight record needed
+                                            </span>
+                                        </div>
+
+                                        @if($pig)
+                                            <a href="{{ route('weights.create', ['pig_id' => $pig->id]) }}"
+                                               class="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 transition-colors">
+                                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+                                                </svg>
+                                                Record First Weight
+                                            </a>
+                                        @endif
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
+    </div>
+@else
+    <div class="text-center py-12">
+        <svg class="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <h3 class="text-lg font-medium text-gray-900 mb-2">All caught up!</h3>
+        <p class="text-gray-500">All pigs are up to date with their weighing schedule.</p>
+    </div>
+@endif
             </div>
             
             <div class="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
                 <div class="text-sm text-gray-600">
-                    <span class="font-medium">{{ $allOverduePigsData->count() }}</span> pigs need weighing attention
+                    <span class="font-medium">
+                        {{ ($allOverduePigsData->count() ?? 0) + ($allFirstWeightPendingData->count() ?? 0) }}
+                    </span>
+                    pigs need weighing attention
+                    <span class="text-xs text-gray-500 ml-2">
+                        ({{ $allOverduePigsData->count() ?? 0 }} overdue • {{ $allFirstWeightPendingData->count() ?? 0 }} first weight pending)
+                    </span>
                 </div>
                 <div class="flex space-x-3">
                     <a href="{{ route('weights.index') }}" class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">

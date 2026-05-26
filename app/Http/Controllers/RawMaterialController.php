@@ -2,14 +2,35 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Counterparty;
 use App\Models\RawMaterial;
 use App\Models\RawMaterialStockLog;
+use App\Services\Inventory\AdjustRawMaterialService;
+use App\Services\Inventory\ReceiveRawMaterialService;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Raw materials — Phase 4 updates the receive/adjust UX:
+ *
+ *   - receiveStock now requires supplier_id + receipt_reason for direct
+ *     (non-PR) receipts. PR-linked receipts go through the dedicated
+ *     receive-against-PR flow (ReceiveAgainstPurchaseRequestController).
+ *
+ *   - The opening-stock branch in store() uses receipt_reason='opening_stock'
+ *     so the resulting receipt is correctly attributed and posts to the
+ *     Inventory Suspense account (typically reclassed to equity in the
+ *     cutover journal).
+ *
+ *   - adjustStock now accepts allow_negative=true and gates it on the
+ *     override_negative_inventory permission.
+ */
 class RawMaterialController extends Controller
 {
+    use AuthorizesRequests;
+
     public function index(Request $request)
     {
         $search = trim((string) $request->get('search'));
@@ -25,32 +46,29 @@ class RawMaterialController extends Controller
             });
         }
 
-        if ($status !== '') {
-            if ($status === 'out_of_stock') {
-                $query->where('quantity_in_stock', '<=', 0);
-            } elseif ($status === 'low_stock') {
-                $query->where('quantity_in_stock', '>', 0)
-                    ->whereColumn('quantity_in_stock', '<=', 'reorder_level');
-            } elseif ($status === 'in_stock') {
-                $query->whereColumn('quantity_in_stock', '>', 'reorder_level');
-            }
+        if ($status === 'low') {
+            $query->whereColumn('quantity_in_stock', '<=', 'reorder_level')
+                ->where('quantity_in_stock', '>', 0);
+        } elseif ($status === 'out') {
+            $query->where('quantity_in_stock', '=', 0);
+        } elseif ($status === 'ok') {
+            $query->whereColumn('quantity_in_stock', '>', 'reorder_level');
         }
 
         $rawMaterials = $query->paginate(10)->withQueryString();
 
         $stats = [
-            'total_materials' => RawMaterial::count(),
-            'low_stock' => RawMaterial::where('quantity_in_stock', '>', 0)
-                ->whereColumn('quantity_in_stock', '<=', 'reorder_level')
-                ->count(),
-            'out_of_stock' => RawMaterial::where('quantity_in_stock', '<=', 0)->count(),
-            'stock_value' => RawMaterial::selectRaw('COALESCE(SUM(quantity_in_stock * unit_cost), 0) as total')
-                ->value('total'),
+            'total_materials'   => RawMaterial::count(),
+            'low_stock_count'   => RawMaterial::whereColumn('quantity_in_stock', '<=', 'reorder_level')
+                                              ->where('quantity_in_stock', '>', 0)
+                                              ->count(),
+            'out_of_stock_count'=> RawMaterial::where('quantity_in_stock', '=', 0)->count(),
+            'total_stock_value' => RawMaterial::sum(DB::raw('quantity_in_stock * unit_cost')),
         ];
 
         $lowStockAlerts = RawMaterial::query()
             ->where(function ($q) {
-                $q->where('quantity_in_stock', '<=', 0)
+                $q->where('quantity_in_stock', '=', 0)
                     ->orWhere(function ($sub) {
                         $sub->where('quantity_in_stock', '>', 0)
                             ->whereColumn('quantity_in_stock', '<=', 'reorder_level');
@@ -65,51 +83,79 @@ class RawMaterialController extends Controller
             ->paginate(8, ['*'], 'activity_page')
             ->withQueryString();
 
+        $suppliers = Counterparty::query()
+            ->suppliers()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         return view('feeds.raw-materials.index', compact(
             'rawMaterials',
             'stats',
             'search',
             'status',
             'lowStockAlerts',
-            'recentStockActivities'
+            'recentStockActivities',
+            'suppliers',
         ));
     }
 
-    public function store(Request $request)
+    /**
+     * Create a new raw material. If opening_quantity > 0, also records
+     * an opening receipt via ReceiveRawMaterialService (receipt_reason =
+     * 'opening_stock'). The opening supplier is the "system opening"
+     * placeholder when none is selected (deployment seeds this counterparty).
+     */
+    public function store(Request $request, ReceiveRawMaterialService $receiveService)
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'category' => ['nullable', 'string', 'max:255'],
-            'unit' => ['required', 'string', 'max:50'],
+            'name'              => ['required', 'string', 'max:255'],
+            'category'          => ['nullable', 'string', 'max:255'],
+            'unit'              => ['required', 'string', 'max:50'],
             'quantity_in_stock' => ['nullable', 'numeric', 'min:0'],
-            'unit_cost' => ['nullable', 'numeric', 'min:0'],
-            'reorder_level' => ['nullable', 'numeric', 'min:0'],
-            'notes' => ['nullable', 'string'],
+            'unit_cost'         => ['nullable', 'numeric', 'min:0'],
+            'reorder_level'     => ['nullable', 'numeric', 'min:0'],
+            'notes'             => ['nullable', 'string'],
+            'opening_supplier_id' => ['nullable', 'integer', 'exists:counterparties,id'],
         ]);
 
-        DB::transaction(function () use ($validated) {
+        DB::transaction(function () use ($validated, $receiveService, $request) {
             $openingQty = (float) ($validated['quantity_in_stock'] ?? 0);
-            $unitCost = (float) ($validated['unit_cost'] ?? 0);
+            $unitCost   = (float) ($validated['unit_cost'] ?? 0);
 
             $rawMaterial = RawMaterial::create([
-                'name' => $validated['name'],
-                'category' => $validated['category'] ?? null,
-                'unit' => $validated['unit'],
-                'quantity_in_stock' => $openingQty,
-                'unit_cost' => $unitCost,
-                'reorder_level' => (float) ($validated['reorder_level'] ?? 0),
-                'notes' => $validated['notes'] ?? null,
+                'name'              => $validated['name'],
+                'category'          => $validated['category'] ?? null,
+                'unit'              => $validated['unit'],
+                'quantity_in_stock' => 0,  // Set by receive service if opening qty > 0.
+                'unit_cost'         => $unitCost,
+                'reorder_level'     => (float) ($validated['reorder_level'] ?? 0),
+                'notes'             => $validated['notes'] ?? null,
             ]);
 
+            // For genuine opening stock at material creation, the
+            // OpeningBalanceService is the more rigorous path (audit row,
+            // hash dedup). receiveStock here is for cases where ops simply
+            // creates a material AND brings in physical stock together.
+            // We require a supplier so the resulting receipt posts to
+            // Inventory Suspense with proper attribution.
             if ($openingQty > 0) {
-                $rawMaterial->stockLogs()->create([
-                    'type' => 'receive',
-                    'quantity' => $openingQty,
-                    'unit_cost' => $unitCost,
-                    'reference' => 'Opening Stock',
-                    'notes' => 'Initial stock entered during material creation.',
-                    'performed_by' => Auth::id(),
-                ]);
+                $supplierId = $validated['opening_supplier_id'] ?? null;
+                if (! $supplierId) {
+                    abort(422, 'When opening stock > 0, a supplier must be selected.');
+                }
+
+                $receiveService->execute(
+                    material: $rawMaterial,
+                    actor:    $request->user(),
+                    data:     [
+                        'quantity'        => $openingQty,
+                        'unit_cost'       => $unitCost,
+                        'reference'       => 'Opening Stock',
+                        'notes'           => 'Initial stock entered during material creation.',
+                        'supplier_id'     => (int) $supplierId,
+                        'receipt_reason'  => 'opening_stock',
+                    ],
+                );
             }
         });
 
@@ -121,21 +167,21 @@ class RawMaterialController extends Controller
     public function update(Request $request, RawMaterial $rawMaterial)
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'category' => ['nullable', 'string', 'max:255'],
-            'unit' => ['required', 'string', 'max:50'],
-            'unit_cost' => ['nullable', 'numeric', 'min:0'],
+            'name'          => ['required', 'string', 'max:255'],
+            'category'      => ['nullable', 'string', 'max:255'],
+            'unit'          => ['required', 'string', 'max:50'],
+            'unit_cost'     => ['nullable', 'numeric', 'min:0'],
             'reorder_level' => ['nullable', 'numeric', 'min:0'],
-            'notes' => ['nullable', 'string'],
+            'notes'         => ['nullable', 'string'],
         ]);
 
         $rawMaterial->update([
-            'name' => $validated['name'],
-            'category' => $validated['category'] ?? null,
-            'unit' => $validated['unit'],
-            'unit_cost' => (float) ($validated['unit_cost'] ?? 0),
+            'name'          => $validated['name'],
+            'category'      => $validated['category'] ?? null,
+            'unit'          => $validated['unit'],
+            'unit_cost'     => (float) ($validated['unit_cost'] ?? 0),
             'reorder_level' => (float) ($validated['reorder_level'] ?? 0),
-            'notes' => $validated['notes'] ?? null,
+            'notes'         => $validated['notes'] ?? null,
         ]);
 
         return redirect()
@@ -143,79 +189,71 @@ class RawMaterialController extends Controller
             ->with('success', 'Raw material updated successfully.');
     }
 
-    public function receiveStock(Request $request, RawMaterial $rawMaterial)
+    /**
+     * Direct (non-PR) receipt. Requires supplier_id + receipt_reason
+     * (Phase 4 invariant — receipts must be attributable).
+     *
+     * PR-linked receipts go through the receive-against-PR flow.
+     */
+    public function receiveStock(Request $request, RawMaterial $rawMaterial, ReceiveRawMaterialService $service)
     {
         $validated = $request->validate([
-            'quantity' => ['required', 'numeric', 'min:0.01'],
-            'unit_cost' => ['nullable', 'numeric', 'min:0'],
-            'reference' => ['nullable', 'string', 'max:255'],
-            'notes' => ['nullable', 'string'],
+            'quantity'        => ['required', 'numeric', 'min:0.01'],
+            'unit_cost'       => ['nullable', 'numeric', 'min:0'],
+            'reference'       => ['nullable', 'string', 'max:255'],
+            'notes'           => ['nullable', 'string'],
+            'supplier_id'     => ['required', 'integer', 'exists:counterparties,id'],
+            'receipt_reason'  => ['required', 'string', 'max:100'],
         ]);
 
-        DB::transaction(function () use ($validated, $rawMaterial) {
-            $quantity = (float) $validated['quantity'];
-            $unitCost = array_key_exists('unit_cost', $validated)
-                ? (float) ($validated['unit_cost'] ?? 0)
-                : (float) $rawMaterial->unit_cost;
+        $unitCost = array_key_exists('unit_cost', $validated)
+            ? (float) ($validated['unit_cost'] ?? 0)
+            : (float) $rawMaterial->unit_cost;
 
-            $rawMaterial->increment('quantity_in_stock', $quantity);
-
-            $rawMaterial->update([
-                'unit_cost' => $unitCost,
-            ]);
-
-            $rawMaterial->stockLogs()->create([
-                'type' => 'receive',
-                'quantity' => $quantity,
-                'unit_cost' => $unitCost,
-                'reference' => $validated['reference'] ?? null,
-                'notes' => $validated['notes'] ?? null,
-                'performed_by' => Auth::id(),
-            ]);
-        });
+        $service->execute(
+            material: $rawMaterial,
+            actor:    $request->user(),
+            data:     [
+                'quantity'        => (float) $validated['quantity'],
+                'unit_cost'       => $unitCost,
+                'reference'       => $validated['reference'] ?? null,
+                'notes'           => $validated['notes'] ?? null,
+                'supplier_id'     => (int) $validated['supplier_id'],
+                'receipt_reason'  => $validated['receipt_reason'],
+            ],
+        );
 
         return redirect()
             ->route('raw-materials.index')
             ->with('success', 'Stock received successfully.');
     }
 
-    public function adjustStock(Request $request, RawMaterial $rawMaterial)
+    public function adjustStock(Request $request, RawMaterial $rawMaterial, AdjustRawMaterialService $service)
     {
         $validated = $request->validate([
             'adjustment_type' => ['required', 'in:add,deduct,set'],
-            'quantity' => ['required', 'numeric', 'min:0.01'],
-            'reference' => ['nullable', 'string', 'max:255'],
-            'notes' => ['nullable', 'string'],
+            'quantity'        => ['required', 'numeric', 'min:0'],
+            'reference'       => ['nullable', 'string', 'max:255'],
+            'notes'           => ['nullable', 'string'],
+            'allow_negative'  => ['nullable', 'boolean'],
         ]);
 
-        DB::transaction(function () use ($validated, $rawMaterial) {
-            $quantity = (float) $validated['quantity'];
-            $current = (float) $rawMaterial->quantity_in_stock;
-            $newQuantity = $current;
+        $allowNegative = (bool) ($validated['allow_negative'] ?? false);
+        if ($allowNegative && ! $request->user()->hasPermission('override_negative_inventory')) {
+            abort(403, 'You do not have permission to override negative inventory.');
+        }
 
-            if ($validated['adjustment_type'] === 'add') {
-                $newQuantity = $current + $quantity;
-            } elseif ($validated['adjustment_type'] === 'deduct') {
-                $newQuantity = max(0, $current - $quantity);
-            } else {
-                $newQuantity = $quantity;
-            }
-
-            $difference = $newQuantity - $current;
-
-            $rawMaterial->update([
-                'quantity_in_stock' => $newQuantity,
-            ]);
-
-            $rawMaterial->stockLogs()->create([
-                'type' => 'adjustment',
-                'quantity' => $difference,
-                'unit_cost' => $rawMaterial->unit_cost,
-                'reference' => $validated['reference'] ?? null,
-                'notes' => $validated['notes'] ?? ('Stock adjusted using "' . $validated['adjustment_type'] . '" action.'),
-                'performed_by' => Auth::id(),
-            ]);
-        });
+        $service->execute(
+            material: $rawMaterial,
+            actor:    $request->user(),
+            data:     [
+                'adjustment_type' => $validated['adjustment_type'],
+                'quantity'        => (float) $validated['quantity'],
+                'reference'       => $validated['reference'] ?? null,
+                'notes'           => $validated['notes'] ?? null,
+            ],
+            allowNegative: $allowNegative,
+        );
 
         return redirect()
             ->route('raw-materials.index')

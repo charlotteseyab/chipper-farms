@@ -15,10 +15,14 @@ class LogUserActivity
             // last_seen indicates "currently active" ping
             // last_active_at tracks the most recent known activity moment
             $now = Carbon::now();
-            Auth::user()->forceFill([
-                'last_seen' => $now,
-                'last_active_at' => $now,
-            ])->save();
+            $user = Auth::user();
+
+            if (!$user->last_seen || $user->last_seen->lte($now->copy()->subMinutes(5))) {
+                $user->forceFill([
+                    'last_seen' => $now,
+                    'last_active_at' => $now,
+                ])->save();
+            }
         }
 
         return $next($request);

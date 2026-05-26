@@ -87,11 +87,11 @@
                 </div>
                 
                 <!-- Total Piglets Ever Born (Live) -->
-                <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-5 col-span-2 lg:col-span-1">
+                <!-- <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-5 col-span-2 lg:col-span-1">
                     <p class="text-sm font-medium text-gray-600">Total Piglets (All Time)</p>
                     <p class="text-3xl font-extrabold text-blue-600 mt-1">{{ $overallStats['total_surviving'] }}</p>
                     <p class="text-xs text-gray-500 mt-2">Cumulative live piglets recorded — never decreases</p>
-                </div>
+                </div> -->
             </div>
 
             <!-- Info Box -->
@@ -263,7 +263,6 @@
                 </div>
             </div>
         </main>
-        <x-copyright-minimal />
     </div>
 </x-app-layout>
 

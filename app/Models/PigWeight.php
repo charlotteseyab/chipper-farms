@@ -35,6 +35,14 @@ class PigWeight extends Model
         return $this->belongsTo(PigManagement::class, 'pig_id');
     }
 
+    /**
+     * Backward-compatible alias for older views/controllers.
+     */
+    public function pigManagement()
+    {
+        return $this->pig();
+    }
+
     public function weightAlerts()
     {
         return $this->hasMany(WeightAlert::class, 'weight_record_id');

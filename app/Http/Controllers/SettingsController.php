@@ -28,6 +28,7 @@ class SettingsController extends Controller
      */
     public function setup()
     {
+        $this->abortUnlessRole('superuser', 'admin');
         $breeding = [
             'pregnancy_check_days' => Setting::get('breeding.cycle.pregnancy_check_days', config('breeding.cycle.pregnancy_check_days')),
             'gestation_days' => Setting::get('breeding.cycle.gestation_days', config('breeding.cycle.gestation_days')),
@@ -62,12 +63,15 @@ class SettingsController extends Controller
             'premix_bag_weight_kg' => Setting::get('feed.units.premix_bag_weight_kg', 25),
             'concentrate_bag_weight_kg' => Setting::get('feed.units.concentrate_bag_weight_kg', 50),
         ];
+
+        $purchaseRequestFeedItems = Setting::purchaseFeedItems();
         
         return view('settings.setup', compact(
             'breeding',
             'pricing',
             'stages',
             'feedBagWeights',
+            'purchaseRequestFeedItems',
         ));
     }
 
@@ -76,6 +80,12 @@ class SettingsController extends Controller
      */
     public function saveBreeding(Request $request)
     {
+        $this->abortUnlessRole('superuser', 'admin');
+
+        if ($request->has('feed_items_only')) {
+            return $this->savePurchaseFeedItems($request);
+        }
+
         $data = $request->validate([
             'pregnancy_check_days' => 'required|integer|min:7|max:30',
             'gestation_days' => 'required|integer|min:100|max:130',
@@ -101,6 +111,8 @@ class SettingsController extends Controller
             'wheat_bran_bag_weight_kg' => 'nullable|numeric|min:0.01|max:500',
             'premix_bag_weight_kg' => 'nullable|numeric|min:0.01|max:500',
             'concentrate_bag_weight_kg' => 'nullable|numeric|min:0.01|max:500',
+            'feed_items' => 'nullable|array',
+            'feed_items.*' => 'nullable|string|max:255',
         ]);
 
         // Save individual keys to allow partial overrides
@@ -138,7 +150,37 @@ class SettingsController extends Controller
         Setting::set('feed.units.premix_bag_weight_kg', (float) ($data['premix_bag_weight_kg'] ?? 25));
         Setting::set('feed.units.concentrate_bag_weight_kg', (float) ($data['concentrate_bag_weight_kg'] ?? 50));
 
+        Setting::setPurchaseFeedItems($data['feed_items'] ?? []);
+
         return FlashHelper::successAndRedirect('Settings saved successfully.', 'settings.setup');
+    }
+
+    /**
+     * Save only the purchase request feed item dropdown list.
+     * This is intentionally separate from the main settings save so a feed
+     * item can be added without being blocked by unrelated settings fields.
+     */
+    public function savePurchaseFeedItems(Request $request)
+    {
+        $this->abortUnlessRole('superuser', 'admin');
+
+        $data = $request->validate([
+            'feed_items' => ['nullable', 'array'],
+            'feed_items.*' => ['nullable', 'string', 'max:255'],
+            'new_feed_item' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $items = $data['feed_items'] ?? [];
+
+        if (! empty($data['new_feed_item'])) {
+            $items[] = $data['new_feed_item'];
+        }
+
+        Setting::setPurchaseFeedItems($items);
+
+        return redirect()
+            ->route('settings.setup')
+            ->with('success', 'Purchase request feed items saved successfully.');
     }
 
     /**
@@ -146,6 +188,7 @@ class SettingsController extends Controller
      */
     public function resetBreeding()
     {
+        $this->abortUnlessRole('superuser', 'admin');
         // Remove keys so config falls back to defaults
         foreach ([
             'breeding.cycle.pregnancy_check_days',
@@ -169,6 +212,7 @@ class SettingsController extends Controller
             'feed.units.wheat_bran_bag_weight_kg',
             'feed.units.premix_bag_weight_kg',
             'feed.units.concentrate_bag_weight_kg',
+            'purchase_requests.feed_items',
         ] as $key) {
             \App\Models\Setting::query()->where('key', $key)->delete();
         }
@@ -181,6 +225,7 @@ class SettingsController extends Controller
      */
     public function systemReports(Request $request)
     {
+        $this->abortUnlessRole('superuser', 'admin');
         $from = $request->date('from');
         $to = $request->date('to');
 
@@ -374,6 +419,7 @@ class SettingsController extends Controller
      */
     public function exportSystemReportsPdf()
     {
+        $this->abortUnlessRole('superuser', 'admin');
         // Get the same data as the main reports page
         $summary = [
             'total_pigs' => PigManagement::count(),
@@ -454,6 +500,7 @@ class SettingsController extends Controller
      */
     public function exportSystemReportsCsv()
     {
+        $this->abortUnlessRole('superuser', 'admin');
         $filename = 'system-reports-' . now()->format('Y-m-d') . '.csv';
         
         $headers = [
@@ -614,25 +661,22 @@ class SettingsController extends Controller
             'last_name' => ['required', 'string', 'max:50'],
             'email' => ['required', 'string', 'email', 'max:50', 'unique:users'],
             'phone' => ['nullable', 'string', 'max:20'],
-            'role' => ['required', 'string', 'max:50'],
+            'role' => ['required', 'string', 'in:' . implode(',', User::allowedRoleNames())],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'active_status' => ['sometimes', 'boolean'],
         ]);
 
-        // Find or create role
-        $role = Role::firstOrCreate(['name' => $validated['role']]);
-
-        $user = User::create([
+        $user = new User([
             'first_name' => $validated['first_name'],
             'last_name' => $validated['last_name'],
             'name' => $validated['first_name'] . ' ' . $validated['last_name'],
             'email' => $validated['email'],
             'phone' => $validated['phone'] ?? null,
-            'role' => $validated['role'],
-            'role_id' => $role->id,
             'password' => Hash::make($validated['password']),
             'active_status' => $request->has('active_status') ? (bool)$request->input('active_status') : false,
         ]);
+        $user->syncRoleFields($validated['role']);
+        $user->save();
 
         return redirect()->route('settings.users')->with('success', 'User created successfully.');
     }
@@ -650,24 +694,21 @@ class SettingsController extends Controller
             'last_name' => ['required', 'string', 'max:50'],
             'email' => ['required', 'string', 'email', 'max:50', 'unique:users,email,' . $user->id],
             'phone' => ['nullable', 'string', 'max:20'],
-            'role' => ['required', 'string', 'max:50'],
+            'role' => ['required', 'string', 'in:' . implode(',', User::allowedRoleNames())],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'active_status' => ['sometimes', 'boolean'],
         ]);
 
-        // Find or create role
-        $role = Role::firstOrCreate(['name' => $validated['role']]);
-
-        $user->update([
+        $user->fill([
             'first_name' => $validated['first_name'],
             'last_name' => $validated['last_name'],
             'name' => $validated['first_name'] . ' ' . $validated['last_name'],
             'email' => $validated['email'],
             'phone' => $validated['phone'] ?? null,
-            'role' => $validated['role'],
-            'role_id' => $role->id,
             'active_status' => $request->has('active_status') ? (bool)$request->input('active_status') : false,
         ]);
+        $user->syncRoleFields($validated['role']);
+        $user->save();
 
         if (!empty($validated['password'])) {
             $user->update(['password' => Hash::make($validated['password'])]);
@@ -723,6 +764,7 @@ class SettingsController extends Controller
         
     public function general()
     {
+        $this->abortUnlessRole('superuser', 'admin');
         // Use your Model's custom getAll logic or pluck manually
         // We use Setting::all() to get everything from the 'settings' table
         $settings = Setting::all()->pluck('value', 'key');
@@ -735,6 +777,7 @@ class SettingsController extends Controller
      */
     public function updateGeneral(Request $request)
     {
+        $this->abortUnlessRole('superuser', 'admin');
         $request->validate([
             'app_name'    => 'required|string|max:255',
             'currency'    => 'required|string|max:10',

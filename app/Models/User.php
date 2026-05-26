@@ -3,6 +3,8 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Concerns\BelongsToOrganization;
+use App\Models\Concerns\HasPermissions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -12,6 +14,8 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
+    public const ALLOWED_ROLE_NAMES = ['superuser', 'admin', 'farmmanager', 'dataentry', 'accountant'];
+
     use HasApiTokens;
 
     /** @use HasFactory<\Database\Factories\UserFactory> */
@@ -19,7 +23,8 @@ class User extends Authenticatable
     use HasProfilePhoto;
     use Notifiable;
     use TwoFactorAuthenticatable;
-
+    use BelongsToOrganization;
+    use HasPermissions;
     /**
      * The attributes that are mass assignable.
      *
@@ -31,12 +36,17 @@ class User extends Authenticatable
         'password',
         'role',
         'role_id',
+        'organization_id',
         'first_name',
         'last_name',
         'phone',
         'active_status',
         'last_seen',
         'last_active_at'
+    ];
+
+    protected $attributes = [
+        'active_status' => true,
     ];
 
     /**
@@ -72,6 +82,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'last_seen' => 'datetime',
             'last_active_at' => 'datetime',
+            'active_status' => 'boolean',
         ];
     }
 
@@ -82,6 +93,48 @@ class User extends Authenticatable
 
 
     // Role helpers
+    public static function allowedRoleNames(): array
+    {
+        return self::ALLOWED_ROLE_NAMES;
+    }
+
+    public static function normalizeRoleName(?string $role): ?string
+    {
+        if ($role === null) {
+            return null;
+        }
+
+        $normalized = strtolower(trim($role));
+
+        return match ($normalized) {
+            'manager' => 'farmmanager',
+            'data_entry', 'data-entry' => 'dataentry',
+            'accounts', 'accounting' => 'accountant',
+            default => $normalized,
+        };
+    }
+
+    public function hasRoleName(string $role): bool
+    {
+        return $this->roleName() === static::normalizeRoleName($role);
+    }
+
+    public function syncRoleFields(string $roleName): void
+    {
+        $normalized = static::normalizeRoleName($roleName);
+
+        if (!in_array($normalized, static::allowedRoleNames(), true)) {
+            throw new \InvalidArgumentException('Unsupported role: ' . $roleName);
+        }
+
+        $role = Role::firstOrCreate(['name' => $normalized]);
+
+        $this->forceFill([
+            'role' => $normalized,
+            'role_id' => $role->id,
+        ]);
+    }
+
     protected function roleName(): ?string
     {
         // First try to get role from relationship if loaded.
@@ -92,12 +145,12 @@ class User extends Authenticatable
                 return $related->name;
             }
         }
-        
+
         // Fall back to string column if present
         if (isset($this->attributes['role']) && is_string($this->attributes['role']) && !empty($this->attributes['role'])) {
-            return $this->attributes['role'];
+            return static::normalizeRoleName($this->attributes['role']);
         }
-        
+
         // Last resort: try to load role from database if role_id exists
         if ($this->role_id) {
             try {
@@ -107,27 +160,32 @@ class User extends Authenticatable
                 return null;
             }
         }
-        
+
         return null;
     }
 
     public function isDataEntry(): bool
     {
-        return $this->roleName() === 'dataentry';
+        return $this->hasRoleName('dataentry');
     }
 
     public function isAdmin(): bool
     {
-        return $this->roleName() === 'admin';
+        return $this->hasRoleName('admin');
     }
 
     public function isManager(): bool
     {
-        return $this->roleName() === 'farmmanager';
+        return $this->hasRoleName('farmmanager');
     }
 
     public function isSuperuser(): bool
     {
-        return $this->roleName() === 'superuser';
+        return $this->hasRoleName('superuser');
+    }
+
+    public function isAccountant(): bool
+    {
+        return $this->hasRoleName('accountant');
     }
 }

@@ -1,9 +1,9 @@
 <x-app-layout>
     @php
-        $pendingCount = $purchaseRequests->where('status', 'pending')->count();
-        $approvedCount = $purchaseRequests->where('status', 'approved')->count();
-        $paidCount = $purchaseRequests->where('status', 'paid')->count();
-        $declinedCount = $purchaseRequests->where('status', 'declined')->count();
+        $pendingCount = $stats['pending'] ?? 0;
+        $approvedCount = $stats['approved'] ?? 0;
+        $paidCount = $stats['paid'] ?? 0;
+        $declinedCount = $stats['declined'] ?? 0;
 
         $statusClasses = [
             'pending' => 'bg-blue-100 text-blue-800 border border-blue-200',
@@ -60,7 +60,7 @@
                     <input type="text"
                         name="search"
                         value="{{ $search }}"
-                        placeholder="Search request no, purpose or notes"
+                        placeholder="Search request no, type, purpose, reason or notes"
                         class="w-full rounded-xl border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
                 </div>
 
@@ -103,6 +103,7 @@
                             <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Request No</th>
                             <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Date</th>
                             <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Requested By</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Type</th>
                             <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
                             <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Total Amount</th>
                             <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Action</th>
@@ -125,6 +126,12 @@
                                 </td>
 
                                 <td class="px-6 py-4">
+                                    <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold {{ ($purchaseRequest->purchase_type ?? 'other') === 'feed' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-blue-50 text-blue-700 border border-blue-100' }}">
+                                        {{ ($purchaseRequest->purchase_type ?? 'other') === 'feed' ? 'Feed' : 'Other' }}
+                                    </span>
+                                </td>
+
+                                <td class="px-6 py-4">
                                     <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold {{ $statusClasses[$purchaseRequest->status] ?? 'bg-gray-100 text-gray-700 border border-gray-200' }}">
                                         {{ ucfirst($purchaseRequest->status) }}
                                     </span>
@@ -141,18 +148,18 @@
                                             View
                                         </a>
 
-                                        @if($purchaseRequest->status === 'pending')
+                                        @can('update', $purchaseRequest)
                                             <a href="{{ route('purchase-requests.edit', $purchaseRequest) }}"
                                                class="inline-flex items-center rounded-lg bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition">
                                                 Edit
                                             </a>
-                                        @endif
+                                        @endcan
                                     </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-6 py-12 text-center">
+                                <td colspan="7" class="px-6 py-12 text-center">
                                     <div class="flex flex-col items-center justify-center">
                                         <div class="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-400">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">

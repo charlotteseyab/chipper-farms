@@ -31,7 +31,12 @@
 
             <div class="mt-4">
                 <x-label for="role" value="{{ __('Role') }}" />
-                <x-input id="role" class="block mt-1 w-full" type="text" name="role" :value="old('role')" required maxlength="50" />
+                <select id="role" name="role" required class="block mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <option value="">Select role</option>
+                    @foreach (\App\Models\User::allowedRoleNames() as $role)
+                        <option value="{{ $role }}" @selected(old('role') === $role)>{{ ucwords(str_replace('dataentry', 'data entry', str_replace('farmmanager', 'farm manager', $role))) }}</option>
+                    @endforeach
+                </select>
             </div>
 
             <div class="mt-4 flex items-center">

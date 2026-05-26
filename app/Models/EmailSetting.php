@@ -47,11 +47,12 @@ class EmailSetting extends Model
         if (empty($value)) {
             return null;
         }
+
         try {
             return Crypt::decryptString($value);
         } catch (\Exception $e) {
-            // If decryption fails, return null (might be plain text from old data)
-            return null;
+            // Fallback for older plain-text values
+            return $value;
         }
     }
 
@@ -61,7 +62,7 @@ class EmailSetting extends Model
     public function setPasswordAttribute($value)
     {
         if (empty($value)) {
-            // If password is empty, don't update it (keep existing)
+            // Keep existing password if empty input is submitted
             unset($this->attributes['password']);
         } else {
             $this->attributes['password'] = Crypt::encryptString($value);

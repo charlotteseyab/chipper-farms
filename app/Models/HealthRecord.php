@@ -17,11 +17,16 @@ class HealthRecord extends Model
         'symptoms',
         'diagnosis',
         'treatment_plan',
+        'treatment_status',
+        'outcome',
+        'resolved_at',
+        'resolution_notes',
         'recorded_by',
     ];
 
     protected $casts = [
         'record_date' => 'date',
+        'resolved_at' => 'date',
     ];
 
     public function pig(): BelongsTo

@@ -15,11 +15,12 @@ class PigManagement extends Model
 
     protected $fillable = [
         'ear_tag_number', 'breed', 'gender', 'stock_type', 'date_of_birth',
-        'code', 'age_in_days', 'father_id', 'mother_id', 'room_id', 'local_id'
+        'code', 'age_in_days', 'father_id', 'mother_id', 'room_id', 'local_id',
+        'group_id', 'current_weight_kg_cache', 'weight_cache_recorded_at',
     ];
 
     protected $casts = [
-        'date_of_birth' => 'date',
+        'date_of_birth' => 'date', 'current_weight_kg_cache'  => 'decimal:4', 'weight_cache_recorded_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -29,6 +30,11 @@ class PigManagement extends Model
             if (!$pig->local_id) {
                 $maxLocalId = static::max('local_id') ?? 0;
                 $pig->local_id = $maxLocalId + 1;
+            }
+
+            // Keep age_in_days populated for schemas where it's NOT NULL.
+            if (($pig->age_in_days === null || $pig->age_in_days === '') && $pig->date_of_birth) {
+                $pig->age_in_days = (int) $pig->date_of_birth->diffInDays(now());
             }
         });
     }
@@ -791,106 +797,205 @@ class PigManagement extends Model
     }
 
     // Weighing schedule methods
-    public function getLastWeighingDate()
-    {
-        $lastWeight = $this->weights()->latest('weigh_date')->first();
-        return $lastWeight ? $lastWeight->weigh_date : null;
+    // Weighing schedule methods
+public function hasAnyWeightRecord(): bool
+{
+    return $this->weights()->exists();
+}
+
+public function getLastWeighingDate()
+{
+    $lastWeight = $this->weights()->latest('weigh_date')->first();
+    return $lastWeight ? $lastWeight->weigh_date : null;
+}
+
+public function getDaysSinceLastWeighing(): ?int
+{
+    $lastWeighing = $this->getLastWeighingDate();
+
+    if (!$lastWeighing) {
+        return null;
     }
 
-    public function getDaysSinceLastWeighing()
-    {
-        $lastWeighing = $this->getLastWeighingDate();
-        if (!$lastWeighing) {
-            // If never weighed, use birth date
-            return $this->date_of_birth ? $this->date_of_birth->diffInDays(now()) : 0;
+    return (int) $lastWeighing->diffInDays(now());
+}
+
+public function getFirstWeightDueDate(int $firstWeightGraceDays = 30)
+{
+    if (!$this->date_of_birth) {
+        return null;
+    }
+
+    return $this->date_of_birth->copy()->addDays($firstWeightGraceDays);
+}
+
+public function isOverdueForWeighing(int $weighingIntervalDays = 30): bool
+{
+    if (!$this->hasAnyWeightRecord()) {
+        return false;
+    }
+
+    $daysSince = $this->getDaysSinceLastWeighing();
+
+    return $daysSince !== null && $daysSince > $weighingIntervalDays;
+}
+
+public function getWeighingStatus(
+    int $weighingIntervalDays = 30,
+    int $criticalDays = 60,
+    int $firstWeightGraceDays = 30
+): array {
+    $lastWeighing = $this->getLastWeighingDate();
+
+    if (!$lastWeighing) {
+        $firstDueDate = $this->getFirstWeightDueDate($firstWeightGraceDays);
+
+        if (!$firstDueDate) {
+            return [
+                'status' => 'unknown',
+                'message' => 'No birth date or weight record',
+                'color' => 'gray',
+                'icon' => '❔',
+                'days_since' => null,
+                'overdue_days' => null,
+            ];
         }
-        return $lastWeighing->diffInDays(now());
-    }
 
-    public function isOverdueForWeighing($weighingIntervalDays = 30)
-    {
-        return $this->getDaysSinceLastWeighing() > $weighingIntervalDays;
-    }
+        $daysUntilFirstDue = now()->startOfDay()->diffInDays($firstDueDate->copy()->startOfDay(), false);
 
-    public function getWeighingStatus()
-    {
-        $daysSince = $this->getDaysSinceLastWeighing();
-        
-        // One-month schedule: current (<=15d), due soon (<=25d), overdue (<=35d), critical (>35d)
-        if ($daysSince <= 15) {
+        if ($daysUntilFirstDue > 0) {
             return [
-                'status' => 'current',
-                'message' => 'Up to date',
-                'color' => 'green',
-                'icon' => '✅'
-            ];
-        } elseif ($daysSince <= 25) {
-            return [
-                'status' => 'due_soon',
-                'message' => 'Due soon',
-                'color' => 'yellow',
-                'icon' => '⚠️'
-            ];
-        } elseif ($daysSince <= 30) {
-            return [
-                'status' => 'overdue',
-                'message' => 'Overdue',
-                'color' => 'orange',
-                'icon' => '🔶'
-            ];
-        } else {
-            return [
-                'status' => 'critical',
-                'message' => 'Critically overdue',
-                'color' => 'red',
-                'icon' => '🚨'
+                'status' => 'not_due_yet',
+                'message' => 'First weight not due yet',
+                'color' => 'blue',
+                'icon' => '📘',
+                'days_since' => null,
+                'overdue_days' => 0,
             ];
         }
+
+        return [
+            'status' => 'first_weight_pending',
+            'message' => 'First weight pending',
+            'color' => 'yellow',
+            'icon' => '📝',
+            'days_since' => null,
+            'overdue_days' => abs($daysUntilFirstDue),
+        ];
     }
 
-    public function getNextWeighingDate($weighingIntervalDays = 30)
-    {
-        $lastWeighing = $this->getLastWeighingDate();
-        if (!$lastWeighing) {
-            // If never weighed, next weighing should be one month from birth
-            return $this->date_of_birth ? $this->date_of_birth->addDays($weighingIntervalDays) : null;
-        }
-        return $lastWeighing->addDays($weighingIntervalDays);
+    $daysSince = (int) $lastWeighing->diffInDays(now());
+
+    if ($daysSince <= 21) {
+        return [
+            'status' => 'current',
+            'message' => 'Up to date',
+            'color' => 'green',
+            'icon' => '✅',
+            'days_since' => $daysSince,
+            'overdue_days' => 0,
+        ];
     }
 
-    // Static methods for weighing alerts (more reliable than scopes)
-    public static function getOverdueForWeighing($weighingIntervalDays = 30)
-    {
-        $pigs = static::whereDoesntHave('deaths')
-                     ->whereDoesntHave('sales')
-                     ->get();
-        
-        return $pigs->filter(function($pig) use ($weighingIntervalDays) {
+    if ($daysSince <= $weighingIntervalDays) {
+        return [
+            'status' => 'due_soon',
+            'message' => 'Due soon',
+            'color' => 'yellow',
+            'icon' => '⚠️',
+            'days_since' => $daysSince,
+            'overdue_days' => 0,
+        ];
+    }
+
+    if ($daysSince <= $criticalDays) {
+        return [
+            'status' => 'overdue',
+            'message' => 'Overdue',
+            'color' => 'orange',
+            'icon' => '🔶',
+            'days_since' => $daysSince,
+            'overdue_days' => $daysSince - $weighingIntervalDays,
+        ];
+    }
+
+    return [
+        'status' => 'critical',
+        'message' => 'Critically overdue',
+        'color' => 'red',
+        'icon' => '🚨',
+        'days_since' => $daysSince,
+        'overdue_days' => $daysSince - $weighingIntervalDays,
+    ];
+}
+
+public function getNextWeighingDate(
+    int $weighingIntervalDays = 30,
+    int $firstWeightGraceDays = 30
+)
+{
+    $lastWeighing = $this->getLastWeighingDate();
+
+    if (!$lastWeighing) {
+        return $this->getFirstWeightDueDate($firstWeightGraceDays);
+    }
+
+    return $lastWeighing->copy()->addDays($weighingIntervalDays);
+}
+
+// Static methods for weighing alerts
+public static function getOverdueForWeighing(int $weighingIntervalDays = 30)
+{
+    return static::whereDoesntHave('deaths')
+        ->whereDoesntHave('sales')
+        ->whereHas('weights')
+        ->get()
+        ->filter(function ($pig) use ($weighingIntervalDays) {
             return $pig->isOverdueForWeighing($weighingIntervalDays);
         });
-    }
+}
 
-    public static function getDueForWeighing($weighingIntervalDays = 30)
-    {
-        $pigs = static::whereDoesntHave('deaths')
-                     ->whereDoesntHave('sales')
-                     ->get();
-        
-        return $pigs->filter(function($pig) use ($weighingIntervalDays) {
-            $daysSince = $pig->getDaysSinceLastWeighing();
-            return $daysSince >= $weighingIntervalDays;
+public static function getDueForWeighing(int $weighingIntervalDays = 30)
+{
+    return static::whereDoesntHave('deaths')
+        ->whereDoesntHave('sales')
+        ->whereHas('weights')
+        ->get()
+        ->filter(function ($pig) {
+            $status = $pig->getWeighingStatus();
+            return $status['status'] === 'due_soon';
         });
-    }
+}
 
-    public static function countOverdueForWeighing($weighingIntervalDays = 30)
-    {
-        return static::getOverdueForWeighing($weighingIntervalDays)->count();
-    }
+public static function getFirstWeightPending(int $firstWeightGraceDays = 30)
+{
+    return static::whereDoesntHave('deaths')
+        ->whereDoesntHave('sales')
+        ->whereDoesntHave('weights')
+        ->whereNotNull('date_of_birth')
+        ->get()
+        ->filter(function ($pig) use ($firstWeightGraceDays) {
+            $firstDueDate = $pig->getFirstWeightDueDate($firstWeightGraceDays);
 
-    public static function countDueForWeighing($weighingIntervalDays = 30)
-    {
-        return static::getDueForWeighing($weighingIntervalDays)->count();
-    }
+            return $firstDueDate
+                && now()->startOfDay()->greaterThanOrEqualTo($firstDueDate->copy()->startOfDay());
+        });
+}
+
+public static function countOverdueForWeighing(int $weighingIntervalDays = 30)
+{
+    return static::getOverdueForWeighing($weighingIntervalDays)->count();
+}
+
+public static function countDueForWeighing(int $weighingIntervalDays = 30)
+{
+    return static::getDueForWeighing($weighingIntervalDays)->count();
+}
+
+public static function countFirstWeightPending(int $firstWeightGraceDays = 30)
+{
+    return static::getFirstWeightPending($firstWeightGraceDays)->count();
+}
 
     public function litters()
     {
@@ -908,6 +1013,11 @@ class PigManagement extends Model
     {
         return $this->hasMany(MedicationAdministration::class, 'pig_id');
     }
+
+    public function group(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+          {
+              return $this->belongsTo(\App\Models\Group::class);
+          }
 
     
 }

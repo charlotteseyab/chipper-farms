@@ -70,6 +70,7 @@ class PerformanceMetricController extends Controller
      */
     public function index()
     {
+        $this->abortUnlessRole('superuser', 'admin');
         $metrics = collect([
             $this->calcPregnancyRate(),
             $this->getFarrowingRate(),

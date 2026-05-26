@@ -12,30 +12,20 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
         then: function () {
-            // Custom route model binding for workspace protection
+            // Route model bindings.
+            //
+            // NOTE: earlier versions of this file contained a "workspace_id"
+            // check on pig and farrowing bindings. That check was non-functional
+            // (auth()->user()->workspace_id never existed in the users schema)
+            // and has been removed. Real per-resource authorization will be
+            // enforced via Policies introduced in Phase 0.3, and tenant
+            // isolation via the EnsureOrganizationContext middleware below.
             Route::bind('pig', function ($value) {
-                $pig = \App\Models\PigManagement::findOrFail($value);
-                
-                // Check workspace access
-                if (auth()->check() && auth()->user()->workspace_id) {
-                    if ($pig->workspace_id != auth()->user()->workspace_id) {
-                        abort(403, 'You do not have access to this resource.');
-                    }
-                }
-                
-                return $pig;
+                return \App\Models\PigManagement::findOrFail($value);
             });
 
             Route::bind('farrowing', function ($value) {
-                $farrowing = \App\Models\Farrowing::findOrFail($value);
-                
-                if (auth()->check() && auth()->user()->workspace_id) {
-                    if ($farrowing->workspace_id != auth()->user()->workspace_id) {
-                        abort(403, 'You do not have access to this resource.');
-                    }
-                }
-                
-                return $farrowing;
+                return \App\Models\Farrowing::findOrFail($value);
             });
 
             Route::bind('mating', function ($value) {
@@ -48,10 +38,13 @@ return Application::configure(basePath: dirname(__DIR__))
         },
     )
     ->withMiddleware(function (Middleware $middleware) {
-        
-        // This group should only contain class names, or you can leave it empty.
+
+        // EnsureOrganizationContext runs AFTER the framework's auth layer,
+        // binding the organization for the request lifecycle and rejecting
+        // auth'd-but-orgless users with 403.
         $middleware->web(append: [
             \App\Http\Middleware\EnsureUserIsActive::class,
+            \App\Http\Middleware\EnsureOrganizationContext::class,
             \App\Http\Middleware\StoreBackUrl::class,
         ]);
 
@@ -59,11 +52,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             //Define the short key (activity) and the class here
-            'activity' => \App\Http\Middleware\LogUserActivity::class, 
+            'activity' => \App\Http\Middleware\LogUserActivity::class,
             'active' => \App\Http\Middleware\EnsureUserIsActive::class,
+            'org' => \App\Http\Middleware\EnsureOrganizationContext::class,
+            'permission' => \App\Http\Middleware\PermissionMiddleware::class,
         ]);
-        
+
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
-    })->create();   
+    })->create();

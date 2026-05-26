@@ -222,11 +222,13 @@
                 <h3 class="text-xl font-bold text-gray-800 mb-6">4. Additional Details</h3>
                 
                 <div class="space-y-5">
-                    <!-- Sold By -->
+                    <!-- Sold By (display only — the recorded seller is always the authenticated user) -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Sold By</label>
-                        <input type="text" name="sold_by" value="{{ old('sold_by', auth()->user()->name ?? '') }}" 
-                               class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-gray-500 focus:border-gray-500">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Recorded By</label>
+                        <div class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-800">
+                            {{ auth()->user()->name }}
+                        </div>
+                        <p class="mt-1 text-xs text-gray-500">The sale will be attributed to your account automatically.</p>
                     </div>
                     <!-- Notes -->
                     <div>
@@ -251,7 +253,6 @@
             </div>
         </form>
     </main>
-    <x-copyright-minimal />
 </div>
 
 <script>

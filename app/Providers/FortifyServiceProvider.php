@@ -88,7 +88,9 @@ class FortifyServiceProvider extends ServiceProvider
                             'retry_after_seconds' => $remaining,
                         ],
                     ]);
-                } catch (\Throwable $e) {}
+                } catch (\Throwable $e) {
+                report($e);
+            }
                 throw ValidationException::withMessages([
                     $username => "Too many attempts. Please wait {$remaining} seconds before trying again.",
                 ]);
@@ -110,7 +112,9 @@ class FortifyServiceProvider extends ServiceProvider
                                 'result' => 'inactive_account',
                             ],
                         ]);
-                    } catch (\Throwable $e) {}
+                    } catch (\Throwable $e) {
+                report($e);
+            }
                     throw ValidationException::withMessages([
                         $username => __('Your account has been deactivated. Please contact an administrator.'),
                     ]);
@@ -148,7 +152,9 @@ class FortifyServiceProvider extends ServiceProvider
                             'retry_after_seconds' => $remaining,
                         ],
                     ]);
-                } catch (\Throwable $e) {}
+                } catch (\Throwable $e) {
+                report($e);
+            }
                 throw ValidationException::withMessages([
                     $username => "Too many attempts. Please wait {$remaining} seconds before trying again.",
                 ]);
@@ -164,7 +170,9 @@ class FortifyServiceProvider extends ServiceProvider
                     'user_agent' => $request->userAgent(),
                     'metadata' => [ 'result' => 'failed', 'attempts' => $attempts ],
                 ]);
-            } catch (\Throwable $e) {}
+            } catch (\Throwable $e) {
+                report($e);
+            }
             throw ValidationException::withMessages([
                 $username => __('These credentials do not match our records.'),
             ]);

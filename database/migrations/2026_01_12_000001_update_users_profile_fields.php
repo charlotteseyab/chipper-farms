@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -20,7 +21,10 @@ return new class extends Migration
         });
 
         // Keep column length change outside the schema builder to avoid DBAL dependency.
-        Schema::getConnection()->statement('ALTER TABLE users MODIFY email VARCHAR(50) UNIQUE');
+        $driver = DB::connection()->getDriverName();
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            Schema::getConnection()->statement('ALTER TABLE users MODIFY email VARCHAR(50) UNIQUE');
+        }
     }
 
     /**
@@ -32,6 +36,9 @@ return new class extends Migration
             $table->dropColumn(['first_name', 'last_name', 'phone', 'role', 'active_status']);
         });
 
-        Schema::getConnection()->statement('ALTER TABLE users MODIFY email VARCHAR(255) UNIQUE');
+        $driver = DB::connection()->getDriverName();
+        if (in_array($driver, ['mysql', 'mariadb'], true)) {
+            Schema::getConnection()->statement('ALTER TABLE users MODIFY email VARCHAR(255) UNIQUE');
+        }
     }
 };

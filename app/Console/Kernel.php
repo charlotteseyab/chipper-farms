@@ -16,6 +16,13 @@ class Kernel extends ConsoleKernel
                 
         // Process notifications every 5 minutes
         $schedule->command('notifications:process')->everyFiveMinutes();
+
+        $schedule->command('finance:reconcile-invoice-aggregates')
+        ->dailyAt('02:30')
+        ->withoutOverlapping()
+        ->emailOutputOnFailure(config('finance.alert_email'));
+
+        $schedule->command('finance:accrue-loan-interest')->monthlyOn(1, '02:00');
     }
 
     protected function commands(): void

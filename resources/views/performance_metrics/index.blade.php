@@ -82,5 +82,4 @@
             </div>
         </div>
     </div>
-    <x-copyright-minimal />
 </x-app-layout>

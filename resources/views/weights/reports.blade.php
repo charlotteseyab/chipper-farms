@@ -312,7 +312,7 @@
             @endif
         </div>
     </main>
-    <x-copyright-minimal />
+ 
     <script>
         // PDF export functionality
         function exportToPDF() {

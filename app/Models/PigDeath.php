@@ -6,9 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Carbon\Carbon;
+
 class PigDeath extends Model
 {
     use SoftDeletes;
+
     protected $fillable = [
         'pig_id',
         'death_date',
@@ -21,16 +23,27 @@ class PigDeath extends Model
         'disposal_date',
         'death_notes',
         'recorded_by',
+
+        // Phase 0.8 finance-readiness (Batch D)
+        'organization_id',
+        'document_number',
+        'is_posted',
+        'posted_at',
+        'cost_centre_id',
+        'legacy_source_id',
     ];
 
     protected $casts = [
-        'death_date' => 'date',
+        'death_date'    => 'date',
         'disposal_date' => 'date',
-        'final_weight' => 'decimal:2',
-        'age_at_death' => 'integer'
+        'final_weight'  => 'decimal:2',
+        'age_at_death'  => 'integer',
+
+        // Phase 0.8
+        'is_posted' => 'boolean',
+        'posted_at' => 'datetime',
     ];
 
-    // Relationships
     public function pig(): BelongsTo
     {
         return $this->belongsTo(PigManagement::class, 'pig_id')->withTrashed();
@@ -41,55 +54,59 @@ class PigDeath extends Model
         return $this->belongsTo(User::class, 'recorded_by');
     }
 
-    // Accessors
+    public function costCentre(): BelongsTo
+    {
+        return $this->belongsTo(CostCentre::class, 'cost_centre_id');
+    }
+
     public function getDeathCauseDisplayAttribute(): string
     {
         return match($this->death_cause) {
-            'disease' => 'Disease',
-            'accident' => 'Accident',
-            'natural' => 'Natural Causes',
-            'stillbirth' => 'Stillbirth',
-            'crushing' => 'Crushing (Sow)',
-            'starvation' => 'Starvation',
+            'disease'     => 'Disease',
+            'accident'    => 'Accident',
+            'natural'     => 'Natural Causes',
+            'stillbirth'  => 'Stillbirth',
+            'crushing'    => 'Crushing (Sow)',
+            'starvation'  => 'Starvation',
             'hypothermia' => 'Hypothermia',
             'dehydration' => 'Dehydration',
-            'congenital' => 'Congenital Defect',
-            'unknown' => 'Unknown',
-            'other' => 'Other',
-            default => 'Unknown'
+            'congenital'  => 'Congenital Defect',
+            'unknown'     => 'Unknown',
+            'other'       => 'Other',
+            default       => 'Unknown'
         };
     }
 
     public function getDisposalMethodDisplayAttribute(): string
     {
         return match($this->disposal_method) {
-            'burial' => 'Burial',
+            'burial'       => 'Burial',
             'incineration' => 'Incineration',
-            'rendering' => 'Rendering',
-            'other' => 'Other',
-            default => 'Burial'
+            'rendering'    => 'Rendering',
+            'donation'     => 'Donation',
+            'disposal'     => 'Disposal',
+            'other'        => 'Other',
+            default        => 'Burial'
         };
     }
 
     public function getAgeAtDeathDisplayAttribute(): string
     {
-        if (!$this->age_at_death) {
+        if (! $this->age_at_death) {
             return 'Unknown';
         }
-
-        $years = floor($this->age_at_death / 365);
+        $years  = floor($this->age_at_death / 365);
         $months = floor(($this->age_at_death % 365) / 30);
-        $days = $this->age_at_death % 30;
+        $days   = $this->age_at_death % 30;
 
         $parts = [];
-        if ($years > 0) $parts[] = $years . ' year' . ($years > 1 ? 's' : '');
+        if ($years > 0)  $parts[] = $years . ' year' . ($years > 1 ? 's' : '');
         if ($months > 0) $parts[] = $months . ' month' . ($months > 1 ? 's' : '');
-        if ($days > 0) $parts[] = $days . ' day' . ($days > 1 ? 's' : '');
+        if ($days > 0)   $parts[] = $days . ' day' . ($days > 1 ? 's' : '');
 
         return implode(', ', $parts) ?: '0 days';
     }
 
-    // Scopes
     public function scopeByCause($query, $cause)
     {
         return $query->where('death_cause', $cause);
@@ -105,13 +122,11 @@ class PigDeath extends Model
         return $query->where('death_date', '>=', now()->subDays($days));
     }
 
-    // Helper methods
     public function calculateAgeAtDeath(): int
     {
-        if (!$this->pig || !$this->pig->date_of_birth) {
+        if (! $this->pig || ! $this->pig->date_of_birth) {
             return 0;
         }
-
         return $this->pig->date_of_birth->diffInDays($this->death_date);
     }
 
@@ -120,7 +135,6 @@ class PigDeath extends Model
         $this->update(['age_at_death' => $this->calculateAgeAtDeath()]);
     }
 
-    // Boot method to automatically calculate age at death
     protected static function boot()
     {
         parent::boot();

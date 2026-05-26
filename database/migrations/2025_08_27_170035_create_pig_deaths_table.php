@@ -15,12 +15,13 @@ return new class extends Migration
             $table->id();
             $table->foreignId('pig_id')->constrained('pigs_management')->onDelete('cascade');
             $table->date('death_date');
-            $table->enum('death_cause', ['disease', 'accident', 'natural', 'unknown', 'other'])->default('unknown');
+            // Use VARCHAR instead of ENUM so later widening (e.g. 'stillbirth') is safe across DB drivers.
+            $table->string('death_cause', 40)->default('unknown');
             $table->integer('age_at_death')->nullable(); // Calculated from birth date
             $table->decimal('final_weight', 8, 2)->nullable(); // Last recorded weight
             $table->string('death_location')->nullable(); // Where death occurred
             $table->text('veterinary_notes')->nullable(); // Vet observations
-            $table->enum('disposal_method', ['burial', 'incineration', 'rendering', 'other'])->default('burial');
+            $table->string('disposal_method', 40)->default('burial');
             $table->date('disposal_date')->nullable();
             $table->text('death_notes')->nullable(); // Additional information
             $table->foreignId('recorded_by')->constrained('users')->onDelete('cascade');

@@ -168,7 +168,7 @@
                     <td>{{ $sale->sale_weight ? number_format($sale->sale_weight, 1) : 'N/A' }}</td>
                     <td class="currency">GHS {{ number_format($sale->sale_price, 2) }}</td>
                     <td>{{ ucfirst($sale->sale_purpose) }}</td>
-                    <td>{{ $sale->sold_by ?? 'N/A' }}</td>
+                    <td>{{ $sale->display_sold_by ?? 'N/A' }}</td>
                     <td>{{ ucfirst($sale->payment_status) }}</td>
                 </tr>
             @empty

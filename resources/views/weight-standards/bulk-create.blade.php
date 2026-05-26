@@ -190,7 +190,7 @@
         </form>
     </div>
 </div>
-<x-copyright-minimal />
+
 <script>
     function updatePreview() {
         const weekFrom = parseInt(document.getElementById('week_from').value) || 1;

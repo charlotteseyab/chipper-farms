@@ -15,7 +15,9 @@ return new class extends Migration {
             $table->string('gender'); 
             $table->date('date_of_birth');
             $table->string('code')->unique();
-            $table->integer('age_in_days');
+            // Stored snapshot used by legacy paths; dynamic current age is computed from date_of_birth.
+            // Default avoids NOT NULL constraint failures in tests / seeders.
+            $table->integer('age_in_days')->default(0);
 
             // Foreign keys with nullOnDelete for safe parent deletion
             $table->foreignId('father_id')

@@ -87,6 +87,10 @@ class PigHealthController extends Controller
             'symptoms' => 'nullable|string',
             'diagnosis' => 'nullable|string',
             'treatment_plan' => 'nullable|string',
+            'treatment_status' => 'nullable|in:planned,ongoing,completed,stopped',
+            'outcome' => 'nullable|in:recovered,improved,unchanged,worsened',
+            'resolved_at' => 'nullable|date|after_or_equal:record_date',
+            'resolution_notes' => 'nullable|string',
             'pig_id' => 'nullable|exists:pigs_management,id',
         ]);
 
@@ -98,6 +102,44 @@ class PigHealthController extends Controller
 
         $selectedPig = $pig ?? PigManagement::find($pigId);
         return redirect()->route('health.show', $selectedPig)->with('success', 'Health record added');
+    }
+
+    public function update(Request $request, PigManagement $pig)
+    {
+        $data = $request->validate([
+            'condition' => 'required|string|max:255',
+            'severity' => 'nullable|string|max:50',
+            'symptoms' => 'nullable|string',
+            'diagnosis' => 'nullable|string',
+            'treatment_plan' => 'nullable|string',
+            'treatment_status' => 'nullable|in:planned,ongoing,completed,stopped',
+            'outcome' => 'nullable|in:recovered,improved,unchanged,worsened',
+            'resolved_at' => 'nullable|date',
+            'resolution_notes' => 'nullable|string',
+        ]);
+
+        $record = $pig->healthRecords()->latest('record_date')->first();
+
+        if (!$record) {
+            return redirect()->route('health.show', $pig)->with('error', 'No health record was found to update for this pig.');
+        }
+
+        $record->update($data);
+
+        return redirect()->route('health.show', $pig)->with('success', 'Health record updated successfully.');
+    }
+
+    public function destroy(PigManagement $pig)
+    {
+        $record = $pig->healthRecords()->latest('record_date')->first();
+
+        if (! $record) {
+            return redirect()->route('health.show', $pig)->with('error', 'No health record was found to delete for this pig.');
+        }
+
+        $record->delete();
+
+        return redirect()->route('health.show', $pig)->with('success', 'Latest health record deleted successfully.');
     }
 
     public function createMedication(PigManagement $pig = null)
@@ -145,6 +187,9 @@ class PigHealthController extends Controller
         if ($route) {
             $query->where('route', 'like', "%{$route}%");
         }
+        if ($purpose) {
+            $query->where('purpose', 'like', "%{$purpose}%");
+        }
         if ($from) {
             $query->whereDate('administration_date', '>=', $from);
         }
@@ -175,6 +220,10 @@ class PigHealthController extends Controller
             'route' => 'nullable|string|max:100',
             'notes' => 'nullable|string',
         ]);
+
+        $medication->update($data);
+
+        return redirect()->route('medications.show', $medication)->with('success', 'Medication record updated successfully.');
     }
     public function destroyMedication(MedicationAdministration $medication)
     {
@@ -294,5 +343,3 @@ class PigHealthController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 }
-
-

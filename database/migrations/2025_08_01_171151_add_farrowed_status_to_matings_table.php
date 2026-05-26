@@ -12,6 +12,14 @@ return new class extends Migration
      */
     public function up(): void
     {
+        $driver = DB::connection()->getDriverName();
+
+        // SQLite (used in tests) does not support MODIFY COLUMN nor native ENUM alters.
+        // This migration is only meant to expand MySQL/MariaDB ENUM value sets.
+        if (! in_array($driver, ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
         // Add 'farrowed' to the status ENUM
         DB::statement("ALTER TABLE matings MODIFY COLUMN status ENUM('planned','completed','cancelled','failed','farrowed') NOT NULL DEFAULT 'planned'");
 
@@ -24,6 +32,12 @@ return new class extends Migration
      */
     public function down(): void
     {
+        $driver = DB::connection()->getDriverName();
+
+        if (! in_array($driver, ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
         // Remove 'farrowed' from the status ENUM
         DB::statement("ALTER TABLE matings MODIFY COLUMN status ENUM('planned','completed','cancelled','failed') NOT NULL DEFAULT 'planned'");
 

@@ -1,295 +1,373 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="csrf-token" content="{{ csrf_token() }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ config('app.name', 'Laravel') }}</title>
+    <title>{{ config('app.name', 'Chipper Farms') }}</title>
 
-        <!-- Favicon -->
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-        <link rel="icon" type="image/png" sizes="32x32" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐷</text></svg>">
-        <link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐷</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐷</text></svg>">
+    <link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐷</text></svg>">
 
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
-        <!-- Scripts -->
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @livewireStyles
+</head>
+<body class="bg-slate-100 font-sans antialiased text-slate-900">
+    <x-banner />
 
-        <!-- Alpine.js -->
-        <!-- <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script> -->
+    @php
+        $user = Auth::user();
+        $sidebarSections = $user ? \App\Helpers\NavigationHelper::sidebarSections($user) : [];
+        $sidebarLogoUrl = asset('images/chipper-farms-logo.jpg');
+        $searchItems = collect($sidebarSections)->flatMap(function ($section) {
+            return collect($section['items'] ?? [])->flatMap(function ($item) use ($section) {
+                if (($item['type'] ?? 'link') === 'group') {
+                    return collect($item['children'] ?? [])->map(function ($child) use ($section, $item) {
+                        return [
+                            'label' => $child['label'],
+                            'route' => $child['route'],
+                            'url' => route($child['route']),
+                            'section' => $section['title'],
+                            'group' => $item['label'],
+                        ];
+                    });
+                }
 
-        <!-- Font Awesome CDN -->
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-        <!-- Custom Scrollbar Styles -->
-        <style>
-            /* Custom scrollbar for sidebars */
-            .scrollbar-thin {
-                scrollbar-width: thin;
-            }
+                return [[
+                    'label' => $item['label'],
+                    'route' => $item['route'],
+                    'url' => route($item['route']),
+                    'section' => $section['title'],
+                    'group' => null,
+                ]];
+            });
+        })->values();
+    @endphp
 
-            .scrollbar-thin::-webkit-scrollbar {
-                width: 6px;
-            }
+    <div class="min-h-screen">
+        @if($user)
+            <div id="appOverlay" class="fixed inset-0 z-40 hidden bg-slate-950/50 lg:hidden"></div>
 
-            .scrollbar-thin::-webkit-scrollbar-track {
-                background: #1C6C51;
-                border-radius: 3px;
-            }
+            <aside id="appSidebar" class="fixed inset-y-0 left-0 z-50 flex w-72 -translate-x-full flex-col border-r border-[#185941] bg-[#1C6C51] text-white shadow-xl transition-transform duration-300 lg:translate-x-0">
+                <div class="flex items-center justify-between border-b border-white/10 bg-[#185941] px-5 py-5">
+                    <a href="{{ \App\Helpers\NavigationHelper::dashboardRoute($user) }}" class="flex items-center gap-3">
+                        <img src="{{ $sidebarLogoUrl }}" alt="{{ config('app.name', 'Chipper Farms') }} logo" class="h-12 w-12 rounded-2xl border-2 border-white/80 bg-white object-cover shadow">
+                        <div>
+                            <p class="text-sm font-semibold tracking-wide">{{ config('app.name', 'Chipper Farms') }}</p>
+                            <p class="text-xs text-emerald-100/90">{{ \App\Helpers\NavigationHelper::displayRole($user) }}</p>
+                        </div>
+                    </a>
 
-            .scrollbar-thin::-webkit-scrollbar-thumb {
-                background: #218c6a;
-                border-radius: 3px;
-            }
+                    <button id="closeSidebarBtn" type="button" class="rounded-xl border border-white/15 px-2 py-1 text-sm text-white/90 transition hover:bg-white/10 lg:hidden">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
 
-            .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-                background: #2da776;
-            }
+                <!-- <div class="border-b border-white/10 px-5 py-4 text-sm text-emerald-100/90">
+                    <p class="font-semibold text-white">{{ $user->name }}</p>
+                    <p class="mt-1 text-xs leading-5">Operational navigation changes based on your role and access level.</p>
+                </div> -->
 
-            /* Ensure smooth scrolling */
-            .scrollbar-thin {
-                scroll-behavior: smooth;
-            }
-        </style>
+                <nav id="sidebarNav" class="flex-1 space-y-6 overflow-y-auto px-4 py-5">
+                    @foreach($sidebarSections as $section)
+                        @php
+                            $sectionHasGroups = collect($section['items'] ?? [])->contains(fn ($item) => ($item['type'] ?? 'link') === 'group');
+                        @endphp
+                        <section data-sidebar-section class="space-y-3">
+                            <h2 class="px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/70">{{ $section['title'] }}</h2>
 
-        <!-- Styles -->
-        @livewireStyles
-    </head>
-    <body class="font-sans antialiased">
-        <x-banner />
+                            <div class="space-y-1">
+                                @foreach($section['items'] as $item)
+                                    @php
+                                        $patterns = $item['active_patterns'] ?? [];
+                                        $isActive = collect($patterns)->contains(fn ($pattern) => request()->routeIs($pattern) || request()->is($pattern));
+                                        $labelForSearch = strtolower(trim($section['title'].' '.($item['label'] ?? '')));
+                                    @endphp
 
-        <div class="min-h-screen bg-gray-100">
-            @livewire('navigation-menu')
+                                    @if(($item['type'] ?? 'link') === 'group')
+                                        @php
+                                            $groupChildren = $item['children'] ?? [];
+                                            $childActive = collect($groupChildren)->contains(function ($child) {
+                                                return collect($child['active_patterns'] ?? [])->contains(fn ($pattern) => request()->routeIs($pattern) || request()->is($pattern));
+                                            });
+                                        @endphp
 
-            <div class="flex min-h-screen pt-16">
-                @php $user = Auth::user(); @endphp
-                @if($user && $user->isAdmin())
-                    <x-sidebar-admin />
-                @elseif($user && $user->isManager())
-                    <x-sidebar-manager />
-                @elseif($user && $user->isSuperuser())
-                    <x-sidebar-superuser />
-                @elseif($user && $user->isDataEntry())
-                    <x-sidebar-dataentry />
+                                        <details
+                                            class="group rounded-2xl {{ $childActive || $isActive ? 'bg-white/10' : 'hover:bg-white/5' }}"
+                                            data-sidebar-group
+                                            data-sidebar-searchable
+                                            data-sidebar-label="{{ strtolower(trim($section['title'].' '.($item['label'] ?? ''))) }}"
+                                            {{ $childActive || $isActive ? 'open' : '' }}
+                                        >
+                                            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-3 py-3 text-sm font-medium text-white/90 transition">
+                                                <span class="flex items-center gap-3">
+                                                    <i class="{{ $item['icon'] }} w-4 text-center"></i>
+                                                    <span>{{ $item['label'] }}</span>
+                                                </span>
+                                                <i class="fa-solid fa-chevron-down text-xs text-white/70 transition group-open:rotate-180"></i>
+                                            </summary>
+
+                                            <div class="space-y-1 pb-2 pl-4 pr-2">
+                                                @foreach($groupChildren as $child)
+                                                    @php
+                                                        $childPatterns = $child['active_patterns'] ?? [];
+                                                        $childIsActive = collect($childPatterns)->contains(fn ($pattern) => request()->routeIs($pattern) || request()->is($pattern));
+                                                    @endphp
+                                                    <a
+                                                        href="{{ route($child['route']) }}"
+                                                        data-sidebar-searchable
+                                                        data-sidebar-link
+                                                        data-sidebar-label="{{ strtolower(trim($section['title'].' '.($item['label'] ?? '').' '.($child['label'] ?? ''))) }}"
+                                                        class="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition {{ $childIsActive ? 'bg-white text-[#185941] shadow-sm' : 'text-white/90 hover:bg-white/10 hover:text-white' }}"
+                                                    >
+                                                        <i class="{{ $child['icon'] }} w-4 text-center"></i>
+                                                        <span>{{ $child['label'] }}</span>
+                                                    </a>
+                                                @endforeach
+                                            </div>
+                                        </details>
+                                    @else
+                                        <a
+                                            href="{{ route($item['route']) }}"
+                                            data-sidebar-searchable
+                                            data-sidebar-link
+                                            data-sidebar-label="{{ $labelForSearch }}"
+                                            class="flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-medium transition {{ $isActive ? 'bg-white text-[#185941] shadow-sm' : 'text-white/90 hover:bg-white/10 hover:text-white' }}"
+                                        >
+                                            <i class="{{ $item['icon'] }} w-4 text-center"></i>
+                                            <span>{{ $item['label'] }}</span>
+                                        </a>
+                                    @endif
+                                @endforeach
+                            </div>
+                        </section>
+                    @endforeach
+
+                    <div id="sidebarSearchEmptyState" class="hidden rounded-2xl border border-white/15 bg-white/5 px-4 py-4 text-sm text-emerald-100">
+                        No menu links match your search yet.
+                    </div>
+                </nav>
+            </aside>
+        @endif
+
+        <div class="min-h-screen {{ $user ? 'lg:pl-72' : '' }}">
+            @if($user)
+                @include('navigation-menu', ['user' => $user, 'searchItems' => $searchItems])
+            @endif
+
+            <div class="px-4 pb-8 {{ $user ? 'pt-24 sm:px-6 lg:px-8' : 'pt-8' }}">
+                @if (isset($header))
+                    <header class="mb-5 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm sm:px-6">
+                        {{ $header }}
+                    </header>
                 @endif
 
-                <div class="flex-1 ml-72 mt-4">
-                    <!-- Page Heading -->
-                    @if (isset($header))
-                        <header class="bg-white shadow">
-                            <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                                {{ $header }}
-                            </div>
-                        </header>
-                    @endif
+                @include('layouts.partials.flash-messages')
 
-                    <!-- Page Content -->
-                    <main>
-                        <!-- Global Flash Messages -->
-                        <div class="flash-messages" x-data="{
-                            init() {
-                                // Add keyboard support for closing messages
-                                document.addEventListener('keydown', (e) => {
-                                    if (e.key === 'Escape') {
-                                        // Close all visible messages
-                                        this.$el.querySelectorAll('[x-data]').forEach(el => {
-                                            if (el.__x && el.__x.$data.show) {
-                                                el.__x.$data.show = false;
-                                            }
-                                        });
-                                    }
-                                });
-                            }
-                        }">
-                            <!-- Close All Button (shows when multiple messages exist) -->
-                            @php
-                                $messageCount = collect(['success', 'error', 'warning', 'info'])->filter(fn($type) => session($type))->count();
-                                $messageCount += $errors->any() ? 1 : 0;
-                            @endphp
+                <main>
+                    {{ $slot }}
+                </main>
 
-                            @if($messageCount > 1)
-                                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-                                    <div class="flex justify-end">
-                                        <button @click="$el.closest('.flash-messages').querySelectorAll('[x-data]').forEach(el => { if (el.__x && el.__x.$data.show) el.__x.$data.show = false; })"
-                                                class="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
-                                            <svg class="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                            </svg>
-                                            Close All Messages
-                                        </button>
-                                    </div>
-                                </div>
-                            @endif
-
-                            @if(session('success'))
-                                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-                                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 shadow-sm"
-                                         x-data="{ show: true }"
-                                         x-show="show"
-                                         x-transition:enter="transition ease-out duration-300"
-                                         x-transition:enter-start="opacity-0 transform scale-95"
-                                         x-transition:enter-end="opacity-100 transform scale-100"
-                                         x-transition:leave="transition ease-in duration-200"
-                                         x-transition:leave-start="opacity-100 transform scale-100"
-                                         x-transition:leave-end="opacity-0 transform scale-95">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <svg class="h-5 w-5 text-green-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                                </svg>
-                                                <span class="text-green-800 font-medium">{{ session('success') }}</span>
-                                            </div>
-                                            <button @click="show = false"
-                                                    class="ml-4 flex-shrink-0 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-full p-1 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                                                    aria-label="Close message">
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endif
-
-                            @if(session('error'))
-                                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-                                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 shadow-sm"
-                                         x-data="{ show: true }"
-                                         x-show="show"
-                                         x-transition:enter="transition ease-out duration-300"
-                                         x-transition:enter-start="opacity-0 transform scale-95"
-                                         x-transition:enter-end="opacity-100 transform scale-100"
-                                         x-transition:leave="transition ease-in duration-200"
-                                         x-transition:leave-start="opacity-100 transform scale-100"
-                                         x-transition:leave-end="opacity-0 transform scale-95">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <svg class="h-5 w-5 text-red-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                                </svg>
-                                                <span class="text-red-800 font-medium">{{ session('error') }}</span>
-                                            </div>
-                                            <button @click="show = false"
-                                                    class="ml-4 flex-shrink-0 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-full p-1 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                                                    aria-label="Close message">
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endif
-
-                            @if(session('warning'))
-                                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-                                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 shadow-sm"
-                                         x-data="{ show: true }"
-                                         x-show="show"
-                                         x-transition:enter="transition ease-out duration-300"
-                                         x-transition:enter-start="opacity-0 transform scale-95"
-                                         x-transition:enter-end="opacity-100 transform scale-100"
-                                         x-transition:leave="transition ease-in duration-200"
-                                         x-transition:leave-start="opacity-100 transform scale-100"
-                                         x-transition:leave-end="opacity-0 transform scale-95">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <svg class="h-5 w-5 text-yellow-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-                                                </svg>
-                                                <span class="text-yellow-800 font-medium">{{ session('warning') }}</span>
-                                            </div>
-                                            <button @click="show = false"
-                                                    class="ml-4 flex-shrink-0 text-yellow-600 hover:text-yellow-800 hover:bg-yellow-100 rounded-full p-1 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2"
-                                                    aria-label="Close message">
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endif
-
-                            @if(session('info'))
-                                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-                                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 shadow-sm"
-                                         x-data="{ show: true }"
-                                         x-show="show"
-                                         x-transition:enter="transition ease-out duration-300"
-                                         x-transition:enter-start="opacity-0 transform scale-95"
-                                         x-transition:enter-end="opacity-100 transform scale-100"
-                                         x-transition:leave="transition ease-in duration-200"
-                                         x-transition:leave-start="opacity-100 transform scale-100"
-                                         x-transition:leave-end="opacity-0 transform scale-95">
-                                        <div class="flex items-center justify-between">
-                                            <div class="flex items-center">
-                                                <svg class="h-5 w-5 text-blue-600 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                                </svg>
-                                                <span class="text-blue-800 font-medium">{{ session('info') }}</span>
-                                            </div>
-                                            <button @click="show = false"
-                                                    class="ml-4 flex-shrink-0 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-full p-1 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                                                    aria-label="Close message">
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endif
-
-                            @if($errors->any())
-                                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-                                    <div class="bg-red-50 border border-red-200 rounded-lg p-4 shadow-sm"
-                                         x-data="{ show: true }"
-                                         x-show="show"
-                                         x-transition:enter="transition ease-out duration-300"
-                                         x-transition:enter-start="opacity-0 transform scale-95"
-                                         x-transition:enter-end="opacity-100 transform scale-100"
-                                         x-transition:leave="transition ease-in duration-200"
-                                         x-transition:leave-start="opacity-100 transform scale-100"
-                                         x-transition:leave-end="opacity-0 transform scale-95">
-                                        <div class="flex items-start justify-between">
-                                            <div class="flex items-start">
-                                                <svg class="h-5 w-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                                </svg>
-                                                <div class="flex-1">
-                                                    <h3 class="text-red-800 font-medium mb-2">Please correct the following errors:</h3>
-                                                    <ul class="list-disc list-inside text-red-700 space-y-1">
-                                                        @foreach($errors->all() as $error)
-                                                            <li class="text-sm">{{ $error }}</li>
-                                                        @endforeach
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                            <button @click="show = false"
-                                                    class="ml-4 flex-shrink-0 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-full p-1 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                                                    aria-label="Close error messages">
-                                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                                </svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endif
-                        </div>
-
-                        {{ $slot }}
-                    </main>
-                </div>
+                @include('layouts.partials.footer')
             </div>
         </div>
+    </div>
 
-        @stack('modals')
-        @livewireScripts
-        
-    </body>
+    @stack('modals')
+    @livewireScripts
+
+    <script>
+        (function () {
+            const sidebar = document.getElementById('appSidebar');
+            const overlay = document.getElementById('appOverlay');
+            const openBtn = document.getElementById('openSidebarBtn');
+            const closeBtn = document.getElementById('closeSidebarBtn');
+            const searchInput = document.getElementById('navSearchInput');
+            const searchForm = document.getElementById('navSearchForm');
+            const navSearchItems = Array.from(document.querySelectorAll('[data-nav-search-item]'));
+            const sectionEls = Array.from(document.querySelectorAll('[data-sidebar-section]'));
+            const emptyState = document.getElementById('sidebarSearchEmptyState');
+
+            const openSidebar = () => {
+                if (!sidebar || !overlay) return;
+                sidebar.classList.remove('-translate-x-full');
+                overlay.classList.remove('hidden');
+                document.body.classList.add('overflow-hidden');
+            };
+
+            const closeSidebar = () => {
+                if (!sidebar || !overlay) return;
+                sidebar.classList.add('-translate-x-full');
+                overlay.classList.add('hidden');
+                document.body.classList.remove('overflow-hidden');
+            };
+
+            openBtn?.addEventListener('click', openSidebar);
+            closeBtn?.addEventListener('click', closeSidebar);
+            overlay?.addEventListener('click', closeSidebar);
+
+            window.addEventListener('resize', () => {
+                if (!sidebar || !overlay) return;
+                if (window.innerWidth >= 1024) {
+                    overlay.classList.add('hidden');
+                    sidebar.classList.remove('-translate-x-full');
+                    document.body.classList.remove('overflow-hidden');
+                } else {
+                    sidebar.classList.add('-translate-x-full');
+                }
+            });
+
+            const updateClock = () => {
+                const now = new Date();
+                const dateEl = document.getElementById('navCurrentDate');
+                const timeEl = document.getElementById('navCurrentTime');
+                const mobileEl = document.getElementById('navCurrentDateTimeMobile');
+
+                const dateText = now.toLocaleDateString([], {
+                    weekday: 'short',
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                });
+                const timeText = now.toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                });
+
+                if (dateEl) dateEl.textContent = dateText;
+                if (timeEl) timeEl.textContent = timeText;
+                if (mobileEl) mobileEl.textContent = `${dateText} · ${timeText}`;
+            };
+
+            const filterSidebar = (term) => {
+                const normalized = (term || '').trim().toLowerCase();
+                let totalVisibleLinks = 0;
+
+                sectionEls.forEach((section) => {
+                    let sectionVisibleCount = 0;
+
+                    section.querySelectorAll('[data-sidebar-link]').forEach((link) => {
+                        const label = (link.dataset.sidebarLabel || '').toLowerCase();
+                        const visible = !normalized || label.includes(normalized);
+                        link.classList.toggle('hidden', !visible);
+                        if (visible) sectionVisibleCount += 1;
+                    });
+
+                    section.querySelectorAll('[data-sidebar-group]').forEach((group) => {
+                        const visibleChildren = Array.from(group.querySelectorAll('[data-sidebar-link]')).filter((child) => !child.classList.contains('hidden'));
+                        const groupMatches = (group.dataset.sidebarLabel || '').includes(normalized);
+                        const shouldShow = !normalized || groupMatches || visibleChildren.length > 0;
+                        group.classList.toggle('hidden', !shouldShow);
+                        if (normalized && shouldShow && visibleChildren.length > 0) {
+                            group.setAttribute('open', 'open');
+                        }
+                    });
+
+                    sectionVisibleCount = section.querySelectorAll('[data-sidebar-link]:not(.hidden)').length;
+                    totalVisibleLinks += sectionVisibleCount;
+                    section.classList.toggle('hidden', sectionVisibleCount === 0);
+                });
+
+                if (emptyState) {
+                    emptyState.classList.toggle('hidden', totalVisibleLinks > 0 || !normalized);
+                }
+            };
+
+            searchInput?.addEventListener('input', (event) => {
+                filterSidebar(event.target.value);
+            });
+
+            searchForm?.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const query = (searchInput?.value || '').trim().toLowerCase();
+                if (!query) return;
+
+                const exactMatch = navSearchItems.find((item) => (item.dataset.searchLabel || '').toLowerCase() === query);
+                if (exactMatch?.dataset.searchUrl) {
+                    window.location.href = exactMatch.dataset.searchUrl;
+                    return;
+                }
+
+                const partialMatch = navSearchItems.find((item) => (item.dataset.searchLabel || '').toLowerCase().includes(query));
+                if (partialMatch?.dataset.searchUrl) {
+                    window.location.href = partialMatch.dataset.searchUrl;
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
+                    event.preventDefault();
+                    searchInput?.focus();
+                }
+            });
+
+            const notificationDropdown = document.getElementById('notificationDropdown');
+            const notificationToggle = document.getElementById('notificationDropdownToggle');
+            const notificationPanel = document.getElementById('notificationDropdownPanel');
+
+            const closeNotificationDropdown = () => {
+                if (!notificationDropdown || !notificationPanel) return;
+                notificationDropdown.dataset.open = 'false';
+                notificationPanel.classList.add('hidden');
+                notificationToggle?.setAttribute('aria-expanded', 'false');
+            };
+
+            const openNotificationDropdown = () => {
+                if (!notificationDropdown || !notificationPanel) return;
+                notificationDropdown.dataset.open = 'true';
+                notificationPanel.classList.remove('hidden');
+                notificationToggle?.setAttribute('aria-expanded', 'true');
+            };
+
+            notificationToggle?.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                if (notificationDropdown?.dataset.open === 'true') {
+                    closeNotificationDropdown();
+                } else {
+                    openNotificationDropdown();
+                }
+            });
+
+            notificationPanel?.addEventListener('click', (event) => {
+                event.stopPropagation();
+            });
+
+            document.addEventListener('click', (event) => {
+                if (!notificationDropdown) return;
+                if (!notificationDropdown.contains(event.target)) {
+                    closeNotificationDropdown();
+                }
+            });
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    closeNotificationDropdown();
+                }
+            });
+
+            closeNotificationDropdown();
+
+            document.querySelectorAll('[data-flash-dismiss]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    button.closest('[data-flash-item]')?.remove();
+                });
+            });
+
+            document.querySelectorAll('[data-flash-item][data-auto-dismiss="true"]').forEach((item) => {
+                window.setTimeout(() => item.remove(), 5000);
+            });
+
+            updateClock();
+            window.setInterval(updateClock, 30000);
+        })();
+    </script>
+</body>
 </html>

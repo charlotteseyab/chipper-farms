@@ -13,43 +13,47 @@ class WeightStandardsController extends Controller
      */
     public function index(Request $request)
     {
+        $request->validate([
+            'breed' => ['nullable', 'in:LW,DR,LWDR'],
+            'gender' => ['nullable', 'in:M,F'],
+            'stock_type' => ['nullable', 'in:standard,breeding'],
+            'is_active' => ['nullable', 'in:0,1'],
+            'week_from' => ['nullable', 'integer', 'min:1', 'max:200'],
+            'week_to' => ['nullable', 'integer', 'min:1', 'max:200'],
+        ]);
+
         $query = ExpectedWeightStandard::with('creator');
 
-        // Filter by breed
-        if ($request->breed) {
+        if ($request->filled('breed')) {
             $query->where('breed', $request->breed);
         }
 
-        // Filter by gender
-        if ($request->gender) {
+        if ($request->filled('gender')) {
             $query->where('gender', $request->gender);
         }
 
-        // Filter by stock type
-        if ($request->stock_type) {
+        if ($request->filled('stock_type')) {
             $query->where('stock_type', $request->stock_type);
         }
 
-        // Filter by active status
-        if ($request->has('is_active')) {
-            $query->where('is_active', $request->boolean('is_active'));
+        if ($request->filled('is_active')) {
+            $query->where('is_active', (bool) $request->is_active);
         }
 
-        // Filter by week range
-        if ($request->week_from) {
-            $query->where('week_number', '>=', $request->week_from);
+        if ($request->filled('week_from')) {
+            $query->where('week_number', '>=', (int) $request->week_from);
         }
-        if ($request->week_to) {
-            $query->where('week_number', '<=', $request->week_to);
+
+        if ($request->filled('week_to')) {
+            $query->where('week_number', '<=', (int) $request->week_to);
         }
 
         $standards = $query->orderBy('breed')
-                          ->orderBy('gender')
-                          ->orderBy('stock_type')
-                          ->orderBy('week_number')
-                          ->paginate(20);
-
-        $standards->appends($request->query());
+            ->orderBy('gender')
+            ->orderBy('stock_type')
+            ->orderBy('week_number')
+            ->paginate(20)
+            ->withQueryString();
 
         return view('weight-standards.index', compact('standards'));
     }

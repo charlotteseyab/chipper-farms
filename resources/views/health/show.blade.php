@@ -34,14 +34,39 @@
                 </div>
                 @php
                     $lastRecord = $pig->healthRecords->sortByDesc('record_date')->first();
-                    $statusColor = $lastRecord ? 
-                        ($lastRecord->severity === 'severe' ? 'text-red-600' : 
-                         ($lastRecord->severity === 'moderate' ? 'text-yellow-600' : 'text-green-600')) : 
-                        'text-green-600';
-                    $statusText = $lastRecord ? 
-                        ($lastRecord->severity === 'severe' ? 'Active High Risk' : 
-                         ($lastRecord->severity === 'moderate' ? 'Under Treatment' : 'Stable')) : 
-                        'Healthy / Stable';
+                    $hasTreatmentPlan = $lastRecord && filled($lastRecord->treatment_plan);
+                    $lastMedication = $pig->medicationAdministrations->sortByDesc('administration_date')->first();
+                    $hasMedication = !is_null($lastMedication);
+                    $hasMedicationAfterLastRecord = $lastRecord && $lastMedication
+                        ? $lastMedication->administration_date->gte($lastRecord->record_date)
+                        : false;
+                    $severity = strtolower((string) ($lastRecord->severity ?? ''));
+                    $isSevere = in_array($severity, ['severe', 'high'], true);
+                    $isModerate = in_array($severity, ['moderate', 'medium'], true);
+                    $isRecovered = $lastRecord && (
+                        $lastRecord->outcome === 'recovered'
+                        || ($lastRecord->treatment_status === 'completed' && !empty($lastRecord->resolved_at))
+                    );
+
+                    if (!$lastRecord) {
+                        $statusColor = 'text-green-600';
+                        $statusText = 'Healthy / Stable';
+                    } elseif ($isRecovered) {
+                        $statusColor = 'text-emerald-700';
+                        $statusText = 'Recovered / Resolved';
+                    } elseif ($isSevere) {
+                        $statusColor = 'text-red-600';
+                        $statusText = 'Active High Risk';
+                    } elseif (!$hasTreatmentPlan && !$hasMedication) {
+                        $statusColor = 'text-amber-600';
+                        $statusText = 'Needs Treatment Plan';
+                    } elseif ($isModerate || $hasTreatmentPlan || $hasMedicationAfterLastRecord) {
+                        $statusColor = 'text-yellow-600';
+                        $statusText = 'Under Treatment';
+                    } else {
+                        $statusColor = 'text-green-600';
+                        $statusText = 'Stable';
+                    }
                 @endphp
                 <div class="flex items-center pt-3 border-t border-gray-100">
                     <dt class="text-sm font-medium text-gray-500 w-24">Health:</dt>
@@ -111,6 +136,19 @@
                             <div class="text-gray-800 text-sm">
                                 <span class="font-bold">Condition:</span> {{ $hr->condition }}
                             </div>
+                            @if($hr->treatment_status || $hr->outcome)
+                            <div class="text-gray-700 text-xs">
+                                @if($hr->treatment_status)
+                                    <span class="font-semibold">Treatment:</span> {{ ucfirst($hr->treatment_status) }}
+                                @endif
+                                @if($hr->outcome)
+                                    <span class="ml-2 font-semibold">Outcome:</span> {{ ucfirst($hr->outcome) }}
+                                @endif
+                                @if($hr->resolved_at)
+                                    <span class="ml-2">Resolved: {{ $hr->resolved_at->format('M d, Y') }}</span>
+                                @endif
+                            </div>
+                            @endif
                             @if($hr->notes)
                             <div class="text-gray-600 text-sm italic border-t border-gray-200 pt-2 mt-2">
                                 {{ Str::limit($hr->notes, 80) }}
@@ -198,5 +236,4 @@
         </div>
     </div>
 </div>
-<x-copyright-minimal />
 </x-app-layout>

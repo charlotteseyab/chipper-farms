@@ -2,47 +2,59 @@
 
 namespace App\Notifications;
 
+use App\Models\PigManagement;
 use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Notification;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Notification;
+use Illuminate\Queue\SerializesModels;
 
+/**
+ * Phase E3 hardening: typed pig parameter, null-safe field access, and a
+ * graceful fail-soft path when the pig has been deleted between enqueue
+ * and queue worker execution.
+ *
+ * SerializesModels means only the pig's id is serialised into the queue
+ * payload — Laravel re-fetches the row at execute time. If the row is gone
+ * by then, $this->pig will be null and toDatabase() returns a degraded
+ * payload rather than throwing.
+ */
 class PigletWeaningDueNotification extends Notification implements ShouldQueue
 {
     use Queueable;
+    use SerializesModels;
 
-    public $pig; // PigManagement instance
-    public $dueType; // 'upcoming', 'due_today', 'overdue'
-    public $daysUntilOrOverdue;
-
-    public function __construct($pig, string $dueType, int $daysUntilOrOverdue)
-    {
-        $this->pig = $pig;
-        $this->dueType = $dueType;
-        $this->daysUntilOrOverdue = $daysUntilOrOverdue;
+    public function __construct(
+        public ?PigManagement $pig,
+        public string $dueType,
+        public int $daysUntilOrOverdue,
+    ) {
     }
 
-    public function via($notifiable)
+    public function via($notifiable): array
     {
         return ['database'];
     }
 
-    public function toDatabase($notifiable)
+    public function toDatabase($notifiable): array
     {
-        $message = match($this->dueType) {
-            'upcoming'  => "Piglet {$this->pig->ear_tag_number} is due for weaning in {$this->daysUntilOrOverdue} days.",
-            'due_today' => "Piglet {$this->pig->ear_tag_number} is due for weaning today.",
-            'overdue'   => "Weaning overdue for piglet {$this->pig->ear_tag_number} by {$this->daysUntilOrOverdue} days.",
-            default     => "Piglet {$this->pig->ear_tag_number} has a pending weaning status."
+        $earTag = $this->pig?->ear_tag_number ?? '(deleted)';
+        $pigId  = $this->pig?->id;
+
+        $message = match ($this->dueType) {
+            'upcoming'  => "Piglet {$earTag} is due for weaning in {$this->daysUntilOrOverdue} days.",
+            'due_today' => "Piglet {$earTag} is due for weaning today.",
+            'overdue'   => "Weaning overdue for piglet {$earTag} by {$this->daysUntilOrOverdue} days.",
+            default     => "Piglet {$earTag} has a pending weaning status.",
         };
 
-        $color = match($this->dueType) {
+        $color = match ($this->dueType) {
             'upcoming'  => 'yellow',
             'due_today' => 'orange',
             'overdue'   => 'red',
             default     => 'blue',
         };
 
-        $icon = match($this->dueType) {
+        $icon = match ($this->dueType) {
             'upcoming'  => '🐖',
             'due_today' => '🐖',
             'overdue'   => '🚨',
@@ -50,15 +62,15 @@ class PigletWeaningDueNotification extends Notification implements ShouldQueue
         };
 
         return [
-            'type'      => 'piglet_weaning_'.$this->dueType,
-            'pig_id'    => $this->pig->id,
-            'ear_tag'   => $this->pig->ear_tag_number,
+            'type'                  => 'piglet_weaning_' . $this->dueType,
+            'pig_id'                => $pigId,
+            'ear_tag'               => $earTag,
             'days_until_or_overdue' => $this->daysUntilOrOverdue,
-            'link'      => route('pigs.show', $this->pig->id),
-            'message'   => $message,
-            'color'     => $color,
-            'icon'      => $icon,
-            'title'     => 'Piglet Weaning '.ucwords(str_replace('_',' ',$this->dueType)),
+            'link'                  => $pigId ? route('pigs.show', $pigId) : null,
+            'message'               => $message,
+            'color'                 => $color,
+            'icon'                  => $icon,
+            'title'                 => 'Piglet Weaning ' . ucwords(str_replace('_', ' ', $this->dueType)),
         ];
     }
 }

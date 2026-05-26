@@ -1,243 +1,587 @@
 <x-app-layout>
-    <main class="flex-1 p-8">
-        <div class="max-w-6xl mx-auto">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-3xl font-bold text-gray-800">Mating Planner</h2>
-                <div class="text-sm text-gray-600">
-                    Plan safe and genetically diverse breeding pairs
+    <style>
+        .mating-page{
+            min-height: 100vh;
+            padding: 18px 0 40px;
+        }
+
+        .mating-shell{
+            max-width: 1380px;
+            margin: 0 auto;
+            padding: 0 10px;
+        }
+
+        .mating-hero{
+            position: relative;
+            overflow: hidden;
+            border-radius: 28px;
+            padding: 20px 18px;
+            background: linear-gradient(135deg,rgb(40, 19, 75) 100%);
+            box-shadow: 0 24px 54px rgba(190,24,93,.18);
+            color: #fff;
+            margin-bottom: 18px;
+        }
+
+        .mating-hero::before{
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at top right, rgba(255,255,255,.16), transparent 28%);
+                
+            pointer-events: none;
+        }
+
+        .mating-hero-inner{
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+
+        .mating-title{
+            margin: 0;
+            font-size: clamp(1.9rem, 3vw, 2.9rem);
+            line-height: 1.02;
+            font-weight: 900;
+            letter-spacing: -.04em;
+        }
+
+        .mating-subtitle{
+            margin: 10px 0 0;
+            max-width: 760px;
+            color: rgba(255,255,255,.90);
+            font-size: .95rem;
+            line-height: 1.75;
+        }
+
+        .mating-pill-row{
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .mating-pill{
+            display: inline-flex;
+            align-items: center;
+            padding: 10px 14px;
+            border-radius: 999px;
+            background: rgba(255,255,255,.14);
+            border: 1px solid rgba(255,255,255,.16);
+            font-size: .78rem;
+            font-weight: 800;
+            color: #fff;
+        }
+
+        .mating-layout{
+            display: grid;
+            grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
+            gap: 18px;
+            align-items: start;
+        }
+
+        .mating-stack{
+            display: grid;
+            gap: 18px;
+        }
+
+        .mating-card{
+            background: rgba(255,255,255,.97);
+            border: 1px solid #e9d5e5;
+            border-radius: 28px;
+            box-shadow: 0 14px 34px rgba(15,23,42,.06);
+            overflow: hidden;
+        }
+
+        .mating-card-head{
+            padding: 22px 24px 14px;
+            border-bottom: 1px solid #f1e7ee;
+            background: linear-gradient(180deg, rgba(253,242,248,.85) 0%, rgba(255,255,255,.98) 100%);
+        }
+
+        .mating-card-title{
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        .mating-card-sub{
+            margin-top: 4px;
+            font-size: .82rem;
+            color: #64748b;
+        }
+
+        .mating-card-body{
+            padding: 22px 24px 24px;
+        }
+
+        .mating-form{
+            display: grid;
+            gap: 18px;
+        }
+
+        .mating-field{
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .mating-label{
+            font-size: .83rem;
+            font-weight: 800;
+            color: #334155;
+        }
+
+        .mating-input,
+        .mating-select,
+        .mating-textarea{
+            width: 100%;
+            border: 1px solid #d1d5db;
+            border-radius: 16px;
+            background: #fff;
+            padding: 12px 14px;
+            font-size: .9rem;
+            color: #0f172a;
+            outline: none;
+            transition: .2s ease;
+            box-shadow: inset 0 1px 2px rgba(15,23,42,.02);
+        }
+
+        .mating-textarea{
+            min-height: 110px;
+            resize: vertical;
+        }
+
+        .mating-input:focus,
+        .mating-select:focus,
+        .mating-textarea:focus{
+            border-color: #db2777;
+            box-shadow: 0 0 0 4px rgba(219,39,119,.10);
+        }
+
+        .mating-help{
+            font-size: .75rem;
+            color: #64748b;
+            line-height: 1.55;
+        }
+
+        .mating-submit{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            gap: 8px;
+            border: none;
+            border-radius: 18px;
+            padding: 15px 18px;
+            color: #fff;
+            font-size: .95rem;
+            font-weight: 900;
+            letter-spacing: .01em;
+            background: linear-gradient(135deg, #db2777, #be185d);
+            box-shadow: 0 18px 34px rgba(219,39,119,.20);
+            transition: .22s ease;
+        }
+
+        .mating-submit:hover{
+            transform: translateY(-1px);
+            box-shadow: 0 20px 36px rgba(219,39,119,.24);
+        }
+
+        .mating-pair-card{
+            border-radius: 22px;
+            background: linear-gradient(180deg, #faf5ff 0%, #fff 100%);
+            border: 1px solid #eadcff;
+            padding: 18px;
+        }
+
+        .mating-pair-title{
+            margin: 0 0 14px;
+            font-size: .95rem;
+            font-weight: 900;
+            color: #6b21a8;
+        }
+
+        .mating-pair-grid{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .mating-animal-box{
+            border-radius: 18px;
+            padding: 16px;
+            border: 1px solid;
+        }
+
+        .mating-animal-box.male{
+            background: #eff6ff;
+            border-color: #bfdbfe;
+        }
+
+        .mating-animal-box.female{
+            background: #fdf2f8;
+            border-color: #fbcfe8;
+        }
+
+        .mating-animal-box h4{
+            margin: 0 0 10px;
+            font-size: .88rem;
+            font-weight: 900;
+        }
+
+        .mating-animal-box.male h4{ color: #1d4ed8; }
+        .mating-animal-box.female h4{ color: #be185d; }
+
+        .mating-side-list{
+            display: grid;
+            gap: 12px;
+        }
+
+        .mating-guide-row{
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 12px 14px;
+            border-radius: 16px;
+            background: #f8fafc;
+            border: 1px solid #eef2f7;
+            font-size: .85rem;
+            color: #475569;
+            line-height: 1.65;
+        }
+
+        .mating-mini-grid{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0,1fr));
+            gap: 12px;
+        }
+
+        .mating-mini{
+            border-radius: 18px;
+            padding: 16px;
+            border: 1px solid #eef2f7;
+            background: #f8fafc;
+        }
+
+        .mating-mini-label{
+            font-size: .75rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #94a3b8;
+            margin-bottom: 8px;
+        }
+
+        .mating-mini-value{
+            font-size: 1.45rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .mating-mini-sub{
+            margin-top: 8px;
+            font-size: .76rem;
+            color: #64748b;
+        }
+
+        .mating-status-grid{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0,1fr));
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .mating-status-box{
+            border-radius: 16px;
+            padding: 12px 14px;
+            background: #fff;
+            border: 1px solid #eef2f7;
+        }
+
+        .mating-status-title{
+            font-size: .76rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #94a3b8;
+            margin-bottom: 6px;
+        }
+
+        .mating-status-row{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: .83rem;
+            color: #475569;
+        }
+
+        .mating-status-row + .mating-status-row{
+            margin-top: 6px;
+        }
+
+        @media (max-width: 1100px){
+            .mating-layout{
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px){
+            .mating-shell{
+                padding: 0 12px;
+            }
+
+            .mating-hero{
+                padding: 22px 18px;
+                border-radius: 24px;
+            }
+
+            .mating-card-head,
+            .mating-card-body{
+                padding-left: 18px;
+                padding-right: 18px;
+            }
+
+            .mating-pair-grid,
+            .mating-mini-grid,
+            .mating-status-grid{
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+
+    <div class="mating-page">
+        <div class="mating-shell">
+            <div class="mating-hero">
+                <div class="mating-hero-inner">
+                    <div>
+                        <h1 class="mating-title">Mating Planner</h1>
+                        <p class="mating-subtitle">
+                            Plan safe and genetically diverse breeding pairs with live compatibility checking, stock availability guidance,
+                            and a simple planning workflow built for daily farm use.
+                        </p>
+                    </div>
+
+                    <div class="mating-pill-row">
+                        <span class="mating-pill">Compatibility checks</span>
+                        <span class="mating-pill">Availability aware</span>
+                        <span class="mating-pill">Breeding cycle guided</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-                <!-- Mating Planner Form -->
-                <div class="bg-white shadow-xl rounded-lg p-6">
-                    <h3 class="text-xl font-semibold mb-4 text-gray-800">Plan a Mating</h3>
-                    
-                    <form method="POST" action="{{ route('mating.plan') }}" class="space-y-6">
-                        @csrf
-                        
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Select Male</label>
-                            <select name="male_id" id="male_id" required class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-pink-500 focus:border-pink-500">
-                                <option value="" disabled selected>-- Choose Male --</option>
-                                @foreach($allMales as $male)
-                                    @php $availability = $male->availability_status; @endphp
-                                    <option value="{{ $male->id }}" {{ old('male_id') == $male->id ? 'selected' : '' }}
-                                            @if(!$availability['available']) disabled class="text-gray-400" 
-                                            @elseif($availability['warning'] ?? false) class="text-orange-600 font-medium" @endif>
-                                        {{ $availability['icon'] }} {{ $male->ear_tag_number }} - {{ $male->code }}
-                                        ({{ $male->breed }}, {{ $male->current_age_in_days }} days)
-                                        @if(!$availability['available'])
-                                            - {{ $availability['reason'] }}
-                                        @elseif($availability['warning'] ?? false)
-                                            - {{ $availability['reason'] }}
-                                        @endif
-                                    </option>
-                                @endforeach
-                            </select>
+            <div class="mating-layout">
+                <div class="mating-stack">
+                    <div class="mating-card">
+                        <div class="mating-card-head">
+                            <h3 class="mating-card-title">Plan a Mating</h3>
+                            <div class="mating-card-sub">Choose a male and female, confirm the planned date, and record any useful notes.</div>
                         </div>
 
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Select Female</label>
-                            <select name="female_id" id="female_id" required class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-pink-500 focus:border-pink-500">
-                                <option value="" disabled selected>-- Choose Female --</option>
-                                @foreach($allFemales as $female)
-                                    @php $availability = $female->availability_status; @endphp
-                                    <option value="{{ $female->id }}" {{ old('female_id') == $female->id ? 'selected' : '' }}
-                                            @if(!$availability['available']) disabled class="text-gray-400" 
-                                            @elseif($availability['warning'] ?? false) class="text-orange-600 font-medium" @endif>
-                                            {{ $availability['icon'] }} {{ $female->ear_tag_number }} - {{ $female->code }}
-                                        ({{ $female->breed }}, {{ $female->current_age_in_days }} days)
-                                        @if(!$availability['available'])
-                                            - {{ $availability['reason'] }}
-                                        @elseif($availability['warning'] ?? false)
-                                            - {{ $availability['reason'] }}
-                                        @endif
-                                    </option>
-                                @endforeach
-                            </select>
-                        </div>
+                        <div class="mating-card-body">
+                            <form method="POST" action="{{ route('mating.plan') }}" class="mating-form">
+                                @csrf
 
-                        <!-- Inbreeding Alert Component -->
-                        <x-inbreeding-alert id="mating-alert" />
+                                <div class="mating-field">
+                                    <label class="mating-label">Select Male</label>
+                                    <select name="male_id" id="male_id" required class="mating-select">
+                                        <option value="" disabled selected>-- Choose Male --</option>
+                                        @foreach($allMales as $male)
+                                            @php $availability = $male->availability_status; @endphp
+                                            <option value="{{ $male->id }}" {{ old('male_id') == $male->id ? 'selected' : '' }}
+                                                    @if(!$availability['available']) disabled class="text-gray-400"
+                                                    @elseif($availability['warning'] ?? false) class="text-orange-600 font-medium" @endif>
+                                                {{ $availability['icon'] }} {{ $male->ear_tag_number }} - {{ $male->code }}
+                                                ({{ $male->breed }}, {{ $male->current_age_in_days }} days)
+                                                @if(!$availability['available'])
+                                                    - {{ $availability['reason'] }}
+                                                @elseif($availability['warning'] ?? false)
+                                                    - {{ $availability['reason'] }}
+                                                @endif
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <div class="mating-help">Only available or caution-flagged males should be selected for planning.</div>
+                                </div>
 
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Planned Mating Date</label>
-                            <input type="date" name="planned_date" value="{{ old('planned_date', now()->toDateString()) }}" 
-                                   required 
-                                   class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-pink-500 focus:border-pink-500">
-                            <p class="mt-1 text-xs text-gray-500">You can select past dates to backdate plans.</p>
-                        </div>
+                                <div class="mating-field">
+                                    <label class="mating-label">Select Female</label>
+                                    <select name="female_id" id="female_id" required class="mating-select">
+                                        <option value="" disabled selected>-- Choose Female --</option>
+                                        @foreach($allFemales as $female)
+                                            @php $availability = $female->availability_status; @endphp
+                                            <option value="{{ $female->id }}" {{ old('female_id') == $female->id ? 'selected' : '' }}
+                                                    @if(!$availability['available']) disabled class="text-gray-400"
+                                                    @elseif($availability['warning'] ?? false) class="text-orange-600 font-medium" @endif>
+                                                {{ $availability['icon'] }} {{ $female->ear_tag_number }} - {{ $female->code }}
+                                                ({{ $female->breed }}, {{ $female->current_age_in_days }} days)
+                                                @if(!$availability['available'])
+                                                    - {{ $availability['reason'] }}
+                                                @elseif($availability['warning'] ?? false)
+                                                    - {{ $availability['reason'] }}
+                                                @endif
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    <div class="mating-help">Females already occupied or unavailable remain disabled in the list.</div>
+                                </div>
 
-                        <div>
-                            <label class="block text-sm font-semibold text-gray-700 mb-2">Notes (optional)</label>
-                            <textarea name="notes" rows="3" placeholder="Any special considerations or breeding goals..." 
-                                      class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-pink-500 focus:border-pink-500">{{ old('notes') }}</textarea>
-                        </div>
+                                <x-inbreeding-alert id="mating-alert" />
 
-                        <div class="pt-4">
-                            <button type="submit" id="submit-button" class="w-full py-3 px-6 bg-pink-600 text-white font-bold rounded-lg shadow hover:bg-pink-700 transition">
-                                Plan This Mating
-                            </button>
+                                <div class="mating-field">
+                                    <label class="mating-label">Planned Mating Date</label>
+                                    <input
+                                        type="date"
+                                        name="planned_date"
+                                        value="{{ old('planned_date', now()->toDateString()) }}"
+                                        required
+                                        class="mating-input"
+                                    >
+                                    <div class="mating-help">You can select past dates to backdate planned matings when needed.</div>
+                                </div>
+
+                                <div class="mating-field">
+                                    <label class="mating-label">Notes (optional)</label>
+                                    <textarea
+                                        name="notes"
+                                        rows="4"
+                                        placeholder="Any special considerations, compatibility notes, or breeding goals..."
+                                        class="mating-textarea"
+                                    >{{ old('notes') }}</textarea>
+                                </div>
+
+                                <button type="submit" id="submit-button" class="mating-submit">
+                                    Plan This Mating
+                                </button>
+                            </form>
                         </div>
-                    </form>
+                    </div>
                 </div>
 
-                <!-- Information Panel -->
-                <div class="space-y-6">
-                    <!-- Selected Pair Info -->
-                    <div id="pair-info" class="bg-gray-50 rounded-lg p-6 hidden">
-                        <h3 class="text-lg font-semibold mb-4 text-gray-800">Selected Breeding Pair</h3>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div id="male-info" class="bg-blue-100 p-4 rounded-lg">
-                                <h4 class="font-semibold text-blue-800 mb-2">♂ Male</h4>
+                <div class="mating-stack">
+                    <div id="pair-info" class="mating-pair-card hidden">
+                        <h3 class="mating-pair-title">Selected Breeding Pair</h3>
+                        <div class="mating-pair-grid">
+                            <div id="male-info" class="mating-animal-box male">
+                                <h4>♂ Male</h4>
                                 <div id="male-details" class="text-sm text-blue-700"></div>
                             </div>
-                            <div id="female-info" class="bg-pink-100 p-4 rounded-lg">
-                                <h4 class="font-semibold text-pink-800 mb-2">♀ Female</h4>
+                            <div id="female-info" class="mating-animal-box female">
+                                <h4>♀ Female</h4>
                                 <div id="female-details" class="text-sm text-pink-700"></div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Breeding Timeline Calculator -->
-                    <!-- <div id="breeding-timeline" class="bg-white shadow-lg rounded-lg p-6 hidden">
-                        <h3 class="text-lg font-semibold mb-4 text-gray-800">📅 Breeding Timeline</h3>
-                        <div class="space-y-3 text-sm">
-                            <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                <span class="text-gray-600">Mating Date:</span>
-                                <span id="timeline-mating" class="font-medium text-gray-900">-</span>
-                            </div>
-                            <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                <span class="text-gray-600">Pregnancy Check:</span>
-                                <span id="timeline-pregnancy" class="font-medium text-blue-600">-</span>
-                            </div>
-                            <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                <span class="text-gray-600">Expected Farrowing:</span>
-                                <span id="timeline-farrowing" class="font-medium text-green-600">-</span>
-                            </div>
-                            <div class="flex justify-between items-center py-2 border-b border-gray-100">
-                                <span class="text-gray-600">Expected Weaning:</span>
-                                <span id="timeline-weaning" class="font-medium text-purple-600">-</span>
-                            </div>
-                            <div class="flex justify-between items-center py-2">
-                                <span class="text-gray-600">Next Mating Available:</span>
-                                <span id="timeline-next" class="font-medium text-orange-600">-</span>
-                            </div>
-                            <div class="mt-4 p-3 bg-blue-50 rounded-lg">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-sm font-medium text-blue-800">Total Cycle Length:</span>
-                                    <span id="timeline-cycle" class="text-sm font-bold text-blue-900">-</span>
-                                </div>
-                            </div>
+                    <div class="mating-card">
+                        <div class="mating-card-head">
+                            <h3 class="mating-card-title">Breeding Guidelines</h3>
+                            <div class="mating-card-sub">Use these cues to understand compatibility and breeding safety levels.</div>
                         </div>
-                    </div> -->
-
-                    <!-- Breeding Guidelines -->
-                    <div class="bg-white shadow-lg rounded-lg p-6 ">
-                        <h3 class="text-lg font-semibold mb-4 text-gray-800">🧬 Breeding Guidelines</h3>
-                        <div class="space-y-3 text-sm text-gray-600">
-                            <div class="flex items-start gap-2">
-                                <span class="text-green-500 font-bold">✓</span>
-                                <span><strong>Safe:</strong> No close relationships - promotes genetic diversity</span>
-                            </div>
-                            <div class="flex items-start gap-2">
-                                <span class="text-blue-500 font-bold">ℹ</span>
-                                <span><strong>Caution:</strong> Distant relatives - acceptable with monitoring</span>
-                            </div>
-                            <div class="flex items-start gap-2">
-                                <span class="text-yellow-500 font-bold">⚠</span>
-                                <span><strong>Warning:</strong> Close relatives - requires careful consideration</span>
-                            </div>
-                            <div class="flex items-start gap-2">
-                                <span class="text-red-500 font-bold">🚫</span>
-                                <span><strong>Critical:</strong> Direct relatives - not recommended</span>
+                        <div class="mating-card-body">
+                            <div class="mating-side-list">
+                                <div class="mating-guide-row">
+                                    <span class="text-green-500 font-bold">✓</span>
+                                    <span><strong>Safe:</strong> No close relationships - promotes genetic diversity</span>
+                                </div>
+                                <div class="mating-guide-row">
+                                    <span class="text-blue-500 font-bold">ℹ</span>
+                                    <span><strong>Caution:</strong> Distant relatives - acceptable with monitoring</span>
+                                </div>
+                                <div class="mating-guide-row">
+                                    <span class="text-yellow-500 font-bold">⚠</span>
+                                    <span><strong>Warning:</strong> Close relatives - requires careful consideration</span>
+                                </div>
+                                <div class="mating-guide-row">
+                                    <span class="text-red-500 font-bold">🚫</span>
+                                    <span><strong>Critical:</strong> Direct relatives - not recommended</span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Breeding Cycle Info -->
-                    <div class="bg-white shadow-lg rounded-lg p-6">
-                        <h3 class="text-lg font-semibold mb-4 text-gray-800">📊 Breeding Cycle Info</h3>
-                        <div class="grid grid-cols-2 gap-4 text-sm">
-                            <div class="flex space-x-2">
-                                <span class="text-gray-600">Gestation:</span>
-                                <span class="font-medium">{{ config('breeding.cycle.gestation_days') }} days</span>
-                            </div>
-                            <div class="flex space-x-2">
-                                <span class="text-gray-600">Pregnancy Check:</span>
-                                <span class="font-medium">{{ config('breeding.cycle.pregnancy_check_days') }} days</span>
-                            </div>
-                            <div class="flex space-x-2">
-                                <span class="text-gray-600">Weaning Age:</span>
-                                <span class="font-medium">{{ config('breeding.cycle.birth_to_weaning_days') }} days</span>
-                            </div>
-                            <div class="flex space-x-2">
-                                <span class="text-gray-600">Breeding Age:</span>
-                                <span class="font-medium">{{ config('breeding.cycle.birth_to_maturity_days') }} days</span>
+                    <div class="mating-card">
+                        <div class="mating-card-head">
+                            <h3 class="mating-card-title">Breeding Cycle Info</h3>
+                            <div class="mating-card-sub">Reference points used across the breeding workflow.</div>
+                        </div>
+                        <div class="mating-card-body">
+                            <div class="mating-mini-grid">
+                                <div class="mating-mini">
+                                    <div class="mating-mini-label">Gestation</div>
+                                    <div class="mating-mini-value text-pink-700">{{ config('breeding.cycle.gestation_days') }}</div>
+                                    <div class="mating-mini-sub">days</div>
+                                </div>
+                                <div class="mating-mini">
+                                    <div class="mating-mini-label">Pregnancy Check</div>
+                                    <div class="mating-mini-value text-blue-700">{{ config('breeding.cycle.pregnancy_check_days') }}</div>
+                                    <div class="mating-mini-sub">days</div>
+                                </div>
+                                <div class="mating-mini">
+                                    <div class="mating-mini-label">Weaning Age</div>
+                                    <div class="mating-mini-value text-green-700">{{ config('breeding.cycle.birth_to_weaning_days') }}</div>
+                                    <div class="mating-mini-sub">days</div>
+                                </div>
+                                <div class="mating-mini">
+                                    <div class="mating-mini-label">Breeding Age</div>
+                                    <div class="mating-mini-value text-purple-700">{{ config('breeding.cycle.birth_to_maturity_days') }}</div>
+                                    <div class="mating-mini-sub">days</div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Quick Stats -->
-                    <div class="bg-white shadow-lg rounded-lg p-6">
-                        <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-lg font-semibold text-gray-800">📊 Available Stock</h3>
-                            <div class="group relative">
-                                <svg class="w-4 h-4 text-gray-400 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                <div class="absolute right-0 top-6 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                    <strong>Available for Breeding:</strong><br>
-                                    • Meets minimum age requirements<br>
-                                    • Has adequate weight (if recorded)<br>
-                                    • Not currently in planned mating<br>
-                                    • Not pregnant or awaiting pregnancy check
+                    <div class="mating-card">
+                        <div class="mating-card-head">
+                            <h3 class="mating-card-title">Available Stock For Mating</h3>
+                            <div class="mating-card-sub">A quick operational view of what is currently available or blocked.</div>
+                        </div>
+                        <div class="mating-card-body">
+                            <div class="mating-mini-grid">
+                                <div class="mating-mini" style="background:#eff6ff; border-color:#bfdbfe;">
+                                    <div class="mating-mini-label">Males Available</div>
+                                    <div class="mating-mini-value text-blue-700">{{ count($availableMales) }}</div>
+                                    <div class="mating-mini-sub">{{ count($allMales) }} total males</div>
+                                </div>
+                                <div class="mating-mini" style="background:#fdf2f8; border-color:#fbcfe8;">
+                                    <div class="mating-mini-label">Females Available</div>
+                                    <div class="mating-mini-value text-pink-700">{{ count($availableFemales) }}</div>
+                                    <div class="mating-mini-sub">{{ count($allFemales) }} total females</div>
                                 </div>
                             </div>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4 text-center">
-                            <div class="bg-blue-50 p-4 rounded-lg">
-                                <div class="text-2xl font-bold text-blue-600">{{ count($availableMales) }}</div>
-                                <div class="text-sm text-blue-700">Males Available</div>
-                                <div class="text-xs text-blue-600">{{ count($allMales) }} total</div>
-                            </div>
-                            <div class="bg-pink-50 p-4 rounded-lg">
-                                <div class="text-2xl font-bold text-pink-600">{{ count($availableFemales) }}</div>
-                                <div class="text-sm text-pink-700">Females Available</div>
-                                <div class="text-xs text-pink-600">{{ count($allFemales) }} total</div>
-                            </div>
-                        </div>
 
-                        <!-- Availability Breakdown -->
-                        <div class="mt-4 pt-4 border-t border-gray-200">
-                            <h4 class="text-sm font-medium text-gray-700 mb-2">Availability Status</h4>
-                            <div class="grid grid-cols-2 gap-2 text-xs">
-                                <div class="space-y-1">
-                                    <div class="text-gray-600">Males:</div>
+                            <div class="mating-status-grid">
+                                <div class="mating-status-box">
+                                    <div class="mating-status-title">Male Status Breakdown</div>
                                     @php
                                         $maleStatuses = $allMales->groupBy(function($pig) {
                                             return $pig->availability_status['status'];
                                         });
                                     @endphp
                                     @foreach($maleStatuses as $status => $pigs)
-                                        <div class="flex justify-between">
-                                            <span class="capitalize">{{ str_replace('_', ' ', $status) }}:</span>
-                                            <span class="font-medium">{{ count($pigs) }}</span>
+                                        <div class="mating-status-row">
+                                            <span class="capitalize">{{ str_replace('_', ' ', $status) }}</span>
+                                            <strong>{{ count($pigs) }}</strong>
                                         </div>
                                     @endforeach
                                 </div>
-                                <div class="space-y-1">
-                                    <div class="text-gray-600">Females:</div>
+
+                                <div class="mating-status-box">
+                                    <div class="mating-status-title">Female Status Breakdown</div>
                                     @php
                                         $femaleStatuses = $allFemales->groupBy(function($pig) {
                                             return $pig->availability_status['status'];
                                         });
                                     @endphp
                                     @foreach($femaleStatuses as $status => $pigs)
-                                        <div class="flex justify-between">
-                                            <span class="capitalize">{{ str_replace('_', ' ', $status) }}:</span>
-                                            <span class="font-medium">{{ count($pigs) }}</span>
+                                        <div class="mating-status-row">
+                                            <span class="capitalize">{{ str_replace('_', ' ', $status) }}</span>
+                                            <strong>{{ count($pigs) }}</strong>
                                         </div>
                                     @endforeach
                                 </div>
@@ -247,8 +591,8 @@
                 </div>
             </div>
         </div>
-    </main>
-    <x-copyright-minimal />
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const maleSelect = document.getElementById('male_id');
@@ -261,11 +605,9 @@
             const plannedDateInput = document.querySelector('input[name="planned_date"]');
             let checkTimeout;
 
-            // Store pig data for quick access
             const males = @json($males);
             const females = @json($females);
 
-            // Helper functions for breeding readiness badges
             function getMaleReadinessBadge(readiness) {
                 const status = readiness.age_status;
                 let badgeClass = '';
@@ -303,10 +645,9 @@
             }
 
             function getFemaleReadinessBadge(readiness) {
-                return getMaleReadinessBadge(readiness); // Same logic for now
+                return getMaleReadinessBadge(readiness);
             }
 
-            // Breeding cycle configuration
             const breedingConfig = {
                 gestationDays: {{ config('breeding.cycle.gestation_days') }},
                 pregnancyCheckDays: {{ config('breeding.cycle.pregnancy_check_days') }},
@@ -319,13 +660,11 @@
                 const selectedFemale = females.find(f => f.id == femaleSelect.value);
 
                 if (selectedMale && selectedFemale) {
-                    // Male breeding readiness badge
                     const maleReadinessBadge = getMaleReadinessBadge(selectedMale.breeding_readiness);
                     const femaleReadinessBadge = getFemaleReadinessBadge(selectedFemale.breeding_readiness);
 
-                    // Check for weight warning
-                    const maleWeightWarning = selectedMale.breeding_readiness.factors?.weight?.status === 'too_light' ? 
-                        `<div class="mt-2 p-2 bg-orange-100 border border-orange-200 rounded text-xs text-orange-700">
+                    const maleWeightWarning = selectedMale.breeding_readiness.factors?.weight?.status === 'too_light'
+                        ? `<div class="mt-2 p-2 bg-orange-100 border border-orange-200 rounded text-xs text-orange-700">
                             ⚠️ Weight Warning: ${selectedMale.breeding_readiness.factors.weight.message}
                         </div>` : '';
 
@@ -341,9 +680,8 @@
                         ${maleWeightWarning}
                     `;
 
-                    // Check for weight warning
-                    const femaleWeightWarning = selectedFemale.breeding_readiness.factors?.weight?.status === 'too_light' ? 
-                        `<div class="mt-2 p-2 bg-orange-100 border border-orange-200 rounded text-xs text-orange-700">
+                    const femaleWeightWarning = selectedFemale.breeding_readiness.factors?.weight?.status === 'too_light'
+                        ? `<div class="mt-2 p-2 bg-orange-100 border border-orange-200 rounded text-xs text-orange-700">
                             ⚠️ Weight Warning: ${selectedFemale.breeding_readiness.factors.weight.message}
                         </div>` : '';
 
@@ -358,7 +696,7 @@
                         ${selectedFemale.breeding_readiness.age_status !== 'optimal' ? `<div class="text-xs text-gray-500 mt-2">${selectedFemale.readiness_message}</div>` : ''}
                         ${femaleWeightWarning}
                     `;
-                    
+
                     pairInfo.classList.remove('hidden');
                 } else {
                     pairInfo.classList.add('hidden');
@@ -368,12 +706,11 @@
             function updateBreedingTimeline() {
                 const plannedDate = plannedDateInput.value;
 
-                if (!plannedDate) {
-                    breedingTimeline.classList.add('hidden');
+                if (!plannedDate || !breedingTimeline) {
+                    if (breedingTimeline) breedingTimeline.classList.add('hidden');
                     return;
                 }
 
-                // Calculate dates
                 const matingDate = new Date(plannedDate);
                 const pregnancyCheckDate = new Date(matingDate);
                 pregnancyCheckDate.setDate(matingDate.getDate() + breedingConfig.pregnancyCheckDays);
@@ -389,7 +726,6 @@
 
                 const cycleLengthDays = Math.ceil((nextMatingDate - matingDate) / (1000 * 60 * 60 * 24));
 
-                // Format dates
                 const formatDate = (date) => {
                     return date.toLocaleDateString('en-US', {
                         month: 'short',
@@ -398,7 +734,6 @@
                     });
                 };
 
-                // Update timeline display
                 document.getElementById('timeline-mating').textContent = formatDate(matingDate);
                 document.getElementById('timeline-pregnancy').textContent = formatDate(pregnancyCheckDate);
                 document.getElementById('timeline-farrowing').textContent = formatDate(farrowingDate);
@@ -450,7 +785,6 @@
                 }, 300);
             }
 
-            // Add event listeners
             maleSelect.addEventListener('change', function() {
                 updatePairInfo();
                 checkMatingCompatibility();
@@ -463,13 +797,11 @@
 
             plannedDateInput.addEventListener('change', updateBreedingTimeline);
 
-            // Check on page load if values are pre-selected
             if (maleSelect.value && femaleSelect.value) {
                 updatePairInfo();
                 checkMatingCompatibility();
             }
 
-            // Update timeline on page load if date is set
             if (plannedDateInput.value) {
                 updateBreedingTimeline();
             }

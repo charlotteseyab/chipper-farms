@@ -15,6 +15,7 @@ class Farrowing extends Model
         'sow_id',
         'boar_id',
         'farrowing_date',
+        'date_weaned',
         'farrowing_time',
         'total_piglets_born',
         'live_births',
@@ -39,6 +40,7 @@ class Farrowing extends Model
 
     protected $casts = [
         'farrowing_date' => 'date',
+        'date_weaned' => 'date',
         'farrowing_time' => 'datetime:H:i',
         'follow_up_date' => 'datetime',
         'colostrum_available' => 'boolean',

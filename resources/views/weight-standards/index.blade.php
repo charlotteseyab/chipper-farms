@@ -33,52 +33,59 @@
     </div>
 
     <!-- Live Search Filters -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+    <form method="GET" action="{{ route('weight-standards.index') }}" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Breed</label>
-                <select id="breed-filter" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                <select name="breed" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
                     <option value="">All Breeds</option>
-                    <option value="LW">Large White</option>
-                    <option value="DR">Duroc</option>
-                    <option value="LWDR">Large White Duroc</option>
+                    <option value="LW" {{ request('breed') === 'LW' ? 'selected' : '' }}>Large White</option>
+                    <option value="DR" {{ request('breed') === 'DR' ? 'selected' : '' }}>Duroc</option>
+                    <option value="LWDR" {{ request('breed') === 'LWDR' ? 'selected' : '' }}>Large White Duroc</option>
                 </select>
             </div>
+
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                <select id="gender-filter" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                <select name="gender" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
                     <option value="">All Genders</option>
-                    <option value="M">Male</option>
-                    <option value="F">Female</option>
+                    <option value="M" {{ request('gender') === 'M' ? 'selected' : '' }}>Male</option>
+                    <option value="F" {{ request('gender') === 'F' ? 'selected' : '' }}>Female</option>
                 </select>
             </div>
+
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Stock Type</label>
-                <select id="stock-type-filter" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                <select name="stock_type" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
                     <option value="">All Types</option>
-                    <option value="standard">Standard</option>
-                    <option value="breeding">Breeding</option>
+                    <option value="standard" {{ request('stock_type') === 'standard' ? 'selected' : '' }}>Standard</option>
+                    <option value="breeding" {{ request('stock_type') === 'breeding' ? 'selected' : '' }}>Breeding</option>
                 </select>
             </div>
+
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Week From</label>
-                <input type="number" id="week-from-filter" min="1" max="104"
-                       class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="1">
+                <input type="number" name="week_from" min="1" max="200" value="{{ request('week_from') }}"
+                    class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="1">
             </div>
+
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Week To</label>
-                <input type="number" id="week-to-filter" min="1" max="104"
-                       class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="52">
+                <input type="number" name="week_to" min="1" max="200" value="{{ request('week_to') }}"
+                    class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="52">
             </div>
-            <div class="flex items-end">
-                <button id="clear-filters" class="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
-                    <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                    Clear Filters
+
+            <div class="flex items-end gap-2">
+                <button type="submit" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                    Apply
                 </button>
+
+                <a href="{{ route('weight-standards.index') }}" class="w-full text-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
+                    Clear
+                </a>
             </div>
         </div>
+    </form>
 
         <!-- Filter Status -->
         <div id="filter-status" class="mt-4 pt-4 border-t border-gray-200 hidden">
@@ -99,6 +106,7 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pig Type</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age (Weeks)</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expected Weight Range</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created By</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
@@ -191,146 +199,130 @@
         @endif
     </div>
 </div>
-<x-copyright-minimal />
+
 <script>
-    // Live search functionality for weight standards
-    document.addEventListener('DOMContentLoaded', function() {
-        const breedFilter = document.getElementById('breed-filter');
-        const genderFilter = document.getElementById('gender-filter');
-        const stockTypeFilter = document.getElementById('stock-type-filter');
-        const weekFromFilter = document.getElementById('week-from-filter');
-        const weekToFilter = document.getElementById('week-to-filter');
-        const clearFiltersBtn = document.getElementById('clear-filters');
-        const filterStatus = document.getElementById('filter-status');
-        const filterCount = document.getElementById('filter-count');
+document.addEventListener('DOMContentLoaded', function () {
+    const breedFilter = document.getElementById('breed-filter');
+    const genderFilter = document.getElementById('gender-filter');
+    const stockTypeFilter = document.getElementById('stock-type-filter');
+    const weekFromFilter = document.getElementById('week-from-filter');
+    const weekToFilter = document.getElementById('week-to-filter');
+    const clearFiltersBtn = document.getElementById('clear-filters');
+    const filterStatus = document.getElementById('filter-status');
+    const filterCount = document.getElementById('filter-count');
 
-        let filterTimeout;
+    const tableBody = document.querySelector('tbody');
+    const tableRows = tableBody ? Array.from(tableBody.querySelectorAll('tr')) : [];
 
-        // Get all table rows
-        const tableRows = document.querySelectorAll('tbody tr');
+    let noResultsRow = document.getElementById('no-results-row');
 
-        function applyFilters() {
-            clearTimeout(filterTimeout);
-            filterTimeout = setTimeout(() => {
-                const filters = {
-                    breed: breedFilter.value.toLowerCase(),
-                    gender: genderFilter.value.toLowerCase(),
-                    stockType: stockTypeFilter.value.toLowerCase(),
-                    weekFrom: parseInt(weekFromFilter.value) || null,
-                    weekTo: parseInt(weekToFilter.value) || null
-                };
+    if (tableBody && !noResultsRow) {
+        noResultsRow = document.createElement('tr');
+        noResultsRow.id = 'no-results-row';
+        noResultsRow.style.display = 'none';
+        noResultsRow.innerHTML = `
+            <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">
+                No weight standards match your current filters.
+            </td>
+        `;
+        tableBody.appendChild(noResultsRow);
+    }
 
-                let visibleCount = 0;
-                let activeFilters = 0;
+    function applyFilters() {
+        const filters = {
+            breed: (breedFilter.value || '').toLowerCase().trim(),
+            gender: (genderFilter.value || '').toLowerCase().trim(),
+            stockType: (stockTypeFilter.value || '').toLowerCase().trim(),
+            weekFrom: weekFromFilter.value ? parseInt(weekFromFilter.value, 10) : null,
+            weekTo: weekToFilter.value ? parseInt(weekToFilter.value, 10) : null
+        };
 
-                // Count active filters
-                if (filters.breed) activeFilters++;
-                if (filters.gender) activeFilters++;
-                if (filters.stockType) activeFilters++;
-                if (filters.weekFrom) activeFilters++;
-                if (filters.weekTo) activeFilters++;
+        let visibleCount = 0;
+        let activeFilters = 0;
 
-                tableRows.forEach(row => {
-                    let shouldShow = true;
+        if (filters.breed) activeFilters++;
+        if (filters.gender) activeFilters++;
+        if (filters.stockType) activeFilters++;
+        if (filters.weekFrom !== null) activeFilters++;
+        if (filters.weekTo !== null) activeFilters++;
 
-                    // Get row data
-                    const cells = row.querySelectorAll('td');
-                    if (cells.length === 0) return; // Skip if no cells
+        tableRows.forEach(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length < 5) return;
 
-                    const breedCell = cells[0]?.textContent.toLowerCase() || '';
-                    const stockTypeCell = cells[1]?.textContent.toLowerCase() || '';
-                    const weekCell = cells[2]?.textContent || '';
+            const pigTypeCell = (cells[0]?.textContent || '').toLowerCase();
+            const ageCell = (cells[1]?.textContent || '').toLowerCase();
 
-                    // Extract week number from "Week X" format
-                    const weekMatch = weekCell.match(/week (\d+)/i);
-                    const weekNumber = weekMatch ? parseInt(weekMatch[1]) : null;
+            let shouldShow = true;
 
-                    // Apply filters
-                    if (filters.breed && !breedCell.includes(filters.breed)) {
-                        shouldShow = false;
-                    }
+            if (filters.breed && !pigTypeCell.includes(filters.breed)) {
+                shouldShow = false;
+            }
 
-                    if (filters.gender) {
-                        const genderText = filters.gender === 'm' ? 'male' : 'female';
-                        if (!breedCell.includes(genderText)) {
-                            shouldShow = false;
-                        }
-                    }
-
-                    if (filters.stockType && !stockTypeCell.includes(filters.stockType)) {
-                        shouldShow = false;
-                    }
-
-                    if (filters.weekFrom && weekNumber && weekNumber < filters.weekFrom) {
-                        shouldShow = false;
-                    }
-
-                    if (filters.weekTo && weekNumber && weekNumber > filters.weekTo) {
-                        shouldShow = false;
-                    }
-
-                    // Show/hide row
-                    if (shouldShow) {
-                        row.style.display = '';
-                        visibleCount++;
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-
-                // Update filter status
-                if (activeFilters > 0) {
-                    filterStatus.classList.remove('hidden');
-                    filterCount.textContent = `Showing ${visibleCount} standards (${activeFilters} filter${activeFilters > 1 ? 's' : ''} applied)`;
-                } else {
-                    filterStatus.classList.add('hidden');
+            if (filters.gender) {
+                const genderText = filters.gender === 'm' ? 'male' : 'female';
+                if (!pigTypeCell.includes(genderText)) {
+                    shouldShow = false;
                 }
+            }
 
-                // Show/hide empty state
-                const emptyState = document.querySelector('.text-center.py-12');
-                if (emptyState) {
-                    if (visibleCount === 0 && activeFilters > 0) {
-                        emptyState.style.display = 'block';
-                        emptyState.querySelector('h3').textContent = 'No standards match your filters';
-                        emptyState.querySelector('p').textContent = 'Try adjusting your filter criteria to see more results.';
-                    } else if (visibleCount === 0 && activeFilters === 0) {
-                        emptyState.style.display = 'block';
-                        emptyState.querySelector('h3').textContent = 'No weight standards found';
-                        emptyState.querySelector('p').textContent = 'Get started by creating your first weight standard.';
-                    } else {
-                        emptyState.style.display = 'none';
-                    }
+            if (filters.stockType && !pigTypeCell.includes(filters.stockType)) {
+                shouldShow = false;
+            }
+
+            const weekMatch = ageCell.match(/week\s+(\d+)/i);
+            const weekNumber = weekMatch ? parseInt(weekMatch[1], 10) : null;
+
+            if (filters.weekFrom !== null) {
+                if (weekNumber === null || weekNumber < filters.weekFrom) {
+                    shouldShow = false;
                 }
-            }, 300);
+            }
+
+            if (filters.weekTo !== null) {
+                if (weekNumber === null || weekNumber > filters.weekTo) {
+                    shouldShow = false;
+                }
+            }
+
+            row.style.display = shouldShow ? '' : 'none';
+
+            if (shouldShow) {
+                visibleCount++;
+            }
+        });
+
+        if (filterStatus) {
+            if (activeFilters > 0) {
+                filterStatus.classList.remove('hidden');
+                filterCount.textContent = `Showing ${visibleCount} standard${visibleCount === 1 ? '' : 's'} (${activeFilters} filter${activeFilters === 1 ? '' : 's'} applied)`;
+            } else {
+                filterStatus.classList.add('hidden');
+            }
         }
 
-        function clearAllFilters() {
-            breedFilter.value = '';
-            genderFilter.value = '';
-            stockTypeFilter.value = '';
-            weekFromFilter.value = '';
-            weekToFilter.value = '';
-            applyFilters();
+        if (noResultsRow) {
+            noResultsRow.style.display = visibleCount === 0 ? '' : 'none';
         }
+    }
 
-        // Add event listeners
-        breedFilter.addEventListener('change', applyFilters);
-        genderFilter.addEventListener('change', applyFilters);
-        stockTypeFilter.addEventListener('change', applyFilters);
-        weekFromFilter.addEventListener('input', applyFilters);
-        weekToFilter.addEventListener('input', applyFilters);
-        clearFiltersBtn.addEventListener('click', clearAllFilters);
-
-        // Set initial values from URL parameters if any
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('breed')) breedFilter.value = urlParams.get('breed');
-        if (urlParams.get('gender')) genderFilter.value = urlParams.get('gender');
-        if (urlParams.get('stock_type')) stockTypeFilter.value = urlParams.get('stock_type');
-        if (urlParams.get('week_from')) weekFromFilter.value = urlParams.get('week_from');
-        if (urlParams.get('week_to')) weekToFilter.value = urlParams.get('week_to');
-
-        // Apply initial filters
+    function clearAllFilters() {
+        breedFilter.value = '';
+        genderFilter.value = '';
+        stockTypeFilter.value = '';
+        weekFromFilter.value = '';
+        weekToFilter.value = '';
         applyFilters();
-    });
+    }
+
+    breedFilter.addEventListener('change', applyFilters);
+    genderFilter.addEventListener('change', applyFilters);
+    stockTypeFilter.addEventListener('change', applyFilters);
+    weekFromFilter.addEventListener('input', applyFilters);
+    weekToFilter.addEventListener('input', applyFilters);
+    clearFiltersBtn.addEventListener('click', clearAllFilters);
+
+    applyFilters();
+});
 </script>
 </x-app-layout>

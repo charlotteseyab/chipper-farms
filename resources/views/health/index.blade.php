@@ -83,6 +83,43 @@
                     <tbody class="bg-white divide-y divide-gray-100">
                         @forelse($pigs as $pig)
                         <tr class="hover:bg-indigo-50/50 transition duration-100">
+                            @php
+                                $hr = $pig->healthRecords->first();
+                                $med = $pig->medicationAdministrations->first();
+
+                                $severity = strtolower((string) ($hr->severity ?? ''));
+                                $isSevere = in_array($severity, ['severe', 'high'], true);
+                                $isModerate = in_array($severity, ['moderate', 'medium'], true);
+                                $hasTreatmentPlan = $hr && filled($hr->treatment_plan);
+                                $hasMedication = !is_null($med);
+                                $hasMedicationAfterRecord = $hr && $med
+                                    ? $med->administration_date->gte($hr->record_date)
+                                    : false;
+                                $isRecovered = $hr && (
+                                    $hr->outcome === 'recovered'
+                                    || ($hr->treatment_status === 'completed' && !empty($hr->resolved_at))
+                                );
+
+                                if (!$hr) {
+                                    $healthStatusText = 'Healthy / Stable';
+                                    $healthStatusClass = 'text-green-600';
+                                } elseif ($isRecovered) {
+                                    $healthStatusText = 'Recovered / Resolved';
+                                    $healthStatusClass = 'text-emerald-700 font-semibold';
+                                } elseif ($isSevere) {
+                                    $healthStatusText = 'Active High Risk';
+                                    $healthStatusClass = 'text-red-600 font-semibold';
+                                } elseif (!$hasTreatmentPlan && !$hasMedication) {
+                                    $healthStatusText = 'Needs Treatment Plan';
+                                    $healthStatusClass = 'text-amber-600 font-semibold';
+                                } elseif ($isModerate || $hasTreatmentPlan || $hasMedicationAfterRecord) {
+                                    $healthStatusText = 'Under Treatment';
+                                    $healthStatusClass = 'text-yellow-600 font-semibold';
+                                } else {
+                                    $healthStatusText = 'Stable';
+                                    $healthStatusClass = 'text-green-600 font-semibold';
+                                }
+                            @endphp
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <a href="{{ route('health.show', $pig) }}" class="text-lg font-semibold text-indigo-600 hover:text-indigo-800 transition duration-150">
                                     {{ $pig->code ?? $pig->ear_tag_number }}
@@ -95,16 +132,15 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $pig->age_display }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                @php $hr = $pig->healthRecords->first(); @endphp
                                 @if($hr)
                                     <div class="font-medium text-gray-900">{{ $hr->record_date->format('M d, Y') }}</div>
-                                    <div class="text-sm @if($hr->severity === 'high') text-red-600 font-semibold @elseif($hr->severity === 'medium') text-yellow-600 @else text-gray-600 @endif">{{ $hr->condition }} ({{ ucfirst($hr->severity) }})</div>
+                                    <div class="text-sm text-gray-600">{{ $hr->condition }} ({{ ucfirst($hr->severity) }})</div>
+                                    <div class="text-xs {{ $healthStatusClass }}">{{ $healthStatusText }}</div>
                                 @else
                                     <span class="text-gray-400 italic">No recent record</span>
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                @php $med = $pig->medicationAdministrations->first(); @endphp
                                 @if($med)
                                     <div class="font-medium text-gray-900">{{ $med->administration_date->format('M d, Y') }}</div>
                                     <div class="text-gray-600 text-sm">{{ $med->medication_name }}</div>
@@ -173,6 +209,5 @@
                 @endif
             </div>
         </div>
-        <x-copyright-minimal />
     </div>
 </x-app-layout>

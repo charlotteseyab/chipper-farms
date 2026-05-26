@@ -1,55 +1,8 @@
 <x-app-layout>
     <main class="min-h-screen bg-slate-50/70 py-2">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <!-- <div class="mb-6">
-                <div class="rounded-3xl bg-gradient-to-r from-[#1C6C51] via-[#238b67] to-[#2aa578] p-6 md:p-8 text-white shadow-lg">
-                    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-white/80 mb-2">System Configuration</p>
-                            <h1 class="text-2xl md:text-3xl font-bold tracking-tight">General Settings</h1>
-                            <p class="mt-2 text-sm md:text-base text-white/85 max-w-3xl">
-                                Configure your farm identity, localization, branding, and basic application preferences.
-                            </p>
-                        </div>
-
-                        <div class="rounded-2xl bg-white/10 backdrop-blur-sm px-5 py-4 border border-white/15">
-                            <p class="text-xs uppercase tracking-[0.18em] text-white/70">Settings Area</p>
-                            <p class="mt-1 text-lg font-semibold">Farm Identity</p>
-                        </div>
-                    </div>
-                </div>
-            </div> -->
 
             <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-                <div class="border-b border-slate-200 bg-slate-50/70">
-                    <nav class="flex flex-wrap gap-x-6 gap-y-2 px-6 py-4" aria-label="Tabs">
-                        @if(auth()->user()->isSuperuser() || auth()->user()->isAdmin())
-                            <a href="{{ route('settings.general') }}"
-                               class="inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold transition {{ request()->routeIs('settings.general*') ? 'bg-green-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                                General Settings
-                            </a>
-                        @endif
-                        
-                        @if(auth()->user()->isSuperuser())
-                            <a href="{{ route('settings.users') }}"
-                               class="inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold transition {{ request()->routeIs('settings.users*') ? 'bg-green-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                                Account Settings
-                            </a>
-                        @endif
-
-                        <a href="{{ route('settings.setup') }}"
-                           class="inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold transition {{ request()->routeIs('settings.setup*') ? 'bg-green-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                            Breeding Cycle
-                        </a>
-
-                        @if(auth()->user()->isSuperuser() || auth()->user()->isAdmin())
-                            <a href="{{ route('settings.email') }}"
-                               class="inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold transition {{ request()->routeIs('settings.email*') ? 'bg-green-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                                Email Settings
-                            </a>
-                        @endif
-                    </nav>
-                </div>
 
                 <div class="p-6 md:p-8">
                     <form action="{{ route('settings.general.update') }}" method="POST" enctype="multipart/form-data">
@@ -134,17 +87,18 @@
 
                                 <div class="p-6">
                                     @php
-                                        $logoPath = $settings['logo'] ?? null;
-                                        $hasLogo = $logoPath && Storage::disk('public')->exists($logoPath);
+                                        $logoUrl = \App\Models\Setting::logoUrl();
+                                        $hasLogo = \App\Models\Setting::hasLogo();
                                     @endphp
 
                                     <div class="relative group">
                                         <div class="w-56 h-56 mx-auto rounded-3xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center overflow-hidden transition-all group-hover:border-green-500 cursor-pointer"
                                              onclick="document.getElementById('logo-input').click()">
 
-                                            <img src="{{ $hasLogo ? Storage::url($logoPath) : '#' }}"
-                                                 id="logo-preview"
-                                                 class="{{ $hasLogo ? '' : 'hidden' }} w-full h-full object-contain p-4">
+                                             <img src="{{ $hasLogo ? $logoUrl : '#' }}"
+                                                id="logo-preview"
+                                                class="{{ $hasLogo ? '' : 'hidden' }} w-full h-full object-contain p-4"
+                                                alt="Farm logo">
 
                                             <div id="logo-placeholder" class="{{ $hasLogo ? 'hidden' : 'text-center p-6' }}">
                                                 <svg class="mx-auto h-10 w-10 text-slate-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
@@ -210,6 +164,4 @@
             }
         }
     </script>
-
-    <x-copyright-minimal />
 </x-app-layout>

@@ -3,11 +3,21 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Role extends Model
 {
-    // Optionally, add relationships or methods here
+    protected $fillable = [
+        'name',
+    ];
+
+    public function permissions(): BelongsToMany
+    {
+        return $this->belongsToMany(Permission::class, 'role_permissions');
+    }
+
+    public function hasPermission(string $name): bool
+    {
+        return $this->permissions()->where('name', $name)->exists();
+    }
 }
-
-
-

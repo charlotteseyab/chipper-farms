@@ -190,94 +190,101 @@ class AdminController extends Controller
                 ->whereYear('weaning_date', $monthDate->year)->count();
         }
 
-        // ========== WEIGHT MANAGEMENT SECTION ==========
-        $totalWeights = PigWeight::count();
-        $overdueForWeighing = PigManagement::countOverdueForWeighing();
-        $dueForWeighing = PigManagement::countDueForWeighing();
-        $avgWeight = PigWeight::whereIn('id', function ($query) {
+    // ========== WEIGHT MANAGEMENT SECTION ==========
+    $totalWeights = PigWeight::count();
+
+    $overdueCollection = PigManagement::getOverdueForWeighing(30);
+    $firstWeightPendingCollection = PigManagement::getFirstWeightPending(30);
+
+    $overdueForWeighing = $overdueCollection->count();
+    $firstWeightPending = $firstWeightPendingCollection->count();
+
+    // Optional: due soon should only apply to pigs already in routine weighing cycle
+    $dueForWeighing = PigManagement::whereDoesntHave('deaths')
+        ->whereDoesntHave('sales')
+        ->whereHas('weights')
+        ->get()
+        ->filter(function ($pig) {
+            $status = $pig->getWeighingStatus();
+            return $status['status'] === 'due_soon';
+        })
+        ->count();
+
+    $avgWeight = PigWeight::whereIn('id', function ($query) {
+        $query->select(DB::raw('MAX(id)'))
+            ->from('pig_weights')
+            ->groupBy('pig_id');
+    })->avg('weight');
+
+    $totalWeight = PigWeight::whereIn('id', function ($query) {
+        $query->select(DB::raw('MAX(id)'))
+            ->from('pig_weights')
+            ->groupBy('pig_id');
+    })->sum('weight');
+
+    $totalFarmValue = $totalWeight * $liveWeightPrice;
+    $weightsThisWeek = PigWeight::where('created_at', '>=', now()->subWeek())->count();
+    $weightsThisMonth = PigWeight::whereMonth('created_at', now()->month)->count();
+    $criticalAlerts = WeightAlert::where('severity', 'high')->where('acknowledged', false)->count();
+    $totalAlerts = WeightAlert::where('acknowledged', false)->count();
+
+    $mapPig = function ($pig) {
+        $weighingStatus = $pig->getWeighingStatus();
+        $lastWeighing = $pig->getLastWeighingDate();
+        $lastWeight = $pig->weights()->latest('weigh_date')->first();
+
+        return [
+            'pig' => $pig,
+            'status' => $weighingStatus['status'],
+            'status_message' => $weighingStatus['message'],
+            'status_color' => $weighingStatus['color'],
+            'status_icon' => $weighingStatus['icon'],
+            'days_since' => $weighingStatus['days_since'],
+            'overdue_days' => $weighingStatus['overdue_days'],
+            'last_weighing' => $lastWeighing,
+            'last_weight' => $lastWeight,
+        ];
+    };
+
+    $overduePigsData = $overdueCollection->take(5)->map($mapPig);
+    $allOverduePigsData = $overdueCollection->map($mapPig);
+
+    $firstWeightPendingData = $firstWeightPendingCollection->take(5)->map($mapPig);
+    $allFirstWeightPendingData = $firstWeightPendingCollection->map($mapPig);
+
+    // Weight trends (last 30 days)
+    $weightTrendsData = PigWeight::selectRaw('DATE(created_at) as date, AVG(weight) as avg_weight')
+        ->whereIn('id', function ($query) {
             $query->select(DB::raw('MAX(id)'))
                 ->from('pig_weights')
+                ->where('created_at', '>=', now()->subDays(30))
+                ->groupBy('pig_id');
+        })
+        ->where('created_at', '>=', now()->subDays(30))
+        ->groupBy('date')
+        ->orderBy('date')
+        ->get();
+
+    $weightLabels = $weightTrendsData->pluck('date')->map(fn($d) => Carbon::parse($d)->format('M j'))->toArray();
+    $weightValues = $weightTrendsData->pluck('avg_weight')->toArray();
+
+    // Weight trends by month (last 6 months)
+    $weightMonthlyLabels = [];
+    $weightMonthlyAvg = [];
+    for ($i = 5; $i >= 0; $i--) {
+        $monthDate = now()->subMonths($i);
+        $monthEnd = $monthDate->copy()->endOfMonth();
+        $weightMonthlyLabels[] = $monthDate->format('M Y');
+
+        $monthWeights = PigWeight::whereIn('id', function ($q) use ($monthEnd) {
+            $q->select(DB::raw('MAX(id)'))
+                ->from('pig_weights')
+                ->where('created_at', '<=', $monthEnd)
                 ->groupBy('pig_id');
         })->avg('weight');
-        $totalWeight = PigWeight::whereIn('id', function ($query) {
-            $query->select(DB::raw('MAX(id)'))
-                ->from('pig_weights')
-                ->groupBy('pig_id');
-        })->sum('weight');
-        $totalFarmValue = $totalWeight * $liveWeightPrice;
-        $weightsThisWeek = PigWeight::where('created_at', '>=', now()->subWeek())->count();
-        $weightsThisMonth = PigWeight::whereMonth('created_at', now()->month)->count();
-        $criticalAlerts = WeightAlert::where('severity', 'high')->where('acknowledged', false)->count();
-        $totalAlerts = WeightAlert::where('acknowledged', false)->count();
 
-        // Overdue pigs data
-        $overduePigs = PigManagement::getOverdueForWeighing()->take(5);
-        $allOverduePigs = PigManagement::getOverdueForWeighing();
-        $mapPig = function ($pig) {
-            $weighingStatus = $pig->getWeighingStatus();
-            $daysSince = $pig->getDaysSinceLastWeighing();
-            $lastWeighing = $pig->getLastWeighingDate();
-            $lastWeight = $pig->weights()->latest('weigh_date')->first();
-            $overdueDays = $daysSince - 30;
-            return [
-                'pig' => $pig,
-                'weighing_status' => $weighingStatus,
-                'days_since' => $daysSince,
-                'last_weighing' => $lastWeighing,
-                'last_weight' => $lastWeight,
-                'overdue_days' => $overdueDays,
-            ];
-        };
-        $overduePigsData = $overduePigs->map($mapPig);
-        $allOverduePigsData = $allOverduePigs->map($mapPig);
-
-        // Weight trends (last 30 days)
-        $weightTrendsData = PigWeight::selectRaw('DATE(created_at) as date, AVG(weight) as avg_weight')
-            ->whereIn('id', function ($query) {
-                $query->select(DB::raw('MAX(id)'))
-                    ->from('pig_weights')
-                    ->where('created_at', '>=', now()->subDays(30))
-                    ->groupBy('pig_id');
-            })
-            ->where('created_at', '>=', now()->subDays(30))
-            ->groupBy('date')
-            ->orderBy('date')
-            ->get();
-        $weightLabels = $weightTrendsData->pluck('date')->map(fn($d) => Carbon::parse($d)->format('M j'))->toArray();
-        $weightValues = $weightTrendsData->pluck('avg_weight')->toArray();
-
-        // Weight trends by month (last 6 months)
-        $weightMonthlyLabels = [];
-        $weightMonthlyAvg = [];
-        for ($i = 5; $i >= 0; $i--) {
-            $monthDate = now()->subMonths($i);
-            $monthEnd = $monthDate->copy()->endOfMonth();
-            $weightMonthlyLabels[] = $monthDate->format('M Y');
-            $monthWeights = PigWeight::whereIn('id', function ($q) use ($monthEnd) {
-                $q->select(DB::raw('MAX(id)'))
-                    ->from('pig_weights')
-                    ->where('created_at', '<=', $monthEnd)
-                    ->groupBy('pig_id');
-            })->avg('weight');
-            $weightMonthlyAvg[] = round($monthWeights ?? 0, 1);
-        }
-
-        // Feed management has been removed from the system.
-        $lowStockCount = 0;
-        $totalFeedItems = 0;
-        $totalFeedQuantity = 0;
-        $pendingRequests = 0;
-        $approvedRequests = 0;
-        $rejectedRequests = 0;
-        $totalRequests = 0;
-        $pendingRequestValue = 0;
-        $scheduledFeeds = 0;
-        $fedToday = 0;
-        $skippedToday = 0;
-        $totalScheduled = 0;
-        $feedTrendsLabels = [];
-        $feedTrendsScheduled = [];
-        $feedTrendsFed = [];
+        $weightMonthlyAvg[] = round($monthWeights ?? 0, 1);
+    }
 
         // ========== HEALTH & PERFORMANCE SECTION ==========
         $totalHealthRecords = HealthRecord::count();
@@ -354,10 +361,7 @@ class AdminController extends Controller
             'totalWeights', 'overdueForWeighing', 'dueForWeighing', 'avgWeight', 'totalWeight',
             'totalFarmValue', 'weightsThisWeek', 'weightsThisMonth', 'criticalAlerts', 'totalAlerts',
             'overduePigsData', 'allOverduePigsData', 'weightLabels', 'weightValues', 'weightMonthlyLabels', 'weightMonthlyAvg',
-            // Feed
-            'lowStockCount', 'totalFeedItems', 'totalFeedQuantity', 'pendingRequests', 'approvedRequests',
-            'rejectedRequests', 'totalRequests', 'pendingRequestValue', 'scheduledFeeds', 'fedToday',
-            'skippedToday', 'totalScheduled', 'feedTrendsLabels', 'feedTrendsScheduled', 'feedTrendsFed',
+            'firstWeightPending', 'firstWeightPendingData', 'allFirstWeightPendingData',
             // Health
             'totalHealthRecords', 'healthRecordsThisMonth', 'totalMedications', 'medicationsThisMonth',
             'topConditions', 'severityCounts', 'recentHealthRecords', 'recentMedications',

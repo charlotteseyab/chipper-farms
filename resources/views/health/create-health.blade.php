@@ -60,6 +60,40 @@
                 <textarea name="treatment_plan" rows="3" class="mt-1 block w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">{{ old('treatment_plan') }}</textarea>
                 @error('treatment_plan')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
             </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Treatment Status</label>
+                    <select name="treatment_status" class="mt-1 block w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">Select status</option>
+                        <option value="planned" @selected(old('treatment_status')==='planned')>Planned</option>
+                        <option value="ongoing" @selected(old('treatment_status')==='ongoing')>Ongoing</option>
+                        <option value="completed" @selected(old('treatment_status')==='completed')>Completed</option>
+                        <option value="stopped" @selected(old('treatment_status')==='stopped')>Stopped</option>
+                    </select>
+                    @error('treatment_status')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Outcome</label>
+                    <select name="outcome" class="mt-1 block w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">Select outcome</option>
+                        <option value="recovered" @selected(old('outcome')==='recovered')>Recovered</option>
+                        <option value="improved" @selected(old('outcome')==='improved')>Improved</option>
+                        <option value="unchanged" @selected(old('outcome')==='unchanged')>Unchanged</option>
+                        <option value="worsened" @selected(old('outcome')==='worsened')>Worsened</option>
+                    </select>
+                    @error('outcome')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Resolved Date</label>
+                <input type="date" name="resolved_at" value="{{ old('resolved_at') }}" class="mt-1 block w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" />
+                @error('resolved_at')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700">Resolution Notes</label>
+                <textarea name="resolution_notes" rows="3" class="mt-1 block w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">{{ old('resolution_notes') }}</textarea>
+                @error('resolution_notes')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
+            </div>
 
             <div class="flex items-center justify-end gap-3">
                 <a href="{{ isset($pig) ? route('health.show', $pig) : route('health.index') }}" class="px-4 py-2 rounded-md border border-gray-300 text-gray-700">Cancel</a>
@@ -68,7 +102,6 @@
         </form>
     </div>
 </div>
-<x-copyright-minimal />
 </x-app-layout>
 
 

@@ -45,6 +45,11 @@ class RoleMiddleware
                         return $next($request);
                     }
                     break;
+                case 'accountant':
+                    if ($user->isAccountant()) {
+                        return $next($request);
+                    }
+                    break;
             }
         }
 

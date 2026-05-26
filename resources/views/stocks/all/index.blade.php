@@ -1,407 +1,800 @@
 <x-app-layout>
-    <main class="flex-1 p-8 pt-0">
-        <div class="max-w-6xl mx-auto">
-            <div class="flex justify-between items-center mb-6">
-                <div>
-                    <!-- <h2 class="text-3xl font-bold text-gray-900">🐷 All Stock Management</h2>
-                    <p class="text-gray-600 mt-1">Manage and monitor all pigs in your farm</p> -->
+    <style>
+        .allstock-page{
+            min-height: 100vh;
+            padding: 18px 0 40px;
+        }
+
+        .allstock-shell{
+            max-width: 1550px;
+            margin: 0 auto;
+            padding: 0 16px;
+        }
+
+        .allstock-hero{
+            position: relative;
+            overflow: hidden;
+            border-radius: 28px;
+            padding: 26px 28px;
+            background: linear-gradient(135deg, #14532d 0%, #166534 48%, #0f766e 100%);
+            box-shadow: 0 24px 54px rgba(22,101,52,.16);
+            color: #fff;
+            margin-bottom: 18px;
+        }
+
+        .allstock-hero::before{
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at top right, rgba(255,255,255,.16), transparent 28%),
+                radial-gradient(circle at bottom left, rgba(255,255,255,.08), transparent 24%);
+            pointer-events: none;
+        }
+
+        .allstock-hero-inner{
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+
+        .allstock-hero-title{
+            margin: 0;
+            font-size: clamp(1.8rem, 3vw, 2.8rem);
+            line-height: 1.02;
+            font-weight: 900;
+            letter-spacing: -.04em;
+        }
+
+        .allstock-hero-sub{
+            margin: 10px 0 0;
+            max-width: 800px;
+            color: rgba(255,255,255,.90);
+            font-size: .95rem;
+            line-height: 1.75;
+        }
+
+        .allstock-hero-actions{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .allstock-top-btn{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border-radius: 16px;
+            padding: 11px 15px;
+            font-size: .84rem;
+            font-weight: 800;
+            text-decoration: none;
+            transition: .22s ease;
+            border: 1px solid rgba(255,255,255,.16);
+        }
+
+        .allstock-top-btn-primary{
+            background: rgba(255,255,255,.14);
+            color: #fff;
+        }
+
+        .allstock-top-btn-primary:hover{
+            background: rgba(255,255,255,.20);
+            transform: translateY(-1px);
+        }
+
+        .allstock-card{
+            background: rgba(255,255,255,.96);
+            border: 1px solid #dbe7f0;
+            border-radius: 28px;
+            box-shadow: 0 14px 34px rgba(15,23,42,.06);
+            overflow: hidden;
+        }
+
+        .allstock-card-head{
+            padding: 22px 24px 14px;
+            border-bottom: 1px solid #edf2f7;
+            background: linear-gradient(180deg, rgba(248,250,252,.95) 0%, rgba(255,255,255,.98) 100%);
+        }
+
+        .allstock-card-title{
+            margin: 0;
+            font-size: 1.04rem;
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        .allstock-card-sub{
+            margin-top: 4px;
+            font-size: .82rem;
+            color: #64748b;
+        }
+
+        .allstock-card-body{
+            padding: 20px 24px 24px;
+        }
+
+        .allstock-filter-grid{
+            display: grid;
+            grid-template-columns: 1.4fr 1fr 1fr 1fr auto;
+            gap: 14px;
+            align-items: end;
+        }
+
+        .allstock-field{
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .allstock-label{
+            font-size: .82rem;
+            font-weight: 800;
+            color: #334155;
+        }
+
+        .allstock-input,
+        .allstock-select{
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: 16px;
+            background: #fff;
+            padding: 11px 13px;
+            font-size: .9rem;
+            color: #0f172a;
+            outline: none;
+            transition: .2s ease;
+        }
+
+        .allstock-input:focus,
+        .allstock-select:focus{
+            border-color: #16a34a;
+            box-shadow: 0 0 0 4px rgba(22,163,74,.10);
+        }
+
+        .allstock-filter-actions{
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .allstock-btn{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border-radius: 14px;
+            padding: 11px 14px;
+            font-size: .84rem;
+            font-weight: 800;
+            text-decoration: none;
+            transition: .2s ease;
+            border: none;
+        }
+
+        .allstock-btn-green{
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            color: #fff;
+            box-shadow: 0 10px 24px rgba(22,163,74,.16);
+        }
+
+        .allstock-btn-green:hover{
+            transform: translateY(-1px);
+        }
+
+        .allstock-btn-blue{
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: #fff;
+            box-shadow: 0 10px 24px rgba(37,99,235,.16);
+        }
+
+        .allstock-btn-blue:hover{
+            transform: translateY(-1px);
+        }
+
+        .allstock-btn-red{
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            color: #fff;
+            box-shadow: 0 10px 24px rgba(220,38,38,.14);
+        }
+
+        .allstock-btn-red:hover{
+            transform: translateY(-1px);
+        }
+
+        .allstock-btn-gray{
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .allstock-btn-gray:hover{
+            background: #d1d5db;
+        }
+
+        .allstock-toolbar{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+            padding: 16px 24px;
+            background: #f8fafc;
+            border-top: 1px solid #edf2f7;
+            border-bottom: 1px solid #edf2f7;
+        }
+
+        .allstock-toolbar-text{
+            font-size: .84rem;
+            color: #475569;
+            font-weight: 700;
+        }
+
+        .allstock-toolbar-text strong{
+            color: #0f172a;
+        }
+
+        .allstock-export-actions{
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .allstock-table-wrap{
+            overflow-x: auto;
+        }
+
+        .allstock-table{
+            width: 100%;
+            min-width: 1380px;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .allstock-table thead th{
+            background: #ecfdf5;
+            padding: 14px 18px;
+            font-size: .73rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #166534;
+            text-align: left;
+            border-bottom: 1px solid #d1fae5;
+        }
+
+        .allstock-table tbody td{
+            padding: 16px 18px;
+            border-bottom: 1px solid #eef2f7;
+            vertical-align: top;
+            font-size: .88rem;
+            color: #0f172a;
+            background: rgba(255,255,255,.96);
+        }
+
+        .allstock-table tbody tr:hover td{
+            background: #fbfefd;
+        }
+
+        .allstock-code{
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        .allstock-ear{
+            font-weight: 800;
+            color: #14532d;
+        }
+
+        .allstock-chip{
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: .74rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .chip-breed{ background: #f1f5f9; color: #334155; }
+        .chip-breeding{ background: #dcfce7; color: #166534; }
+        .chip-standard{ background: #dbeafe; color: #1d4ed8; }
+        .chip-male{ background: #dbeafe; color: #1d4ed8; }
+        .chip-female{ background: #fce7f3; color: #be185d; }
+
+        .allstock-meta-stack{
+            display: grid;
+            gap: 4px;
+            font-size: .8rem;
+            color: #64748b;
+        }
+
+        .allstock-meta-stack strong{
+            color: #0f172a;
+        }
+
+        .allstock-weight-badge{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-size: .74rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .allstock-action-btn{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 14px;
+            border: 1px solid #d1d5db;
+            background: #fff;
+            color: #374151;
+            font-size: .82rem;
+            font-weight: 800;
+            transition: .2s ease;
+        }
+
+        .allstock-action-btn:hover{
+            background: #f8fafc;
+        }
+
+        .allstock-menu{
+            width: 220px;
+            border-radius: 18px;
+            background: #fff;
+            box-shadow: 0 18px 44px rgba(15,23,42,.12);
+            border: 1px solid #e5e7eb;
+            overflow: hidden;
+        }
+
+        .allstock-menu-item{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            padding: 12px 14px;
+            font-size: .84rem;
+            font-weight: 700;
+            color: #334155;
+            background: #fff;
+            text-decoration: none;
+            transition: .2s ease;
+            text-align: left;
+        }
+
+        .allstock-menu-item:hover{
+            background: #f8fafc;
+        }
+
+        .allstock-menu-item.danger{
+            color: #b91c1c;
+        }
+
+        .allstock-menu-item.danger:hover{
+            background: #fef2f2;
+        }
+
+        .allstock-empty{
+            padding: 50px 18px;
+            text-align: center;
+        }
+
+        .allstock-empty-icon{
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 16px;
+            color: #94a3b8;
+        }
+
+        .allstock-empty-title{
+            font-size: 1.08rem;
+            font-weight: 900;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+
+        .allstock-empty-text{
+            max-width: 620px;
+            margin: 0 auto;
+            color: #64748b;
+            line-height: 1.75;
+            font-size: .92rem;
+        }
+
+        .allstock-footer{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            flex-wrap: wrap;
+            padding: 16px 24px;
+            border-top: 1px solid #edf2f7;
+            background: #fff;
+        }
+
+        .allstock-footer-text{
+            font-size: .84rem;
+            color: #475569;
+            font-weight: 700;
+        }
+
+        @media (max-width: 1200px){
+            .allstock-filter-grid{
+                grid-template-columns: repeat(2, minmax(0,1fr));
+            }
+        }
+
+        @media (max-width: 768px){
+            .allstock-shell{
+                padding: 0 12px;
+            }
+
+            .allstock-hero{
+                padding: 22px 18px;
+                border-radius: 24px;
+            }
+
+            .allstock-card-head,
+            .allstock-card-body,
+            .allstock-toolbar,
+            .allstock-footer{
+                padding-left: 18px;
+                padding-right: 18px;
+            }
+
+            .allstock-filter-grid{
+                grid-template-columns: 1fr;
+            }
+
+            .allstock-filter-actions,
+            .allstock-export-actions,
+            .allstock-hero-actions{
+                width: 100%;
+            }
+
+            .allstock-filter-actions > *,
+            .allstock-export-actions > *,
+            .allstock-hero-actions > *{
+                flex: 1 1 100%;
+            }
+        }
+    </style>
+
+    <div class="allstock-page">
+        <div class="allstock-shell">
+            <div class="allstock-hero">
+                <div class="allstock-hero-inner">
+                    <div>
+                        <h1 class="allstock-hero-title">All Stock Management</h1>
+                        <p class="allstock-hero-sub">
+                            View and manage all pigs in one place, with filters for stock type, breed, gender, and a full search
+                            that works across the complete dataset, not just the current page.
+                        </p>
+                    </div>
+
+                    <div class="allstock-hero-actions">
+                        <a href="{{ route('all-stocks.create') }}" class="allstock-top-btn allstock-top-btn-primary">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                            </svg>
+                            Add New Stock
+                        </a>
+                    </div>
                 </div>
             </div>
 
+            <div class="allstock-card">
+                <div class="allstock-card-head">
+                    <h3 class="allstock-card-title">Search, Filters & Exports</h3>
+                    <div class="allstock-card-sub">Search the full stock database and narrow the results with the filters below.</div>
+                </div>
 
-            <div class="bg-white shadow-xl rounded-lg">
-                <div class="flex items-center justify-end p-4 ">
-                    <!-- <div class="flex items-center">
-                        <input id="quickSearch" type="text" placeholder="Quick search..." class="w-64 border-gray-300 rounded-lg shadow-sm focus:ring-[#1C6C51] focus:border-[#1C6C51]">
-                    </div> -->
-                    <div class="flex gap-3">
-                    <a href="{{ route('all-stocks.create') }}"
-                       class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition shadow-sm">
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                        </svg>
-                        Add New Stock
-                    </a>
-                </div>
-                </div>
-                <!-- Filters and Export Buttons integrated with table -->
-                <div class="p-6 border-b border-gray-200">
-                    <form method="GET" action="{{ route('all-stocks.index') }}" id="filterForm" class="flex flex-wrap items-end gap-4 mb-4">
-                        <div class="flex-1 min-w-[150px]">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Stock Type</label>
-                            <select name="stock_type" id="stockTypeFilter" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-[#1C6C51] focus:border-[#1C6C51]">
-                                <option value="" disabled selected>All Types</option>
-                                <option value="breeding" {{ request('stock_type') == 'breeding' ? 'selected' : '' }}>Breeding Stock</option>
-                                <option value="standard" {{ request('stock_type') == 'standard' ? 'selected' : '' }}>Standard Stock</option>
-                            </select>
-                        </div>
-                        <div class="flex-1 min-w-[200px]">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Breed</label>
-                            <select name="breed" id="breedFilter" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-[#1C6C51] focus:border-[#1C6C51]">
-                                <option value="" disabled selected>All Breeds</option>
-                                <option value="LW" {{ request('breed') == 'LW' ? 'selected' : '' }}>Large White</option>
-                                <option value="DR" {{ request('breed') == 'DR' ? 'selected' : '' }}>Duroc</option>
-                                <option value="LWDR" {{ request('breed') == 'LWDR' ? 'selected' : '' }}>Large White Duroc</option>
-                            </select>
-                        </div>
-                        <div class="flex-1 min-w-[150px]">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                            <select name="gender" id="genderFilter" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-[#1C6C51] focus:border-[#1C6C51]">
-                                <option value="" disabled selected>All Genders</option>
-                                <option value="M" {{ request('gender') == 'M' ? 'selected' : '' }}>Male</option>
-                                <option value="F" {{ request('gender') == 'F' ? 'selected' : '' }}>Female</option>
-                            </select>
-                        </div>
-                        <!-- <div class="flex-1 min-w-[150px]">
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Min Age (days)</label>
-                            <input type="number" name="age" id="ageFilter" value="{{ request('age') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-[#1C6C51] focus:border-[#1C6C51]" placeholder="e.g. 365">
-                        </div> -->
-                        <div class="flex gap-2">
-                            <button type="submit" class="px-4 py-2 bg-[#1C6C51] text-white rounded-lg hover:bg-green-700 font-medium">Filter</button>
-                            <a href="{{ route('all-stocks.index') }}" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 font-medium">Clear</a>
+                <div class="allstock-card-body">
+                    <form method="GET" action="{{ route('all-stocks.index') }}" id="filterForm">
+                        <div class="allstock-filter-grid">
+                            <div class="allstock-field">
+                                <label class="allstock-label">Search</label>
+                                <input
+                                    type="text"
+                                    name="q"
+                                    id="quickSearch"
+                                    value="{{ request('q', $q ?? '') }}"
+                                    placeholder="Search code, ear tag, breed, type, room, parents..."
+                                    class="allstock-input"
+                                >
+                            </div>
+
+                            <div class="allstock-field">
+                                <label class="allstock-label">Stock Type</label>
+                                <select name="stock_type" id="stockTypeFilter" class="allstock-select">
+                                    <option value="">All Types</option>
+                                    <option value="breeding" {{ request('stock_type') == 'breeding' ? 'selected' : '' }}>Breeding Stock</option>
+                                    <option value="standard" {{ request('stock_type') == 'standard' ? 'selected' : '' }}>Standard Stock</option>
+                                </select>
+                            </div>
+
+                            <div class="allstock-field">
+                                <label class="allstock-label">Breed</label>
+                                <select name="breed" id="breedFilter" class="allstock-select">
+                                    <option value="">All Breeds</option>
+                                    <option value="LW" {{ request('breed') == 'LW' ? 'selected' : '' }}>Large White</option>
+                                    <option value="DR" {{ request('breed') == 'DR' ? 'selected' : '' }}>Duroc</option>
+                                    <option value="LWDR" {{ request('breed') == 'LWDR' ? 'selected' : '' }}>Large White Duroc</option>
+                                </select>
+                            </div>
+
+                            <div class="allstock-field">
+                                <label class="allstock-label">Gender</label>
+                                <select name="gender" id="genderFilter" class="allstock-select">
+                                    <option value="">All Genders</option>
+                                    <option value="M" {{ request('gender') == 'M' ? 'selected' : '' }}>Male</option>
+                                    <option value="F" {{ request('gender') == 'F' ? 'selected' : '' }}>Female</option>
+                                </select>
+                            </div>
+
+                            <div class="allstock-field">
+                                <label class="allstock-label">Actions</label>
+                                <div class="allstock-filter-actions">
+                                    <button type="submit" class="allstock-btn allstock-btn-green">Apply</button>
+                                    <a href="{{ route('all-stocks.index') }}" class="allstock-btn allstock-btn-gray">Clear</a>
+                                </div>
+                            </div>
                         </div>
                     </form>
-                    
-                    <!-- Export Buttons + Quick Search -->
-                    <div class="flex items-center justify-between gap-4">
-                        <div class="flex gap-2">
-                            <a href="{{ route('all-stocks.export.csv', request()->query()) }}" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                                Export CSV
-                            </a>
-                            <a href="{{ route('all-stocks.export.pdf', request()->query()) }}" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 font-medium">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                </svg>
-                                Export PDF
-                            </a>
-                        </div>
-                        <div class="flex items-center">
-                            <input id="quickSearch" type="text" placeholder="Quick search..." class="w-64 border-gray-300 rounded-lg shadow-sm focus:ring-[#1C6C51] focus:border-[#1C6C51]">
-                        </div>
-                    </div>
                 </div>
-                
-                <!-- Results Summary -->
-                <div class="px-6 py-3 bg-gray-50 border-b border-gray-200">
-                    <div class="flex items-center justify-between">
-                        <div class="text-sm text-gray-600">
-                            @if($pigmanagement->total() > 0)
-                                Total: {{ $pigmanagement->total() }} pig{{ $pigmanagement->total() !== 1 ? 's' : '' }}
-                                @if(request()->hasAny(['breed', 'gender', 'age', 'stock_type', 'has_weights', 'created_from', 'created_to', 'has_recent_weigh_date', 'recent_weigh_days', 'has_recent_weight', 'recent_weight_days']))
-                                    (filtered)
-                                @endif
+
+                <div class="allstock-toolbar">
+                    <div class="allstock-toolbar-text">
+                        @if($pigmanagement->total() > 0)
+                            <strong>{{ $pigmanagement->total() }}</strong> pig{{ $pigmanagement->total() !== 1 ? 's' : '' }}
+                            @if(request()->hasAny(['q', 'breed', 'gender', 'stock_type', 'has_weights', 'created_from', 'created_to', 'has_recent_weigh_date', 'recent_weigh_days', 'has_recent_weight', 'recent_weight_days']))
+                                found with current filters
                             @else
-                                No pigs found
+                                in the system
                             @endif
-                        </div>
-                        @if($pigmanagement->hasPages())
-                        <!-- <div class="text-sm text-gray-600">
-                            Page {{ $pigmanagement->currentPage() }} of {{ $pigmanagement->lastPage() }}
-                        </div> -->
+                        @else
+                            No pigs found
                         @endif
                     </div>
+
+                    <div class="allstock-export-actions">
+                        <a href="{{ route('all-stocks.export.csv', request()->query()) }}" class="allstock-btn allstock-btn-green">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Export CSV
+                        </a>
+                        <a href="{{ route('all-stocks.export.pdf', request()->query()) }}" class="allstock-btn allstock-btn-red">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Export PDF
+                        </a>
+                    </div>
                 </div>
-                
-                <div class="overflow-x-auto">
-  <table id="allStockTable" class="min-w-full border border-gray-200 rounded-xl shadow-sm">
-    <thead class="bg-green-50 sticky top-0 z-10">
-      <tr>
-        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Code</th>
-        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Ear Tag</th>
-        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Breed</th>
-        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
-        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Gender</th>
-        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">DOB</th>
-        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Age</th>
-        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Location</th>
-        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Weight</th>
-        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Parents</th>
-        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-gray-200">
-      @forelse($pigmanagement as $pig)
-        <tr class="hover:bg-green-50 transition-colors duration-200 even:bg-gray-50 stock-row"
-            data-code="{{ $pig->code }}"
-            data-ear="{{ $pig->ear_tag_number }}"
-            data-breed="{{ $pig->breed }}"
-            data-type="{{ $pig->stock_type }}"
-            data-gender="{{ $pig->gender }}"
-            data-location="{{ $pig->room?->structure?->name ?? '' }} {{ $pig->room?->name ?? '' }}"
-            data-dob="{{ optional($pig->date_of_birth)->format('Y-m-d') }}"
-            data-age="{{ $pig->age_compact }}"
-            data-parents="{{ ($pig->father->ear_tag_number ?? '') . ' ' . ($pig->mother->ear_tag_number ?? '') }}">
-          <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ $pig->code }}</td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $pig->ear_tag_number }}</td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-700">
-              {{ $pig->breed_display ?? $pig->breed }}
-            </span>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            @if($pig->stock_type == 'breeding')
-              <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Breeding</span>
-            @else
-              <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Standard</span>
-            @endif
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $pig->gender == 'M' ? 'bg-blue-100 text-blue-700' : 'bg-pink-100 text-pink-700' }}">
-              {{ $pig->gender == 'M' ? '♂ Male' : '♀ Female' }}
-            </span>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm">{{ $pig->date_of_birth->format('Y-m-d') }}</td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm">{{ $pig->age_compact }}</td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm">
-            @if($pig->room && $pig->room->structure)
-                <div class="text-xs">
-                    <div class="font-medium text-gray-900">{{ $pig->room->structure->name }}</div>
-                    <div class="text-gray-500">{{ $pig->room->name }}</div>
-                </div>
-            @else
-                <span class="text-gray-400">N/A</span>
-            @endif
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-                                @if($pig->recentWeightAlerts->count() > 0)
-                                    @php
-                                        $alert = $pig->recentWeightAlerts->first();
-                                        $alertConfig = [
-                                            'under_weight' => ['icon' => '⬇️', 'color' => 'text-blue-700', 'bg' => 'bg-blue-100', 'text' => 'Under', 'border' => 'border-blue-300'],
-                                            'over_weight' => ['icon' => '⬆️', 'color' => 'text-orange-700', 'bg' => 'bg-orange-100', 'text' => 'Over', 'border' => 'border-orange-300'],
-                                            'normal' => ['icon' => '✅', 'color' => 'text-green-700', 'bg' => 'bg-green-100', 'text' => 'Normal', 'border' => 'border-green-300'],
-                                            'no_standard' => ['icon' => '', 'color' => 'text-gray-700', 'bg' => 'bg-gray-100', 'text' => 'No Std', 'border' => 'border-gray-300']
-                                        ];
-                                        $config = $alertConfig[$alert->alert_type] ?? $alertConfig['no_standard'];
-                                        $severityBorder = $alert->severity == 'high' ? 'border-red-500 border-2' : ($alert->severity == 'medium' ? 'border-yellow-500' : $config['border']);
-                                    @endphp
-                                    <div class="flex items-center">
-                                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $config['bg'] }} {{ $config['color'] }} border {{ $severityBorder }}"
-                                              title="{{ $alert->alert_message }} ({{ $alert->created_at->diffForHumans() }})">
-                                            {{ $config['icon'] }} {{ $config['text'] }}
-                                            @if($alert->severity == 'high')
-                                                <span class="ml-1 text-red-600 font-bold">!</span>
-                                            @endif
+
+                <div class="allstock-table-wrap">
+                    <table class="allstock-table">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Ear Tag</th>
+                                <th>Breed</th>
+                                <th>Type</th>
+                                <th>Gender</th>
+                                <th>DOB</th>
+                                <th>Age</th>
+                                <th>Location</th>
+                                <th>Weight</th>
+                                <th>Parents</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($pigmanagement as $pig)
+                                <tr>
+                                    <td><div class="allstock-code">{{ $pig->code }}</div></td>
+
+                                    <td><div class="allstock-ear">{{ $pig->ear_tag_number }}</div></td>
+
+                                    <td>
+                                        <span class="allstock-chip chip-breed">
+                                            {{ $pig->breed_display ?? $pig->breed }}
                                         </span>
-                                    </div>
-                                @else
-                                    <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-50 text-gray-500 border border-gray-200">
-                                        ➖ No Data
-                                    </span>
-                                @endif
-                            </td>
-                            <td class="px-6 py-4">
-                                @php
-                                    $father = $pig->father_id ? $pig->father->ear_tag_number ?? 'N/A' : 'N/A';
-                                    $mother = $pig->mother_id ? $pig->mother->ear_tag_number ?? 'N/A' : 'N/A';
-                                @endphp
-                                <div class="text-xs space-y-1">
-                                    <div class="flex items-center">
-                                        <span class="text-gray-500 w-4">♂</span>
-                                        <span class="font-medium">{{ $father }}</span>
-                                    </div>
-                                    <div class="flex items-center">
-                                        <span class="text-gray-500 w-4">♀</span>
-                                        <span class="font-medium">{{ $mother }}</span>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                <div class="relative inline-block text-left" x-data="{ open: false, place: 'down', toggle(){ this.open = !this.open; if(!this.open){ return; } this.$nextTick(() => { const menu = this.$refs.menu; const trigger = this.$refs.trigger; if(!menu || !trigger) return; const mr = menu.getBoundingClientRect(); const tr = trigger.getBoundingClientRect(); const below = window.innerHeight - tr.bottom; const above = tr.top; this.place = (below < mr.height + 16 && above > mr.height) ? 'up' : 'down'; }); } }">
-                                    <button x-ref="trigger" @click="toggle()"
-                                            class="inline-flex items-center px-2 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-green-500 transition">
-                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
-                                        </svg>
-                                    </button>
+                                    </td>
 
-                                    <div x-ref="menu" x-show="open"
-                                         @click.away="open = false"
-                                         x-transition:enter="transition ease-out duration-100"
-                                         x-transition:enter-start="transform opacity-0 scale-95"
-                                         x-transition:enter-end="transform opacity-100 scale-100"
-                                         x-transition:leave="transition ease-in duration-75"
-                                         x-transition:leave-start="transform opacity-100 scale-100"
-                                         x-transition:leave-end="transform opacity-0 scale-95"
-                                         :class="place === 'down' ? 'origin-top-right mt-2 top-full' : 'origin-bottom-right mb-2 bottom-full'"
-                                         class="absolute right-0 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
-                                        <div class="py-1">
-                                            <a href="{{ route('pigs.show', $pig->id) }}"
-                                               class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-green-50 hover:text-green-900 transition">
-                                                <svg class="mr-3 h-4 w-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                                </svg>
-                                                View Details
-                                            </a>
+                                    <td>
+                                        @if($pig->stock_type === 'breeding')
+                                            <span class="allstock-chip chip-breeding">Breeding</span>
+                                        @else
+                                            <span class="allstock-chip chip-standard">Standard</span>
+                                        @endif
+                                    </td>
 
-                                            <a href="{{ route('weights.create') }}?pig_id={{ $pig->id }}"
-                                               class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-900 transition">
-                                                <svg class="mr-3 h-4 w-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
-                                                </svg>
-                                                Record Weight
-                                            </a>
+                                    <td>
+                                        @if($pig->gender === 'M')
+                                            <span class="allstock-chip chip-male">♂ Male</span>
+                                        @else
+                                            <span class="allstock-chip chip-female">♀ Female</span>
+                                        @endif
+                                    </td>
 
-                                            <a href="{{ route('breeding-stocks.edit', $pig) }}"
-                                               class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-yellow-50 hover:text-yellow-900 transition">
-                                                <svg class="mr-3 h-4 w-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-                                                </svg>
-                                                Edit Pig
-                                            </a>
+                                    <td>{{ optional($pig->date_of_birth)->format('Y-m-d') ?? 'N/A' }}</td>
 
-                                            @if($pig->stock_type === 'breeding')
-                                                <a href="{{ route('mating.manage') }}"
-                                                   class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-pink-50 hover:text-pink-900 transition">
-                                                    <svg class="mr-3 h-4 w-4 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-                                                    </svg>
-                                                    Manage Mating
-                                                </a>
-                                            @endif
+                                    <td>{{ $pig->age_compact }}</td>
 
-                                            <!-- <a href="{{ route('weights.index') }}"
-                                               class="group flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition">
-                                                <svg class="mr-3 h-4 w-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 00-2 2z"/>
-                                                </svg>
-                                                Weight Records
-                                            </a> -->
+                                    <td>
+                                        @if($pig->room && $pig->room->structure)
+                                            <div class="allstock-meta-stack">
+                                                <div><strong>{{ $pig->room->structure->name }}</strong></div>
+                                                <div>{{ $pig->room->name }}</div>
+                                            </div>
+                                        @else
+                                            <span class="text-gray-400 text-sm">N/A</span>
+                                        @endif
+                                    </td>
 
-                                            <div class="border-t border-gray-100"></div>
+                                    <td>
+                                        @if($pig->recentWeightAlerts->count() > 0)
+                                            @php
+                                                $alert = $pig->recentWeightAlerts->first();
+                                                $alertConfig = [
+                                                    'under_weight' => ['icon' => '⬇️', 'color' => 'text-blue-700', 'bg' => 'bg-blue-100', 'text' => 'Under'],
+                                                    'over_weight' => ['icon' => '⬆️', 'color' => 'text-orange-700', 'bg' => 'bg-orange-100', 'text' => 'Over'],
+                                                    'normal' => ['icon' => '✅', 'color' => 'text-green-700', 'bg' => 'bg-green-100', 'text' => 'Normal'],
+                                                    'no_standard' => ['icon' => '➖', 'color' => 'text-gray-700', 'bg' => 'bg-gray-100', 'text' => 'No Std'],
+                                                ];
+                                                $config = $alertConfig[$alert->alert_type] ?? $alertConfig['no_standard'];
+                                            @endphp
 
-                                            <form action="{{ route('breeding-stocks.destroy', $pig) }}" method="POST" class="inline w-full">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit"
-                                                        onclick="return confirm('Are you sure you want to delete {{ $pig->ear_tag_number }}? This action cannot be undone.')"
-                                                        class="group flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50 hover:text-red-900 transition">
-                                                    <svg class="mr-3 h-4 w-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                                                    </svg>
-                                                    Delete Pig
-                                                </button>
-                                            </form>
+                                            <span class="allstock-weight-badge {{ $config['bg'] }} {{ $config['color'] }}">
+                                                {{ $config['icon'] }} {{ $config['text'] }}
+                                                @if($alert->severity === 'high')
+                                                    <span class="text-red-600 font-black">!</span>
+                                                @endif
+                                            </span>
+                                        @else
+                                            <span class="allstock-weight-badge bg-gray-50 text-gray-500 border border-gray-200">
+                                                ➖ No Data
+                                            </span>
+                                        @endif
+                                    </td>
+
+                                    <td>
+                                        @php
+                                            $father = $pig->father_id ? $pig->father->ear_tag_number ?? 'N/A' : 'N/A';
+                                            $mother = $pig->mother_id ? $pig->mother->ear_tag_number ?? 'N/A' : 'N/A';
+                                        @endphp
+                                        <div class="allstock-meta-stack">
+                                            <div><strong>F:</strong> {{ $father }}</div>
+                                            <div><strong>M:</strong> {{ $mother }}</div>
                                         </div>
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                        <td colspan="11" class="px-6 py-12 text-center text-sm text-gray-500">
-                            No stock found
-                        </td>
-                        </tr>
-                    @endforelse
-                    <tr id="clientNoMatchRow" class="hidden">
-                        <td colspan="11" class="px-6 py-12 text-center text-sm text-gray-500">No matches for your search.</td>
-                    </tr>
-                    </tbody>
-                </table>
+                                    </td>
+
+                                    <td>
+                                        <div class="relative inline-block text-left" x-data="{ open: false, place: 'down', toggle(){ this.open = !this.open; if(!this.open){ return; } this.$nextTick(() => { const menu = this.$refs.menu; const trigger = this.$refs.trigger; if(!menu || !trigger) return; const mr = menu.getBoundingClientRect(); const tr = trigger.getBoundingClientRect(); const below = window.innerHeight - tr.bottom; const above = tr.top; this.place = (below < mr.height + 16 && above > mr.height) ? 'up' : 'down'; }); } }">
+                                            <button x-ref="trigger" @click="toggle()" class="allstock-action-btn">
+                                                Actions
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                                </svg>
+                                            </button>
+
+                                            <div x-ref="menu"
+                                                 x-show="open"
+                                                 @click.away="open = false"
+                                                 x-transition:enter="transition ease-out duration-100"
+                                                 x-transition:enter-start="transform opacity-0 scale-95"
+                                                 x-transition:enter-end="transform opacity-100 scale-100"
+                                                 x-transition:leave="transition ease-in duration-75"
+                                                 x-transition:leave-start="transform opacity-100 scale-100"
+                                                 x-transition:leave-end="transform opacity-0 scale-95"
+                                                 :class="place === 'down' ? 'origin-top-right mt-2 top-full' : 'origin-bottom-right mb-2 bottom-full'"
+                                                 class="absolute right-0 z-50 allstock-menu">
+
+                                                <a href="{{ route('pigs.show', $pig->id) }}" class="allstock-menu-item">View Details</a>
+
+                                                <a href="{{ route('weights.create') }}?pig_id={{ $pig->id }}" class="allstock-menu-item">Record Weight</a>
+
+                                                <a href="{{ route('breeding-stocks.edit', $pig) }}" class="allstock-menu-item">Edit Pig</a>
+
+                                                @if($pig->stock_type === 'breeding')
+                                                    <a href="{{ route('mating.manage') }}" class="allstock-menu-item">Manage Mating</a>
+                                                @endif
+
+                                                <div class="border-t border-gray-100"></div>
+
+                                                <form action="{{ route('breeding-stocks.destroy', $pig) }}" method="POST" class="inline w-full">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit"
+                                                            onclick="return confirm('Are you sure you want to delete {{ $pig->ear_tag_number }}? This action cannot be undone.')"
+                                                            class="allstock-menu-item danger">
+                                                        Delete Pig
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="11">
+                                        <div class="allstock-empty">
+                                            <svg class="allstock-empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.29-1.009-5.824-2.562M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.636 6.636a9 9 0 000 12.728"></path>
+                                            </svg>
+                                            <div class="allstock-empty-title">No stock found</div>
+                                            <div class="allstock-empty-text">
+                                                @if(request()->hasAny(['q', 'breed', 'gender', 'stock_type']))
+                                                    No pigs match your current search and filter criteria. Try changing the filters or clearing them.
+                                                @else
+                                                    There are no stock records in the system yet.
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
                 </div>
 
-
-                
-                <!-- Pagination (embedded, simple style) -->
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
-                    <div class="px-6 py-4 border-t border-gray-200 bg-white">
-                        <div class="flex items-center justify-between">
-                            <div class="text-sm text-gray-700">
-                                Showing {{ $pigmanagement->firstItem() }} to {{ $pigmanagement->lastItem() }} of {{ $pigmanagement->total() }} results
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <x-simple-pagination :paginator="$pigmanagement" />
-                            </div>
+                @if($pigmanagement->hasPages())
+                    <div class="allstock-footer">
+                        <div class="allstock-footer-text">
+                            Showing {{ $pigmanagement->firstItem() }} to {{ $pigmanagement->lastItem() }} of {{ $pigmanagement->total() }} results
+                        </div>
+                        <div>
+                            <x-simple-pagination :paginator="$pigmanagement" />
                         </div>
                     </div>
-                
+                @endif
             </div>
         </div>
-    </main>
-    <x-copyright-minimal />
+    </div>
 
-
-    <script>
-        // Client-side quick search filtering (vanilla JS)
-        (function() {
-            function debounce(fn, wait) {
-                let t; return function() { const ctx = this, args = arguments; clearTimeout(t); t = setTimeout(function(){ fn.apply(ctx, args); }, wait); };
-            }
-            document.addEventListener('DOMContentLoaded', function() {
-                var rows = Array.prototype.slice.call(document.querySelectorAll('#allStockTable tbody tr.stock-row'));
-                var noMatch = document.getElementById('clientNoMatchRow');
-                var search = document.getElementById('quickSearch');
-                if (!search) return;
-                var handler = debounce(function() {
-                    var q = (search.value || '').toLowerCase().trim();
-                    var tokens = q.split(/\s+/).filter(Boolean);
-                    if (tokens.length === 0) {
-                        rows.forEach(function(r){ r.style.display = ''; });
-                        if (noMatch) noMatch.classList.add('hidden');
-                        return;
-                    }
-                    var visible = 0;
-                    rows.forEach(function(r){
-                        var fields = (
-                            (r.dataset.code || '') + ' ' +
-                            (r.dataset.ear || '') + ' ' +
-                            (r.dataset.breed || '') + ' ' +
-                            (r.dataset.type || '') + ' ' +
-                            (r.dataset.gender || '') + ' ' +
-                            (r.dataset.location || '') + ' ' +
-                            (r.dataset.dob || '') + ' ' +
-                            (r.dataset.age || '') + ' ' +
-                            (r.dataset.parents || '')
-                        ).toLowerCase();
-                        var match = tokens.every(function(tok){ return fields.indexOf(tok) !== -1; });
-                        r.style.display = match ? '' : 'none';
-                        if (match) visible++;
-                    });
-                    if (noMatch) noMatch.classList.toggle('hidden', visible !== 0);
-                }, 150);
-                search.addEventListener('input', handler);
-            });
-        })();
-    </script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.getElementById('filterForm');
             const stockTypeFilter = document.getElementById('stockTypeFilter');
             const breedFilter = document.getElementById('breedFilter');
             const genderFilter = document.getElementById('genderFilter');
-            const ageFilter = document.getElementById('ageFilter');
-            
-            // Add event listeners for live search
+            const quickSearch = document.getElementById('quickSearch');
+
             stockTypeFilter.addEventListener('change', function() {
                 form.submit();
             });
-            
+
             breedFilter.addEventListener('change', function() {
                 form.submit();
             });
-            
+
             genderFilter.addEventListener('change', function() {
                 form.submit();
             });
-            
-            // For age input, use a debounced approach to avoid too many requests
-            let ageTimeout;
-            ageFilter.addEventListener('input', function() {
-                clearTimeout(ageTimeout);
-                ageTimeout = setTimeout(function() {
+
+            let searchTimeout;
+            quickSearch.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(function() {
                     form.submit();
-                }, 500); // Wait 500ms after user stops typing
+                }, 450);
             });
-            
-            // Also submit on Enter key for age input
-            ageFilter.addEventListener('keypress', function(e) {
+
+            quickSearch.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
-                    clearTimeout(ageTimeout);
+                    clearTimeout(searchTimeout);
                     form.submit();
                 }
             });

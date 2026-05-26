@@ -78,10 +78,10 @@
                             <span class="text-gray-600 font-medium">Purpose:</span>
                             <span class="text-gray-900 font-semibold">{{ ucfirst($sale->sale_purpose) }}</span>
                         </div>
-                        @if($sale->sold_by)
+                        @if($sale->display_sold_by)
                             <div class="flex justify-between">
                                 <span class="text-gray-600 font-medium">Sold By:</span>
-                                <span class="text-gray-900 font-semibold">{{ $sale->sold_by }}</span>
+                                <span class="text-gray-900 font-semibold">{{ $sale->display_sold_by }}</span>
                             </div>
                         @endif
                     </div>
@@ -196,7 +196,4 @@
             @endif
         </div>
     </div>
-    
-    <!-- Footer Component -->
-    <x-copyright-minimal /> 
 </x-app-layout>

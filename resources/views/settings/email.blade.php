@@ -1,53 +1,7 @@
 <x-app-layout>
     <main class="min-h-screen bg-slate-50/70 py-2">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <!-- <div class="mb-6">
-                <div class="rounded-3xl bg-gradient-to-r from-[#1C6C51] via-[#238b67] to-[#2aa578] p-6 md:p-8 text-white shadow-lg">
-                    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                        <div>
-                            <p class="text-sm font-medium text-white/80 mb-2">System Configuration</p>
-                            <h1 class="text-2xl md:text-3xl font-bold tracking-tight">Email Settings</h1>
-                            <p class="mt-2 text-sm md:text-base text-white/85 max-w-3xl">
-                                Configure your mail server, test delivery, and manage email templates used across the system.
-                            </p>
-                        </div>
-
-                        <div class="rounded-2xl bg-white/10 backdrop-blur-sm px-5 py-4 border border-white/15">
-                            <p class="text-xs uppercase tracking-[0.18em] text-white/70">Settings Area</p>
-                            <p class="mt-1 text-lg font-semibold">Mail Configuration</p>
-                        </div>
-                    </div>
-                </div>
-            </div> -->
 
             <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-                <div class="border-b border-slate-200 bg-slate-50/70">
-                    <nav class="flex flex-wrap gap-x-6 gap-y-2 px-6 py-4" aria-label="Tabs">
-                        @if(auth()->user()->isSuperuser() || auth()->user()->isAdmin())
-                            <a href="{{ route('settings.general') }}"
-                               class="inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold transition {{ request()->routeIs('settings.general*') ? 'bg-green-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                                General Settings
-                            </a>
-                        @endif
-
-                        @if(auth()->user()->isSuperuser())
-                            <a href="{{ route('settings.users') }}"
-                               class="inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold transition {{ request()->routeIs('settings.users*') ? 'bg-green-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                                Account Settings
-                            </a>
-                            @endif
-
-                            <a href="{{ route('settings.setup') }}"
-                               class="inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold transition {{ request()->routeIs('settings.setup*') ? 'bg-green-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                                Breeding Cycle
-                            </a>
-
-                        <a href="{{ route('settings.email') }}"
-                           class="inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold transition {{ request()->routeIs('settings.email*') ? 'bg-green-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
-                            Email Settings
-                        </a>
-                    </nav>
-                </div>
 
                 <div class="p-6 md:p-8">
                     <div class="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -84,7 +38,7 @@
                         <div class="p-6">
                             <!-- Server Settings Tab -->
                             <div id="tab-content-server" class="tab-content">
-                                <form action="{{ route('settings.email.update') }}" method="POST" class="space-y-8">
+                                <form id="emailSettingsForm" action="{{ route('settings.email.update') }}" method="POST" class="space-y-8">
                                     @csrf
                                     @method('PUT')
 
@@ -123,7 +77,7 @@
                                                 <label class="block text-sm font-medium text-slate-700 mb-2">Encryption</label>
                                                 <select name="encryption" class="w-full rounded-xl border-slate-300 px-4 py-2.5 shadow-sm focus:border-green-500 focus:ring-green-500">
                                                     <option value="">None</option>
-                                                    <option value="tls" {{ $settings->encryption === 'tls' ? 'selected' : '' }}>TLS</option>
+                                                    <option value="tls" {{ $settings->encryption === 'tls' ? 'selected' : '' }}>TLS / STARTTLS</option>
                                                     <option value="ssl" {{ $settings->encryption === 'ssl' ? 'selected' : '' }}>SSL</option>
                                                 </select>
                                             </div>
@@ -269,25 +223,39 @@
             const btn = document.getElementById('testConnectionBtn');
             const spinner = document.getElementById('testConnectionSpinner');
             const resultDiv = document.getElementById('connectionResult');
+            const settingsForm = document.getElementById('emailSettingsForm');
 
             btn.disabled = true;
             spinner.classList.remove('hidden');
             resultDiv.classList.add('hidden');
 
+            const formData = new FormData(settingsForm);
+            // The settings form uses method spoofing (_method=PUT) for saving,
+            // but the test endpoint is POST-only. Strip the override.
+            formData.delete('_method');
+
             fetch('{{ route("settings.email.test-connection") }}', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                }
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                },
+                body: formData
             })
-            .then(response => response.json())
-            .then(data => {
+            .then(async response => {
+                const data = await response.json().catch(() => ({
+                    success: false,
+                    message: 'Unexpected response from server.'
+                }));
+
+                return { ok: response.ok, data };
+            })
+            .then(({ ok, data }) => {
                 spinner.classList.add('hidden');
                 btn.disabled = false;
                 resultDiv.classList.remove('hidden');
 
-                if (data.success) {
+                if (ok && data.success) {
                     resultDiv.className = 'mt-4 bg-green-50 border border-green-200 rounded-2xl p-4 shadow-sm';
                     resultDiv.innerHTML = `
                         <div class="flex items-center justify-between">
@@ -348,17 +316,25 @@
             fetch('{{ route("settings.email.send-test") }}', {
                 method: 'POST',
                 headers: {
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
                 },
                 body: formData
             })
-            .then(response => response.json())
-            .then(data => {
+            .then(async response => {
+                const data = await response.json().catch(() => ({
+                    success: false,
+                    message: 'Unexpected response from server.'
+                }));
+
+                return { ok: response.ok, data };
+            })
+            .then(({ ok, data }) => {
                 spinner.classList.add('hidden');
                 btn.disabled = false;
                 resultDiv.classList.remove('hidden');
 
-                if (data.success) {
+                if (ok && data.success) {
                     resultDiv.className = 'mt-4 bg-green-50 border border-green-200 rounded-2xl p-4 shadow-sm';
                     resultDiv.innerHTML = `
                         <div class="flex items-center justify-between">
@@ -402,6 +378,4 @@
             });
         }
     </script>
-
-    <x-copyright-minimal />
 </x-app-layout>

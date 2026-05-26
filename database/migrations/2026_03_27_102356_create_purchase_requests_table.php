@@ -8,12 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('purchase_requests')) {
+            return;
+        }
+
         Schema::create('purchase_requests', function (Blueprint $table) {
             $table->id();
             $table->string('request_no')->unique();
             $table->date('request_date');
             $table->foreignId('requested_by')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('supplier_id')->nullable()->constrained('suppliers')->nullOnDelete();
             $table->string('status')->default('draft');
             $table->decimal('total_amount', 12, 2)->default(0);
             $table->text('purpose')->nullable();
