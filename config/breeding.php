@@ -101,34 +101,9 @@ return [
     | Date Calculation Helpers
     |--------------------------------------------------------------------------
     |
-    | Helper functions for common date calculations
+    | Date calculations are implemented in App\Helpers\BreedingCalculator.
     |
     */
 
-    'calculations' => [
-        // Calculate expected farrowing date from mating date
-        'farrowing_date' => function($matingDate) {
-            return \Carbon\Carbon::parse($matingDate)->addDays(config('breeding.cycle.gestation_days'));
-        },
-        
-        // Calculate pregnancy check date from mating date
-        'pregnancy_check_date' => function($matingDate) {
-            return \Carbon\Carbon::parse($matingDate)->addDays(config('breeding.cycle.pregnancy_check_days'));
-        },
-        
-        // Calculate weaning date from birth date
-        'weaning_date' => function($birthDate) {
-            return \Carbon\Carbon::parse($birthDate)->addDays(config('breeding.cycle.birth_to_weaning_days'));
-        },
-        
-        // Calculate maturity date from birth date
-        'maturity_date' => function($birthDate) {
-            return \Carbon\Carbon::parse($birthDate)->addDays(config('breeding.cycle.birth_to_maturity_days'));
-        },
-        
-        // Calculate next available mating date after weaning
-        'next_mating_date' => function($weaningDate) {
-            return \Carbon\Carbon::parse($weaningDate)->addDays(config('breeding.parameters.weaning_to_mating_rest'));
-        },
-    ],
+    'calculator' => App\Helpers\BreedingCalculator::class,
 ];
