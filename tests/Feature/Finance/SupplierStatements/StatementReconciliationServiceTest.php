@@ -124,24 +124,12 @@ class StatementReconciliationServiceTest extends TestCase
         $this->assertSame(SupplierStatementLine::STATUS_NOT_IN_OUR_BOOKS, $line->match_status);
     }
 
-    public function test_invoice_line_duplicate_when_multiple_candidates(): void
+    public function test_duplicate_supplier_invoice_numbers_are_rejected_by_vendor_invoice_constraint(): void
     {
         $this->makeVi('500.00', '2026-12-05', supplierRef: 'DUP-001');
+
+        $this->expectException(\Illuminate\Database\UniqueConstraintViolationException::class);
         $this->makeVi('500.00', '2026-12-15', supplierRef: 'DUP-001');
-
-        $stmt = $this->makeStatement('500.00');
-        $this->hdrService->addLine($stmt, [
-            'document_date' => '2026-12-05', 'document_kind' => 'invoice',
-            'document_reference' => 'DUP-001',
-            'amount' => '500.00',
-        ]);
-
-        $summary = $this->matcher->reconcile($stmt->fresh(), $this->user);
-
-        $this->assertSame(1, $summary['duplicate_match']);
-        $line = $stmt->lines()->first();
-        $this->assertSame(SupplierStatementLine::STATUS_DUPLICATE_MATCH, $line->match_status);
-        $this->assertCount(2, $line->duplicate_candidate_ids);
     }
 
     public function test_payment_line_matches_by_external_reference(): void
@@ -192,7 +180,7 @@ class StatementReconciliationServiceTest extends TestCase
         $this->hdrService->addLine($stmt, [
             'document_date' => '2026-12-10', // 2 days off
             'document_kind' => 'payment',
-            'document_reference' => '',
+            'document_reference' => 'SUPPLIER-REF-UNMATCHED',
             'amount' => '300.00',
         ]);
 
@@ -208,7 +196,7 @@ class StatementReconciliationServiceTest extends TestCase
         $this->hdrService->addLine($stmt, [
             'document_date' => '2026-12-15', // 7 days off
             'document_kind' => 'payment',
-            'document_reference' => '',
+            'document_reference' => 'SUPPLIER-REF-UNMATCHED',
             'amount' => '300.00',
         ]);
 

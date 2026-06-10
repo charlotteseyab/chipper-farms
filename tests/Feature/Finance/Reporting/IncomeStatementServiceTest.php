@@ -28,11 +28,14 @@ class IncomeStatementServiceTest extends TestCase
     public function test_computes_gross_operating_and_net_profit(): void
     {
         // Need a COGS account + an opex account (expenseAccount=6010 is opex).
-        $cogs = Account::create([
-            'organization_id' => $this->org->id, 'code' => '5110', 'name' => 'Cost of Pigs Sold',
+        $cogs = Account::firstOrCreate([
+            'organization_id' => $this->org->id, 'code' => '5110',
+        ], [
+            'name' => 'Cost of Pigs Sold',
             'account_type' => Account::TYPE_EXPENSE, 'account_subtype' => 'cogs',
             'currency_code' => 'GHS', 'is_active' => true, 'allow_manual_journal' => true,
         ]);
+        $cogs->update(['account_subtype' => 'cogs']);
         // Tag the seeded expense account as opex explicitly.
         $this->expenseAccount->update(['account_subtype' => 'opex']);
         $this->revenueAccount->update(['account_subtype' => 'revenue']);
@@ -68,16 +71,6 @@ class IncomeStatementServiceTest extends TestCase
     {
         $this->revenueAccount->update(['account_subtype' => 'revenue']);
 
-        // April open period so April postings resolve.
-        \App\Models\FiscalPeriod::create([
-            'organization_id' => $this->org->id,
-            'fiscal_year_id'  => $this->year->id,
-            'period_number'   => 4,
-            'name'            => 'April 2026',
-            'start_date'      => '2026-04-01',
-            'end_date'        => '2026-04-30',
-            'status'          => \App\Models\FiscalPeriod::STATUS_OPEN,
-        ]);
         // April revenue 500, May revenue 800.
         $this->postJournal('2026-04-15', [
             JournalLineDraft::debit($this->cashAccount->id, '500.00'),

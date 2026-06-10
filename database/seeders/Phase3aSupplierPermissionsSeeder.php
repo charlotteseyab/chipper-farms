@@ -25,11 +25,10 @@ class Phase3aSupplierPermissionsSeeder extends Seeder
     public function run(): void
     {
         $perm = Permission::firstOrCreate(
-            ['code' => 'manage_suppliers'],
+            ['name' => 'manage_suppliers'],
             [
-                'name'        => 'Manage Suppliers',
                 'description' => 'Create, edit, and deactivate suppliers; manage supplier categories',
-                'category'    => 'finance',
+                'module'      => 'finance',
             ],
         );
 

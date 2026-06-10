@@ -48,6 +48,7 @@ class Counterparty extends Model
         'default_tax_code_id',
         'payment_terms_days',
         'credit_limit',
+        'credit_hold_mode',
         'is_active',
         'notes',
 

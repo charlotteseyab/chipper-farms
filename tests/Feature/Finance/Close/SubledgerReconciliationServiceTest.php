@@ -34,20 +34,23 @@ class SubledgerReconciliationServiceTest extends TestCase
     public function test_pig_pool_variance_detected_when_gl_has_balance_but_no_pool(): void
     {
         // Create the 1230 live pig control + an offsetting equity account.
-        $livePig = Account::create([
-            'organization_id' => $this->org->id, 'code' => '1230', 'name' => 'Live Pig Inventory',
+        $livePig = Account::firstOrCreate([
+            'organization_id' => $this->org->id,
+            'code' => '1230',
+        ], [
+            'name' => 'Live Pig Inventory',
             'account_type' => Account::TYPE_ASSET, 'account_subtype' => 'current_asset',
             'currency_code' => 'GHS', 'is_active' => true, 'is_control' => true, 'allow_manual_journal' => true,
         ]);
 
         // Post Dr 1230 / Cr Revenue 500 — GL pig balance = 500, but no
         // group_cost_pools rows exist => subledger 0 => variance 500.
-        $this->post('2026-05-10', [
+        $this->postJournal('2026-06-10', [
             JournalLineDraft::debit($livePig->id, '500.00'),
             JournalLineDraft::credit($this->revenueAccount->id, '500.00'),
         ]);
 
-        $recon = app(SubledgerReconciliationService::class)->pigPool(CarbonImmutable::parse('2026-05-31'));
+        $recon = app(SubledgerReconciliationService::class)->pigPool(CarbonImmutable::parse('2026-06-30'));
 
         $this->assertSame('500.00', $recon['gl_balance']);
         $this->assertSame('0.00', $recon['subledger_balance']);
@@ -57,7 +60,7 @@ class SubledgerReconciliationServiceTest extends TestCase
 
     public function test_all_returns_five_reconciliations(): void
     {
-        $all = app(SubledgerReconciliationService::class)->all(CarbonImmutable::parse('2026-05-31'));
+        $all = app(SubledgerReconciliationService::class)->all(CarbonImmutable::parse('2026-06-30'));
 
         $this->assertArrayHasKey('ar_reconciled', $all);
         $this->assertArrayHasKey('ap_reconciled', $all);
@@ -69,14 +72,14 @@ class SubledgerReconciliationServiceTest extends TestCase
     public function test_empty_books_reconcile(): void
     {
         // No control accounts, no subledger => all zero => reconciled.
-        $all = app(SubledgerReconciliationService::class)->all(CarbonImmutable::parse('2026-05-31'));
+        $all = app(SubledgerReconciliationService::class)->all(CarbonImmutable::parse('2026-06-30'));
         foreach ($all as $recon) {
             $this->assertTrue($recon['reconciled'], $recon['label'] . ' should reconcile on empty books.');
         }
     }
 
     /** @param array<int,JournalLineDraft> $lines */
-    protected function post(string $date, array $lines): void
+    protected function postJournal(string $date, array $lines): void
     {
         $draft = new JournalBatchDraft(
             batchType: 'manual_journal',

@@ -2,14 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Events\Lifecycle\LitterWeaned;
+use App\Domain\Events\Lifecycle\PigWeaned;
+use App\Domain\Events\Support\SourceReference;
 use App\Models\Farrowing;
 use App\Models\PigManagement;
 use App\Models\Weaning;
+use App\Services\DomainEvents\DispatchDomainEvent;
+use App\Support\CurrentOrganization;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Weaning dashboard + per-status views + weaning write paths.
@@ -26,6 +33,12 @@ use Illuminate\Pagination\LengthAwarePaginator;
 class WeaningController extends Controller
 {
     use AuthorizesRequests;
+
+    public function __construct(
+        protected DispatchDomainEvent $dispatcher,
+        protected CurrentOrganization $currentOrganization,
+    ) {
+    }
 
     public function dashboard()
     {
@@ -169,10 +182,36 @@ class WeaningController extends Controller
             $litterNote .= ' - ' . $data['notes'];
         }
 
-        $farrowing->status       = 'completed';
-        $farrowing->date_weaned  = $data['weaning_date'];
-        $farrowing->notes        = trim($existingNotes . (empty($existingNotes) ? '' : PHP_EOL) . $litterNote);
-        $farrowing->save();
+        DB::transaction(function () use ($farrowing, $data, $existingNotes, $litterNote) {
+            $farrowing->status       = 'completed';
+            $farrowing->date_weaned  = $data['weaning_date'];
+            $farrowing->notes        = trim($existingNotes . (empty($existingNotes) ? '' : PHP_EOL) . $litterNote);
+            $farrowing->save();
+
+            $organizationId = $this->currentOrganization->id();
+            if ($organizationId !== null) {
+                $farrowing->loadMissing(['sow', 'pigletDeaths']);
+                $surviving = max(0, (int) ($farrowing->live_births ?? 0) - (int) $farrowing->pigletDeaths->sum('count'));
+
+                $this->dispatcher->dispatch(new LitterWeaned(
+                    source: new SourceReference(
+                        module: 'lifecycle',
+                        sourceType: Farrowing::class,
+                        sourceId: (int) $farrowing->id,
+                        organizationId: $organizationId,
+                    ),
+                    occurredAt: CarbonImmutable::parse($data['weaning_date']),
+                    dispatchedByUserId: auth()->id(),
+                    farrowingId: (int) $farrowing->id,
+                    sowId: (int) $farrowing->sow_id,
+                    groupId: $farrowing->sow?->group_id ? (int) $farrowing->sow->group_id : null,
+                    survivingPiglets: $surviving,
+                    averageBirthWeightKg: $farrowing->average_birth_weight !== null
+                        ? (float) $farrowing->average_birth_weight
+                        : null,
+                ));
+            }
+        });
 
         return back()->with('success', 'Litter weaning recorded for sow ' . optional($farrowing->sow)->ear_tag_number . '.');
     }
@@ -343,28 +382,47 @@ class WeaningController extends Controller
             return back()->withErrors(['weaning' => "Pig is too young for weaning. Minimum age is {$minWeaningAge} days."]);
         }
 
-        Weaning::create([
-            'pig_id'              => $pig->id,
-            'mother_id'           => $pig->mother_id,
-            'weaning_date'        => $data['weaning_date'],
-            'age_at_weaning_days' => $ageAtWeaning,
-            'weaning_weight'      => $data['weaning_weight'] ?? null,
-            'weaning_method'      => $data['weaning_method'],
-            'weaning_reason'      => $data['weaning_reason'],
-            'notes'               => $data['notes']         ?? null,
-            'post_weaning_status' => $data['post_weaning_status'],
-            'follow_up_date'      => $data['follow_up_date'] ?? null,
-            'recorded_by'         => auth()->id(),
-            'maturity_completed'  => false,
-        ]);
-
-        if (isset($data['weaning_weight'])) {
-            $pig->weights()->create([
-                'weight'      => $data['weaning_weight'],
-                'weigh_date'  => $data['weaning_date'],
-                'notes'       => 'Weaning weight',
+        DB::transaction(function () use ($pig, $data, $ageAtWeaning) {
+            $weaning = Weaning::create([
+                'pig_id'              => $pig->id,
+                'mother_id'           => $pig->mother_id,
+                'weaning_date'        => $data['weaning_date'],
+                'age_at_weaning_days' => $ageAtWeaning,
+                'weaning_weight'      => $data['weaning_weight'] ?? null,
+                'weaning_method'      => $data['weaning_method'],
+                'weaning_reason'      => $data['weaning_reason'],
+                'notes'               => $data['notes']         ?? null,
+                'post_weaning_status' => $data['post_weaning_status'],
+                'follow_up_date'      => $data['follow_up_date'] ?? null,
+                'recorded_by'         => auth()->id(),
+                'maturity_completed'  => false,
             ]);
-        }
+
+            if (isset($data['weaning_weight'])) {
+                $pig->weights()->create([
+                    'weight'      => $data['weaning_weight'],
+                    'weigh_date'  => $data['weaning_date'],
+                    'notes'       => 'Weaning weight',
+                ]);
+            }
+
+            $organizationId = $this->currentOrganization->id();
+            if ($organizationId !== null) {
+                $this->dispatcher->dispatch(new PigWeaned(
+                    source: new SourceReference(
+                        module: 'lifecycle',
+                        sourceType: Weaning::class,
+                        sourceId: (int) $weaning->id,
+                        organizationId: $organizationId,
+                    ),
+                    occurredAt: CarbonImmutable::parse($data['weaning_date']),
+                    dispatchedByUserId: auth()->id(),
+                    pigId: (int) $pig->id,
+                    groupId: $pig->group_id ? (int) $pig->group_id : null,
+                    weaningWeightKg: isset($data['weaning_weight']) ? (float) $data['weaning_weight'] : null,
+                ));
+            }
+        });
 
         $statusMessage = match ($data['post_weaning_status']) {
             'healthy'    => 'Pig appears healthy post-weaning.',

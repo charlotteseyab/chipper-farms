@@ -347,7 +347,9 @@ class PostingEngine
             $update['first_journal_posted_at'] = $now;
         }
 
-        $period->update($update);
+        DB::table($period->getTable())
+            ->where($period->getKeyName(), $period->getKey())
+            ->update($update);
     }
 
     protected function isUniqueViolation(QueryException $e): bool

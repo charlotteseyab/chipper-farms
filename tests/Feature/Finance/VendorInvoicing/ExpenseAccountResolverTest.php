@@ -35,7 +35,7 @@ class ExpenseAccountResolverTest extends TestCase
         $this->itemExpenseAccount = $this->makeAccount('6020', 'Vet Expense',      Account::TYPE_EXPENSE);
         $this->supplierAccount    = $this->makeAccount('6030', 'Supplier Default', Account::TYPE_EXPENSE);
         $this->categoryAccount    = $this->makeAccount('6040', 'Category Default', Account::TYPE_EXPENSE);
-        $this->sundryFallback     = $this->makeAccount('6010', 'Sundry Expense',   Account::TYPE_EXPENSE);
+        $this->sundryFallback     = $this->makeAccount('6990', 'Sundry Expense',   Account::TYPE_EXPENSE);
 
         $category = SupplierCategory::create([
             'organization_id' => $this->org->id,
@@ -152,7 +152,7 @@ class ExpenseAccountResolverTest extends TestCase
         ]);
 
         $this->expectException(\DomainException::class);
-        $this->expectExceptionMessageMatches("/COA fallback '6010' missing/");
+        $this->expectExceptionMessageMatches("/COA fallback code '6990'/");
 
         $this->resolver->resolve(supplier: $bareSupplier);
     }
@@ -160,9 +160,11 @@ class ExpenseAccountResolverTest extends TestCase
     /* helper */
     protected function makeAccount(string $code, string $name, string $type): Account
     {
-        return Account::create([
+        return Account::firstOrCreate([
             'organization_id' => $this->org->id,
-            'code' => $code, 'name' => $name, 'account_type' => $type,
+            'code' => $code,
+        ], [
+            'name' => $name, 'account_type' => $type,
             'currency_code' => 'GHS', 'is_active' => true, 'allow_manual_journal' => true,
         ]);
     }

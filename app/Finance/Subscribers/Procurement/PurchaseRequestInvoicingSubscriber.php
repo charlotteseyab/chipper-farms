@@ -73,14 +73,11 @@ class PurchaseRequestInvoicingSubscriber implements ShouldQueue
         if (! $event || $event->event_type !== static::eventType()) {
             return;
         }
-        if ($event->status === DomainEvent::STATUS_PROCESSED) {
-            return;
-        }
-
-        // Flag check — if disabled, skip silently. Don't mark the event
-        // as skipped because future deliveries to other subscribers
-        // (none today, but possibly later) shouldn't be blocked.
+        // Flag check — if disabled, close the event explicitly. Otherwise
+        // purchase_request.approved events remain pending forever because
+        // this is the only finance subscriber currently registered.
         if (! $this->flagEnabled()) {
+            $event->markSkipped('Vendor invoice automation for purchase requests is disabled');
             return;
         }
 

@@ -323,14 +323,29 @@ class BankStatementMatchingService
                 );
             }
 
+            if ($matchedType === BankStatementLine::MATCHED_TYPE_PAYMENT && ! $line->isDebit()) {
+                throw new \DomainException('Manual match direction mismatch: payments must match debit statement lines.');
+            }
+
+            if ($matchedType === BankStatementLine::MATCHED_TYPE_RECEIPT && ! $line->isCredit()) {
+                throw new \DomainException('Manual match direction mismatch: receipts must match credit statement lines.');
+            }
+
+            if (in_array($matchedType, [
+                BankStatementLine::MATCHED_TYPE_PAYMENT,
+                BankStatementLine::MATCHED_TYPE_RECEIPT,
+            ], true) && bccomp($line->absoluteAmount(), (string) $target->amount, 2) !== 0) {
+                throw new \DomainException('Manual match amount mismatch.');
+            }
+
             // Refuse if target's bank account doesn't match our line's
             // statement bank account (only relevant for payments).
             if ($matchedType === BankStatementLine::MATCHED_TYPE_PAYMENT) {
                 $expectedAcctId = $line->bankStatement->bankAccount->account_id;
                 if ((int) $target->source_account_id !== (int) $expectedAcctId) {
                     throw new \DomainException(
-                        "Payment {$target->payment_number} was paid from a different bank " .
-                        'account than the one this statement is for.'
+                        "Payment {$target->payment_number} was paid from a different GL account " .
+                        'than the one this statement is for.'
                     );
                 }
             }

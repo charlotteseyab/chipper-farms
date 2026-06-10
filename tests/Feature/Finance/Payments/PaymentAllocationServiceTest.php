@@ -309,9 +309,11 @@ class PaymentAllocationServiceTest extends TestCase
 
     protected function makeAccount(string $code, string $name, string $type): Account
     {
-        return Account::create([
+        return Account::firstOrCreate([
             'organization_id' => $this->org->id,
-            'code' => $code, 'name' => $name, 'account_type' => $type,
+            'code' => $code,
+        ], [
+            'name' => $name, 'account_type' => $type,
             'currency_code' => 'GHS', 'is_active' => true, 'allow_manual_journal' => true,
         ]);
     }

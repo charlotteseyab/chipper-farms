@@ -68,6 +68,14 @@ class CurrentOrganization
     }
 
     /**
+     * Backward-compatible alias for older finance services.
+     */
+    public function resolve(): ?Organization
+    {
+        return $this->get();
+    }
+
+    /**
      * Convenience: just the id. Common in query scopes and foreign-key writes.
      */
     public function id(): ?int

@@ -101,6 +101,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Acquisition offset account
+    |--------------------------------------------------------------------------
+    | When an animal is registered with an explicit acquisition_cost, the
+    | finance subscriber capitalises it to the resolved biological-asset stage
+    | account. Without supplier/payment context, the conservative offset is
+    | owner capital/opening livestock funding. Sites that want purchases to
+    | hit AP should record the supplier invoice/payment through finance.
+    */
+    'acquisition_offset_account_code' => '3010',
+
+    /*
+    |--------------------------------------------------------------------------
     | Default stage when context is missing
     |--------------------------------------------------------------------------
     | If a group/pig has no resolvable age or stock_type (bad legacy data),

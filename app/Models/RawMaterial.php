@@ -35,6 +35,9 @@ class RawMaterial extends Model
         'quantity_in_stock',
         'unit_cost',
         'reorder_level',
+        'inventory_account_id',
+        'expense_account_id',
+        'inventory_item_type',
         'notes',
     ];
 
@@ -42,6 +45,8 @@ class RawMaterial extends Model
         'quantity_in_stock' => 'decimal:2',
         'unit_cost'         => 'decimal:2',
         'reorder_level'     => 'decimal:2',
+        'inventory_account_id' => 'integer',
+        'expense_account_id'   => 'integer',
     ];
 
     public function stockLogs(): HasMany

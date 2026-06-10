@@ -127,7 +127,7 @@ class VendorInvoiceCutoverTest extends TestCase
 
         // Invoice 100 @ 5.05 = 505. Variance = +5 (1% — within default 2% tolerance).
         $invoice = $this->createInvoice($prItem, 100.0, 5.05, 0.0);
-        $this->postingService->post($invoice, $this->user);
+        $invoice = $this->postingService->post($invoice, $this->user);
 
         $entry->refresh();
         $this->assertEquals(GrIrEntry::STATUS_CLEARED, $entry->status);
@@ -150,7 +150,7 @@ class VendorInvoiceCutoverTest extends TestCase
 
         // Invoice 100 @ 4.95 = 495. Variance = -5 (favourable).
         $invoice = $this->createInvoice($prItem, 100.0, 4.95, 0.0);
-        $this->postingService->post($invoice, $this->user);
+        $invoice = $this->postingService->post($invoice, $this->user);
 
         $entry->refresh();
         $this->assertEquals('495.0000', $entry->cleared_amount);
@@ -305,7 +305,7 @@ class VendorInvoiceCutoverTest extends TestCase
         float $taxRate = 0.0,
         ?TaxCode $taxCode = null,
     ): VendorInvoice {
-        return $this->service->createDraft(
+        $invoice = $this->service->createDraft(
             supplier: $this->supplier,
             headerData: [
                 'invoice_date' => now()->toDateString(),
@@ -325,6 +325,10 @@ class VendorInvoiceCutoverTest extends TestCase
             ],
             createdBy: $this->user,
         );
+
+        $invoice->update(['status' => VendorInvoice::STATUS_PENDING_APPROVAL]);
+
+        return $invoice->fresh(['lines']);
     }
 
     protected function mkAcct(string $code, string $name, string $type): Account

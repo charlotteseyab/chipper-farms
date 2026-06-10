@@ -259,18 +259,24 @@ class PaymentServiceTest extends TestCase
 
         // The journal_postings entry for this payment+purpose should exist.
         $this->assertDatabaseHas('journal_postings', [
-            'source_type' => Payment::class,
-            'source_id'   => $payment->id,
-            'purpose'     => 'cash_payment',
+            'idempotency_key' => \App\Models\Finance\JournalPosting::buildIdempotencyKey(
+                'payment_posted',
+                Payment::class,
+                $payment->id,
+                \App\Models\Finance\JournalPosting::PURPOSE_CASH_PAYMENT,
+            ),
+            'posting_purpose' => \App\Models\Finance\JournalPosting::PURPOSE_CASH_PAYMENT,
         ]);
     }
 
     /* helpers */
     protected function makeAccount(string $code, string $name, string $type): Account
     {
-        return Account::create([
+        return Account::firstOrCreate([
             'organization_id' => $this->org->id,
-            'code' => $code, 'name' => $name, 'account_type' => $type,
+            'code' => $code,
+        ], [
+            'name' => $name, 'account_type' => $type,
             'currency_code' => 'GHS', 'is_active' => true, 'allow_manual_journal' => true,
         ]);
     }

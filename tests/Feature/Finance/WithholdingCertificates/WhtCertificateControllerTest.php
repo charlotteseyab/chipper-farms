@@ -51,6 +51,9 @@ class WhtCertificateControllerTest extends TestCase
         }
 
         $this->setUpFinanceFixtures();
+        foreach (['accountant', 'treasurer', 'manager', 'admin', 'superuser'] as $roleName) {
+            Role::firstOrCreate(['name' => $roleName]);
+        }
         $this->seed(Phase3dPermissionsSeeder::class);
 
         Storage::fake('local');
@@ -283,6 +286,7 @@ class WhtCertificateControllerTest extends TestCase
             'amount' => '500.00',
             'withholding_amount' => '25.00',
             'net_amount' => '475.00',
+            'allocation_date' => $payment->payment_date,
             'status' => PaymentAllocation::STATUS_ACTIVE,
             'allocated_by_user_id' => $this->user->id,
         ]);

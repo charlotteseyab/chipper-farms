@@ -131,12 +131,12 @@ class NavigationHelper
             [
                 'title' => 'Finance',
                 'items' => array_values(array_filter([
-                    self::link('Dashboard', 'finance.dashboard', 'finance', 'fa-solid fa-chart-line', ['superuser', 'admin', 'accountant', 'farmmanager', 'dataentry']),
+                    self::link('Dashboard', 'finance.dashboard', 'finance', 'fa-solid fa-chart-line', ['superuser', 'admin', 'accountant', 'treasurer', 'farmmanager', 'dataentry']),
                     self::link('Customers', 'finance.customers.index', 'finance/customers*', 'fa-solid fa-address-book', ['superuser', 'admin', 'accountant']), 
                     self::link('Suppliers', 'finance.suppliers.index', 'finance/suppliers*', 'fa-solid fa-truck-fast', ['superuser', 'admin', 'accountant']),
                     self::link('Vendor Invoices', 'finance.vendor-invoices.index', 'finance/vendor-invoices*', 'fa-solid fa-file-invoice-dollar', ['superuser', 'admin', 'accountant', 'treasurer']),
-                    self::link('Payments', 'finance.payments.index', 'finance/payments*', 'fa-solid fa-money-bill-transfer', ['superuser', 'admin', 'accountant']),
-                    self::link('Payment Runs', 'finance.payment-runs.index', 'finance/payment-runs*', 'fa-solid fa-money-check-dollar', ['superuser', 'admin', 'accountant']),
+                    self::link('Payments', 'finance.payments.index', 'finance/payments*', 'fa-solid fa-money-bill-transfer', ['superuser', 'admin', 'accountant', 'treasurer']),
+                    self::link('Payment Runs', 'finance.payment-runs.index', 'finance/payment-runs*', 'fa-solid fa-money-check-dollar', ['superuser', 'admin', 'accountant', 'treasurer']),
                     self::link('Chart of Accounts', 'finance.coa.index', 'finance/coa*', 'fa-solid fa-list-ol', ['superuser', 'admin', 'accountant']),
                     [
                         'label' => 'AR Ageing',
@@ -237,6 +237,10 @@ class NavigationHelper
             return route('dataentry.dashboard');
         }
 
+        if ($user->isTreasurer() || $user->isAccountant()) {
+            return route('finance.dashboard');
+        }
+
         return route('dashboard');
     }
 
@@ -251,6 +255,8 @@ class NavigationHelper
             $user->isAdmin() => 'Admin',
             $user->isManager() => 'Farm Manager',
             $user->isDataEntry() => 'Data Entry',
+            $user->isAccountant() => 'Accountant',
+            $user->isTreasurer() => 'Treasurer',
             default => 'User',
         };
     }
@@ -348,6 +354,7 @@ class NavigationHelper
             $user->isAdmin() => 'admin.dashboard',
             $user->isManager() => 'manager.dashboard',
             $user->isDataEntry() => 'dataentry.dashboard',
+            $user->isTreasurer() || $user->isAccountant() => 'finance.dashboard',
             default => 'dashboard',
         };
     }
@@ -359,6 +366,7 @@ class NavigationHelper
             $user->isAdmin() => ['admin/dashboard*'],
             $user->isManager() => ['manager/dashboard*'],
             $user->isDataEntry() => ['dataentry/dashboard*'],
+            $user->isTreasurer() || $user->isAccountant() => ['finance*'],
             default => ['dashboard'],
         };
     }

@@ -28,20 +28,18 @@ class Phase2dPermissionsSeeder extends Seeder
     public function run(): void
     {
         $createRefund = Permission::firstOrCreate(
-            ['code' => 'create_refund'],
+            ['name' => 'create_refund'],
             [
-                'name'        => 'Create Refunds (Draft)',
                 'description' => 'Draft refunds. Posting requires a separate approval permission.',
-                'category'    => 'finance',
+                'module'      => 'finance',
             ],
         );
 
         $approveRefund = Permission::firstOrCreate(
-            ['code' => 'approve_refund'],
+            ['name' => 'approve_refund'],
             [
-                'name'        => 'Approve Refunds',
                 'description' => 'Post draft refunds to GL. Two-person rule: distinct from create_refund.',
-                'category'    => 'finance',
+                'module'      => 'finance',
             ],
         );
 
@@ -53,7 +51,7 @@ class Phase2dPermissionsSeeder extends Seeder
         ];
 
         foreach ($assignments as $code => $roleNames) {
-            $perm = Permission::where('code', $code)->first();
+            $perm = Permission::where('name', $code)->first();
             if (! $perm) continue;
 
             foreach ($roleNames as $roleName) {

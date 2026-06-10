@@ -207,6 +207,26 @@ class FinanceServiceProvider extends ServiceProvider
             \App\Domain\Events\Lifecycle\PigDeathRecorded::TYPE,
             \App\Finance\Subscribers\Lifecycle\PigDeathRecordedSubscriber::class,
         );
+
+        $registry->register(
+            \App\Domain\Events\Lifecycle\PigAcquired::TYPE,
+            \App\Finance\Subscribers\Lifecycle\PigAcquiredSubscriber::class,
+        );
+
+        $registry->register(
+            \App\Domain\Events\Lifecycle\PigBirthRecorded::TYPE,
+            \App\Finance\Subscribers\Lifecycle\PigBirthRecordedSubscriber::class,
+        );
+
+        $registry->register(
+            \App\Domain\Events\Lifecycle\LitterWeaned::TYPE,
+            \App\Finance\Subscribers\Lifecycle\WeaningStageTransferSubscriber::class,
+        );
+
+        $registry->register(
+            \App\Domain\Events\Lifecycle\PigWeaned::TYPE,
+            \App\Finance\Subscribers\Lifecycle\WeaningStageTransferSubscriber::class,
+        );
     
         // -------- Sales — COGS leg (NEW in Phase 5) ----------------
         // Runs alongside the existing PigSaleRecordedSubscriber (revenue)

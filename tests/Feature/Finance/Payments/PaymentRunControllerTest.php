@@ -42,21 +42,25 @@ class PaymentRunControllerTest extends TestCase
 
         $this->setUpFinanceFixtures();
 
+        foreach (['accountant', 'treasurer', 'manager', 'admin', 'superuser'] as $roleName) {
+            Role::firstOrCreate(['name' => $roleName]);
+        }
+
         $this->seed(FinancePermissionsSeeder::class);
         $this->seed(Phase3aSupplierPermissionsSeeder::class);
         $this->seed(Phase3bVendorInvoicePermissionsSeeder::class);
         $this->seed(Phase3cPaymentPermissionsSeeder::class);
 
-        Account::create(['organization_id' => $this->org->id, 'code' => '2010',
+        Account::firstOrCreate(['organization_id' => $this->org->id, 'code' => '2010'], [
             'name' => 'AP', 'account_type' => Account::TYPE_LIABILITY,
             'currency_code' => 'GHS', 'is_active' => true, 'allow_manual_journal' => true]);
-        Account::create(['organization_id' => $this->org->id, 'code' => '2250',
+        Account::firstOrCreate(['organization_id' => $this->org->id, 'code' => '2250'], [
             'name' => 'WHT', 'account_type' => Account::TYPE_LIABILITY,
             'currency_code' => 'GHS', 'is_active' => true, 'allow_manual_journal' => true]);
-        Account::create(['organization_id' => $this->org->id, 'code' => '2910',
+        Account::firstOrCreate(['organization_id' => $this->org->id, 'code' => '2910'], [
             'name' => 'Suspense Payment', 'account_type' => Account::TYPE_LIABILITY,
             'currency_code' => 'GHS', 'is_active' => true, 'allow_manual_journal' => true]);
-        Account::create(['organization_id' => $this->org->id, 'code' => '1010',
+        Account::firstOrCreate(['organization_id' => $this->org->id, 'code' => '1010'], [
             'name' => 'Cash', 'account_type' => Account::TYPE_ASSET,
             'currency_code' => 'GHS', 'is_active' => true, 'allow_manual_journal' => true]);
 

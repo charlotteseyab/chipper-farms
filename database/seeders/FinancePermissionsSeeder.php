@@ -66,6 +66,11 @@ class FinancePermissionsSeeder extends Seeder
             'process_outbox',
         ], $created);
 
+        $this->attachToRole('treasurer', [
+            'view_finance',
+            'reverse_journal',
+        ], $created);
+
         $this->attachToRole('manager', [
             'view_finance',
         ], $created);

@@ -152,6 +152,48 @@ class GroupCostPoolService
         );
     }
 
+    public function recordAcquisition(
+        int $groupId,
+        int $pigId,
+        string $acquisitionCost,
+        string $pigWeight,
+        ?CarbonImmutable $occurredAt = null,
+        ?int $actorUserId = null,
+        ?string $reference = null,
+        ?string $notes = null,
+    ): GroupCostMovement {
+        $this->assertNonNegativeString('acquisition_cost', $acquisitionCost);
+        $this->assertNonNegativeString('pig_weight', $pigWeight);
+
+        return $this->commit(
+            groupId:     $groupId,
+            eventType:   GroupCostMovement::EVENT_ACQUISITION,
+            sourceType:  GroupCostMovement::SOURCE_PIG_ACQUISITION,
+            sourceId:    $pigId,
+            occurredAt:  $occurredAt ?? CarbonImmutable::now(),
+            actorUserId: $actorUserId,
+            reference:   $reference,
+            notes:       $notes,
+            eventPigWeight: $pigWeight,
+            openingImportId: null,
+            compute: function (array $before) use ($acquisitionCost, $pigWeight) {
+                $newCount = (int) $before['count'] + 1;
+                $newValue = bcadd($before['value'], $acquisitionCost, self::SCALE_QTY);
+                $newWeight = bcadd($before['weight'], $pigWeight, self::SCALE_QTY);
+
+                return [
+                    'count_delta'        => 1,
+                    'value_delta'        => $acquisitionCost,
+                    'weight_delta'       => $pigWeight,
+                    'count_after'        => $newCount,
+                    'value_after'        => $newValue,
+                    'weight_after'       => $newWeight,
+                    'event_per_kg_basis' => $this->perKgBasis($before['value'], $before['weight']),
+                ];
+            },
+        );
+    }
+
     /**
      * Record a sale COGS allocation. Returns the movement; the COGS
      * amount is on $movement->value_delta (negative).
@@ -386,6 +428,19 @@ class GroupCostPoolService
     ): array {
         $perKg     = $this->perKgBasis($before['value'], $before['weight']);
         $cogsValue = bcmul($pigWeight, $perKg, self::SCALE_QTY);
+        $effectivePigWeight = $pigWeight;
+
+        $valueResidual = bcsub($before['value'], $cogsValue, self::SCALE_QTY);
+        if ($this->isCloseToZero($valueResidual)) {
+            $cogsValue = $before['value'];
+            $valueResidual = '0';
+        }
+
+        $weightResidual = bcsub($before['weight'], $effectivePigWeight, self::SCALE_QTY);
+        if ($this->isCloseToZero($weightResidual)) {
+            $effectivePigWeight = $before['weight'];
+            $weightResidual = '0';
+        }
 
         // Overdraw protection.
         if (! $allowOverdraw) {
@@ -397,11 +452,11 @@ class GroupCostPoolService
                     available: $before['value'],
                 );
             }
-            if (bccomp($pigWeight, $before['weight'], self::SCALE_QTY) > 0) {
+            if (bccomp($effectivePigWeight, $before['weight'], self::SCALE_QTY) > 0) {
                 throw new InsufficientPoolException(
                     groupId:   $groupId,
                     dimension: 'weight',
-                    requested: $pigWeight,
+                    requested: $effectivePigWeight,
                     available: $before['weight'],
                 );
             }
@@ -415,8 +470,8 @@ class GroupCostPoolService
             }
         }
 
-        $newValue  = bcsub($before['value'],  $cogsValue, self::SCALE_QTY);
-        $newWeight = bcsub($before['weight'], $pigWeight, self::SCALE_QTY);
+        $newValue  = $valueResidual;
+        $newWeight = $weightResidual;
         $newCount  = $decrementCount ? max(0, (int) $before['count'] - 1) : (int) $before['count'];
 
         // Tiny-residual clamp.
@@ -430,7 +485,7 @@ class GroupCostPoolService
         return [
             'count_delta'        => $decrementCount ? -1 : 0,
             'value_delta'        => bcsub('0', $cogsValue, self::SCALE_QTY),
-            'weight_delta'       => bcsub('0', $pigWeight, self::SCALE_QTY),
+            'weight_delta'       => bcsub('0', $effectivePigWeight, self::SCALE_QTY),
             'count_after'        => $newCount,
             'value_after'        => $newValue,
             'weight_after'       => $newWeight,

@@ -27,11 +27,10 @@ class Phase2cReceiptPermissionsSeeder extends Seeder
     public function run(): void
     {
         $perm = Permission::firstOrCreate(
-            ['code' => 'create_receipt'],
+            ['name' => 'create_receipt'],
             [
-                'name'        => 'Create Receipts',
                 'description' => 'Record customer receipts, allocate to invoices, reverse allocations',
-                'category'    => 'finance',
+                'module'      => 'finance',
             ],
         );
 

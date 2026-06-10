@@ -74,10 +74,10 @@ class Phase3ePermissionsSeeder extends Seeder
 
         // Role assignments. Adjust role names to match your installation.
         $assignments = [
-            'view_bank_accounts'        => ['admin', 'accountant', 'superuser'],
-            'manage_bank_accounts'      => ['admin', 'accountant', 'superuser'],
-            'import_bank_statement'     => ['admin', 'accountant', 'superuser'],
-            'reconcile_bank_statement'  => ['admin', 'accountant', 'superuser'],  // NOT accountant
+            'view_bank_accounts'        => ['admin', 'accountant', 'treasurer', 'superuser'],
+            'manage_bank_accounts'      => ['admin', 'treasurer', 'superuser'],
+            'import_bank_statement'     => ['admin', 'accountant', 'treasurer', 'superuser'],
+            'reconcile_bank_statement'  => ['admin', 'treasurer', 'superuser'],
         ];
 
         foreach ($assignments as $code => $roleNames) {

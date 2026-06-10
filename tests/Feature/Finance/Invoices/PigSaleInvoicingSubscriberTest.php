@@ -74,8 +74,8 @@ class PigSaleInvoicingSubscriberTest extends TestCase
         $this->pig = PigManagement::create([
             'organization_id' => $this->org->id,
             'ear_tag_number' => 'EAR-001',
-            'sex' => 'male',
-            'birth_date' => '2025-12-01',
+            'gender' => 'M',
+            'date_of_birth' => '2025-12-01',
         ]);
     }
 
@@ -174,7 +174,7 @@ class PigSaleInvoicingSubscriberTest extends TestCase
             'organization_id' => $this->org->id,
             'pig_id'          => $this->pig->id,
             'customer_id'     => $this->customer->id,
-            'sale_date'       => '2026-05-15',
+            'sale_date'       => '2026-06-15',
             'sale_weight'     => 50.0,
             'price_per_kg'    => 12.50,
             'sale_price'      => 625.00,
@@ -189,8 +189,11 @@ class PigSaleInvoicingSubscriberTest extends TestCase
         return DomainEvent::create([
             'organization_id'    => $this->org->id,
             'event_type'         => 'pig_sale.recorded',
+            'source_module'      => 'sales',
             'source_type'        => PigSale::class,
             'source_id'          => $sale->id,
+            'occurred_at'        => now(),
+            'payload_version'    => 1,
             'payload'            => [
                 'pig_sale_id'      => $sale->id,
                 'sale_price'       => (string) $sale->sale_price,

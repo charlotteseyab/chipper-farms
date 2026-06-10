@@ -62,12 +62,12 @@ class CashFlowServiceTest extends TestCase
         $this->postJournal('2026-05-05', [
             JournalLineDraft::debit($this->arAccount->id, '1000.00'),
             JournalLineDraft::credit($this->revenueAccount->id, '1000.00'),
-        ]);
+        ], 'cash-flow-credit-sale');
         // Collect 400 of it: Dr Cash 400 / Cr AR 400.
         $this->postJournal('2026-05-20', [
             JournalLineDraft::debit($this->cashAccount->id, '400.00'),
             JournalLineDraft::credit($this->arAccount->id, '400.00'),
-        ]);
+        ], 'cash-flow-collection');
 
         $cf = app(CashFlowService::class)->generate(Carbon::parse('2026-05-01'), Carbon::parse('2026-05-31'));
 
@@ -80,12 +80,14 @@ class CashFlowServiceTest extends TestCase
     }
 
     /** @param array<int,JournalLineDraft> $lines */
-    protected function postJournal(string $date, array $lines): void
+    protected function postJournal(string $date, array $lines, ?string $idempotencyKey = null): void
     {
         $draft = new JournalBatchDraft(
-            batchType: 'manual_journal',
+            batchType: $idempotencyKey ? 'report_fixture' : 'manual_journal',
             postingDate: CarbonImmutable::parse($date),
             journals: [new JournalDraft(journalType: 'manual', lines: $lines)],
+            idempotencyKey: $idempotencyKey,
+            postingPurpose: $idempotencyKey ? 'report_fixture' : null,
         );
         app(PostingEngine::class)->post($draft, $this->user);
     }

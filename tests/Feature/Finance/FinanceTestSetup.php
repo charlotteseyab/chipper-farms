@@ -42,20 +42,70 @@ trait FinanceTestSetup
 
         $this->year = FiscalYear::create([
             'organization_id' => $this->org->id,
+            'fiscal_year'     => 2026,
             'name'            => 'FY2026',
             'start_date'      => '2026-01-01',
             'end_date'        => '2026-12-31',
             'status'          => 'open',
         ]);
 
-        $this->period = FiscalPeriod::create([
+        $this->year2025 = FiscalYear::create([
             'organization_id' => $this->org->id,
-            'fiscal_year_id'  => $this->year->id,
-            'period_number'   => 5,
-            'name'            => 'May 2026',
-            'start_date'      => '2026-05-01',
-            'end_date'        => '2026-05-31',
+            'fiscal_year'     => 2025,
+            'name'            => 'FY2025',
+            'start_date'      => '2025-01-01',
+            'end_date'        => '2025-12-31',
+            'status'          => 'open',
+        ]);
+
+        FiscalPeriod::create([
+            'organization_id' => $this->org->id,
+            'fiscal_year_id'  => $this->year2025->id,
+            'period_number'   => 12,
+            'name'            => 'December 2025',
+            'start_date'      => '2025-12-01',
+            'end_date'        => '2025-12-31',
             'status'          => FiscalPeriod::STATUS_OPEN,
+            'posting_count'   => 0,
+        ]);
+
+        for ($month = 1; $month <= 12; $month++) {
+            $start = \Carbon\CarbonImmutable::create(2026, $month, 1);
+            $period = FiscalPeriod::create([
+                'organization_id' => $this->org->id,
+                'fiscal_year_id'  => $this->year->id,
+                'period_number'   => $month,
+                'name'            => $start->format('F Y'),
+                'start_date'      => $start->toDateString(),
+                'end_date'        => $start->endOfMonth()->toDateString(),
+                'status'          => FiscalPeriod::STATUS_OPEN,
+                'posting_count'   => 0,
+            ]);
+
+            if ($month === 5) {
+                $this->period = $period;
+            }
+        }
+
+        // Also seed FY2027 & June period — some tests post in 2027 dates
+        $this->year2027 = FiscalYear::create([
+            'organization_id' => $this->org->id,
+            'fiscal_year'     => 2027,
+            'name'            => 'FY2027',
+            'start_date'      => '2027-01-01',
+            'end_date'        => '2027-12-31',
+            'status'          => 'open',
+        ]);
+
+        FiscalPeriod::create([
+            'organization_id' => $this->org->id,
+            'fiscal_year_id'  => $this->year2027->id,
+            'period_number'   => 6,
+            'name'            => 'June 2027',
+            'start_date'      => '2027-06-01',
+            'end_date'        => '2027-06-30',
+            'status'          => FiscalPeriod::STATUS_OPEN,
+            'posting_count'   => 0,
         ]);
 
         $role = Role::firstOrCreate(['name' => 'admin']);
@@ -108,5 +158,61 @@ trait FinanceTestSetup
             'is_active'            => true,
             'allow_manual_journal' => true,
         ]);
+
+        // Minimal account required by biological-asset resolver used by inventory
+        
+        
+        
+        Account::firstOrCreate(['organization_id' => $this->org->id, 'code' => '1360'], [
+            'name'                 => 'Biological Assets',
+            'account_type'         => Account::TYPE_ASSET,
+            'currency_code'        => 'GHS',
+            'is_active'            => true,
+            'allow_manual_journal' => true,
+        ]);
+
+        // Ensure common accounts referenced by posting subscribers exist
+        $accountTypes = [
+            // Inventory accounts
+            '1220' => Account::TYPE_ASSET,
+            '1230' => Account::TYPE_ASSET,  // clearing account (Phase 7 transitional)
+            '2010' => Account::TYPE_LIABILITY,
+            // Biological asset stage accounts (Phase 7)
+            '1310' => Account::TYPE_ASSET,
+            '1320' => Account::TYPE_ASSET,
+            '1330' => Account::TYPE_ASSET,
+            '1340' => Account::TYPE_ASSET,
+            '1350' => Account::TYPE_ASSET,
+            '1360' => Account::TYPE_ASSET,
+            '1370' => Account::TYPE_ASSET,
+            // COGS & expense accounts
+            '5110' => Account::TYPE_EXPENSE,
+            '5320' => Account::TYPE_EXPENSE,
+            '6990' => Account::TYPE_EXPENSE,
+        ];
+        $accountNames = [
+            '1220' => 'Finished Feed Inventory',
+            '1230' => 'Live Pig Inventory (Clearing)',
+            '2010' => 'Accounts Payable',
+            '1310' => 'Breeding Stock',
+            '1320' => 'Sows in Production',
+            '1330' => 'Boars',
+            '1340' => 'Piglets',
+            '1350' => 'Weaners',
+            '1360' => 'Growers',
+            '1370' => 'Finishers',
+            '5110' => 'Cost of Pigs Sold',
+            '5320' => 'Mortality Expense',
+            '6990' => 'Sundry Expense',
+        ];
+        foreach ($accountTypes as $code => $type) {
+            Account::firstOrCreate(['organization_id' => $this->org->id, 'code' => $code], [
+                'name'                 => $accountNames[$code],
+                'account_type'         => $type,
+                'currency_code'        => 'GHS',
+                'is_active'            => true,
+                'allow_manual_journal' => true,
+            ]);
+        }
     }
 }

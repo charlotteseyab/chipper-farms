@@ -19,10 +19,11 @@ class ChartOfAccountsSeederTest extends TestCase
     {
         $this->seed(ChartOfAccountsSeeder::class);
 
-        // We seeded ~85 accounts. Tolerance: at least 80, at most 120.
+        // The production COA now includes storefront, inventory, biological
+        // asset, treasury, AP, and reporting extensions.
         $count = Account::count();
-        $this->assertGreaterThanOrEqual(80, $count);
-        $this->assertLessThanOrEqual(120, $count);
+        $this->assertGreaterThanOrEqual(175, $count);
+        $this->assertLessThanOrEqual(220, $count);
     }
 
     public function test_seeder_creates_all_account_types(): void

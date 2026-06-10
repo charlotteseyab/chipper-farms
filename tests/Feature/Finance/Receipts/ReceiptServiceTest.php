@@ -97,8 +97,8 @@ class ReceiptServiceTest extends TestCase
 
         $this->assertSame($this->cashAccount->id, $debit->account_id, 'Cash should be debited');
         $this->assertSame($this->arAccount->id, $credit->account_id, 'AR control should be credited');
-        $this->assertSame('500.00', (string) (float) $debit->debit);
-        $this->assertSame('500.00', (string) (float) $credit->credit);
+        $this->assertSame('500.00', (string) $debit->debit);
+        $this->assertSame('500.00', (string) $credit->credit);
     }
 
     public function test_create_posted_rejects_non_customer(): void

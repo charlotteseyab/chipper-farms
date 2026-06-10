@@ -6,15 +6,18 @@ use App\Finance\Drafts\JournalBatchDraft;
 use App\Finance\Drafts\JournalDraft;
 use App\Finance\Drafts\JournalLineDraft;
 use App\Finance\Posting\PigCostingPurposes;
-use App\Finance\Resolvers\FinanceAccountResolver;
 use App\Finance\Subscribers\Subscriber;
 use App\Models\DomainEvent;
 use App\Models\FeedIssue;
+use App\Models\Finance\BiologicalAssetStageTransfer;
 use App\Models\Finance\GroupCostMovement;
 use App\Models\Finance\JournalBatch;
 use App\Models\Finance\JournalPosting;
+use App\Services\Finance\BiologicalAssets\BiologicalAssetStageResolver;
+use App\Services\Finance\BiologicalAssets\BiologicalAssetSubledgerService;
 use App\Services\Finance\Inventory\InventoryAccountResolver;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -36,7 +39,8 @@ class FeedIssuedSubscriber extends Subscriber
 {
     public function __construct(
         protected InventoryAccountResolver $inventoryResolver,
-        protected FinanceAccountResolver $accountResolver,
+        protected BiologicalAssetStageResolver $stageResolver,
+        protected BiologicalAssetSubledgerService $bioSubledger,
     ) {
     }
 
@@ -65,17 +69,6 @@ class FeedIssuedSubscriber extends Subscriber
 
         $finishedFeedAcct = $this->inventoryResolver->inventoryAccountForFeedType($issue->feedType);
         $livePigAcct = (int) $this->stageResolver->accountForGroup($issue->group_id)->id;
-
-        $this->bioSubledger->recordEntry(
-                      groupId:             (int) $issue->group_id,
-                      amount:              (string) $issue->total_cost,
-                      pigCountDelta:       0,
-                      weightDelta:         '0',
-                      reason:              \App\Models\Finance\BiologicalAssetStageTransfer::REASON_FEED_ISSUE,
-                      journalBatchId:      $batch->id,
-                      sourceDomainEventId: $domainEventId,
-                      occurredAt:          $issue->issued_at ? \Carbon\CarbonImmutable::parse($issue->issued_at) : null,
-                    );
 
         $description = sprintf(
             'Feed issued: %s × %s kg → group %s (Feed Issue #%d)',
@@ -143,18 +136,41 @@ class FeedIssuedSubscriber extends Subscriber
     {
         $issueId = (int) $event->source_id;
 
-        FeedIssue::query()
-            ->where('id', $issueId)
-            ->update([
-                'posting_status'   => FeedIssue::POSTING_POSTED,
-                'posting_error'    => null,
-                'journal_batch_id' => $batch->id,
-            ]);
+        DB::transaction(function () use ($issueId, $event, $batch) {
+            FeedIssue::query()
+                ->where('id', $issueId)
+                ->update([
+                    'posting_status'   => FeedIssue::POSTING_POSTED,
+                    'posting_error'    => null,
+                    'journal_batch_id' => $batch->id,
+                ]);
 
-        // Forward-link the group_cost_movements row too.
-        GroupCostMovement::query()
-            ->where('source_type', GroupCostMovement::SOURCE_FEED_ISSUE)
-            ->where('source_id', $issueId)
-            ->update(['journal_batch_id' => $batch->id]);
+            GroupCostMovement::query()
+                ->where('source_type', GroupCostMovement::SOURCE_FEED_ISSUE)
+                ->where('source_id', $issueId)
+                ->update(['journal_batch_id' => $batch->id]);
+
+            if (BiologicalAssetStageTransfer::query()
+                    ->where('source_domain_event_id', $event->id)
+                    ->exists()) {
+                return;
+            }
+
+            $issue = FeedIssue::query()->find($issueId);
+            if (! $issue) {
+                return;
+            }
+
+            $this->bioSubledger->recordEntry(
+                groupId:             (int) $issue->group_id,
+                amount:              (string) $issue->total_cost,
+                pigCountDelta:       0,
+                weightDelta:         '0',
+                reason:              BiologicalAssetStageTransfer::REASON_FEED_ISSUE,
+                journalBatchId:      $batch->id,
+                sourceDomainEventId: $event->id,
+                occurredAt:          $issue->issued_at ? CarbonImmutable::instance($issue->issued_at) : null,
+            );
+        });
     }
 }

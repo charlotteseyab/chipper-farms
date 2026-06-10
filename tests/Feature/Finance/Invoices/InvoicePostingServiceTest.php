@@ -120,7 +120,7 @@ class InvoicePostingServiceTest extends TestCase
         // Three lines: AR (debit 115), Revenue (credit 100), VAT (credit 15)
         $this->assertSame(3, $journal->lines->count());
 
-        $vatAccount = Account::where('code', '2210')->first();
+        $vatAccount = Account::where('organization_id', $this->org->id)->where('code', '2210')->first();
         $vatLine = $journal->lines->firstWhere('account_id', $vatAccount->id);
         $this->assertNotNull($vatLine);
         $this->assertSame('15.00', (string) $vatLine->credit);

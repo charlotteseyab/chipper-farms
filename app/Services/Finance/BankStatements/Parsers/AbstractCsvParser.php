@@ -164,8 +164,12 @@ abstract class AbstractCsvParser implements BankStatementParserInterface
         }
         // Pass 2: substring contains.
         foreach ($candidates as $cand) {
+            $candidate = strtolower($cand);
+            if (mb_strlen($candidate) <= 2) {
+                continue;
+            }
             foreach ($normalised as $i => $h) {
-                if ($h !== '' && str_contains($h, strtolower($cand))) {
+                if ($h !== '' && str_contains($h, $candidate)) {
                     return (int) $i;
                 }
             }

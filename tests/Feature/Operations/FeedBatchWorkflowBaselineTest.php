@@ -5,10 +5,13 @@ namespace Tests\Feature\Operations;
 use App\Models\DomainEvent;
 use App\Models\FeedBatch;
 use App\Models\FeedType;
+use App\Models\Counterparty;
 use App\Models\Organization;
 use App\Models\RawMaterial;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\Inventory\AdjustRawMaterialService;
+use App\Services\Inventory\ReceiveRawMaterialService;
 use App\Support\CurrentOrganization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -34,6 +37,7 @@ class FeedBatchWorkflowBaselineTest extends TestCase
 
     protected Organization $org;
     protected User $admin;
+    protected Counterparty $supplier;
 
     protected function setUp(): void
     {
@@ -52,18 +56,20 @@ class FeedBatchWorkflowBaselineTest extends TestCase
         ]);
 
         $this->app->make(CurrentOrganization::class)->bind($this->org);
+
+        $this->supplier = Counterparty::create([
+            'organization_id' => $this->org->id,
+            'type' => 'supplier',
+            'name' => 'Opening Stock Supplier',
+            'currency_code' => 'GHS',
+            'is_active' => true,
+        ]);
     }
 
     protected function seedFeedSetup(): array
     {
-        $maize = RawMaterial::create([
-            'name' => 'Maize', 'category' => 'grain', 'unit' => 'kg',
-            'quantity_in_stock' => 500, 'unit_cost' => 5.00, 'reorder_level' => 50,
-        ]);
-        $soya = RawMaterial::create([
-            'name' => 'Soya meal', 'category' => 'protein', 'unit' => 'kg',
-            'quantity_in_stock' => 200, 'unit_cost' => 9.00, 'reorder_level' => 50,
-        ]);
+        $maize = $this->makeMaterial('Maize', 'grain', 500, 5.00);
+        $soya = $this->makeMaterial('Soya meal', 'protein', 200, 9.00);
 
         $feedType = FeedType::create(['name' => 'Grower mix']);
 
@@ -73,6 +79,32 @@ class FeedBatchWorkflowBaselineTest extends TestCase
         ]);
 
         return compact('maize', 'soya', 'feedType');
+    }
+
+    protected function makeMaterial(string $name, string $category, float $quantity, float $unitCost): RawMaterial
+    {
+        $material = RawMaterial::create([
+            'name' => $name,
+            'category' => $category,
+            'unit' => 'kg',
+            'quantity_in_stock' => 0,
+            'unit_cost' => 0,
+            'reorder_level' => 50,
+        ]);
+
+        $this->app->make(ReceiveRawMaterialService::class)->execute(
+            $material,
+            $this->admin,
+            [
+                'quantity' => $quantity,
+                'unit_cost' => $unitCost,
+                'reference' => 'Opening ' . $name,
+                'supplier_id' => $this->supplier->id,
+                'receipt_reason' => 'opening_stock',
+            ],
+        );
+
+        return $material->fresh();
     }
 
     public function test_mix_feed_consumes_raw_materials_per_recipe(): void
@@ -118,7 +150,15 @@ class FeedBatchWorkflowBaselineTest extends TestCase
         ['maize' => $maize, 'soya' => $soya, 'feedType' => $feedType] = $this->seedFeedSetup();
 
         // Drain soya so the batch will fail on the second ingredient.
-        $soya->update(['quantity_in_stock' => 5]);
+        $this->app->make(AdjustRawMaterialService::class)->execute(
+            $soya,
+            $this->admin,
+            [
+                'adjustment_type' => 'deduct',
+                'quantity' => 195,
+                'reference' => 'Drain for insufficient stock test',
+            ],
+        );
         $maizeBefore = $maize->quantity_in_stock;
 
         $this->actingAs($this->admin)

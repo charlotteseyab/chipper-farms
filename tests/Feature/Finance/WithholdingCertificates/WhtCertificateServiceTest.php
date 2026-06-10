@@ -337,6 +337,7 @@ class WhtCertificateServiceTest extends TestCase
             'amount' => $amount,
             'withholding_amount' => $withholding,
             'net_amount' => bcsub($amount, $withholding, 2),
+            'allocation_date' => $payment->payment_date,
             'status' => PaymentAllocation::STATUS_ACTIVE,
             'allocated_by_user_id' => $this->user->id,
         ]);

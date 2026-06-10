@@ -3,6 +3,7 @@
 namespace Tests\Feature\Finance\Schema;
 
 use App\Models\FiscalPeriod;
+use App\Models\FiscalYear;
 use App\Models\Finance\JournalBatch;
 use App\Models\Finance\JournalPosting;
 use App\Models\Organization;
@@ -34,9 +35,18 @@ class IdempotencyTest extends TestCase
         $this->org = Organization::create(['slug' => 'cf', 'name' => 'CF']);
         $this->app->make(CurrentOrganization::class)->bind($this->org);
 
+        $year = FiscalYear::create([
+            'organization_id' => $this->org->id,
+            'fiscal_year'     => (int) now()->year,
+            'name'            => 'FY' . now()->year,
+            'start_date'      => now()->startOfYear()->toDateString(),
+            'end_date'        => now()->endOfYear()->toDateString(),
+            'status'          => 'open',
+        ]);
+
         $this->period = FiscalPeriod::create([
             'organization_id' => $this->org->id,
-            'fiscal_year_id'  => 1,
+            'fiscal_year_id'  => $year->id,
             'period_number'   => 1,
             'name'            => 'Test Period',
             'start_date'      => now()->startOfMonth()->toDateString(),

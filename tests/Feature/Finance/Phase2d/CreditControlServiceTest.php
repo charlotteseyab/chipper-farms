@@ -126,15 +126,20 @@ class CreditControlServiceTest extends TestCase
     protected function makeCustomer(?string $creditLimit, ?string $holdMode): Counterparty
     {
         static $i = 0;
-        return Counterparty::create([
+        $attributes = [
             'organization_id'  => $this->org->id,
             'name'             => 'C' . (++$i),
             'code'             => 'CC' . $i,
             'type'             => 'customer',
             'currency_code'    => 'GHS',
             'credit_limit'     => $creditLimit,
-            'credit_hold_mode' => $holdMode,
-        ]);
+        ];
+
+        if ($holdMode !== null) {
+            $attributes['credit_hold_mode'] = $holdMode;
+        }
+
+        return Counterparty::create($attributes);
     }
 
     protected function makeOpenInvoice(Counterparty $customer, string $balance): Invoice

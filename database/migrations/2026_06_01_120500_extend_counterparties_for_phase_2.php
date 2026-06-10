@@ -96,11 +96,14 @@ return new class extends Migration
         }
 
         Schema::table('counterparties', function (Blueprint $table) {
+            if (Schema::hasColumn('counterparties', 'customer_category_id')) {
+                try { $table->dropForeign('counterparties_customer_category_fk'); } catch (\Throwable) {}
+            }
+
             try { $table->dropIndex('counterparties_category_active_idx'); } catch (\Throwable) {}
             try { $table->dropIndex('counterparties_credit_hold_idx'); } catch (\Throwable) {}
 
             if (Schema::hasColumn('counterparties', 'customer_category_id')) {
-                try { $table->dropForeign('counterparties_customer_category_fk'); } catch (\Throwable) {}
                 $table->dropColumn('customer_category_id');
             }
 

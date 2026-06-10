@@ -14,8 +14,6 @@ class CloseRunController extends Controller
 {
     public function __construct(protected CurrentOrganization $currentOrg)
     {
-        $this->middleware('auth');
-        $this->middleware('permission:view_period_close');
     }
 
     public function show(PeriodCloseRun $run)

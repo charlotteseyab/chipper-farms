@@ -31,11 +31,10 @@ class Phase3cPaymentPermissionsSeeder extends Seeder
     public function run(): void
     {
         $createPaymentPerm = Permission::firstOrCreate(
-            ['code' => 'create_payment'],
+            ['name' => 'create_payment'],
             [
-                'name'        => 'Create Payment',
                 'description' => 'Create payments and payment runs, allocate to vendor invoices, reconcile against bank statements. Cash-out authorisation.',
-                'category'    => 'finance',
+                'module'      => 'finance',
             ],
         );
 

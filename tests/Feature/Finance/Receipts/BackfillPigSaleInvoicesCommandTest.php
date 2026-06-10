@@ -176,8 +176,8 @@ class BackfillPigSaleInvoicesCommandTest extends TestCase
         $pig = PigManagement::create([
             'organization_id' => $this->org->id,
             'ear_tag_number'  => 'EAR-' . (++$counter),
-            'sex'             => 'male',
-            'birth_date'      => '2025-12-01',
+            'gender'          => 'male',
+            'date_of_birth'   => '2025-12-01',
         ]);
 
         return PigSale::create([
@@ -222,10 +222,7 @@ class BackfillPigSaleInvoicesCommandTest extends TestCase
         JournalPosting::create([
             'organization_id'   => $this->org->id,
             'journal_batch_id'  => $batch->id,
-            'event_type'        => 'pig_sale.recorded',
-            'source_type'       => PigSale::class,
-            'source_id'         => $sale->id,
-            'purpose'           => JournalPosting::PURPOSE_REVENUE,
+            'posting_purpose'   => JournalPosting::PURPOSE_REVENUE,
             'idempotency_key'   => JournalPosting::buildIdempotencyKey(
                 'pig_sale.recorded',
                 PigSale::class,

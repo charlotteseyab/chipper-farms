@@ -3,6 +3,7 @@
 namespace Tests\Feature\Services;
 
 use App\Models\DomainEvent;
+use App\Models\Counterparty;
 use App\Models\Organization;
 use App\Models\RawMaterial;
 use App\Models\Role;
@@ -19,6 +20,7 @@ class AdjustRawMaterialServiceTest extends TestCase
 
     protected Organization $org;
     protected User $actor;
+    protected Counterparty $supplier;
 
     protected function setUp(): void
     {
@@ -33,6 +35,15 @@ class AdjustRawMaterialServiceTest extends TestCase
             'organization_id' => $this->org->id,
         ]);
         $this->app->make(CurrentOrganization::class)->bind($this->org);
+
+        $this->supplier = Counterparty::create([
+            'organization_id' => $this->org->id,
+            'type' => Counterparty::TYPE_SUPPLIER,
+            'code' => 'SUP-T',
+            'name' => 'Test Supplier',
+            'currency_code' => 'GHS',
+            'is_active' => true,
+        ]);
     }
 
     protected function makeMaterialWithStock(float $qty, float $unitCost): RawMaterial
@@ -48,7 +59,13 @@ class AdjustRawMaterialServiceTest extends TestCase
         $this->app->make(ReceiveRawMaterialService::class)->execute(
             $material,
             $this->actor,
-            ['quantity' => $qty, 'unit_cost' => $unitCost, 'reference' => 'Opening Stock'],
+            [
+                'quantity' => $qty,
+                'unit_cost' => $unitCost,
+                'reference' => 'Opening Stock',
+                'supplier_id' => $this->supplier->id,
+                'receipt_reason' => 'opening_stock',
+            ],
         );
 
         return $material->fresh();
@@ -116,8 +133,8 @@ class AdjustRawMaterialServiceTest extends TestCase
         $material = $this->makeMaterialWithStock(50, 5);
         $service = $this->app->make(AdjustRawMaterialService::class);
 
-        $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
-        $this->expectExceptionMessage('Cannot deduct more stock than is currently available.');
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Adjustment would drive on-hand below zero');
 
         $service->execute($material, $this->actor, [
             'adjustment_type' => 'deduct',

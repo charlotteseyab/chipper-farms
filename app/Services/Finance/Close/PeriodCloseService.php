@@ -13,8 +13,8 @@ use App\Services\Finance\Reporting\CashFlowService;
 use App\Services\Finance\Reporting\IncomeStatementService;
 use App\Services\Finance\Reporting\TrialBalanceService;
 use App\Support\CurrentOrganization;
-use Carbon\Carbon;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**

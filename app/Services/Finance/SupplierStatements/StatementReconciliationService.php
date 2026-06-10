@@ -79,7 +79,7 @@ class StatementReconciliationService
             'skipped_resolved'  => 0,
         ];
 
-        DB::transaction(function () use ($statement, &$summary) {
+        DB::transaction(function () use ($statement, $user, &$summary) {
             foreach ($statement->lines as $line) {
                 if ($line->isManuallyResolved()) {
                     $summary['skipped_resolved']++;

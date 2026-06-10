@@ -32,10 +32,6 @@ class PeriodCloseController extends Controller
         protected CurrentOrganization $currentOrg,
         protected PeriodCloseService $closeService,
     ) {
-        $this->middleware('auth');
-        $this->middleware('permission:view_period_close')->only(['index', 'show']);
-        $this->middleware('permission:manage_period_close')->only(['close']);
-        $this->middleware('permission:override_period_close')->only(['reopen']);
     }
 
     public function index(Request $request)

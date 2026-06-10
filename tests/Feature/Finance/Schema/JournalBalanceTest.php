@@ -3,6 +3,7 @@
 namespace Tests\Feature\Finance\Schema;
 
 use App\Models\FiscalPeriod;
+use App\Models\FiscalYear;
 use App\Models\Finance\Account;
 use App\Models\Finance\Journal;
 use App\Models\Finance\JournalBatch;
@@ -39,13 +40,28 @@ class JournalBalanceTest extends TestCase
     {
         parent::setUp();
 
+        if (config('database.default') === 'sqlite') {
+            $this->markTestSkipped(
+                'SQLite cannot add the ALTER TABLE check constraints used by the finance schema migrations.'
+            );
+        }
+
         $this->org = Organization::create(['slug' => 'cf', 'name' => 'CF']);
         $this->app->make(CurrentOrganization::class)->bind($this->org);
+
+        $year = FiscalYear::create([
+            'organization_id' => $this->org->id,
+            'fiscal_year'     => (int) now()->year,
+            'name'            => 'FY' . now()->year,
+            'start_date'      => now()->startOfYear()->toDateString(),
+            'end_date'        => now()->endOfYear()->toDateString(),
+            'status'          => 'open',
+        ]);
 
         // A current fiscal period is required for journals.
         $this->period = FiscalPeriod::create([
             'organization_id' => $this->org->id,
-            'fiscal_year_id'  => 1,
+            'fiscal_year_id'  => $year->id,
             'period_number'   => 1,
             'name'            => 'Test Period',
             'start_date'      => now()->startOfMonth()->toDateString(),

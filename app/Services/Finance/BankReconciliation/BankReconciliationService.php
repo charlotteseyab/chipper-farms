@@ -87,7 +87,7 @@ class BankReconciliationService
             // Existing recon for this period?
             $existing = BankReconciliation::query()
                 ->where('bank_account_id', $bankAccount->id)
-                ->where('period_to', $periodToCarbon->toDateString())
+                ->whereDate('period_to', $periodToCarbon->toDateString())
                 ->whereIn('status', [
                     BankReconciliation::STATUS_DRAFT,
                     BankReconciliation::STATUS_IN_PROGRESS,
@@ -423,9 +423,20 @@ class BankReconciliationService
         };
 
         $row = $modelClass::find($matchedId);
-        if (! $row || ! $row->bank_reconciliation_id) return [];
+        if (! $row) return [];
 
-        $rec = BankReconciliation::find($row->bank_reconciliation_id);
+        $rec = null;
+        if ($row->bank_reconciliation_id) {
+            $rec = BankReconciliation::find($row->bank_reconciliation_id);
+        }
+
+        if (! $rec && $row->bank_statement_line_id) {
+            $line = BankStatementLine::query()
+                ->with('bankStatement.reconciliation')
+                ->find($row->bank_statement_line_id);
+            $rec = $line?->bankStatement?->reconciliation;
+        }
+
         if (! $rec) return [];
         if (! $rec->isLocked() && ! $rec->isFlagged()) return [];
 
@@ -447,7 +458,7 @@ class BankReconciliationService
         string $opening,
     ): string {
         $row = JournalLine::query()
-            ->whereHas('journalBatch', function ($q) use ($from, $to, $bankAccount) {
+            ->whereHas('journal.batch', function ($q) use ($from, $to, $bankAccount) {
                 $q->where('organization_id', $bankAccount->organization_id)
                   ->where('status', JournalBatch::STATUS_POSTED)
                   ->whereBetween('posting_date', [$from->toDateString(), $to->toDateString()]);

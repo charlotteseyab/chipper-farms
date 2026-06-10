@@ -77,8 +77,35 @@ class WeightAlertsController extends Controller
      */
     public function create()
     {
-        $pigs = PigManagement::orderBy('ear_tag_number')->get();
+        $pigs = PigManagement::with(['weights' => fn ($q) => $q->latest('weigh_date')])
+            ->orderBy('ear_tag_number')
+            ->get();
+
         return view('weight-alerts.create', compact('pigs'));
+    }
+
+    public function store(Request $request)
+    {
+        $data = $request->validate([
+            'pig_id' => ['required', 'integer', 'exists:pigs_management,id'],
+            'weight_record_id' => ['required', 'integer', 'exists:pig_weights,id'],
+            'alert_type' => ['required', 'in:under_weight,over_weight,normal,no_standard'],
+            'severity' => ['required', 'in:low,medium,high'],
+            'actual_weight' => ['required', 'numeric', 'min:0'],
+            'expected_min_weight' => ['nullable', 'numeric', 'min:0'],
+            'expected_max_weight' => ['nullable', 'numeric', 'min:0'],
+            'optimal_weight' => ['nullable', 'numeric', 'min:0'],
+            'deviation_percentage' => ['nullable', 'numeric'],
+            'pig_age_weeks' => ['required', 'integer', 'min:0'],
+            'alert_message' => ['required', 'string', 'max:2000'],
+        ]);
+
+        WeightAlert::create($data + ['acknowledged' => false]);
+
+        return FlashHelper::successAndRedirect(
+            'Weight alert created successfully!',
+            'weight-alerts.index'
+        );
     }
 
     /**

@@ -16,8 +16,6 @@ class CashFlowController extends Controller
 {
     public function __construct(protected CurrentOrganization $currentOrg)
     {
-        $this->middleware('auth');
-        $this->middleware('permission:view_financial_reports');
     }
 
     public function __invoke(Request $request, CashFlowService $service)

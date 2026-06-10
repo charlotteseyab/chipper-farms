@@ -34,8 +34,9 @@ class AgeingControllerTest extends TestCase
         // Grant existing perms to admin role for full surface.
         $admin = Role::where('name', 'admin')->first();
         foreach (['view_finance', 'export_finance', 'view_ap_ageing'] as $code) {
-            $perm = Permission::firstOrCreate(['code' => $code], [
-                'name' => $code, 'category' => 'finance',
+            $perm = Permission::firstOrCreate(['name' => $code], [
+                'description' => $code,
+                'module' => 'finance',
             ]);
             if ($admin && ! $admin->permissions()->where('permissions.id', $perm->id)->exists()) {
                 $admin->permissions()->attach($perm->id);

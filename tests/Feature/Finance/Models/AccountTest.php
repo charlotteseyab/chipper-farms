@@ -76,47 +76,48 @@ class AccountTest extends TestCase
 
     public function test_active_scope_excludes_inactive(): void
     {
-        Account::create([
+        $active = Account::create([
             'organization_id' => $this->org->id,
             'code' => '1010', 'name' => 'Active',
             'account_type' => Account::TYPE_ASSET, 'is_active' => true,
         ]);
-        Account::create([
+        $inactive = Account::create([
             'organization_id' => $this->org->id,
             'code' => '1011', 'name' => 'Inactive',
             'account_type' => Account::TYPE_ASSET, 'is_active' => false,
         ]);
 
-        $this->assertSame(1, Account::active()->count());
+        $this->assertSame(1, Account::active()->whereIn('id', [$active->id, $inactive->id])->count());
     }
 
     public function test_of_type_scope_filters_by_type(): void
     {
-        Account::create([
+        $asset = Account::create([
             'organization_id' => $this->org->id,
             'code' => '1010', 'name' => 'Cash',
             'account_type' => Account::TYPE_ASSET,
         ]);
-        Account::create([
+        $revenue = Account::create([
             'organization_id' => $this->org->id,
             'code' => '4010', 'name' => 'Revenue',
             'account_type' => Account::TYPE_REVENUE,
         ]);
 
-        $this->assertSame(1, Account::ofType(Account::TYPE_ASSET)->count());
-        $this->assertSame(1, Account::ofType(Account::TYPE_REVENUE)->count());
-        $this->assertSame(0, Account::ofType(Account::TYPE_EXPENSE)->count());
+        $ids = [$asset->id, $revenue->id];
+        $this->assertSame(1, Account::ofType(Account::TYPE_ASSET)->whereIn('id', $ids)->count());
+        $this->assertSame(1, Account::ofType(Account::TYPE_REVENUE)->whereIn('id', $ids)->count());
+        $this->assertSame(0, Account::ofType(Account::TYPE_EXPENSE)->whereIn('id', $ids)->count());
     }
 
     public function test_accepts_manual_journal_scope(): void
     {
-        Account::create([
+        $manual = Account::create([
             'organization_id' => $this->org->id,
             'code' => '1010', 'name' => 'Cash',
             'account_type' => Account::TYPE_ASSET,
             'allow_manual_journal' => true,
         ]);
-        Account::create([
+        $control = Account::create([
             'organization_id' => $this->org->id,
             'code' => '1110', 'name' => 'AR Control',
             'account_type' => Account::TYPE_ASSET,
@@ -124,7 +125,7 @@ class AccountTest extends TestCase
             'allow_manual_journal' => false,
         ]);
 
-        $this->assertSame(1, Account::acceptsManualJournal()->count());
+        $this->assertSame(1, Account::acceptsManualJournal()->whereIn('id', [$manual->id, $control->id])->count());
     }
 
     public function test_parent_child_relationship(): void

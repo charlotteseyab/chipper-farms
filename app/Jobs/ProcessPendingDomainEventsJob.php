@@ -128,6 +128,7 @@ class ProcessPendingDomainEventsJob implements ShouldQueue
                         $processed++;
                     } elseif ($event->status === DomainEvent::STATUS_FAILED) {
                         $failed++;
+                        break;
                     } elseif ($event->status === DomainEvent::STATUS_SKIPPED) {
                         $skipped++;
                     }

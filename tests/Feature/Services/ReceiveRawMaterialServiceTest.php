@@ -3,6 +3,7 @@
 namespace Tests\Feature\Services;
 
 use App\Models\DomainEvent;
+use App\Models\Counterparty;
 use App\Models\Organization;
 use App\Models\RawMaterial;
 use App\Models\Role;
@@ -18,6 +19,7 @@ class ReceiveRawMaterialServiceTest extends TestCase
 
     protected Organization $org;
     protected User $actor;
+    protected Counterparty $supplier;
 
     protected function setUp(): void
     {
@@ -32,6 +34,15 @@ class ReceiveRawMaterialServiceTest extends TestCase
             'organization_id' => $this->org->id,
         ]);
         $this->app->make(CurrentOrganization::class)->bind($this->org);
+
+        $this->supplier = Counterparty::create([
+            'organization_id' => $this->org->id,
+            'type' => Counterparty::TYPE_SUPPLIER,
+            'code' => 'SUP-T',
+            'name' => 'Test Supplier',
+            'currency_code' => 'GHS',
+            'is_active' => true,
+        ]);
     }
 
     protected function makeMaterial(): RawMaterial
@@ -55,6 +66,8 @@ class ReceiveRawMaterialServiceTest extends TestCase
             'quantity' => 200,
             'unit_cost' => 5.50,
             'reference' => 'GRN-001',
+            'supplier_id' => $this->supplier->id,
+            'receipt_reason' => 'opening_stock',
         ]);
 
         $fresh = $material->fresh();
@@ -74,6 +87,8 @@ class ReceiveRawMaterialServiceTest extends TestCase
         $service->execute($material, $this->actor, [
             'quantity' => 100,
             'unit_cost' => 10,
+            'supplier_id' => $this->supplier->id,
+            'receipt_reason' => 'opening_stock',
         ]);
 
         $event = DomainEvent::where('event_type', 'raw_material.received')->first();
@@ -94,6 +109,8 @@ class ReceiveRawMaterialServiceTest extends TestCase
         $service->execute($material, $this->actor, [
             'quantity' => -10,
             'unit_cost' => 5,
+            'supplier_id' => $this->supplier->id,
+            'receipt_reason' => 'opening_stock',
         ]);
     }
 
@@ -102,8 +119,18 @@ class ReceiveRawMaterialServiceTest extends TestCase
         $material = $this->makeMaterial();
         $service = $this->app->make(ReceiveRawMaterialService::class);
 
-        $service->execute($material, $this->actor, ['quantity' => 50, 'unit_cost' => 4]);
-        $service->execute($material, $this->actor, ['quantity' => 30, 'unit_cost' => 6]);
+        $service->execute($material, $this->actor, [
+            'quantity' => 50,
+            'unit_cost' => 4,
+            'supplier_id' => $this->supplier->id,
+            'receipt_reason' => 'opening_stock',
+        ]);
+        $service->execute($material, $this->actor, [
+            'quantity' => 30,
+            'unit_cost' => 6,
+            'supplier_id' => $this->supplier->id,
+            'receipt_reason' => 'correction',
+        ]);
 
         $this->assertSame('80.00', (string) $material->fresh()->quantity_in_stock);
         $this->assertSame(2, DomainEvent::where('event_type', 'raw_material.received')->count());

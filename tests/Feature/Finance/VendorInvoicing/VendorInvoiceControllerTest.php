@@ -38,22 +38,29 @@ class VendorInvoiceControllerTest extends TestCase
 
         $this->setUpFinanceFixtures();
 
+        foreach (['accountant', 'treasurer', 'manager', 'admin', 'superuser'] as $roleName) {
+            Role::firstOrCreate(['name' => $roleName]);
+        }
+
         $this->seed(FinancePermissionsSeeder::class);
         $this->seed(Phase3aSupplierPermissionsSeeder::class);
         $this->seed(Phase3bVendorInvoicePermissionsSeeder::class);
 
-        Account::create([
+        Account::firstOrCreate([
             'organization_id' => $this->org->id, 'code' => '6010',
+        ], [
             'name' => 'Sundry', 'account_type' => Account::TYPE_EXPENSE,
             'currency_code' => 'GHS', 'is_active' => true, 'allow_manual_journal' => true,
         ]);
-        Account::create([
+        Account::firstOrCreate([
             'organization_id' => $this->org->id, 'code' => '2110',
+        ], [
             'name' => 'AP', 'account_type' => Account::TYPE_LIABILITY,
             'currency_code' => 'GHS', 'is_active' => true, 'allow_manual_journal' => true,
         ]);
-        Account::create([
+        Account::firstOrCreate([
             'organization_id' => $this->org->id, 'code' => '1410',
+        ], [
             'name' => 'Input VAT', 'account_type' => Account::TYPE_ASSET,
             'currency_code' => 'GHS', 'is_active' => true, 'allow_manual_journal' => true,
         ]);
@@ -186,7 +193,7 @@ class VendorInvoiceControllerTest extends TestCase
 
         // Should redirect back with error, NOT post the invoice
         $this->assertSame(VendorInvoice::STATUS_PENDING_APPROVAL, $invoice->fresh()->status);
-        $response->assertSessionHas('error', fn ($v) => str_contains($v ?? '', 'two-person'));
+        $response->assertSessionHas('error', fn ($v) => str_contains(strtolower($v ?? ''), 'two-person'));
     }
 
     public function test_two_person_rule_disabled_via_config(): void

@@ -66,5 +66,6 @@ class ReportsAccessTest extends TestCase
         $role->permissions()->syncWithoutDetaching([$perm->id]);
         // refresh cached permissions on the user's role
         $this->user->refresh();
+        $this->user->clearPermissionCache();
     }
 }

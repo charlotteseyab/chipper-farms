@@ -3,11 +3,13 @@
 namespace Tests\Feature\Operations;
 
 use App\Models\DomainEvent;
+use App\Models\Counterparty;
 use App\Models\Organization;
 use App\Models\RawMaterial;
 use App\Models\RawMaterialStockLog;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\Inventory\ReceiveRawMaterialService;
 use App\Support\CurrentOrganization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -31,6 +33,7 @@ class RawMaterialStockWorkflowBaselineTest extends TestCase
 
     protected Organization $org;
     protected User $admin;
+    protected Counterparty $supplier;
 
     protected function setUp(): void
     {
@@ -48,18 +51,45 @@ class RawMaterialStockWorkflowBaselineTest extends TestCase
         ]);
 
         $this->app->make(CurrentOrganization::class)->bind($this->org);
+
+        $this->supplier = Counterparty::create([
+            'organization_id' => $this->org->id,
+            'type' => Counterparty::TYPE_SUPPLIER,
+            'code' => 'SUP-T',
+            'name' => 'Test Supplier',
+            'currency_code' => 'GHS',
+            'is_active' => true,
+        ]);
     }
 
     protected function makeMaterial(float $qty = 0.0, float $unitCost = 10.00): RawMaterial
     {
-        return RawMaterial::create([
+        $material = RawMaterial::create([
             'name' => 'Maize bran',
             'category' => 'grain',
             'unit' => 'kg',
-            'quantity_in_stock' => $qty,
-            'unit_cost' => $unitCost,
+            'quantity_in_stock' => 0,
+            'unit_cost' => 0,
             'reorder_level' => 100,
         ]);
+
+        if ($qty > 0) {
+            $this->app->make(ReceiveRawMaterialService::class)->execute(
+                $material,
+                $this->admin,
+                [
+                    'quantity' => $qty,
+                    'unit_cost' => $unitCost,
+                    'reference' => 'Opening Stock',
+                    'supplier_id' => $this->supplier->id,
+                    'receipt_reason' => 'opening_stock',
+                ],
+            );
+        } else {
+            $material->update(['unit_cost' => $unitCost]);
+        }
+
+        return $material->fresh();
     }
 
     public function test_receiving_stock_increments_quantity_and_writes_log(): void
@@ -72,6 +102,8 @@ class RawMaterialStockWorkflowBaselineTest extends TestCase
                 'unit_cost' => 12,
                 'reference' => 'GRN-001',
                 'notes' => 'Weekly restock',
+                'supplier_id' => $this->supplier->id,
+                'receipt_reason' => 'purchase',
             ])
             ->assertRedirect();
 
@@ -81,6 +113,7 @@ class RawMaterialStockWorkflowBaselineTest extends TestCase
 
         $log = RawMaterialStockLog::where('raw_material_id', $material->id)
             ->where('type', 'receive')
+            ->where('reference', 'GRN-001')
             ->latest()
             ->first();
 
@@ -99,6 +132,8 @@ class RawMaterialStockWorkflowBaselineTest extends TestCase
                 'quantity' => 100,
                 'unit_cost' => 8.50,
                 'reference' => 'GRN-002',
+                'supplier_id' => $this->supplier->id,
+                'receipt_reason' => 'purchase',
             ])
             ->assertRedirect();
 

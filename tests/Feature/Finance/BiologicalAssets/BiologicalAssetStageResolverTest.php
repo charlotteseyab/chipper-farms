@@ -21,8 +21,11 @@ class BiologicalAssetStageResolverTest extends TestCase
         $this->setUpFinanceFixtures();
         // Stage accounts the resolver maps to.
         foreach (['1310','1320','1330','1340','1350','1360','1370'] as $code) {
-            Account::create([
-                'organization_id' => $this->org->id, 'code' => $code, 'name' => "Bio {$code}",
+            Account::firstOrCreate([
+                'organization_id' => $this->org->id,
+                'code' => $code,
+            ], [
+                'name' => "Bio {$code}",
                 'account_type' => Account::TYPE_ASSET, 'account_subtype' => 'current_asset',
                 'currency_code' => 'GHS', 'is_active' => true, 'is_control' => true, 'allow_manual_journal' => false,
             ]);

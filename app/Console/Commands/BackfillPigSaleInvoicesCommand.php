@@ -26,7 +26,7 @@ use Illuminate\Support\Facades\Log;
  *   - For each, create an invoice with one line
  *   - Set the invoice status to 'posted'
  *   - LINK to the EXISTING journal_batch_id from the legacy posting
- *     (lookup via journal_postings WHERE source_type='PigSale' source_id=N)
+ *     (lookup via journal_postings idempotency key)
  *   - DO NOT create new GL postings (the journals already exist)
  *   - Update pig_sales.invoice_id with the new invoice id
  *
@@ -270,20 +270,24 @@ class BackfillPigSaleInvoicesCommand extends Command
 
     /**
      * Look up the existing journal_batch_id from the legacy Phase 1c posting.
-     * The Phase 1c subscriber wrote journal_postings rows with
-     *   source_type = PigSale::class
-     *   source_id   = $sale->id
-     *   purpose     = PURPOSE_REVENUE
+     * The posting engine writes journal_postings rows keyed by
+     *   {event_type}:{source_type_short}:{source_id}:{posting_purpose}
      * Returns the batch id from that row, or null if none found (rare —
      * indicates is_posted=true was set without a corresponding GL row, which
      * would be a data inconsistency from somewhere else).
      */
     protected function findExistingJournalBatchId(PigSale $sale): ?int
     {
+        $idempotencyKey = JournalPosting::buildIdempotencyKey(
+            'pig_sale.recorded',
+            PigSale::class,
+            $sale->id,
+            JournalPosting::PURPOSE_REVENUE,
+        );
+
         return JournalPosting::query()
-            ->where('source_type', PigSale::class)
-            ->where('source_id', $sale->id)
-            ->where('purpose', JournalPosting::PURPOSE_REVENUE)
+            ->where('idempotency_key', $idempotencyKey)
+            ->where('posting_purpose', JournalPosting::PURPOSE_REVENUE)
             ->orderBy('id')
             ->value('journal_batch_id');
     }

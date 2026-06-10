@@ -82,10 +82,6 @@ class PigSaleInvoicingSubscriber extends Subscriber
         if (! $event || $event->event_type !== $this->eventType()) {
             return;
         }
-        if ($event->status === DomainEvent::STATUS_PROCESSED) {
-            return;
-        }
-
         // Settings flag check.
         if (! $this->flagEnabled()) {
             // Mark skipped so the legacy subscriber can pick it up.

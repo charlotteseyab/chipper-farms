@@ -16,6 +16,7 @@ use App\Services\Finance\BiologicalAssets\BiologicalAssetStageResolver;
 use App\Services\Finance\BiologicalAssets\Concerns\HandlesBioAssetDecimals;
 use App\Support\CurrentOrganization;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -99,40 +100,55 @@ class PigLifecycleStageChangedSubscriber extends Subscriber
 
     protected function onPostedSuccessfully(DomainEvent $event, JournalBatch $batch): void
     {
+        if (BiologicalAssetStageTransfer::query()
+            ->where('source_domain_event_id', $event->id)
+            ->exists()) {
+            return;
+        }
+
         $context = $this->resolveContext($event);
         if ($context === null) {
             return;
         }
         [$pig, $groupId, $fromStage, $toStage, $amount] = array_values($context);
 
-        // Move one pig's cost from the source stage balance to the target.
-        $from = $this->stageBalance($groupId, $fromStage);
-        if ($from) {
-            $from->carrying_value = $this->maxZero($this->decSub((string) $from->carrying_value, $amount));
-            $from->pig_count      = max(0, (int) $from->pig_count - 1);
-            $from->last_movement_at = CarbonImmutable::parse($event->occurred_at);
-            $from->save();
-        }
+        DB::transaction(function () use ($event, $batch, $groupId, $fromStage, $toStage, $amount) {
+            if (BiologicalAssetStageTransfer::query()
+                ->where('source_domain_event_id', $event->id)
+                ->lockForUpdate()
+                ->exists()) {
+                return;
+            }
 
-        $to = $this->stageBalance($groupId, $toStage, createIfMissing: true);
-        $to->carrying_value = $this->decAdd((string) $to->carrying_value, $amount);
-        $to->pig_count      = (int) $to->pig_count + 1;
-        $to->last_movement_at = CarbonImmutable::parse($event->occurred_at);
-        $to->save();
+            // Move one pig's cost from the source stage balance to the target.
+            $from = $this->stageBalance($groupId, $fromStage);
+            if ($from) {
+                $from->carrying_value = $this->maxZero($this->decSub((string) $from->carrying_value, $amount));
+                $from->pig_count      = max(0, (int) $from->pig_count - 1);
+                $from->last_movement_at = CarbonImmutable::parse($event->occurred_at);
+                $from->save();
+            }
 
-        BiologicalAssetStageTransfer::create([
-            'organization_id'        => $event->organization_id,
-            'group_id'               => $groupId,
-            'from_stage_key'         => $fromStage,
-            'to_stage_key'           => $toStage,
-            'amount'                 => $this->norm($amount, 4),
-            'pig_count'              => 1,
-            'weight_kg'              => '0',
-            'reason'                 => BiologicalAssetStageTransfer::REASON_PROMOTION,
-            'journal_batch_id'       => $batch->id,
-            'source_domain_event_id' => $event->id,
-            'occurred_at'            => CarbonImmutable::parse($event->occurred_at),
-        ]);
+            $to = $this->stageBalance($groupId, $toStage, createIfMissing: true);
+            $to->carrying_value = $this->decAdd((string) $to->carrying_value, $amount);
+            $to->pig_count      = (int) $to->pig_count + 1;
+            $to->last_movement_at = CarbonImmutable::parse($event->occurred_at);
+            $to->save();
+
+            BiologicalAssetStageTransfer::create([
+                'organization_id'        => $event->organization_id,
+                'group_id'               => $groupId,
+                'from_stage_key'         => $fromStage,
+                'to_stage_key'           => $toStage,
+                'amount'                 => $this->norm($amount, 4),
+                'pig_count'              => 1,
+                'weight_kg'              => '0',
+                'reason'                 => BiologicalAssetStageTransfer::REASON_PROMOTION,
+                'journal_batch_id'       => $batch->id,
+                'source_domain_event_id' => $event->id,
+                'occurred_at'            => CarbonImmutable::parse($event->occurred_at),
+            ]);
+        });
     }
 
     /**

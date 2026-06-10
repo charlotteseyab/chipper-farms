@@ -4,6 +4,7 @@ namespace App\Services\Finance\Ageing;
 
 use App\Models\Counterparty;
 use App\Models\Finance\Invoice;
+use App\Models\Finance\VendorInvoice;
 
 /**
  * One row in the ageing report — a customer's bucketed outstanding balance.
@@ -19,7 +20,7 @@ final class AgeingLine
         public readonly Counterparty $counterparty,
         public readonly int $invoiceCount,
         public readonly array $buckets,
-        public readonly Invoice $oldestInvoice,
+        public readonly Invoice|VendorInvoice $oldestInvoice,
         public readonly string $currencyCode,
     ) {
     }

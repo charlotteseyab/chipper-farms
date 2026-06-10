@@ -70,10 +70,6 @@ class PigSalePaymentReceiptSubscriber extends Subscriber
         if (! $event || $event->event_type !== $this->eventType()) {
             return;
         }
-        if ($event->status === DomainEvent::STATUS_PROCESSED) {
-            return;
-        }
-
         $sale = PigSale::find($event->source_id);
         if (! $sale) {
             $this->markEvent($event, DomainEvent::STATUS_FAILED, 'PigSale source missing');
@@ -106,7 +102,7 @@ class PigSalePaymentReceiptSubscriber extends Subscriber
             return;
         }
 
-        $newStatus = $event->payload['new_status'] ?? null;
+        $newStatus = $event->payload['to_status'] ?? $event->payload['new_status'] ?? null;
 
         try {
             switch ($newStatus) {

@@ -9,11 +9,15 @@ use App\Finance\Posting\PigCostingPurposes;
 use App\Finance\Resolvers\FinanceAccountResolver;
 use App\Finance\Subscribers\Subscriber;
 use App\Models\DomainEvent;
+use App\Models\Finance\BiologicalAssetStageTransfer;
 use App\Models\Finance\GroupCostMovement;
+use App\Models\Finance\GroupCostPool;
 use App\Models\Finance\JournalBatch;
 use App\Models\Finance\JournalPosting;
 use App\Models\PigManagement;
 use App\Models\PigSale;
+use App\Services\Finance\BiologicalAssets\BiologicalAssetStageResolver;
+use App\Services\Finance\BiologicalAssets\BiologicalAssetSubledgerService;
 use App\Services\Finance\Costing\GroupCostPoolService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -53,6 +57,8 @@ class PigSaleCogsSubscriber extends Subscriber
     public function __construct(
         protected FinanceAccountResolver $accountResolver,
         protected GroupCostPoolService $poolService,
+        protected BiologicalAssetStageResolver $stageResolver,
+        protected BiologicalAssetSubledgerService $bioSubledger,
     ) {
     }
 
@@ -153,18 +159,7 @@ class PigSaleCogsSubscriber extends Subscriber
         ]);
 
         $cogsAcct    = (int) $this->accountResolver->byCode('5110')->id;
-        $bioGroupId  = (int) ($sale->cogs_group_id ?? $sale->pig?->group_id);
-        $livePigAcct = (int) $this->stageResolver->accountForGroup($bioGroupId)->id;
-
-        $this->bioSubledger->recordExit(
-                      groupId:             $bioGroupId,
-                      amount:              (string) $sale->cogs_amount,
-                      pigCountDelta:       1,
-                      weightDelta:         (string) ($sale->cogs_pig_weight_kg ?? '0'),
-                      reason:              \App\Models\Finance\BiologicalAssetStageTransfer::REASON_SALE_COGS,
-                      journalBatchId:      $batch->id,
-                      sourceDomainEventId: $domainEventId,
-                    );
+        $livePigAcct = (int) $this->stageResolver->accountForGroup($groupId)->id;
 
         $description = sprintf(
             'COGS — pig sale #%d (%s, %s kg)',
@@ -231,7 +226,7 @@ class PigSaleCogsSubscriber extends Subscriber
     {
         $saleId = (int) $event->source_id;
 
-        DB::transaction(function () use ($saleId, $batch) {
+        DB::transaction(function () use ($saleId, $event, $batch) {
             PigSale::query()->where('id', $saleId)->update([
                 'cogs_journal_batch_id' => $batch->id,
                 'cogs_posting_status'   => 'posted',
@@ -242,6 +237,33 @@ class PigSaleCogsSubscriber extends Subscriber
                 ->where('source_type', GroupCostMovement::SOURCE_PIG_SALE)
                 ->where('source_id', $saleId)
                 ->update(['journal_batch_id' => $batch->id]);
+
+            if (BiologicalAssetStageTransfer::query()
+                    ->where('source_domain_event_id', $event->id)
+                    ->exists()) {
+                return;
+            }
+
+            $sale = PigSale::with('pig')->find($saleId);
+            if (! $sale) {
+                return;
+            }
+
+            $groupId = (int) ($sale->cogs_group_id ?? $sale->pig?->group_id ?? 0);
+            if ($groupId <= 0) {
+                return;
+            }
+
+            $this->bioSubledger->recordExit(
+                groupId:             $groupId,
+                amount:              (string) $sale->cogs_amount,
+                pigCountDelta:       1,
+                weightDelta:         (string) ($sale->cogs_pig_weight_kg ?? '0'),
+                reason:              BiologicalAssetStageTransfer::REASON_SALE_COGS,
+                journalBatchId:      $batch->id,
+                sourceDomainEventId: $event->id,
+                occurredAt:          CarbonImmutable::parse($sale->sale_date)->endOfDay(),
+            );
         });
     }
 
@@ -258,6 +280,18 @@ class PigSaleCogsSubscriber extends Subscriber
         $w = (float) ($pig->current_weight_kg_cache ?? 0);
         if ($w > 0) {
             return number_format($w, 4, '.', '');
+        }
+
+        $groupId = (int) ($pig->group_id ?? 0);
+        if ($groupId > 0) {
+            $pool = GroupCostPool::query()
+                ->where('organization_id', $sale->organization_id)
+                ->where('group_id', $groupId)
+                ->first();
+
+            if ($pool && (int) $pool->on_hand_pig_count > 0 && bccomp((string) $pool->total_weight_kg, '0', 4) > 0) {
+                return bcdiv((string) $pool->total_weight_kg, (string) $pool->on_hand_pig_count, 4);
+            }
         }
 
         return '0';

@@ -33,10 +33,25 @@ class PurchaseRequestInvoicingSubscriberTest extends TestCase
         parent::setUp();
         $this->setUpFinanceFixtures();
 
-        Account::create([
-            'organization_id' => $this->org->id, 'code' => '6010',
-            'name' => 'Sundry', 'account_type' => Account::TYPE_EXPENSE,
-            'currency_code' => 'GHS', 'is_active' => true, 'allow_manual_journal' => true,
+        Account::firstOrCreate([
+            'organization_id' => $this->org->id,
+            'code' => '6010',
+        ], [
+            'name' => 'Sundry',
+            'account_type' => Account::TYPE_EXPENSE,
+            'currency_code' => 'GHS',
+            'is_active' => true,
+            'allow_manual_journal' => true,
+        ]);
+        Account::firstOrCreate([
+            'organization_id' => $this->org->id,
+            'code' => '6990',
+        ], [
+            'name' => 'Sundry Expense',
+            'account_type' => Account::TYPE_EXPENSE,
+            'currency_code' => 'GHS',
+            'is_active' => true,
+            'allow_manual_journal' => true,
         ]);
 
         $cat = SupplierCategory::create([
@@ -65,8 +80,8 @@ class PurchaseRequestInvoicingSubscriberTest extends TestCase
         $this->subscriber->handle($event->id);
 
         $event->refresh();
-        $this->assertSame(DomainEvent::STATUS_PENDING, $event->status,
-            'Event remains pending — not marked skipped to allow other subscribers');
+        $this->assertSame(DomainEvent::STATUS_SKIPPED, $event->status,
+            'Event is explicitly skipped when vendor invoice automation is disabled');
         $this->assertFalse(VendorInvoice::where('source_id', $event->source_id)->exists());
     }
 
@@ -218,7 +233,12 @@ class PurchaseRequestInvoicingSubscriberTest extends TestCase
     protected function createEvent(PurchaseRequest $pr): DomainEvent
     {
         $domainEvent = new PurchaseRequestApproved(
-            source: new SourceReference(PurchaseRequest::class, $pr->id),
+            source: new SourceReference(
+                module: 'procurement',
+                sourceType: PurchaseRequest::class,
+                sourceId: $pr->id,
+                organizationId: $this->org->id,
+            ),
             occurredAt: CarbonImmutable::now(),
             dispatchedByUserId: $this->requester->id,
             requestNumber: $pr->request_no,
@@ -229,10 +249,14 @@ class PurchaseRequestInvoicingSubscriberTest extends TestCase
         );
 
         return DomainEvent::create([
+            'organization_id' => $this->org->id,
             'event_type' => $domainEvent::TYPE,
+            'idempotency_key' => 'test:purchase_request_approved:' . $pr->id,
+            'source_module' => 'procurement',
             'source_type' => PurchaseRequest::class,
             'source_id' => $pr->id,
             'payload' => $domainEvent->payload(),
+            'payload_version' => 1,
             'dispatched_by_user_id' => $this->requester->id,
             'occurred_at' => now(),
             'status' => DomainEvent::STATUS_PENDING,

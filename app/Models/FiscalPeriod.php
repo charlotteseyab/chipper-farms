@@ -38,6 +38,9 @@ class FiscalPeriod extends Model
         'locked_at',
         'locked_by_user_id',
         'notes',
+        'first_journal_posted_at',
+        'last_journal_posted_at',
+        'posting_count',
     ];
 
     protected function casts(): array
@@ -48,6 +51,9 @@ class FiscalPeriod extends Model
             'end_date'      => 'date',
             'closed_at'     => 'datetime',
             'locked_at'     => 'datetime',
+            'first_journal_posted_at' => 'datetime',
+            'last_journal_posted_at'  => 'datetime',
+            'posting_count' => 'integer',
         ];
     }
 

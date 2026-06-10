@@ -9,13 +9,17 @@ use App\Finance\Posting\PigCostingPurposes;
 use App\Finance\Resolvers\FinanceAccountResolver;
 use App\Finance\Subscribers\Subscriber;
 use App\Models\DomainEvent;
+use App\Models\Finance\BiologicalAssetStageTransfer;
 use App\Models\Finance\GroupCostMovement;
 use App\Models\Finance\JournalBatch;
 use App\Models\Finance\JournalPosting;
 use App\Models\Finance\PigMortalityWriteoff;
 use App\Models\PigDeath;
 use App\Services\Deaths\WriteOffPigMortalityService;
+use App\Services\Finance\BiologicalAssets\BiologicalAssetStageResolver;
+use App\Services\Finance\BiologicalAssets\BiologicalAssetSubledgerService;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -42,6 +46,8 @@ class PigDeathRecordedSubscriber extends Subscriber
     public function __construct(
         protected FinanceAccountResolver $accountResolver,
         protected WriteOffPigMortalityService $writeoffService,
+        protected BiologicalAssetStageResolver $stageResolver,
+        protected BiologicalAssetSubledgerService $bioSubledger,
     ) {
     }
 
@@ -73,22 +79,12 @@ class PigDeathRecordedSubscriber extends Subscriber
         }
 
         $mortalityAcct = (int) $this->accountResolver->byCode('5320')->id;
-        $bioGroupId  = (int) ($writeoff->group_id ?? $pig?->group_id);
+        $bioGroupId  = (int) $writeoff->group_id;
         $livePigAcct = (int) $this->stageResolver->accountForGroup($bioGroupId)->id;
-
-        $this->bioSubledger->recordExit(
-                      groupId:             $bioGroupId,
-                      amount:              (string) $writeoff->writeoff_amount,
-                      pigCountDelta:       1,
-                      weightDelta:         (string) ($writeoff->pig_weight_at_death_kg ?? '0'),
-                      reason:              \App\Models\Finance\BiologicalAssetStageTransfer::REASON_MORTALITY,
-                      journalBatchId:      $batch->id,
-                      sourceDomainEventId: $domainEventId,
-                    );
 
         $description = sprintf(
             'Mortality loss — pig %s (death #%d), group #%d',
-            $event->payload()['pig_code'] ?? "pig#{$death->pig_id}",
+            $event->payload['pig_code'] ?? "pig#{$death->pig_id}",
             $death->id,
             $writeoff->group_id,
         );
@@ -151,19 +147,55 @@ class PigDeathRecordedSubscriber extends Subscriber
     {
         $deathId = (int) $event->source_id;
 
-        // Forward-link the writeoff row and the underlying cost movement.
-        PigMortalityWriteoff::query()
-            ->where('pig_death_id', $deathId)
-            ->update(['journal_batch_id' => $batch->id]);
+        DB::transaction(function () use ($deathId, $event, $batch) {
+            // Mark death as posted
+            PigDeath::query()->where('id', $deathId)->update([
+                'is_posted' => true,
+                'posted_at' => now(),
+            ]);
 
-        GroupCostMovement::query()
-            ->where('source_type', GroupCostMovement::SOURCE_PIG_DEATH)
-            ->where('source_id', $deathId)
-            ->update(['journal_batch_id' => $batch->id]);
+            PigMortalityWriteoff::query()
+                ->where('pig_death_id', $deathId)
+                ->update(['journal_batch_id' => $batch->id]);
 
-        // Stamp the PigDeath itself for back-compat reporting that reads is_posted.
-        PigDeath::query()
-            ->where('id', $deathId)
-            ->update(['is_posted' => true, 'posted_at' => now()]);
+            GroupCostMovement::query()
+                ->where('source_type', GroupCostMovement::SOURCE_PIG_DEATH)
+                ->where('source_id', $deathId)
+                ->update(['journal_batch_id' => $batch->id]);
+
+            if (BiologicalAssetStageTransfer::query()
+                    ->where('source_domain_event_id', $event->id)
+                    ->exists()) {
+                return;
+            }
+
+            $death = PigDeath::with('pig')->find($deathId);
+            if (! $death || ! $death->pig) {
+                return;
+            }
+
+            $writeoff = PigMortalityWriteoff::query()
+                ->where('pig_death_id', $deathId)
+                ->first();
+            if (! $writeoff) {
+                return;
+            }
+
+            $bioGroupId = (int) ($death->pig->group_id ?? 0);
+            if ($bioGroupId <= 0) {
+                return;
+            }
+
+            $this->bioSubledger->recordExit(
+                groupId:             $bioGroupId,
+                amount:              (string) $writeoff->writeoff_amount,
+                pigCountDelta:       1,
+                weightDelta:         (string) ($writeoff->pig_weight_at_death_kg ?? '0'),
+                reason:              BiologicalAssetStageTransfer::REASON_MORTALITY,
+                journalBatchId:      $batch->id,
+                sourceDomainEventId: $event->id,
+                occurredAt:          CarbonImmutable::parse($death->death_date)->endOfDay(),
+            );
+        });
     }
 }

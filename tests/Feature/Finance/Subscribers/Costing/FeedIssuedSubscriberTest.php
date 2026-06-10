@@ -7,6 +7,8 @@ use App\Models\DomainEvent;
 use App\Models\FeedIssue;
 use App\Models\FeedType;
 use App\Models\Finance\Account;
+use App\Models\Finance\BiologicalAssetStageBalance;
+use App\Models\Finance\BiologicalAssetStageTransfer;
 use App\Models\Finance\InventoryAccountMapping;
 use App\Models\Finance\JournalBatch;
 use App\Models\Finance\JournalLine;
@@ -29,13 +31,16 @@ class FeedIssuedSubscriberTest extends TestCase
 
         $this->mkAcct('1220', 'Finished Feed Inventory', Account::TYPE_ASSET);
         $this->mkAcct('1230', 'Live Pig Inventory', Account::TYPE_ASSET);
+        $this->mkAcct('1360', 'Biological Assets', Account::TYPE_ASSET);
 
+        // Ensure inventory mapping points to the ORG-SCOPED account, not global
+        $acct1220 = Account::where('organization_id', $this->org->id)->where('code', '1220')->first();
         InventoryAccountMapping::create([
             'organization_id'      => $this->org->id,
             'item_kind'            => 'finished_feed',
             'category'             => InventoryAccountMapping::DEFAULT_CATEGORY_TOKEN,
             'is_default'           => true,
-            'inventory_account_id' => Account::where('code', '1220')->value('id'),
+            'inventory_account_id' => $acct1220->id,
         ]);
     }
 
@@ -53,10 +58,14 @@ class FeedIssuedSubscriberTest extends TestCase
             ->get();
         $this->assertCount(2, $lines);
 
-        $dr = $lines->firstWhere('account_id', Account::where('code', '1230')->value('id'));
-        $cr = $lines->firstWhere('account_id', Account::where('code', '1220')->value('id'));
-        $this->assertNotNull($dr);
-        $this->assertNotNull($cr);
+        // Note: The debit goes to the stage account (not 1230 clearing account).
+        // For fattening pigs, this is typically 1360 (growers) based on age.
+        $acct1220Id = Account::where('organization_id', $this->org->id)->where('code', '1220')->value('id');
+        $acct1360Id = Account::where('organization_id', $this->org->id)->where('code', '1360')->value('id');
+        $dr = $lines->firstWhere('account_id', $acct1360Id);
+        $cr = $lines->firstWhere('account_id', $acct1220Id);
+        $this->assertNotNull($dr, 'Expected debit line for account 1360 (grower stage) not found');
+        $this->assertNotNull($cr, 'Expected credit line for account 1220 not found');
         $this->assertEquals('250.00', $dr->debit);   // 50 × 5
         $this->assertEquals('250.00', $cr->credit);
 
@@ -64,6 +73,21 @@ class FeedIssuedSubscriberTest extends TestCase
         $issue->refresh();
         $this->assertEquals('posted', $issue->posting_status);
         $this->assertEquals($batch->id, $issue->journal_batch_id);
+
+        $transfer = BiologicalAssetStageTransfer::query()
+            ->where('source_domain_event_id', $domainEvent->id)
+            ->first();
+        $this->assertNotNull($transfer, 'Feed issue should create a biological subledger transfer row');
+        $this->assertSame(BiologicalAssetStageTransfer::REASON_FEED_ISSUE, $transfer->reason);
+        $this->assertSame($batch->id, $transfer->journal_batch_id);
+        $this->assertSame('250.0000', (string) $transfer->amount);
+
+        $balance = BiologicalAssetStageBalance::query()
+            ->where('group_id', $issue->group_id)
+            ->where('stage_key', 'grower')
+            ->first();
+        $this->assertNotNull($balance, 'Feed issue should increase the group stage balance');
+        $this->assertSame('250.0000', (string) $balance->carrying_value);
     }
 
     public function test_idempotent_on_retry(): void
@@ -73,11 +97,19 @@ class FeedIssuedSubscriberTest extends TestCase
         $subscriber = $this->app->make(FeedIssuedSubscriber::class);
         $subscriber->handle($domainEvent->id);
         $batchCount = JournalBatch::count();
+        $transferCount = BiologicalAssetStageTransfer::query()
+            ->where('source_domain_event_id', $domainEvent->id)
+            ->count();
 
         $domainEvent->update(['status' => DomainEvent::STATUS_PENDING]);
         $subscriber->handle($domainEvent->id);
 
         $this->assertEquals($batchCount, JournalBatch::count());
+        $this->assertSame(
+            $transferCount,
+            BiologicalAssetStageTransfer::query()->where('source_domain_event_id', $domainEvent->id)->count(),
+            'Retry must not duplicate biological subledger side effects',
+        );
     }
 
     public function test_zero_cost_issuance_skipped(): void

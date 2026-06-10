@@ -37,20 +37,18 @@ class Phase3bVendorInvoicePermissionsSeeder extends Seeder
     public function run(): void
     {
         $createPerm = Permission::firstOrCreate(
-            ['code' => 'create_vendor_invoice'],
+            ['name' => 'create_vendor_invoice'],
             [
-                'name'        => 'Create Vendor Invoice',
                 'description' => 'Draft, edit, submit for approval, and cancel vendor invoices',
-                'category'    => 'finance',
+                'module'      => 'finance',
             ],
         );
 
         $approvePerm = Permission::firstOrCreate(
-            ['code' => 'approve_vendor_invoice'],
+            ['name' => 'approve_vendor_invoice'],
             [
-                'name'        => 'Approve Vendor Invoice',
                 'description' => 'Approve a vendor invoice and post it to GL. Subject to two-person rule.',
-                'category'    => 'finance',
+                'module'      => 'finance',
             ],
         );
 

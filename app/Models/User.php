@@ -14,7 +14,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    public const ALLOWED_ROLE_NAMES = ['superuser', 'admin', 'farmmanager', 'dataentry', 'accountant'];
+    public const ALLOWED_ROLE_NAMES = ['superuser', 'admin', 'farmmanager', 'dataentry', 'accountant', 'treasurer'];
 
     use HasApiTokens;
 
@@ -187,5 +187,10 @@ class User extends Authenticatable
     public function isAccountant(): bool
     {
         return $this->hasRoleName('accountant');
+    }
+
+    public function isTreasurer(): bool
+    {
+        return $this->hasRoleName('treasurer');
     }
 }

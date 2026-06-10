@@ -73,11 +73,6 @@ abstract class Subscriber implements ShouldQueue
             return;
         }
 
-        if ($event->status === DomainEvent::STATUS_PROCESSED) {
-            // Already done. Likely a queue retry. No-op.
-            return;
-        }
-
         if (! $this->shouldHandle($event)) {
             return;
         }
@@ -92,26 +87,34 @@ abstract class Subscriber implements ShouldQueue
 
             $batch = app(PostingEngine::class)->post($draft);
 
-            $this->markEvent($event, DomainEvent::STATUS_PROCESSED);
-
             $this->onPostedSuccessfully($event, $batch);
+            $this->markEvent($event, DomainEvent::STATUS_PROCESSED);
         } catch (DuplicatePostingException $e) {
-            // The event was already posted (likely by a previous attempt).
-            // Mark as processed and exit — this is the success path for
-            // duplicate delivery.
             $class = static::class;
             Log::info("Subscriber {$class}: duplicate posting for event #{$event->id} — already posted as batch #{$e->existingBatchId}");
+
+            $batch = JournalBatch::find($e->existingBatchId);
+            if (! $batch) {
+                $this->markEvent($event, DomainEvent::STATUS_FAILED, "Duplicate posting existing batch #{$e->existingBatchId} not found");
+                throw new \RuntimeException("Duplicate posting succeeded but existing batch #{$e->existingBatchId} could not be loaded.");
+            }
+
+            try {
+                $this->onPostedSuccessfully($event, $batch);
+            } catch (\Throwable $e2) {
+                $this->markEvent($event, DomainEvent::STATUS_FAILED, $e2->getMessage());
+                throw $e2;
+            }
+
             $this->markEvent($event, DomainEvent::STATUS_PROCESSED);
         } catch (PostingException $e) {
             $this->markEvent($event, DomainEvent::STATUS_FAILED, $e->getMessage());
 
             if ($e->isTransient()) {
-                // Release back to queue for retry.
                 $this->release(60);
                 return;
             }
 
-            // Permanent failure. Fail the job (Laravel will move it to failed_jobs).
             throw $e;
         } catch (\Throwable $e) {
             $this->markEvent($event, DomainEvent::STATUS_FAILED, $e->getMessage());

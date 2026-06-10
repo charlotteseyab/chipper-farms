@@ -62,15 +62,18 @@ class JournalReversalService
         ?\DateTimeInterface $reversalDate = null,
         bool $bypassSoftLock = false,
     ): JournalBatch {
-        if (! $original->isPosted()) {
+        if ($original->reversed_by_batch_id !== null || $original->status === JournalBatch::STATUS_REVERSED) {
+            $suffix = $original->reversed_by_batch_id
+                ? " by batch #{$original->reversed_by_batch_id}"
+                : '';
             throw new \DomainException(
-                "Cannot reverse batch #{$original->id}: status is '{$original->status}', expected 'posted'"
+                "Batch #{$original->id} is already reversed{$suffix}"
             );
         }
 
-        if ($original->reversed_by_batch_id !== null) {
+        if (! $original->isPosted()) {
             throw new \DomainException(
-                "Batch #{$original->id} is already reversed by batch #{$original->reversed_by_batch_id}"
+                "Cannot reverse batch #{$original->id}: status is '{$original->status}', expected 'posted'"
             );
         }
 

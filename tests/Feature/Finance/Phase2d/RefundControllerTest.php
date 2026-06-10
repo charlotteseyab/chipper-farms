@@ -107,20 +107,25 @@ class RefundControllerTest extends TestCase
 
     public function test_admin_can_post(): void
     {
-        $this->actingAs($this->accountant)->post(route('finance.refunds.store'), [
-            'counterparty_id'   => $this->customer->id,
-            'payment_method_id' => $this->cashMethod->id,
-            'refund_date'       => '2026-05-15',
-            'amount'            => '500.00',
-            'currency_code'     => 'GHS',
-            'reason'            => 'customer overpaid',
+        $refund = Refund::create([
+            'organization_id'    => $this->org->id,
+            'refund_number'      => 'REF-2026-000099',
+            'refund_date'        => '2026-05-15',
+            'counterparty_id'    => $this->customer->id,
+            'currency_code'      => 'GHS',
+            'exchange_rate'      => '1',
+            'amount'             => '500.00',
+            'payment_method_id'  => $this->cashMethod->id,
+            'status'             => Refund::STATUS_DRAFT,
+            'created_by_user_id' => $this->accountant->id,
+            'reason'             => 'customer overpaid',
         ]);
-
-        $refund = Refund::latest('id')->first();
 
         $this->actingAs($this->admin)
             ->post(route('finance.refunds.post', $refund))
-            ->assertRedirect();
+            ->assertRedirect()
+            ->assertSessionMissing('error')
+            ->assertSessionHas('success');
 
         $refund->refresh();
         $this->assertSame(Refund::STATUS_POSTED, $refund->status);

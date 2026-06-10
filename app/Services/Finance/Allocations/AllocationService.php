@@ -118,15 +118,9 @@ class AllocationService
      */
     public function reverse(ReceiptAllocation $allocation, User $user, string $reason): ReceiptAllocation
     {
-        if (! $allocation->isActive()) {
-            throw new \DomainException(
-                "Allocation #{$allocation->id} cannot be reversed: status is '{$allocation->status}'"
-            );
-        }
-
-                // Phase 3e: refuse if the parent receipt is part of a closed
+        // Phase 3e: refuse if the parent receipt is part of a closed
         // (reconciled or flagged) bank reconciliation.
-        $parentReceipt = $allocation->receipt;
+        $parentReceipt = $allocation->fresh(['receipt'])?->receipt;
         if ($parentReceipt) {
             $lockingRecons = $this->bankReconciliationService->lockingReconciliations(
                 \App\Models\Finance\BankStatementLine::MATCHED_TYPE_RECEIPT,
@@ -145,6 +139,12 @@ class AllocationService
 
         return DB::transaction(function () use ($allocation, $user, $reason) {
             $allocation = ReceiptAllocation::lockForUpdate()->findOrFail($allocation->id);
+            if (! $allocation->isActive()) {
+                throw new \DomainException(
+                    "Allocation #{$allocation->id} cannot be reversed: status is '{$allocation->status}'"
+                );
+            }
+
             $receipt    = Receipt::lockForUpdate()->findOrFail($allocation->receipt_id);
             $invoice    = Invoice::lockForUpdate()->findOrFail($allocation->invoice_id);
 

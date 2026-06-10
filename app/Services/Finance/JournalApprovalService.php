@@ -99,7 +99,9 @@ class JournalApprovalService
                 $update['first_journal_posted_at'] = $now;
             }
             if ($period) {
-                $period->update($update);
+                DB::table($period->getTable())
+                    ->where($period->getKeyName(), $period->getKey())
+                    ->update($update);
             }
 
             return $batch->fresh(['journals.lines']);

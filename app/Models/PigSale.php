@@ -11,6 +11,11 @@ class PigSale extends Model
 {
     use SoftDeletes;
 
+    // Defaults for legacy NOT NULL columns used in tests
+    protected $attributes = [
+        'buyer_name' => '',
+    ];
+
     // Get pricing from settings, fallback to defaults
     public static function getLiveWeightRate()
     {
@@ -64,6 +69,7 @@ class PigSale extends Model
         'is_posted',
         'posted_at',
         'customer_id',
+        'invoice_id',
         'payment_method_id',
         'cost_centre_id',
         'sales_channel_id',
@@ -128,6 +134,11 @@ class PigSale extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Counterparty::class, 'customer_id');
+    }
+
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Finance\Invoice::class, 'invoice_id');
     }
 
     public function paymentMethodRef(): BelongsTo

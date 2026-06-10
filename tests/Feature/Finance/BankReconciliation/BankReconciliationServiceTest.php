@@ -6,8 +6,10 @@ use App\Models\Finance\BankAccount;
 use App\Models\Finance\BankReconciliation;
 use App\Models\Finance\BankStatement;
 use App\Models\Finance\BankStatementLine;
+use App\Models\Finance\Journal;
 use App\Models\Finance\JournalBatch;
 use App\Models\Finance\JournalLine;
+use App\Models\FiscalPeriod;
 use App\Services\Finance\BankReconciliation\BankReconciliationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Finance\FinanceTestSetup;
@@ -53,34 +55,59 @@ class BankReconciliationServiceTest extends TestCase
         $batch = JournalBatch::create([
             'organization_id' => $this->org->id,
             'batch_number'    => 'JB-' . random_int(100000, 999999),
+            'batch_type'      => 'manual',
             'posting_date'    => $date,
             'description'     => 'Test',
-            'currency_code'   => 'GHS',
             'status'          => JournalBatch::STATUS_POSTED,
-            'total_debit'     => bcadd($debit, $contraDebit, 2),
-            'total_credit'    => bcadd($credit, $contraCredit, 2),
-            'created_by_user_id' => $this->user->id,
-            'fiscal_period_id'   => $this->period->id,
-            'fiscal_year_id'     => $this->year->id,
+            'fiscal_period_id' => FiscalPeriod::query()
+                ->where('organization_id', $this->org->id)
+                ->where('start_date', '<=', $date)
+                ->where('end_date', '>=', $date)
+                ->value('id'),
+        ]);
+
+        $journal = Journal::create([
+            'organization_id'    => $this->org->id,
+            'journal_batch_id'   => $batch->id,
+            'journal_number'     => 'J-' . random_int(100000, 999999),
+            'journal_type'       => 'manual',
+            'posting_date'       => $date,
+            'fiscal_period_id'   => $batch->fiscal_period_id,
+            'description'        => 'Test',
+            'currency_code'      => 'GHS',
+            'exchange_rate'      => '1',
+            'total_debit'        => bcadd($debit, $contraDebit, 2),
+            'total_credit'       => bcadd($credit, $contraCredit, 2),
+            'total_debit_tc'     => bcadd($debit, $contraDebit, 2),
+            'total_credit_tc'    => bcadd($credit, $contraCredit, 2),
+            'status'             => Journal::STATUS_POSTED,
         ]);
 
         JournalLine::create([
             'organization_id' => $this->org->id,
-            'journal_batch_id' => $batch->id,
+            'journal_id' => $journal->id,
+            'line_number' => 1,
             'account_id' => $this->cashAccount->id,
             'debit'  => $debit,
             'credit' => $credit,
+            'debit_tc' => $debit,
+            'credit_tc' => $credit,
             'currency_code' => 'GHS',
+            'exchange_rate' => '1',
         ]);
 
         // Contra to revenue.
         JournalLine::create([
             'organization_id' => $this->org->id,
-            'journal_batch_id' => $batch->id,
+            'journal_id' => $journal->id,
+            'line_number' => 2,
             'account_id' => $this->revenueAccount->id,
             'debit'  => bcsub($credit, '0.00', 2),  // mirror
             'credit' => bcsub($debit, '0.00', 2),
+            'debit_tc'  => bcsub($credit, '0.00', 2),
+            'credit_tc' => bcsub($debit, '0.00', 2),
             'currency_code' => 'GHS',
+            'exchange_rate' => '1',
         ]);
 
         return $batch;

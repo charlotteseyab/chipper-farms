@@ -14,13 +14,25 @@ class PigManagement extends Model
     protected $table = 'pigs_management'; // Pigs Management table name
 
     protected $fillable = [
+        'organization_id',
         'ear_tag_number', 'breed', 'gender', 'stock_type', 'date_of_birth',
         'code', 'age_in_days', 'father_id', 'mother_id', 'room_id', 'local_id',
         'group_id', 'current_weight_kg_cache', 'weight_cache_recorded_at',
+        'acquisition_cost', 'acquisition_date', 'acquisition_source',
+        'acquisition_journal_batch_id',
+    ];
+
+    // Provide sane defaults for legacy-not-null columns used by tests/seeders
+    protected $attributes = [
+        'breed' => 'unknown',
     ];
 
     protected $casts = [
-        'date_of_birth' => 'date', 'current_weight_kg_cache'  => 'decimal:4', 'weight_cache_recorded_at' => 'datetime',
+        'date_of_birth' => 'date',
+        'current_weight_kg_cache' => 'decimal:4',
+        'weight_cache_recorded_at' => 'datetime',
+        'acquisition_cost' => 'decimal:4',
+        'acquisition_date' => 'date',
     ];
 
     protected static function booted(): void
@@ -30,6 +42,11 @@ class PigManagement extends Model
             if (!$pig->local_id) {
                 $maxLocalId = static::max('local_id') ?? 0;
                 $pig->local_id = $maxLocalId + 1;
+            }
+
+            // Auto-generate a unique code when not provided to satisfy NOT NULL + unique
+            if (empty($pig->code)) {
+                $pig->code = 'P-' . bin2hex(random_bytes(6));
             }
 
             // Keep age_in_days populated for schemas where it's NOT NULL.

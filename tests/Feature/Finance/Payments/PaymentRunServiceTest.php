@@ -29,8 +29,10 @@ class PaymentRunServiceTest extends TestCase
         parent::setUp();
         $this->setUpFinanceFixtures();
 
-        Account::create([
-            'organization_id' => $this->org->id, 'code' => '2010',
+        Account::firstOrCreate([
+            'organization_id' => $this->org->id,
+            'code' => '2010',
+        ], [
             'name' => 'AP', 'account_type' => Account::TYPE_LIABILITY,
             'currency_code' => 'GHS', 'is_active' => true, 'allow_manual_journal' => true,
         ]);
@@ -234,8 +236,24 @@ class PaymentRunServiceTest extends TestCase
         $vi = $this->makePostedInvoice($this->supplierA, '500.00');
         $line = $this->service->addLine($run, $vi);
 
-        // Simulate execution.
-        $line->update(['payment_id' => 999999]);
+        // Simulate execution with a real payment row; the schema enforces this FK.
+        $payment = \App\Models\Finance\Payment::create([
+            'organization_id' => $this->org->id,
+            'payment_number' => 'PMT-2026-999999',
+            'payment_date' => now()->toDateString(),
+            'currency_code' => 'GHS',
+            'exchange_rate' => '1',
+            'counterparty_id' => $this->supplierA->id,
+            'amount' => '500.00',
+            'allocated_amount' => '0',
+            'withholding_amount' => '0',
+            'net_amount' => '0',
+            'payment_method_id' => $this->cashMethod->id,
+            'status' => \App\Models\Finance\Payment::STATUS_POSTED,
+            'is_backfilled' => false,
+            'created_by_user_id' => $this->user->id,
+        ]);
+        $line->update(['payment_id' => $payment->id]);
         $line->refresh();
         $run->update(['status' => PaymentRun::STATUS_EXECUTED]);
 

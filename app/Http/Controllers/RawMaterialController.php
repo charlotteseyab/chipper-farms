@@ -243,17 +243,21 @@ class RawMaterialController extends Controller
             abort(403, 'You do not have permission to override negative inventory.');
         }
 
-        $service->execute(
-            material: $rawMaterial,
-            actor:    $request->user(),
-            data:     [
-                'adjustment_type' => $validated['adjustment_type'],
-                'quantity'        => (float) $validated['quantity'],
-                'reference'       => $validated['reference'] ?? null,
-                'notes'           => $validated['notes'] ?? null,
-            ],
-            allowNegative: $allowNegative,
-        );
+        try {
+            $service->execute(
+                material: $rawMaterial,
+                actor:    $request->user(),
+                data:     [
+                    'adjustment_type' => $validated['adjustment_type'],
+                    'quantity'        => (float) $validated['quantity'],
+                    'reference'       => $validated['reference'] ?? null,
+                    'notes'           => $validated['notes'] ?? null,
+                ],
+                allowNegative: $allowNegative,
+            );
+        } catch (\DomainException $e) {
+            abort(422, $e->getMessage());
+        }
 
         return redirect()
             ->route('raw-materials.index')

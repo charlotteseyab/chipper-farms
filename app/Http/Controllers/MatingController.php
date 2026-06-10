@@ -2,13 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Events\Lifecycle\PigBirthRecorded;
+use App\Domain\Events\Support\SourceReference;
 use App\Models\Farrowing;
 use App\Models\Mating;
 use App\Models\PigManagement;
+use App\Services\DomainEvents\DispatchDomainEvent;
 use App\Services\Stock\PigRelationshipAnalysisService;
+use App\Support\CurrentOrganization;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Mating planning + management + gestation tracking + farrowing recording.
@@ -33,7 +38,11 @@ class MatingController extends Controller
 {
     use AuthorizesRequests;
 
-    public function __construct(protected PigRelationshipAnalysisService $relationships)
+    public function __construct(
+        protected PigRelationshipAnalysisService $relationships,
+        protected DispatchDomainEvent $dispatcher,
+        protected CurrentOrganization $currentOrganization,
+    )
     {
     }
 
@@ -446,36 +455,63 @@ class MatingController extends Controller
             $gestationLength = Carbon::parse($mating->mating_date)->diffInDays($data['farrowing_date']);
         }
 
-        $farrowing = Farrowing::create([
-            'sow_id'               => $mating->female_id,
-            'boar_id'              => $mating->male_id,
-            'farrowing_date'       => $data['farrowing_date'],
-            'farrowing_time'       => $data['farrowing_time'],
-            'total_piglets_born'   => $data['total_piglets_born'],
-            'live_births'          => $data['live_births'],
-            'stillbirths'          => $data['stillbirths'],
-            'number_of_males'      => $data['number_of_males'] ?: 0,
-            'number_of_females'    => $data['number_of_females'] ?: 0,
-            'average_birth_weight' => $data['average_birth_weight'],
-            'farrowing_type'       => $data['farrowing_type'],
-            'farrowing_difficulty' => $data['farrowing_difficulty'],
-            'gestation_length_days'=> $gestationLength,
-            'complications'        => $data['complications'],
-            'notes'                => $data['notes'],
-            'sow_condition'        => $data['sow_condition'],
-            'recorded_by'          => auth()->id(),
-            'status'               => 'active',
-        ]);
+        $farrowing = DB::transaction(function () use ($mating, $data, $gestationLength) {
+            $farrowing = Farrowing::create([
+                'sow_id'               => $mating->female_id,
+                'boar_id'              => $mating->male_id,
+                'farrowing_date'       => $data['farrowing_date'],
+                'farrowing_time'       => $data['farrowing_time'],
+                'total_piglets_born'   => $data['total_piglets_born'],
+                'live_births'          => $data['live_births'],
+                'stillbirths'          => $data['stillbirths'],
+                'number_of_males'      => $data['number_of_males'] ?: 0,
+                'number_of_females'    => $data['number_of_females'] ?: 0,
+                'average_birth_weight' => $data['average_birth_weight'],
+                'farrowing_type'       => $data['farrowing_type'],
+                'farrowing_difficulty' => $data['farrowing_difficulty'],
+                'gestation_length_days'=> $gestationLength,
+                'complications'        => $data['complications'],
+                'notes'                => $data['notes'],
+                'sow_condition'        => $data['sow_condition'],
+                'recorded_by'          => auth()->id(),
+                'status'               => 'active',
+            ]);
 
-        $mating->update([
-            'actual_farrowing_date' => $data['farrowing_date'],
-            'total_piglets'         => $data['total_piglets_born'],
-            'live_piglets'          => $data['live_births'],
-            'stillborn_piglets'     => $data['stillbirths'],
-            'farrowing_notes'       => $data['notes'],
-            'pregnancy_status'      => 'farrowed',
-            'status'                => 'farrowed',
-        ]);
+            $mating->update([
+                'actual_farrowing_date' => $data['farrowing_date'],
+                'total_piglets'         => $data['total_piglets_born'],
+                'live_piglets'          => $data['live_births'],
+                'stillborn_piglets'     => $data['stillbirths'],
+                'farrowing_notes'       => $data['notes'],
+                'pregnancy_status'      => 'farrowed',
+                'status'                => 'farrowed',
+            ]);
+
+            $organizationId = $this->currentOrganization->id();
+            if ($organizationId !== null) {
+                $sow = $mating->female;
+                $this->dispatcher->dispatch(new PigBirthRecorded(
+                    source: new SourceReference(
+                        module: 'lifecycle',
+                        sourceType: Farrowing::class,
+                        sourceId: (int) $farrowing->id,
+                        organizationId: $organizationId,
+                    ),
+                    occurredAt: \Carbon\CarbonImmutable::parse($data['farrowing_date']),
+                    dispatchedByUserId: auth()->id(),
+                    farrowingId: (int) $farrowing->id,
+                    sowId: (int) $mating->female_id,
+                    groupId: $sow?->group_id ? (int) $sow->group_id : null,
+                    liveBirths: (int) $data['live_births'],
+                    stillbirths: (int) $data['stillbirths'],
+                    averageBirthWeightKg: isset($data['average_birth_weight'])
+                        ? (float) $data['average_birth_weight']
+                        : null,
+                ));
+            }
+
+            return $farrowing;
+        });
 
         if (! $farrowing) {
             return back()->withErrors(['farrowing' => 'Failed to record farrowing.']);

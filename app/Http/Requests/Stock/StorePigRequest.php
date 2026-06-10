@@ -26,6 +26,10 @@ class StorePigRequest extends FormRequest
             'father_id'      => ['nullable', 'exists:pigs_management,id'],
             'mother_id'      => ['nullable', 'exists:pigs_management,id'],
             'room_id'        => ['nullable', 'exists:rooms,id'],
+            'group_id'       => ['nullable', 'exists:groups,id'],
+            'acquisition_cost'   => ['nullable', 'numeric', 'min:0'],
+            'acquisition_date'   => ['nullable', 'date', 'before_or_equal:today'],
+            'acquisition_source' => ['nullable', 'string', 'max:50'],
         ];
     }
 }

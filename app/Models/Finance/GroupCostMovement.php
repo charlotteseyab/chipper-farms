@@ -24,6 +24,7 @@ class GroupCostMovement extends Model
     public const EVENT_TRANSFER_IN        = 'transfer_in';
     public const EVENT_TRANSFER_OUT       = 'transfer_out';
     public const EVENT_OPENING            = 'opening';
+    public const EVENT_ACQUISITION        = 'acquisition';
     public const EVENT_ADJUSTMENT_ADD     = 'adjustment_add';
     public const EVENT_ADJUSTMENT_DEDUCT  = 'adjustment_deduct';
     public const EVENT_ADJUSTMENT_REVALUE = 'adjustment_revalue';
@@ -35,6 +36,7 @@ class GroupCostMovement extends Model
         self::EVENT_TRANSFER_IN,
         self::EVENT_TRANSFER_OUT,
         self::EVENT_OPENING,
+        self::EVENT_ACQUISITION,
         self::EVENT_ADJUSTMENT_ADD,
         self::EVENT_ADJUSTMENT_DEDUCT,
         self::EVENT_ADJUSTMENT_REVALUE,
@@ -44,6 +46,7 @@ class GroupCostMovement extends Model
         self::EVENT_FEED_ISSUE,
         self::EVENT_TRANSFER_IN,
         self::EVENT_OPENING,
+        self::EVENT_ACQUISITION,
         self::EVENT_ADJUSTMENT_ADD,
     ];
 
@@ -60,6 +63,7 @@ class GroupCostMovement extends Model
     public const SOURCE_PIG_DEATH              = 'pig_death';
     public const SOURCE_PIG_GROUP_TRANSFER     = 'pig_group_transfer';
     public const SOURCE_GROUP_OPENING_IMPORT   = 'group_opening_import';
+    public const SOURCE_PIG_ACQUISITION        = 'pig_acquisition';
     public const SOURCE_MANUAL_ADJUSTMENT      = 'manual_adjustment';
 
     protected $fillable = [

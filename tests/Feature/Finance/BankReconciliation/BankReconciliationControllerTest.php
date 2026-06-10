@@ -61,13 +61,21 @@ class BankReconciliationControllerTest extends TestCase
         // Re-seed so the new roles get the perms.
         $this->seed(Phase3ePermissionsSeeder::class);
 
-        $this->accountant = User::factory()->create();
-        $this->treasurer  = User::factory()->create();
-        $this->manager    = User::factory()->create();
-
-        $this->accountant->roles()->attach($accountantRole);
-        $this->treasurer->roles()->attach($treasurerRole);
-        $this->manager->roles()->attach($managerRole);
+        $this->accountant = User::factory()->create([
+            'role' => 'accountant',
+            'role_id' => $accountantRole->id,
+            'organization_id' => $this->org->id,
+        ]);
+        $this->treasurer = User::factory()->create([
+            'role' => 'treasurer',
+            'role_id' => $treasurerRole->id,
+            'organization_id' => $this->org->id,
+        ]);
+        $this->manager = User::factory()->create([
+            'role' => 'manager',
+            'role_id' => $managerRole->id,
+            'organization_id' => $this->org->id,
+        ]);
 
         $this->bankAccount = BankAccount::create([
             'organization_id'      => $this->org->id,

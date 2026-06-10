@@ -7,6 +7,7 @@ use App\Domain\Events\Support\SourceReference;
 use App\Finance\Subscribers\Lifecycle\PigDeathRecordedSubscriber;
 use App\Models\DomainEvent;
 use App\Models\Finance\Account;
+use App\Models\Finance\BiologicalAssetStageTransfer;
 use App\Models\Finance\GroupOpeningPoolImport;
 use App\Models\Finance\JournalBatch;
 use App\Models\Finance\JournalLine;
@@ -64,14 +65,30 @@ class PigDeathRecordedSubscriberTest extends TestCase
 
         $lines = JournalLine::query()->whereIn('journal_id', $batch->journals()->pluck('id'))->get();
         $this->assertCount(2, $lines);
-        $dr = $lines->firstWhere('account_id', Account::where('code', '5320')->value('id'));
-        $cr = $lines->firstWhere('account_id', Account::where('code', '1230')->value('id'));
+        
+        // Note: The credit goes to the stage account (not 1230 clearing account).
+        // For fattening pigs posted in June 2027, this is typically 1360 (growers).
+        $acct5320Id = Account::where('organization_id', $this->org->id)->where('code', '5320')->value('id');
+        $acct1360Id = Account::where('organization_id', $this->org->id)->where('code', '1360')->value('id');
+        $dr = $lines->firstWhere('account_id', $acct5320Id);
+        $cr = $lines->firstWhere('account_id', $acct1360Id);
+        $this->assertNotNull($dr, 'Expected debit line for account 5320 not found');
+        $this->assertNotNull($cr, 'Expected credit line for account 1360 (grower stage) not found');
         $this->assertEquals('200.00', $dr->debit);
         $this->assertEquals('200.00', $cr->credit);
 
         // PigDeath stamped.
         $death->refresh();
         $this->assertTrue((bool) $death->is_posted);
+
+        $transfer = BiologicalAssetStageTransfer::query()
+            ->where('source_domain_event_id', $event->id)
+            ->first();
+        $this->assertNotNull($transfer, 'Mortality write-off should create a biological asset exit row');
+        $this->assertSame(BiologicalAssetStageTransfer::REASON_MORTALITY, $transfer->reason);
+        $this->assertSame($batch->id, $transfer->journal_batch_id);
+        $this->assertSame('200.0000', (string) $transfer->amount);
+        $this->assertSame(1, $transfer->pig_count);
     }
 
     public function test_skips_when_pig_has_no_group(): void
@@ -145,12 +162,20 @@ class PigDeathRecordedSubscriberTest extends TestCase
         $subscriber->handle($event->id);
         $batchCount = JournalBatch::count();
         $woCount    = PigMortalityWriteoff::count();
+        $transferCount = BiologicalAssetStageTransfer::query()
+            ->where('source_domain_event_id', $event->id)
+            ->count();
 
         $event->update(['status' => DomainEvent::STATUS_PENDING]);
         $subscriber->handle($event->id);
 
         $this->assertEquals($batchCount, JournalBatch::count());
         $this->assertEquals($woCount,    PigMortalityWriteoff::count());
+        $this->assertSame(
+            $transferCount,
+            BiologicalAssetStageTransfer::query()->where('source_domain_event_id', $event->id)->count(),
+            'Retry must not duplicate biological asset mortality exits',
+        );
     }
 
     // -------- helpers --------

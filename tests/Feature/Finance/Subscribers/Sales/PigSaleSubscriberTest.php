@@ -19,6 +19,7 @@ use App\Models\Finance\JournalPosting;
 use App\Models\PaymentMethod;
 use App\Models\PigManagement;
 use App\Models\PigSale;
+use App\Models\Setting;
 use App\Services\DomainEvents\DispatchDomainEvent;
 use App\Support\CurrentOrganization;
 use Carbon\CarbonImmutable;
@@ -48,6 +49,8 @@ class PigSaleSubscriberTest extends TestCase
     {
         parent::setUp();
         $this->setUpFinanceFixtures();
+        Setting::set('finance.use_invoices_for_pig_sales', false);
+        Setting::set('sales.pricing.live_weight_price', 10.00);
         $this->seedAccountsForSubscriber();
         $this->registerSubscribers();
     }
@@ -83,7 +86,13 @@ class PigSaleSubscriberTest extends TestCase
 
     public function test_cash_pig_sale_posts_dr_cash_cr_revenue(): void
     {
-        $sale = $this->makePigSale(['payment_method' => 'cash', 'payment_status' => 'paid', 'sale_price' => 500.00]);
+        $sale = $this->makePigSale([
+            'payment_method' => 'cash',
+            'payment_status' => 'paid',
+            'sale_weight' => 50.0,
+            'price_per_kg' => 10.00,
+            'sale_price' => 500.00,
+        ]);
         $this->dispatchRecordedEvent($sale);
 
         $this->processEvents();
@@ -112,7 +121,12 @@ class PigSaleSubscriberTest extends TestCase
 
     public function test_credit_pig_sale_posts_dr_ar_cr_revenue(): void
     {
-        $sale = $this->makePigSale(['payment_status' => 'pending', 'sale_price' => 750.00]);
+        $sale = $this->makePigSale([
+            'payment_status' => 'pending',
+            'sale_weight' => 75.0,
+            'price_per_kg' => 10.00,
+            'sale_price' => 750.00,
+        ]);
         $this->dispatchRecordedEvent($sale);
 
         $this->processEvents();
@@ -129,7 +143,12 @@ class PigSaleSubscriberTest extends TestCase
 
     public function test_subscriber_marks_source_pig_sale_is_posted(): void
     {
-        $sale = $this->makePigSale(['payment_status' => 'paid', 'sale_price' => 100.00]);
+        $sale = $this->makePigSale([
+            'payment_status' => 'paid',
+            'sale_weight' => 10.0,
+            'price_per_kg' => 10.00,
+            'sale_price' => 100.00,
+        ]);
         $this->assertFalse((bool) $sale->is_posted);
 
         $this->dispatchRecordedEvent($sale);
@@ -168,7 +187,12 @@ class PigSaleSubscriberTest extends TestCase
     public function test_payment_received_posts_cash_receipt_clearing_ar(): void
     {
         // Step 1: credit sale.
-        $sale = $this->makePigSale(['payment_status' => 'pending', 'sale_price' => 1000.00]);
+        $sale = $this->makePigSale([
+            'payment_status' => 'pending',
+            'sale_weight' => 100.0,
+            'price_per_kg' => 10.00,
+            'sale_price' => 1000.00,
+        ]);
         $this->dispatchRecordedEvent($sale);
         $this->processEvents();
 
@@ -200,7 +224,12 @@ class PigSaleSubscriberTest extends TestCase
 
     public function test_paid_to_paid_transition_skipped(): void
     {
-        $sale = $this->makePigSale(['payment_status' => 'paid', 'sale_price' => 100.00]);
+        $sale = $this->makePigSale([
+            'payment_status' => 'paid',
+            'sale_weight' => 10.0,
+            'price_per_kg' => 10.00,
+            'sale_price' => 100.00,
+        ]);
         $this->dispatchRecordedEvent($sale);
         $this->processEvents();
 
@@ -224,7 +253,12 @@ class PigSaleSubscriberTest extends TestCase
 
     public function test_partial_to_paid_skipped_for_phase_2(): void
     {
-        $sale = $this->makePigSale(['payment_status' => 'partial', 'sale_price' => 200.00]);
+        $sale = $this->makePigSale([
+            'payment_status' => 'partial',
+            'sale_weight' => 20.0,
+            'price_per_kg' => 10.00,
+            'sale_price' => 200.00,
+        ]);
         // No initial revenue posting — partial isn't recorded yet.
 
         $this->dispatchPaymentChangedEvent($sale, 'partial', 'paid');
@@ -249,7 +283,7 @@ class PigSaleSubscriberTest extends TestCase
 
         return PigSale::create(array_merge([
             'pig_id'          => $pig->id,
-            'sale_date'       => '2026-05-15',
+            'sale_date'       => '2026-06-15',
             'sale_price'      => 500.00,
             'sale_weight'     => 50.0,
             'weight_type'     => 'live',
@@ -274,7 +308,7 @@ class PigSaleSubscriberTest extends TestCase
                 sourceId:       $sale->id,
                 organizationId: $this->org->id,
             ),
-            occurredAt: CarbonImmutable::parse('2026-05-15T10:00:00'),
+            occurredAt: CarbonImmutable::parse('2026-06-15T10:00:00'),
             dispatchedByUserId: $this->user->id,
             pigId:          $sale->pig_id,
             pigCode:        'PIG-' . $sale->pig_id,

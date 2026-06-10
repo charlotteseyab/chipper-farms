@@ -34,6 +34,7 @@ class PaymentRunExecutorTest extends TestCase
 
         $this->makeAccount('2010', 'AP', Account::TYPE_LIABILITY);
         $this->makeAccount('2250', 'WHT Payable', Account::TYPE_LIABILITY);
+        $this->makeAccount('2910', 'Suspense Payment', Account::TYPE_LIABILITY);
         $this->makeAccount('1010', 'Cash on Hand', Account::TYPE_ASSET);
         $this->makeAccount('1030', 'Bank — Main', Account::TYPE_ASSET);
         $this->makeAccount('6999', 'Other Operating Expenses', Account::TYPE_EXPENSE);
@@ -220,9 +221,11 @@ class PaymentRunExecutorTest extends TestCase
 
     protected function makeAccount(string $code, string $name, string $type): Account
     {
-        return Account::create([
+        return Account::firstOrCreate([
             'organization_id' => $this->org->id,
-            'code' => $code, 'name' => $name, 'account_type' => $type,
+            'code' => $code,
+        ], [
+            'name' => $name, 'account_type' => $type,
             'currency_code' => 'GHS', 'is_active' => true, 'allow_manual_journal' => true,
         ]);
     }

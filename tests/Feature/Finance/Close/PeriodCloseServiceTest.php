@@ -72,6 +72,7 @@ class PeriodCloseServiceTest extends TestCase
         DomainEvent::create([
             'organization_id' => $this->org->id,
             'event_type'      => 'pig_sale.recorded',
+            'idempotency_key' => 'period-close-test-pending-1',
             'source_module'   => 'sales',
             'source_type'     => 'App\\Models\\PigSale',
             'source_id'       => 1,
@@ -91,6 +92,7 @@ class PeriodCloseServiceTest extends TestCase
         DomainEvent::create([
             'organization_id' => $this->org->id,
             'event_type'      => 'pig_sale.recorded',
+            'idempotency_key' => 'period-close-test-pending-2',
             'source_module'   => 'sales',
             'source_type'     => 'App\\Models\\PigSale',
             'source_id'       => 1,

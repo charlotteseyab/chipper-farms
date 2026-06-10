@@ -32,7 +32,8 @@ class CoaRemediationMigrationTest extends TestCase
 
     public function test_creates_6999_other_operating_expenses(): void
     {
-        // Migration ran during RefreshDatabase. Account should exist.
+        $this->runRemediation();
+
         $acct = Account::where('code', '6999')
             ->where('organization_id', $this->org->id)
             ->first();
@@ -47,10 +48,6 @@ class CoaRemediationMigrationTest extends TestCase
     {
         $this->seedCorrectAccountsAndOldCategories();
 
-        // Re-run remediation explicitly (already ran in RefreshDatabase but we want to test the effect).
-        Artisan::call('migrate:refresh');
-        $this->seedCorrectAccountsAndOldCategories();
-        // Run remediation logic by re-running the migration class.
         $this->runRemediation();
 
         $cat = SupplierCategory::where('code', 'FEED_INGREDIENTS')->first();

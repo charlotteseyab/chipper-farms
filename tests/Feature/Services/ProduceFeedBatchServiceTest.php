@@ -4,10 +4,12 @@ namespace Tests\Feature\Services;
 
 use App\Models\DomainEvent;
 use App\Models\FeedType;
+use App\Models\Counterparty;
 use App\Models\Organization;
 use App\Models\RawMaterial;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\Inventory\AdjustRawMaterialService;
 use App\Services\Feed\ProduceFeedBatchService;
 use App\Services\Inventory\ReceiveRawMaterialService;
 use App\Support\CurrentOrganization;
@@ -20,6 +22,7 @@ class ProduceFeedBatchServiceTest extends TestCase
 
     protected Organization $org;
     protected User $actor;
+    protected Counterparty $supplier;
 
     protected function setUp(): void
     {
@@ -34,6 +37,14 @@ class ProduceFeedBatchServiceTest extends TestCase
             'organization_id' => $this->org->id,
         ]);
         $this->app->make(CurrentOrganization::class)->bind($this->org);
+
+        $this->supplier = Counterparty::create([
+            'organization_id' => $this->org->id,
+            'type' => 'supplier',
+            'name' => 'Opening Stock Supplier',
+            'currency_code' => 'GHS',
+            'is_active' => true,
+        ]);
     }
 
     protected function setupRecipe(): FeedType
@@ -63,7 +74,13 @@ class ProduceFeedBatchServiceTest extends TestCase
 
         $this->app->make(ReceiveRawMaterialService::class)->execute(
             $m, $this->actor,
-            ['quantity' => $qty, 'unit_cost' => $cost, 'reference' => 'Opening'],
+            [
+                'quantity' => $qty,
+                'unit_cost' => $cost,
+                'reference' => 'Opening',
+                'supplier_id' => $this->supplier->id,
+                'receipt_reason' => 'opening_stock',
+            ],
         );
 
         return $m->fresh();
@@ -148,7 +165,15 @@ class ProduceFeedBatchServiceTest extends TestCase
 
         // Drain Maize so we cannot mix.
         $maize = RawMaterial::where('name', 'Maize')->first();
-        $maize->update(['quantity_in_stock' => 10]);
+        $this->app->make(AdjustRawMaterialService::class)->execute(
+            $maize,
+            $this->actor,
+            [
+                'adjustment_type' => 'deduct',
+                'quantity' => 490,
+                'reference' => 'Drain for insufficient stock test',
+            ],
+        );
 
         $service = $this->app->make(ProduceFeedBatchService::class);
 

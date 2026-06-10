@@ -240,7 +240,8 @@ Route::middleware($protectedMiddleware)->group(function () {
     });
 
     // Weight Alerts Management
-    Route::resource('weight-alerts', App\Http\Controllers\WeightAlertsController::class);
+    Route::resource('weight-alerts', App\Http\Controllers\WeightAlertsController::class)
+        ->except(['edit', 'update']);
     Route::middleware(['role:admin,superuser'])->group(function () {
         Route::post('weight-alerts/{weightAlert}/acknowledge', [App\Http\Controllers\WeightAlertsController::class, 'acknowledge'])->name('weight-alerts.acknowledge');
         Route::post('weight-alerts/bulk-acknowledge', [App\Http\Controllers\WeightAlertsController::class, 'bulkAcknowledge'])->name('weight-alerts.bulk-acknowledge');
@@ -339,6 +340,7 @@ Route::middleware($protectedMiddleware)->group(function () {
 
     // 2. Fetches Pigs belonging to a selected Room
     Route::get('rooms/{roomId}/pigs', [RoomController::class, 'apiListPigsByRoom']);
+    });
 
 
         /*
@@ -487,7 +489,7 @@ Route::middleware($protectedMiddleware)->group(function () {
                     ->whereNumber('contact')
                     ->name('contacts.destroy');
 
-                Route::get('/customers/{customer}/ledger', [CustomerController::class, 'ledger'])
+                Route::get('/customers/{customer}/ledger', [\App\Http\Controllers\Finance\CustomerController::class, 'ledger'])
                     ->whereNumber('customer')
                     ->name('customers.ledger');
             });
@@ -1114,7 +1116,6 @@ Route::middleware($protectedMiddleware)->group(function () {
         });
 
     });
-});
 
    
 

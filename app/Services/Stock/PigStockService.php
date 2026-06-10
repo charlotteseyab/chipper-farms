@@ -2,9 +2,14 @@
 
 namespace App\Services\Stock;
 
+use App\Domain\Events\Lifecycle\PigAcquired;
+use App\Domain\Events\Support\SourceReference;
 use App\Models\PigManagement;
 use App\Models\Room;
+use App\Services\DomainEvents\DispatchDomainEvent;
+use App\Support\CurrentOrganization;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -30,6 +35,8 @@ class PigStockService
 {
     public function __construct(
         protected PigRelationshipAnalysisService $relationships,
+        protected DispatchDomainEvent $dispatcher,
+        protected CurrentOrganization $currentOrganization,
     ) {
     }
 
@@ -68,7 +75,37 @@ class PigStockService
         $data['code']        = 'CFPG-' . $birthDate->format('ym') . '-' . $nextId;
         $data['age_in_days'] = (int) $birthDate->diffInDays(now());
 
-        return DB::transaction(fn () => PigManagement::create($data));
+        $organizationId = $this->currentOrganization->id();
+        if ($organizationId !== null) {
+            $data['organization_id'] = $organizationId;
+        }
+
+        return DB::transaction(function () use ($data, $organizationId) {
+            $pig = PigManagement::create($data);
+
+            if ($organizationId !== null) {
+                $this->dispatcher->dispatch(new PigAcquired(
+                    source: new SourceReference(
+                        module: 'lifecycle',
+                        sourceType: PigManagement::class,
+                        sourceId: (int) $pig->id,
+                        organizationId: $organizationId,
+                    ),
+                    occurredAt: CarbonImmutable::parse($data['acquisition_date'] ?? $data['date_of_birth'] ?? now()),
+                    dispatchedByUserId: auth()->id(),
+                    pigId: (int) $pig->id,
+                    pigCode: (string) ($pig->code ?? ''),
+                    groupId: $pig->group_id ? (int) $pig->group_id : null,
+                    stockType: (string) $pig->stock_type,
+                    gender: $pig->gender,
+                    acquisitionCost: isset($data['acquisition_cost']) ? (float) $data['acquisition_cost'] : null,
+                    weightKg: isset($data['current_weight_kg_cache']) ? (float) $data['current_weight_kg_cache'] : null,
+                    acquisitionSource: $data['acquisition_source'] ?? null,
+                ));
+            }
+
+            return $pig;
+        });
     }
 
     /**

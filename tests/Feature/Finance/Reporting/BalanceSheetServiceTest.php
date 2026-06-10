@@ -35,7 +35,7 @@ class BalanceSheetServiceTest extends TestCase
         $this->postJournal('2026-05-10', [
             JournalLineDraft::debit($this->arAccount->id, '1000.00'),
             JournalLineDraft::credit($this->revenueAccount->id, '1000.00'),
-        ]);
+        ], 'report-credit-sale');
 
         $bs = app(BalanceSheetService::class)->generate(Carbon::parse('2026-05-31'));
 
@@ -49,21 +49,28 @@ class BalanceSheetServiceTest extends TestCase
     public function test_balance_sheet_balances_with_liability(): void
     {
         // Buy inventory on credit: Dr Inventory asset / Cr AP liability.
-        $inv = Account::create([
-            'organization_id' => $this->org->id, 'code' => '1210', 'name' => 'Raw Materials Inventory',
+        $inv = Account::firstOrCreate([
+            'organization_id' => $this->org->id, 'code' => '1210',
+        ], [
+            'name' => 'Raw Materials Inventory',
             'account_type' => Account::TYPE_ASSET, 'account_subtype' => 'current_asset',
             'currency_code' => 'GHS', 'is_active' => true, 'allow_manual_journal' => true,
         ]);
-        $ap = Account::create([
-            'organization_id' => $this->org->id, 'code' => '2010', 'name' => 'Trade Payables',
+        $inv->update(['account_subtype' => 'current_asset']);
+
+        $ap = Account::firstOrCreate([
+            'organization_id' => $this->org->id, 'code' => '2010',
+        ], [
+            'name' => 'Trade Payables',
             'account_type' => Account::TYPE_LIABILITY, 'account_subtype' => 'current_liability',
             'currency_code' => 'GHS', 'is_active' => true, 'allow_manual_journal' => true,
         ]);
+        $ap->update(['account_subtype' => 'current_liability']);
 
         $this->postJournal('2026-05-10', [
             JournalLineDraft::debit($inv->id, '750.00'),
             JournalLineDraft::credit($ap->id, '750.00'),
-        ]);
+        ], 'report-credit-purchase');
 
         $bs = app(BalanceSheetService::class)->generate(Carbon::parse('2026-05-31'));
 
@@ -74,12 +81,14 @@ class BalanceSheetServiceTest extends TestCase
     }
 
     /** @param array<int,JournalLineDraft> $lines */
-    protected function postJournal(string $date, array $lines): void
+    protected function postJournal(string $date, array $lines, ?string $idempotencyKey = null): void
     {
         $draft = new JournalBatchDraft(
-            batchType: 'manual_journal',
+            batchType: $idempotencyKey ? 'report_fixture' : 'manual_journal',
             postingDate: CarbonImmutable::parse($date),
             journals: [new JournalDraft(journalType: 'manual', lines: $lines)],
+            idempotencyKey: $idempotencyKey,
+            postingPurpose: $idempotencyKey ? 'report_fixture' : null,
         );
         app(PostingEngine::class)->post($draft, $this->user);
     }

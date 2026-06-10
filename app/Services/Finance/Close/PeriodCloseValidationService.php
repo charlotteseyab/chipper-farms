@@ -83,7 +83,7 @@ class PeriodCloseValidationService
     /** @return array<string, mixed> */
     protected function checkTrialBalance(CarbonImmutable $asOf): array
     {
-        $tb = $this->trialBalance->generate(null, \Carbon\Carbon::parse($asOf->toDateString()));
+        $tb = $this->trialBalance->generate(null, \Illuminate\Support\Carbon::parse($asOf->toDateString()));
         $balanced = (bool) ($tb['totals']['balanced'] ?? false);
 
         return [
