@@ -27,7 +27,7 @@ class InventoryValueControllerTest extends TestCase
         $rm = $this->seedSomeInventory();
 
         $resp = $this->actingAs($this->user)
-            ->get(route('inventory.value.index'));
+            ->get(route('finance.inventory.value.index'));
 
         $resp->assertOk();
         $resp->assertSee($rm->name);
@@ -39,7 +39,7 @@ class InventoryValueControllerTest extends TestCase
         $this->user->role()->first()?->permissions()->detach();
 
         $resp = $this->actingAs($this->user)
-            ->get(route('inventory.value.index'));
+            ->get(route('finance.inventory.value.index'));
 
         $resp->assertForbidden();
     }
@@ -49,7 +49,7 @@ class InventoryValueControllerTest extends TestCase
         $rm = $this->seedSomeInventory();
 
         $resp = $this->actingAs($this->user)
-            ->get(route('inventory.value.show', ['raw_material', $rm->id]));
+            ->get(route('finance.inventory.value.show', ['raw_material', $rm->id]));
 
         $resp->assertOk();
         $resp->assertSee($rm->name);
@@ -58,7 +58,7 @@ class InventoryValueControllerTest extends TestCase
     public function test_show_404_for_unknown_item(): void
     {
         $resp = $this->actingAs($this->user)
-            ->get(route('inventory.value.show', ['raw_material', 99999]));
+            ->get(route('finance.inventory.value.show', ['raw_material', 99999]));
 
         $resp->assertNotFound();
     }
@@ -66,7 +66,7 @@ class InventoryValueControllerTest extends TestCase
     public function test_show_404_for_invalid_kind(): void
     {
         $resp = $this->actingAs($this->user)
-            ->get(route('inventory.value.show', ['bogus_kind', 1]));
+            ->get(route('finance.inventory.value.show', ['bogus_kind', 1]));
 
         $resp->assertNotFound();
     }

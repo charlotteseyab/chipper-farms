@@ -109,10 +109,26 @@ class PigSale extends Model
     {
         parent::boot();
 
-        static::saving(function ($sale) {
-            if ($sale->sale_weight && $sale->weight_type) {
-                $sale->price_per_kg = $sale->price_rate;
-                $sale->sale_price   = $sale->calculateTotalPrice();
+        static::saving(function (PigSale $sale) {
+            if (! $sale->sale_weight || ! $sale->weight_type) {
+                return;
+            }
+
+            $pricingFieldsChanged = ! $sale->exists
+                || $sale->isDirty('sale_weight')
+                || $sale->isDirty('weight_type')
+                || $sale->isDirty('price_per_kg');
+
+            if (! $pricingFieldsChanged) {
+                return;
+            }
+
+            if ($sale->rawPricePerKg() === null) {
+                $sale->attributes['price_per_kg'] = $sale->formatMoney($sale->defaultRateForWeightType());
+            }
+
+            if (! $sale->isDirty('sale_price') || $sale->sale_price === null || $sale->sale_price === '') {
+                $sale->attributes['sale_price'] = $sale->formatMoney($sale->calculateTotalPrice());
             }
         });
     }
@@ -222,18 +238,18 @@ class PigSale extends Model
         return number_format($this->sale_price, 2);
     }
 
-    public function getPriceRateAttribute(): float
+    public function getPriceRateAttribute(): ?float
     {
-        return match($this->weight_type) {
-            'live'    => self::getLiveWeightRate(),
-            'carcass' => self::getCarcassWeightRate(),
-            default   => self::getLiveWeightRate()
-        };
+        $historicalRate = $this->historicalPricePerKg();
+
+        return $historicalRate ?? ($this->exists ? null : $this->defaultRateForWeightType());
     }
 
     public function getFormattedPriceRateAttribute(): string
     {
-        return '₵' . number_format($this->price_rate, 2) . '/kg';
+        $priceRate = $this->price_rate;
+
+        return $priceRate !== null ? '₵' . number_format($priceRate, 2) . '/kg' : 'N/A';
     }
 
     public function calculateTotalPrice(): float
@@ -241,7 +257,12 @@ class PigSale extends Model
         if (! $this->sale_weight || $this->sale_weight <= 0) {
             return 0;
         }
-        return $this->sale_weight * $this->price_rate;
+
+        $priceRate = $this->price_rate;
+
+        return $priceRate !== null
+            ? round((float) $this->sale_weight * $priceRate, 2)
+            : 0.0;
     }
 
     public function getFormattedSaleWeightAttribute(): string
@@ -249,15 +270,60 @@ class PigSale extends Model
         return $this->sale_weight ? number_format($this->sale_weight, 1) . ' kg' : 'Not recorded';
     }
 
-    public function getPricePerKgAttribute(): ?float
+    public function getPricePerKgAttribute($value): ?float
     {
-        return $this->price_per_kg ?? $this->price_rate;
+        if ($value !== null && $value !== '') {
+            return (float) $value;
+        }
+
+        return $this->historicalPricePerKg();
     }
 
     public function getFormattedPricePerKgAttribute(): string
     {
         $pricePerKg = $this->price_per_kg;
         return $pricePerKg ? '₵' . number_format($pricePerKg, 2) . '/kg' : 'N/A';
+    }
+
+    protected function rawPricePerKg(): ?float
+    {
+        $value = $this->attributes['price_per_kg'] ?? null;
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (float) $value;
+    }
+
+    protected function historicalPricePerKg(): ?float
+    {
+        $raw = $this->rawPricePerKg();
+        if ($raw !== null) {
+            return $raw;
+        }
+
+        $salePrice = $this->attributes['sale_price'] ?? null;
+        $saleWeight = $this->attributes['sale_weight'] ?? null;
+
+        if ($salePrice !== null && $saleWeight !== null && (float) $saleWeight > 0) {
+            return round((float) $salePrice / (float) $saleWeight, 2);
+        }
+
+        return $this->exists ? null : $this->defaultRateForWeightType();
+    }
+
+    protected function defaultRateForWeightType(): float
+    {
+        return match($this->weight_type) {
+            'carcass' => (float) self::getCarcassWeightRate(),
+            default   => (float) self::getLiveWeightRate(),
+        };
+    }
+
+    protected function formatMoney(float $amount): string
+    {
+        return number_format($amount, 2, '.', '');
     }
 
     public function getDaysAgoAttribute(): int

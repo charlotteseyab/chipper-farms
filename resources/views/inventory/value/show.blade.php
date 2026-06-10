@@ -1,7 +1,7 @@
 <x-app-layout>
     <div class="max-w-7xl mx-auto py-6 px-4">
         <div class="mb-6">
-            <a href="{{ route('inventory.value.index') }}" class="text-sm text-slate-500 hover:text-slate-700">
+            <a href="{{ route('finance.inventory.value.index') }}" class="text-sm text-slate-500 hover:text-slate-700">
                 ← Back to inventory value
             </a>
             <h1 class="text-2xl font-bold text-slate-800 mt-2">{{ $summary['item_name'] }}</h1>

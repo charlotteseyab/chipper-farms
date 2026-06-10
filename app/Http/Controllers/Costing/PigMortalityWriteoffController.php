@@ -23,8 +23,6 @@ class PigMortalityWriteoffController extends Controller
     public function __construct(
         protected CurrentOrganization $currentOrganization,
     ) {
-        $this->middleware('auth');
-        $this->middleware('permission:manage_pig_mortality');
     }
 
     public function index(Request $request)
@@ -32,7 +30,7 @@ class PigMortalityWriteoffController extends Controller
         $orgId = $this->currentOrganization->id();
 
         $writeoffs = PigMortalityWriteoff::query()
-            ->with(['pigDeath.pig', 'group', 'journalBatch', 'groupCostMovement'])
+            ->with(['pigDeath.pig', 'pig', 'group', 'journalBatch', 'groupCostMovement'])
             ->when(
                 $orgId !== null,
                 fn ($q) => $q->where('organization_id', $orgId),

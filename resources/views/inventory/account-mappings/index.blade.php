@@ -6,7 +6,7 @@
                 <p class="text-sm text-slate-500">GL routing policy for inventory movements per item kind and category.</p>
             </div>
             @if(auth()->user()?->hasPermission('manage_inventory_mappings'))
-                <a href="{{ route('inventory.account-mappings.create') }}"
+                <a href="{{ route('finance.inventory.account-mappings.create') }}"
                    class="px-3 py-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
                     + New mapping
                 </a>
@@ -50,8 +50,8 @@
                             <td class="px-3 py-2 text-slate-600 text-xs">{{ optional($m->ppvAccount)->code ?? '—' }}</td>
                             <td class="px-3 py-2 text-right">
                                 @if(auth()->user()?->hasPermission('manage_inventory_mappings'))
-                                    <a href="{{ route('inventory.account-mappings.edit', $m) }}" class="text-xs text-slate-600 hover:underline mr-2">Edit</a>
-                                    <form method="POST" action="{{ route('inventory.account-mappings.destroy', $m) }}" class="inline" onsubmit="return confirm('Delete this mapping?')">
+                                    <a href="{{ route('finance.inventory.account-mappings.edit', $m) }}" class="text-xs text-slate-600 hover:underline mr-2">Edit</a>
+                                    <form method="POST" action="{{ route('finance.inventory.account-mappings.destroy', $m) }}" class="inline" onsubmit="return confirm('Delete this mapping?')">
                                         @csrf @method('DELETE')
                                         <button type="submit" class="text-xs text-red-600 hover:underline">Delete</button>
                                     </form>

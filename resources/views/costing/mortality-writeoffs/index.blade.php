@@ -40,7 +40,11 @@
                         <tr class="hover:bg-slate-50">
                             <td class="px-3 py-2 text-slate-600 text-xs">{{ $w->occurred_at?->format('Y-m-d H:i') }}</td>
                             <td class="px-3 py-2 font-medium">
-                                {{ optional(optional($w->pigDeath)->pig)->code ?? optional(optional($w->pigDeath)->pig)->ear_tag_number ?? 'pig#'.$w->pig_id }}
+                                @php($pig = optional($w->pigDeath)->pig ?? $w->pig)
+                                {{ $pig?->code ?? $pig?->ear_tag_number ?? 'pig#'.$w->pig_id }}
+                                @if($pig?->ear_tag_number && $pig?->ear_tag_number !== $pig?->code)
+                                    <span class="block text-xs font-normal text-slate-500">{{ $pig->ear_tag_number }}</span>
+                                @endif
                             </td>
                             <td class="px-3 py-2 text-xs text-slate-600">{{ optional($w->pigDeath)->death_cause ?? '—' }}</td>
                             <td class="px-3 py-2 text-xs">{{ optional($w->group)->name ?? 'group#'.$w->group_id }}</td>

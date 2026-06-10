@@ -31,9 +31,6 @@ class OpeningBalanceController extends Controller
         protected CurrentOrganization $currentOrganization,
         protected OpeningBalanceService $service,
     ) {
-        $this->middleware('auth');
-        $this->middleware('permission:view_inventory_value')->only(['index', 'show']);
-        $this->middleware('permission:manage_opening_balances')->except(['index', 'show']);
     }
 
     public function index(Request $request)
@@ -121,11 +118,11 @@ class OpeningBalanceController extends Controller
                 );
 
             return redirect()
-                ->route('inventory.opening-balances.show', $import)
+                ->route('finance.inventory.opening-balances.show', $import)
                 ->with('success', "Opening balances ingested for {$import->row_count} row(s).");
         } catch (DuplicateImportException $e) {
             return redirect()
-                ->route('inventory.opening-balances.show', $e->existingId)
+                ->route('finance.inventory.opening-balances.show', $e->existingId)
                 ->with('warning', 'A previous import with identical payload already exists.');
         } catch (\Throwable $e) {
             Log::error('OpeningBalanceController::store failed', ['error' => $e->getMessage()]);
@@ -183,11 +180,11 @@ class OpeningBalanceController extends Controller
                 );
 
             return redirect()
-                ->route('inventory.opening-balances.show', $import)
+                ->route('finance.inventory.opening-balances.show', $import)
                 ->with('success', "Imported {$import->row_count} row(s) from {$filename}.");
         } catch (DuplicateImportException $e) {
             return redirect()
-                ->route('inventory.opening-balances.show', $e->existingId)
+                ->route('finance.inventory.opening-balances.show', $e->existingId)
                 ->with('warning', 'Identical CSV already imported.');
         } catch (\Throwable $e) {
             Log::error('OpeningBalanceController::import failed', ['error' => $e->getMessage()]);

@@ -23,8 +23,6 @@ class InventoryValueController extends Controller
         protected CurrentOrganization $currentOrganization,
         protected InventoryLedgerReader $reader,
     ) {
-        $this->middleware('auth');
-        $this->middleware('permission:view_inventory_value');
     }
 
     public function index(Request $request)

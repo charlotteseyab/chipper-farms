@@ -107,7 +107,7 @@ class PurchaseRequestWorkflowBaselineTest extends TestCase
 
         $this->actingAs($this->admin)
             ->post(route('purchase-requests.approve', $pr))
-            ->assertRedirect();
+            ->assertForbidden();
 
         // Still approved — no state flip, no extra event.
         $this->assertSame('approved', $pr->fresh()->status);
@@ -162,7 +162,7 @@ class PurchaseRequestWorkflowBaselineTest extends TestCase
 
         $this->actingAs($this->accountant)
             ->post(route('purchase-requests.mark-paid', $pr))
-            ->assertRedirect();
+            ->assertForbidden();
 
         // No state change — only approved requests can be marked paid.
         $this->assertSame('pending', $pr->fresh()->status);

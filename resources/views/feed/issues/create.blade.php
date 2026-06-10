@@ -1,7 +1,7 @@
 <x-app-layout>
     <div class="max-w-3xl mx-auto py-6 px-4">
         <div class="mb-6">
-            <a href="{{ route('feed.issues.index') }}" class="text-sm text-slate-500 hover:text-slate-700">← Back to feed issues</a>
+            <a href="{{ route('finance.feed.issues.index') }}" class="text-sm text-slate-500 hover:text-slate-700">← Back to feed issues</a>
             <h1 class="text-2xl font-bold text-slate-800 mt-2">Issue Feed to Group</h1>
             <p class="text-sm text-slate-500">Records feed leaving the mill. Cost is captured at current finished-feed WAC and capitalised into Live Pig Inventory for the chosen group.</p>
         </div>
@@ -19,7 +19,7 @@
                 <p>Produce a feed batch first (or import opening balances for finished feed) before issuing.</p>
             </div>
         @else
-            <form method="POST" action="{{ route('feed.issues.store') }}" class="space-y-4"
+            <form method="POST" action="{{ route('finance.feed.issues.store') }}" class="space-y-4"
                   x-data="{
                       qty: '{{ old('quantity_kg', 0) }}',
                       feedTypeId: '{{ old('feed_type_id', '') }}',

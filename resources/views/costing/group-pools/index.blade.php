@@ -7,18 +7,18 @@
             </div>
 
             <div class="flex items-center gap-2">
-                <a href="{{ route('costing.group-pools.index', ['show_closed' => $showClosed ? 0 : 1]) }}"
+                <a href="{{ route('finance.costing.group-pools.index', ['show_closed' => $showClosed ? 0 : 1]) }}"
                    class="px-3 py-2 text-sm font-semibold {{ $showClosed ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700' }} rounded-xl">
                     {{ $showClosed ? 'Showing closed' : 'Show closed pools' }}
                 </a>
                 @if(auth()->user()?->hasPermission('view_group_pools'))
-                    <a href="{{ route('costing.opening-pig-inventory.index') }}"
+                    <a href="{{ route('finance.costing.opening-pig-inventory.index') }}"
                        class="px-3 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50">
                         Opening Pool
                     </a>
                 @endif
                 @if(auth()->user()?->hasPermission('manage_pig_mortality'))
-                    <a href="{{ route('costing.mortality-writeoffs.index') }}"
+                    <a href="{{ route('finance.costing.mortality-writeoffs.index') }}"
                        class="px-3 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50">
                         Mortality Audit
                     </a>
@@ -71,7 +71,7 @@
                         @endphp
                         <tr class="hover:bg-slate-50 {{ $pool->closed_at ? 'opacity-60' : '' }}">
                             <td class="px-3 py-2 font-medium text-slate-800">
-                                <a href="{{ route('costing.group-pools.show', $pool) }}" class="text-emerald-700 hover:underline">
+                                <a href="{{ route('finance.costing.group-pools.show', $pool) }}" class="text-emerald-700 hover:underline">
                                     {{ $pool->group?->name ?? 'group#'.$pool->group_id }}
                                 </a>
                                 @if($pool->closed_at)<span class="ml-1 text-xs text-slate-400">(closed)</span>@endif

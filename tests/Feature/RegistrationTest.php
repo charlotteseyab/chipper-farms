@@ -2,16 +2,18 @@
 
 namespace Tests\Feature;
 
+use App\Models\Organization;
+use App\Models\Role;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Fortify\Features;
-use Laravel\Jetstream\Jetstream;
 use Tests\TestCase;
 
 class RegistrationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_registration_screen_can_be_rendered(): void
+    public function test_registration_screen_is_forbidden_for_guests(): void
     {
         if (! Features::enabled(Features::registration())) {
             $this->markTestSkipped('Registration support is not enabled.');
@@ -19,7 +21,7 @@ class RegistrationTest extends TestCase
 
         $response = $this->get('/register');
 
-        $response->assertStatus(200);
+        $response->assertForbidden();
     }
 
     public function test_registration_screen_cannot_be_rendered_if_support_is_disabled(): void
@@ -33,21 +35,25 @@ class RegistrationTest extends TestCase
         $response->assertStatus(404);
     }
 
-    public function test_new_users_can_register(): void
+    public function test_authenticated_superuser_is_redirected_from_registration_screen(): void
     {
         if (! Features::enabled(Features::registration())) {
             $this->markTestSkipped('Registration support is not enabled.');
         }
 
-        $response = $this->post('/register', [
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-            'password' => 'password',
-            'password_confirmation' => 'password',
-            'terms' => Jetstream::hasTermsAndPrivacyPolicyFeature(),
+        $org = Organization::create(['slug' => 'cf', 'name' => 'CF']);
+        $role = Role::firstOrCreate(['name' => 'superuser']);
+        $superuser = User::forceCreate([
+            'name' => 'Superuser',
+            'email' => 'superuser@example.com',
+            'password' => bcrypt('password'),
+            'role' => 'superuser',
+            'role_id' => $role->id,
+            'organization_id' => $org->id,
         ]);
 
-        $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->actingAs($superuser)
+            ->get('/register')
+            ->assertRedirect();
     }
 }

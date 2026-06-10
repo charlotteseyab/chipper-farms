@@ -224,9 +224,9 @@ class OpeningBalanceService
                     . "Archive it before retrying."
                 );
             }
-            // Archived rows do not block — fall through and create a new
-            // pending row. (Operator chose to archive; a fresh attempt
-            // is welcome.)
+            if ($existing->isArchived()) {
+                $this->retireArchivedImportHash($existing, $hash);
+            }
         }
 
         // Pre-validate rows before any writes.
@@ -280,19 +280,21 @@ class OpeningBalanceService
         User $actor,
         ?string $notes,
     ): InventoryOpeningBalanceImport {
+        $attributes = [
+            'organization_id'      => $organizationId,
+            'item_kind'            => $kind,
+            'import_mode'          => $importMode,
+            'import_hash'          => $hash,
+            'original_filename'    => $originalFilename,
+            'cutover_date'         => $cutoverDate->toDateString(),
+            'row_count'            => $rowCount,
+            'status'               => InventoryOpeningBalanceImport::STATUS_PENDING,
+            'performed_by_user_id' => $actor->id,
+            'notes'                => $notes,
+        ];
+
         try {
-            return InventoryOpeningBalanceImport::create([
-                'organization_id'      => $organizationId,
-                'item_kind'            => $kind,
-                'import_mode'          => $importMode,
-                'import_hash'          => $hash,
-                'original_filename'    => $originalFilename,
-                'cutover_date'         => $cutoverDate->toDateString(),
-                'row_count'            => $rowCount,
-                'status'               => InventoryOpeningBalanceImport::STATUS_PENDING,
-                'performed_by_user_id' => $actor->id,
-                'notes'                => $notes,
-            ]);
+            return InventoryOpeningBalanceImport::create($attributes);
         } catch (UniqueConstraintViolationException | QueryException $e) {
             // Race: a parallel attempt won. Re-read and throw typed.
             $existing = InventoryOpeningBalanceImport::query()
@@ -302,6 +304,12 @@ class OpeningBalanceService
                 ->first();
 
             if ($existing) {
+                if ($existing->isArchived()) {
+                    $this->retireArchivedImportHash($existing, $hash);
+
+                    return InventoryOpeningBalanceImport::create($attributes);
+                }
+
                 throw new DuplicateImportException(
                     importHash:  $hash,
                     itemKind:    $kind,
@@ -311,6 +319,14 @@ class OpeningBalanceService
             }
             throw $e;
         }
+    }
+
+    protected function retireArchivedImportHash(InventoryOpeningBalanceImport $import, string $hash): void
+    {
+        $import->forceFill([
+            'import_hash' => hash('sha256', $hash . '|archived|' . $import->id . '|' . Str::uuid()),
+            'notes'       => trim((string) $import->notes . "\nArchived original import hash: {$hash}"),
+        ])->save();
     }
 
     // ================================================================

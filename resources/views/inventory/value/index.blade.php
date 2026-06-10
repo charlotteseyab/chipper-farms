@@ -8,19 +8,19 @@
 
             <div class="flex items-center gap-2">
                 @if(auth()->user()?->hasPermission('manage_inventory_mappings'))
-                    <a href="{{ route('inventory.account-mappings.index') }}"
+                    <a href="{{ route('finance.inventory.account-mappings.index') }}"
                        class="px-3 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50">
                         Account Mappings
                     </a>
                 @endif
                 @if(auth()->user()?->hasPermission('manage_opening_balances'))
-                    <a href="{{ route('inventory.opening-balances.index') }}"
+                    <a href="{{ route('finance.inventory.opening-balances.index') }}"
                        class="px-3 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50">
                         Opening Balances
                     </a>
                 @endif
                 @if(auth()->user()?->hasPermission('view_gr_ir_ageing'))
-                    <a href="{{ route('inventory.gr-ir-ageing.index') }}"
+                    <a href="{{ route('finance.inventory.gr-ir-ageing.index') }}"
                        class="px-3 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50">
                         GR/IR Ageing
                     </a>
@@ -50,15 +50,15 @@
         </div>
 
         <div class="mb-4 flex items-center gap-2">
-            <a href="{{ route('inventory.value.index') }}"
+            <a href="{{ route('finance.inventory.value.index') }}"
                class="px-3 py-1.5 text-sm rounded-lg {{ $kind === null ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700' }}">
                 All
             </a>
-            <a href="{{ route('inventory.value.index', ['kind' => 'raw_material']) }}"
+            <a href="{{ route('finance.inventory.value.index', ['kind' => 'raw_material']) }}"
                class="px-3 py-1.5 text-sm rounded-lg {{ $kind === 'raw_material' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700' }}">
                 Raw Materials
             </a>
-            <a href="{{ route('inventory.value.index', ['kind' => 'finished_feed']) }}"
+            <a href="{{ route('finance.inventory.value.index', ['kind' => 'finished_feed']) }}"
                class="px-3 py-1.5 text-sm rounded-lg {{ $kind === 'finished_feed' ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-700' }}">
                 Finished Feed
             </a>
@@ -87,7 +87,7 @@
                                 </span>
                             </td>
                             <td class="px-4 py-3 font-medium text-slate-800">
-                                <a href="{{ route('inventory.value.show', [$row['item_kind'], $row['item_id']]) }}"
+                                <a href="{{ route('finance.inventory.value.show', [$row['item_kind'], $row['item_id']]) }}"
                                    class="hover:underline">
                                     {{ $row['item_name'] }}
                                 </a>

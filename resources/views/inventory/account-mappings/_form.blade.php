@@ -2,8 +2,8 @@
     use App\Models\Finance\InventoryAccountMapping;
     $isCreate = ! $mapping->exists;
     $action = $isCreate
-        ? route('inventory.account-mappings.store')
-        : route('inventory.account-mappings.update', $mapping);
+        ? route('finance.inventory.account-mappings.store')
+        : route('finance.inventory.account-mappings.update', $mapping);
 @endphp
 
 <form method="POST" action="{{ $action }}" class="space-y-4 max-w-3xl">
@@ -86,6 +86,6 @@
         <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl">
             {{ $isCreate ? 'Create mapping' : 'Save changes' }}
         </button>
-        <a href="{{ route('inventory.account-mappings.index') }}" class="px-3 py-2 text-sm text-slate-600 hover:text-slate-900">Cancel</a>
+        <a href="{{ route('finance.inventory.account-mappings.index') }}" class="px-3 py-2 text-sm text-slate-600 hover:text-slate-900">Cancel</a>
     </div>
 </form>

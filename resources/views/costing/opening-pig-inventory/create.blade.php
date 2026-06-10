@@ -1,7 +1,7 @@
 <x-app-layout>
     <div class="max-w-5xl mx-auto py-6 px-4" x-data="openingPoolForm({{ json_encode(['groups' => $groups->all()]) }})">
         <div class="mb-6">
-            <a href="{{ route('costing.opening-pig-inventory.index') }}" class="text-sm text-slate-500 hover:text-slate-700">← Back</a>
+            <a href="{{ route('finance.costing.opening-pig-inventory.index') }}" class="text-sm text-slate-500 hover:text-slate-700">← Back</a>
             <h1 class="text-2xl font-bold text-slate-800 mt-2">Open Pig Pools at Cutover</h1>
             <p class="text-sm text-slate-500">Declare the starting carrying value per existing group. Each row plants an opening movement and stamps the pool as open.</p>
         </div>
@@ -12,7 +12,7 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('costing.opening-pig-inventory.store') }}" class="space-y-4">
+        <form method="POST" action="{{ route('finance.costing.opening-pig-inventory.store') }}" class="space-y-4">
             @csrf
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

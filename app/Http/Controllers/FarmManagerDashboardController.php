@@ -197,7 +197,7 @@ class FarmManagerDashboardController extends Controller
         }
 
         $breedingChecks = PigManagement::where('stock_type', 'breeding')
-            ->whereRaw('DATEDIFF(NOW(), date_of_birth) >= 365')
+            ->whereDate('date_of_birth', '<=', now()->subDays(365)->toDateString())
             ->whereDoesntHave('weights', function ($query) {
                 $query->where('created_at', '>=', now()->subDays(60));
             })
@@ -214,8 +214,10 @@ class FarmManagerDashboardController extends Controller
             ];
         }
 
-        $maturingPigs = PigManagement::whereRaw('DATEDIFF(NOW(), date_of_birth) >= 150')
-            ->whereRaw('DATEDIFF(NOW(), date_of_birth) <= 180')
+        $maturingPigs = PigManagement::whereBetween('date_of_birth', [
+                now()->subDays(180)->toDateString(),
+                now()->subDays(150)->toDateString(),
+            ])
             ->take(2)
             ->get();
 

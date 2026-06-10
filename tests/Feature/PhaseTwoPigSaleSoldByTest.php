@@ -10,6 +10,7 @@ use App\Models\Role;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\Sales\RecordPigSaleService;
+use App\Support\CurrentOrganization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -25,6 +26,7 @@ class PhaseTwoPigSaleSoldByTest extends TestCase
     use RefreshDatabase;
 
     protected Organization $org;
+    protected int $userSequence = 0;
 
     protected function setUp(): void
     {
@@ -34,6 +36,8 @@ class PhaseTwoPigSaleSoldByTest extends TestCase
             'slug' => 'chipper-farms',
             'name' => 'Chipper Farms',
         ]);
+
+        $this->app->make(CurrentOrganization::class)->bind($this->org);
     }
 
     protected function makeUser(string $name, string $roleName = 'admin'): User
@@ -42,7 +46,7 @@ class PhaseTwoPigSaleSoldByTest extends TestCase
 
         return User::forceCreate([
             'name' => $name,
-            'email' => strtolower(str_replace(' ', '.', $name)) . '@example.com',
+            'email' => strtolower(str_replace(' ', '.', $name)) . '-' . (++$this->userSequence) . '@example.com',
             'password' => bcrypt('x'),
             'role' => $roleName,
             'role_id' => $role->id,
@@ -62,6 +66,11 @@ class PhaseTwoPigSaleSoldByTest extends TestCase
         ]);
     }
 
+    protected function service(): RecordPigSaleService
+    {
+        return $this->app->make(RecordPigSaleService::class);
+    }
+
     public function test_service_writes_both_new_columns_for_attribution(): void
     {
         $user = $this->makeUser('Jane Doe');
@@ -69,9 +78,7 @@ class PhaseTwoPigSaleSoldByTest extends TestCase
 
         Setting::set('sales.pricing.live_weight_price', 30.00);
 
-        $service = new RecordPigSaleService();
-
-        $sale = $service->execute($pig, $user, [
+        $sale = $this->service()->execute($pig, $user, [
             'sale_date' => now()->toDateString(),
             'sale_weight' => 80.0,
             'weight_type' => 'live',
@@ -90,7 +97,7 @@ class PhaseTwoPigSaleSoldByTest extends TestCase
         $user = $this->makeUser('Acme Accountant');
         $pig = $this->makePig();
 
-        (new RecordPigSaleService())->execute($pig, $user, [
+        $this->service()->execute($pig, $user, [
             'sale_date' => now()->toDateString(),
             'sale_weight' => 80.0,
             'weight_type' => 'live',
@@ -108,7 +115,7 @@ class PhaseTwoPigSaleSoldByTest extends TestCase
         $user = $this->makeUser('Original Name');
         $pig = $this->makePig();
 
-        (new RecordPigSaleService())->execute($pig, $user, [
+        $this->service()->execute($pig, $user, [
             'sale_date' => now()->toDateString(),
             'sale_weight' => 80.0,
             'weight_type' => 'live',
@@ -138,7 +145,7 @@ class PhaseTwoPigSaleSoldByTest extends TestCase
         $user = $this->makeUser('Jane Doe');
         $pig = $this->makePig();
 
-        (new RecordPigSaleService())->execute($pig, $user, [
+        $this->service()->execute($pig, $user, [
             'sale_date' => now()->toDateString(),
             'sale_weight' => 80.0,
             'weight_type' => 'live',
@@ -155,7 +162,7 @@ class PhaseTwoPigSaleSoldByTest extends TestCase
         $user = $this->makeUser('Jane Doe');
         $pig = $this->makePig();
 
-        $sale = (new RecordPigSaleService())->execute($pig, $user, [
+        $sale = $this->service()->execute($pig, $user, [
             'sale_date' => now()->toDateString(),
             'sale_weight' => 80.0,
             'weight_type' => 'live',
@@ -174,7 +181,7 @@ class PhaseTwoPigSaleSoldByTest extends TestCase
 
         Setting::set('sales.pricing.live_weight_price', 35.50);
 
-        $sale = (new RecordPigSaleService())->execute($pig, $user, [
+        $sale = $this->service()->execute($pig, $user, [
             'sale_date' => now()->toDateString(),
             'sale_weight' => 100.0,
             'weight_type' => 'live',
@@ -185,7 +192,7 @@ class PhaseTwoPigSaleSoldByTest extends TestCase
         // Capture value at sale time; later setting changes don't affect it.
         Setting::set('sales.pricing.live_weight_price', 40.00);
 
-        $this->assertEquals('35.50', (string) $sale->fresh()->price_per_kg);
+        $this->assertSame(35.50, (float) $sale->fresh()->price_per_kg);
     }
 
     public function test_backfill_command_resolves_unique_name_match(): void

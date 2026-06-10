@@ -30,7 +30,7 @@
                                 {{ number_format((float) $row['total_outstanding'], 2) }}
                             </td>
                             <td class="px-3 py-2 text-right">
-                                <a href="{{ route('inventory.gr-ir-ageing.show', $row['supplier_id']) }}"
+                                <a href="{{ route('finance.inventory.gr-ir-ageing.show', $row['supplier_id']) }}"
                                    class="text-xs text-emerald-700 hover:underline">Detail</a>
                             </td>
                         </tr>

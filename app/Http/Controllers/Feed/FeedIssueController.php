@@ -32,9 +32,6 @@ class FeedIssueController extends Controller
         protected CurrentOrganization $currentOrganization,
         protected IssueFeedToGroupService $service,
     ) {
-        $this->middleware('auth');
-        $this->middleware('permission:view_group_pools')->only(['index', 'show']);
-        $this->middleware('permission:manage_feed_issues')->only(['create', 'store']);
     }
 
     public function index(Request $request)
@@ -89,7 +86,7 @@ class FeedIssueController extends Controller
             );
 
             return redirect()
-                ->route('feed.issues.show', $issue)
+                ->route('finance.feed.issues.show', $issue)
                 ->with('success', sprintf(
                     'Feed issue #%d recorded — %s kg of %s to group %s.',
                     $issue->id,

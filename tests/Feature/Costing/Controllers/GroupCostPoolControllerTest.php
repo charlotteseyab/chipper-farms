@@ -28,7 +28,7 @@ class GroupCostPoolControllerTest extends TestCase
         $this->seedOpenPool('Group A', 50, '2000', '5000');
         $this->seedOpenPool('Group B', 30, '1000', '2500');
 
-        $resp = $this->actingAs($this->user)->get(route('costing.group-pools.index'));
+        $resp = $this->actingAs($this->user)->get(route('finance.costing.group-pools.index'));
         $resp->assertOk();
         $resp->assertSee('Group A');
         $resp->assertSee('Group B');
@@ -41,7 +41,7 @@ class GroupCostPoolControllerTest extends TestCase
         [$group, $pool] = $this->seedOpenPool('Closed Group', 50, '2000', '5000');
         $pool->update(['closed_at' => now()]);
 
-        $resp = $this->actingAs($this->user)->get(route('costing.group-pools.index'));
+        $resp = $this->actingAs($this->user)->get(route('finance.costing.group-pools.index'));
         $resp->assertOk();
         $resp->assertDontSee('Closed Group');
     }
@@ -51,7 +51,7 @@ class GroupCostPoolControllerTest extends TestCase
         [$group, $pool] = $this->seedOpenPool('Closed Group', 50, '2000', '5000');
         $pool->update(['closed_at' => now()]);
 
-        $resp = $this->actingAs($this->user)->get(route('costing.group-pools.index', ['show_closed' => 1]));
+        $resp = $this->actingAs($this->user)->get(route('finance.costing.group-pools.index', ['show_closed' => 1]));
         $resp->assertOk();
         $resp->assertSee('Closed Group');
     }
@@ -60,7 +60,7 @@ class GroupCostPoolControllerTest extends TestCase
     {
         [$group, $pool] = $this->seedOpenPool('Group A', 50, '2000', '5000');
 
-        $resp = $this->actingAs($this->user)->get(route('costing.group-pools.show', $pool));
+        $resp = $this->actingAs($this->user)->get(route('finance.costing.group-pools.show', $pool));
         $resp->assertOk();
         $resp->assertSee('Group A');
         $resp->assertSee('opening');
@@ -70,7 +70,7 @@ class GroupCostPoolControllerTest extends TestCase
     {
         $this->user->role()->first()?->permissions()->detach();
 
-        $resp = $this->actingAs($this->user)->get(route('costing.group-pools.index'));
+        $resp = $this->actingAs($this->user)->get(route('finance.costing.group-pools.index'));
         $resp->assertForbidden();
     }
 

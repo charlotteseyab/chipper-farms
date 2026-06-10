@@ -26,13 +26,13 @@ class FeedIssueControllerTest extends TestCase
     {
         $this->grantPermission('view_group_pools');
 
-        $resp = $this->actingAs($this->user)->get(route('feed.issues.index'));
+        $resp = $this->actingAs($this->user)->get(route('finance.feed.issues.index'));
         $resp->assertOk();
     }
 
     public function test_index_forbidden_without_permission(): void
     {
-        $resp = $this->actingAs($this->user)->get(route('feed.issues.index'));
+        $resp = $this->actingAs($this->user)->get(route('finance.feed.issues.index'));
         $resp->assertForbidden();
     }
 
@@ -40,7 +40,7 @@ class FeedIssueControllerTest extends TestCase
     {
         $this->grantPermission('view_group_pools');  // can view but not manage
 
-        $resp = $this->actingAs($this->user)->get(route('feed.issues.create'));
+        $resp = $this->actingAs($this->user)->get(route('finance.feed.issues.create'));
         $resp->assertForbidden();
     }
 
@@ -56,7 +56,7 @@ class FeedIssueControllerTest extends TestCase
             feedTypeId: $feedType->id, quantity: 1000.0, totalCost: 5000.0, feedBatchId: 1,
         );
 
-        $resp = $this->actingAs($this->user)->post(route('feed.issues.store'), [
+        $resp = $this->actingAs($this->user)->post(route('finance.feed.issues.store'), [
             'group_id'     => $group->id,
             'feed_type_id' => $feedType->id,
             'quantity_kg'  => 50.0,
@@ -80,14 +80,14 @@ class FeedIssueControllerTest extends TestCase
         $feedType = FeedType::create(['name' => 'X']);
 
         $resp = $this->actingAs($this->user)
-            ->from(route('feed.issues.create'))
-            ->post(route('feed.issues.store'), [
+            ->from(route('finance.feed.issues.create'))
+            ->post(route('finance.feed.issues.store'), [
                 'group_id'     => $group->id,
                 'feed_type_id' => $feedType->id,
                 'quantity_kg'  => -5,
             ]);
 
-        $resp->assertRedirect(route('feed.issues.create'));
+        $resp->assertRedirect(route('finance.feed.issues.create'));
         $resp->assertSessionHasErrors('quantity_kg');
     }
 

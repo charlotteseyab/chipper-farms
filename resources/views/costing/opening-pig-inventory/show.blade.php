@@ -1,7 +1,7 @@
 <x-app-layout>
     <div class="max-w-7xl mx-auto py-6 px-4">
         <div class="mb-6">
-            <a href="{{ route('costing.opening-pig-inventory.index') }}" class="text-sm text-slate-500 hover:text-slate-700">← Back</a>
+            <a href="{{ route('finance.costing.opening-pig-inventory.index') }}" class="text-sm text-slate-500 hover:text-slate-700">← Back</a>
             <h1 class="text-2xl font-bold text-slate-800 mt-2">Opening Import #{{ $import->id }}</h1>
             <p class="text-sm text-slate-500">cutover {{ $import->cutover_date?->format('Y-m-d') }} · {{ $import->import_mode }}</p>
         </div>

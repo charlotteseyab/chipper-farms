@@ -134,6 +134,78 @@ class PigSaleWorkflowBaselineTest extends TestCase
         $this->assertSame(3500.00, (float) $sale->fresh()->sale_price);
     }
 
+    public function test_price_accessor_uses_persisted_sale_snapshot_not_current_settings(): void
+    {
+        $pig = $this->makePig();
+
+        Setting::set('sales.pricing.live_weight_price', 35.00);
+
+        $sale = $this->service()->execute($pig, $this->actor, [
+            'sale_date' => now()->toDateString(),
+            'sale_weight' => 100.0,
+            'weight_type' => 'live',
+            'sale_purpose' => 'market',
+            'payment_status' => 'pending',
+        ]);
+
+        Setting::set('sales.pricing.live_weight_price', 42.00);
+
+        $fresh = $sale->fresh();
+
+        $this->assertSame(35.00, (float) $fresh->price_per_kg);
+        $this->assertSame(35.00, (float) $fresh->price_rate);
+        $this->assertSame('₵35.00/kg', $fresh->formatted_price_per_kg);
+    }
+
+    public function test_unrelated_sale_update_does_not_rewrite_historical_price_snapshot(): void
+    {
+        $pig = $this->makePig();
+
+        Setting::set('sales.pricing.live_weight_price', 35.00);
+
+        $sale = $this->service()->execute($pig, $this->actor, [
+            'sale_date' => now()->toDateString(),
+            'sale_weight' => 100.0,
+            'weight_type' => 'live',
+            'sale_purpose' => 'market',
+            'payment_status' => 'pending',
+        ]);
+
+        Setting::set('sales.pricing.live_weight_price', 42.00);
+
+        $sale->update(['notes' => 'Customer requested pickup receipt copy.']);
+
+        $fresh = $sale->fresh();
+
+        $this->assertSame(35.00, (float) $fresh->price_per_kg);
+        $this->assertSame(3500.00, (float) $fresh->sale_price);
+        $this->assertSame('Customer requested pickup receipt copy.', $fresh->notes);
+    }
+
+    public function test_explicit_rate_correction_recalculates_total_without_using_current_settings(): void
+    {
+        $pig = $this->makePig();
+
+        Setting::set('sales.pricing.live_weight_price', 35.00);
+
+        $sale = $this->service()->execute($pig, $this->actor, [
+            'sale_date' => now()->toDateString(),
+            'sale_weight' => 100.0,
+            'weight_type' => 'live',
+            'sale_purpose' => 'market',
+            'payment_status' => 'pending',
+        ]);
+
+        Setting::set('sales.pricing.live_weight_price', 42.00);
+
+        $sale->update(['price_per_kg' => 36.25]);
+
+        $fresh = $sale->fresh();
+
+        $this->assertSame(36.25, (float) $fresh->price_per_kg);
+        $this->assertSame(3625.00, (float) $fresh->sale_price);
+    }
+
     public function test_carcass_weight_uses_carcass_rate(): void
     {
         $pig = $this->makePig();

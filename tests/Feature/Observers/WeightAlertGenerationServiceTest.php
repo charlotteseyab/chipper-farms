@@ -65,7 +65,7 @@ class WeightAlertGenerationServiceTest extends TestCase
 
     public function test_generate_returns_null_when_pig_has_no_birth_date(): void
     {
-        $pig = PigManagement::create([
+        $pig = new PigManagement([
             'ear_tag_number' => 'T-NOBIRTH',
             'code' => 'PIG-NOBIRTH',
             'breed' => 'LW',
@@ -74,14 +74,18 @@ class WeightAlertGenerationServiceTest extends TestCase
             'date_of_birth' => null,
         ]);
 
-        $w = $this->makeWeight($pig, 12.0);
+        $w = new PigWeight([
+            'weight' => 12.0,
+            'weigh_date' => now()->toDateString(),
+        ]);
+        $w->setRelation('pig', $pig);
 
         $service = $this->app->make(WeightAlertGenerationService::class);
 
         $alert = $service->generate($w);
 
         $this->assertNull($alert);
-        $this->assertSame(0, WeightAlert::where('weight_record_id', $w->id)->count());
+        $this->assertSame(0, WeightAlert::count());
     }
 
     public function test_swap_with_existing_alert_replaces_atomically(): void

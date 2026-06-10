@@ -36,7 +36,7 @@ class GrIrAgeingControllerTest extends TestCase
         $this->makeGrIrEntry($supplier, $rm,  50.0, 8.0, CarbonImmutable::now()->subDays(45));   // 31-60
         $this->makeGrIrEntry($supplier, $rm,  20.0, 10.0, CarbonImmutable::now()->subDays(120)); // 90+
 
-        $resp = $this->actingAs($this->user)->get(route('inventory.gr-ir-ageing.index'));
+        $resp = $this->actingAs($this->user)->get(route('finance.inventory.gr-ir-ageing.index'));
 
         $resp->assertOk();
         $resp->assertSee('Acme Feed');
@@ -52,7 +52,7 @@ class GrIrAgeingControllerTest extends TestCase
         $entry = $this->makeGrIrEntry($supplier, $rm, 100.0, 5.0, CarbonImmutable::now()->subDays(2));
         $entry->update(['status' => GrIrEntry::STATUS_CLEARED]);
 
-        $resp = $this->actingAs($this->user)->get(route('inventory.gr-ir-ageing.index'));
+        $resp = $this->actingAs($this->user)->get(route('finance.inventory.gr-ir-ageing.index'));
 
         $resp->assertOk();
         $resp->assertSee('No outstanding GR/IR balances.');
@@ -65,7 +65,7 @@ class GrIrAgeingControllerTest extends TestCase
 
         $this->makeGrIrEntry($supplier, $rm, 100.0, 5.0, CarbonImmutable::now()->subDays(7));
 
-        $resp = $this->actingAs($this->user)->get(route('inventory.gr-ir-ageing.show', $supplier->id));
+        $resp = $this->actingAs($this->user)->get(route('finance.inventory.gr-ir-ageing.show', $supplier->id));
 
         $resp->assertOk();
         $resp->assertSee('Acme Feed');
@@ -76,7 +76,7 @@ class GrIrAgeingControllerTest extends TestCase
     {
         $supplier = $this->makeSupplier('Empty Supplier');
 
-        $resp = $this->actingAs($this->user)->get(route('inventory.gr-ir-ageing.show', $supplier->id));
+        $resp = $this->actingAs($this->user)->get(route('finance.inventory.gr-ir-ageing.show', $supplier->id));
 
         $resp->assertNotFound();
     }
@@ -85,7 +85,7 @@ class GrIrAgeingControllerTest extends TestCase
     {
         $this->user->role()->first()?->permissions()->detach();
 
-        $resp = $this->actingAs($this->user)->get(route('inventory.gr-ir-ageing.index'));
+        $resp = $this->actingAs($this->user)->get(route('finance.inventory.gr-ir-ageing.index'));
 
         $resp->assertForbidden();
     }

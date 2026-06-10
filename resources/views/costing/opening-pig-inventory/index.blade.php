@@ -6,7 +6,7 @@
                 <p class="text-sm text-slate-500">Cutover imports of existing live pig pools.</p>
             </div>
             @if(auth()->user()?->hasPermission('manage_opening_pig_pool'))
-                <a href="{{ route('costing.opening-pig-inventory.create') }}"
+                <a href="{{ route('finance.costing.opening-pig-inventory.create') }}"
                    class="px-3 py-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
                     + New opening import
                 </a>
@@ -33,7 +33,7 @@
                     @forelse($imports as $import)
                         <tr class="hover:bg-slate-50">
                             <td class="px-3 py-2 text-slate-600">
-                                <a href="{{ route('costing.opening-pig-inventory.show', $import) }}" class="text-emerald-700 hover:underline">
+                                <a href="{{ route('finance.costing.opening-pig-inventory.show', $import) }}" class="text-emerald-700 hover:underline">
                                     {{ $import->created_at?->format('Y-m-d H:i') }}
                                 </a>
                             </td>

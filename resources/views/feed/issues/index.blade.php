@@ -7,7 +7,7 @@
             </div>
 
             @if(auth()->user()?->hasPermission('manage_feed_issues'))
-                <a href="{{ route('feed.issues.create') }}"
+                <a href="{{ route('finance.feed.issues.create') }}"
                    class="px-3 py-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl">
                     + Issue feed
                 </a>
@@ -36,7 +36,7 @@
                     @forelse($issues as $issue)
                         <tr class="hover:bg-slate-50">
                             <td class="px-3 py-2 text-slate-600">
-                                <a href="{{ route('feed.issues.show', $issue) }}" class="text-emerald-700 hover:underline">
+                                <a href="{{ route('finance.feed.issues.show', $issue) }}" class="text-emerald-700 hover:underline">
                                     {{ $issue->issued_at?->format('Y-m-d H:i') }}
                                 </a>
                             </td>

@@ -26,9 +26,6 @@ class OpeningPigPoolController extends Controller
         protected CurrentOrganization $currentOrganization,
         protected OpeningPigPoolService $service,
     ) {
-        $this->middleware('auth');
-        $this->middleware('permission:view_group_pools')->only(['index', 'show']);
-        $this->middleware('permission:manage_opening_pig_pool')->only(['create', 'store']);
     }
 
     public function index(Request $request)
@@ -93,11 +90,11 @@ class OpeningPigPoolController extends Controller
             );
 
             return redirect()
-                ->route('costing.opening-pig-inventory.show', $import)
+                ->route('finance.costing.opening-pig-inventory.show', $import)
                 ->with('success', "Opening pig pool ingested for {$import->row_count} group(s).");
         } catch (DuplicateOpeningPoolImportException $e) {
             return redirect()
-                ->route('costing.opening-pig-inventory.show', $e->existingId)
+                ->route('finance.costing.opening-pig-inventory.show', $e->existingId)
                 ->with('warning', 'A previous import with identical payload already exists.');
         } catch (\Throwable $e) {
             Log::error('OpeningPigPoolController::store failed', ['error' => $e->getMessage()]);

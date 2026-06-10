@@ -24,9 +24,6 @@ class InventoryAccountMappingController extends Controller
 {
     public function __construct(protected CurrentOrganization $currentOrganization)
     {
-        $this->middleware('auth');
-        $this->middleware('permission:view_inventory_value')->only(['index', 'show']);
-        $this->middleware('permission:manage_inventory_mappings')->except(['index', 'show']);
     }
 
     public function index(Request $request)
@@ -80,7 +77,7 @@ class InventoryAccountMappingController extends Controller
         ));
 
         return redirect()
-            ->route('inventory.account-mappings.index')
+            ->route('finance.inventory.account-mappings.index')
             ->with('success', sprintf(
                 'Mapping created for %s / %s.',
                 $mapping->item_kind,
@@ -109,7 +106,7 @@ class InventoryAccountMappingController extends Controller
         $mapping->update($validated);
 
         return redirect()
-            ->route('inventory.account-mappings.index')
+            ->route('finance.inventory.account-mappings.index')
             ->with('success', 'Mapping updated.');
     }
 
@@ -121,7 +118,7 @@ class InventoryAccountMappingController extends Controller
         $mapping->delete();
 
         return redirect()
-            ->route('inventory.account-mappings.index')
+            ->route('finance.inventory.account-mappings.index')
             ->with('warning', "Deleted mapping: {$label}.");
     }
 

@@ -23,21 +23,21 @@ class OpeningPigPoolControllerTest extends TestCase
 
     public function test_index_forbidden_without_view_permission(): void
     {
-        $resp = $this->actingAs($this->user)->get(route('costing.opening-pig-inventory.index'));
+        $resp = $this->actingAs($this->user)->get(route('finance.costing.opening-pig-inventory.index'));
         $resp->assertForbidden();
     }
 
     public function test_index_renders_for_viewer(): void
     {
         $this->grantPermission('view_group_pools');
-        $resp = $this->actingAs($this->user)->get(route('costing.opening-pig-inventory.index'));
+        $resp = $this->actingAs($this->user)->get(route('finance.costing.opening-pig-inventory.index'));
         $resp->assertOk();
     }
 
     public function test_create_forbidden_without_manage_permission(): void
     {
         $this->grantPermission('view_group_pools');
-        $resp = $this->actingAs($this->user)->get(route('costing.opening-pig-inventory.create'));
+        $resp = $this->actingAs($this->user)->get(route('finance.costing.opening-pig-inventory.create'));
         $resp->assertForbidden();
     }
 
@@ -49,8 +49,8 @@ class OpeningPigPoolControllerTest extends TestCase
         $g1 = Group::create(['name' => 'Nursery', 'type' => 'pen']);
         $g2 = Group::create(['name' => 'Grower',  'type' => 'pen']);
 
-        $resp = $this->actingAs($this->user)->post(route('costing.opening-pig-inventory.store'), [
-            'cutover_date' => '2027-04-30',
+        $resp = $this->actingAs($this->user)->post(route('finance.costing.opening-pig-inventory.store'), [
+            'cutover_date' => now()->toDateString(),
             'rows' => [
                 ['group_id' => $g1->id, 'pig_count' => 30, 'total_weight_kg' => 600,  'total_value' => 1500],
                 ['group_id' => $g2->id, 'pig_count' => 50, 'total_weight_kg' => 3000, 'total_value' => 8000],
@@ -72,15 +72,15 @@ class OpeningPigPoolControllerTest extends TestCase
         $g = Group::create(['name' => 'X', 'type' => 'pen']);
 
         $resp = $this->actingAs($this->user)
-            ->from(route('costing.opening-pig-inventory.create'))
-            ->post(route('costing.opening-pig-inventory.store'), [
-                'cutover_date' => '2027-04-30',
+            ->from(route('finance.costing.opening-pig-inventory.create'))
+            ->post(route('finance.costing.opening-pig-inventory.store'), [
+                'cutover_date' => now()->toDateString(),
                 'rows' => [
                     ['group_id' => $g->id, 'pig_count' => -5, 'total_weight_kg' => 100, 'total_value' => 500],
                 ],
             ]);
 
-        $resp->assertRedirect(route('costing.opening-pig-inventory.create'));
+        $resp->assertRedirect(route('finance.costing.opening-pig-inventory.create'));
         $resp->assertSessionHasErrors('rows.0.pig_count');
     }
 

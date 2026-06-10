@@ -22,8 +22,6 @@ class GroupCostPoolController extends Controller
     public function __construct(
         protected CurrentOrganization $currentOrganization,
     ) {
-        $this->middleware('auth');
-        $this->middleware('permission:view_group_pools');
     }
 
     public function index(Request $request)

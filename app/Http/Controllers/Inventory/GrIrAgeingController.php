@@ -28,8 +28,6 @@ class GrIrAgeingController extends Controller
 
     public function __construct(protected CurrentOrganization $currentOrganization)
     {
-        $this->middleware('auth');
-        $this->middleware('permission:view_gr_ir_ageing');
     }
 
     public function index(Request $request)

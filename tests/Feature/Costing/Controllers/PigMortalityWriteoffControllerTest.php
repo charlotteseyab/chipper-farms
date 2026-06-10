@@ -26,7 +26,7 @@ class PigMortalityWriteoffControllerTest extends TestCase
 
     public function test_index_forbidden_without_permission(): void
     {
-        $resp = $this->actingAs($this->user)->get(route('costing.mortality-writeoffs.index'));
+        $resp = $this->actingAs($this->user)->get(route('finance.costing.mortality-writeoffs.index'));
         $resp->assertForbidden();
     }
 
@@ -67,7 +67,7 @@ class PigMortalityWriteoffControllerTest extends TestCase
             'occurred_at'               => now(),
         ]);
 
-        $resp = $this->actingAs($this->user)->get(route('costing.mortality-writeoffs.index'));
+        $resp = $this->actingAs($this->user)->get(route('finance.costing.mortality-writeoffs.index'));
         $resp->assertOk();
         $resp->assertSee('P-1');
         $resp->assertSee('200.00');
@@ -109,7 +109,7 @@ class PigMortalityWriteoffControllerTest extends TestCase
             'occurred_at'               => now(),
         ]);
 
-        $resp = $this->actingAs($this->user)->get(route('costing.mortality-writeoffs.index'));
+        $resp = $this->actingAs($this->user)->get(route('finance.costing.mortality-writeoffs.index'));
         $resp->assertOk();
         $resp->assertSee('est');  // the estimated-weight badge
     }

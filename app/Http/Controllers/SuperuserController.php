@@ -651,13 +651,15 @@ class SuperuserController extends Controller
             $startDate = now()->subMonths(12)->startOfMonth();
         }
 
-        $revenueByMonth = PigSale::selectRaw('DATE_FORMAT(sale_date, "%Y-%m") as month, SUM(sale_price) as revenue, COUNT(*) as sales_count')
+        $saleDateMonth = $this->monthExpression('sale_date');
+
+        $revenueByMonth = PigSale::selectRaw("{$saleDateMonth} as month, SUM(sale_price) as revenue, COUNT(*) as sales_count")
             ->whereBetween('sale_date', [$startDate, $endDate])
             ->groupBy('month')
             ->orderBy('month')
             ->get();
 
-        $avgPriceByMonth = PigSale::selectRaw('DATE_FORMAT(sale_date, "%Y-%m") as month, AVG(sale_price) as avg_price')
+        $avgPriceByMonth = PigSale::selectRaw("{$saleDateMonth} as month, AVG(sale_price) as avg_price")
             ->whereBetween('sale_date', [$startDate, $endDate])
             ->groupBy('month')
             ->orderBy('month')
@@ -678,6 +680,13 @@ class SuperuserController extends Controller
             'unpaid_sales_amount' => $unpaidSales,
             'unpaid_sales_count' => $unpaidSalesCount,
         ];
+    }
+
+    private function monthExpression(string $column): string
+    {
+        return DB::connection()->getDriverName() === 'sqlite'
+            ? "strftime('%Y-%m', {$column})"
+            : "DATE_FORMAT({$column}, \"%Y-%m\")";
     }
 
     public function exportPdf(Request $request)
