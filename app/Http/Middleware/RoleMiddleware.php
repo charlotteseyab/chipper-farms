@@ -50,6 +50,16 @@ class RoleMiddleware
                         return $next($request);
                     }
                     break;
+                case 'salesperson':
+                    if (method_exists($user, 'isSalesperson') && $user->isSalesperson()) {
+                        return $next($request);
+                    }
+                    break;
+                case 'customer':
+                    if (method_exists($user, 'isCustomer') && $user->isCustomer()) {
+                        return $next($request);
+                    }
+                    break;
             }
         }
 

@@ -54,6 +54,7 @@ class AppServiceProvider extends ServiceProvider
         Mating::class => MatingPolicy::class,
         Weaning::class => WeaningPolicy::class,
         PurchaseRequest::class => PurchaseRequestPolicy::class,
+        \App\Models\Storefront\StorefrontListing::class => \App\Policies\StorefrontListingPolicy::class,
     ];
 
     /**

@@ -1117,6 +1117,132 @@ Route::middleware($protectedMiddleware)->group(function () {
 
     });
 
-   
+    /*
+    |--------------------------------------------------------------------------
+    | Storefront — back-office workspace (Phase 1)
+    |--------------------------------------------------------------------------
+    | Gated by storefront permissions (the finance-module pattern), not by a
+    | single role, so admin/superuser inherit via the superuser bypass and
+    | explicit grants while Salesperson gets a scoped subset.
+    */
+    Route::prefix('storefront-admin')->name('storefront.admin.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Storefront\AdminStorefrontController::class, 'dashboard'])
+            ->middleware('permission:view_storefront_dashboard')->name('dashboard');
 
+        // Listings.
+        Route::middleware('permission:view_storefront_listings')->group(function () {
+            Route::get('/listings', [\App\Http\Controllers\Storefront\AdminStorefrontController::class, 'index'])->name('listings.index');
+            Route::get('/listings/{listing}', [\App\Http\Controllers\Storefront\AdminStorefrontController::class, 'show'])->name('listings.show');
+        });
+
+        // Push-to-storefront wizard + listing lifecycle actions.
+        Route::middleware('permission:push_to_storefront')->group(function () {
+            Route::get('/push', [\App\Http\Controllers\Storefront\PushToStorefrontController::class, 'create'])->name('push.create');
+            Route::post('/push', [\App\Http\Controllers\Storefront\PushToStorefrontController::class, 'store'])->name('push.store');
+        });
+
+        Route::middleware('permission:manage_storefront_listings')->group(function () {
+            Route::post('/listings/{listing}/publish',   [\App\Http\Controllers\Storefront\AdminStorefrontController::class, 'publish'])->name('listings.publish');
+            Route::post('/listings/{listing}/unpublish', [\App\Http\Controllers\Storefront\AdminStorefrontController::class, 'unpublish'])->name('listings.unpublish');
+            Route::post('/listings/{listing}/archive',   [\App\Http\Controllers\Storefront\AdminStorefrontController::class, 'archive'])->name('listings.archive');
+        });
+
+        // Homepage / featured placements.
+        Route::middleware('permission:manage_storefront_placements')->group(function () {
+            Route::get('/placements',  [\App\Http\Controllers\Storefront\StorefrontPlacementController::class, 'index'])->name('placements.index');
+            Route::post('/placements', [\App\Http\Controllers\Storefront\StorefrontPlacementController::class, 'store'])->name('placements.store');
+            Route::delete('/placements/{placement}', [\App\Http\Controllers\Storefront\StorefrontPlacementController::class, 'destroy'])->name('placements.destroy');
+        });
+
+        // Listing editor + media (Phase 2).
+        Route::middleware('permission:manage_storefront_listings')->group(function () {
+            Route::get('/listings/{listing}/edit', [\App\Http\Controllers\Storefront\ListingEditorController::class, 'edit'])->name('listings.edit');
+            Route::put('/listings/{listing}',      [\App\Http\Controllers\Storefront\ListingEditorController::class, 'update'])->name('listings.update');
+        });
+        Route::middleware('permission:manage_storefront_media')->group(function () {
+            Route::post('/listings/{listing}/media',                 [\App\Http\Controllers\Storefront\ListingEditorController::class, 'addMedia'])->name('listings.media.add');
+            Route::post('/listings/{listing}/media/{media}/primary', [\App\Http\Controllers\Storefront\ListingEditorController::class, 'setPrimaryMedia'])->name('listings.media.primary');
+            Route::delete('/listings/{listing}/media/{media}',       [\App\Http\Controllers\Storefront\ListingEditorController::class, 'removeMedia'])->name('listings.media.remove');
+        });
+
+        // Quotes workspace (Phase 2).
+        Route::middleware('permission:view_storefront_quotes')->group(function () {
+            Route::get('/quotes',           [\App\Http\Controllers\Storefront\AdminQuoteController::class, 'index'])->name('quotes.index');
+            Route::get('/quotes/{quote}',   [\App\Http\Controllers\Storefront\AdminQuoteController::class, 'show'])->name('quotes.show');
+        });
+        Route::middleware('permission:manage_storefront_quotes')->group(function () {
+            Route::post('/quotes/{quote}/review',  [\App\Http\Controllers\Storefront\AdminQuoteController::class, 'review'])->name('quotes.review');
+            Route::post('/quotes/{quote}/quote',   [\App\Http\Controllers\Storefront\AdminQuoteController::class, 'quote'])->name('quotes.quote');
+            Route::post('/quotes/{quote}/accept',  [\App\Http\Controllers\Storefront\AdminQuoteController::class, 'accept'])->name('quotes.accept');
+            Route::post('/quotes/{quote}/decline', [\App\Http\Controllers\Storefront\AdminQuoteController::class, 'decline'])->name('quotes.decline');
+        });
+
+        // Orders workspace (Phase 3).
+        Route::middleware('permission:view_storefront_orders')->group(function () {
+            Route::get('/orders',         [\App\Http\Controllers\Storefront\AdminOrderController::class, 'index'])->name('orders.index');
+            Route::get('/orders/{order}', [\App\Http\Controllers\Storefront\AdminOrderController::class, 'show'])->name('orders.show');
+        });
+        Route::middleware('permission:manage_storefront_orders')->group(function () {
+            Route::post('/orders/{order}/confirm',        [\App\Http\Controllers\Storefront\AdminOrderController::class, 'confirm'])->name('orders.confirm');
+            Route::post('/orders/{order}/cancel',         [\App\Http\Controllers\Storefront\AdminOrderController::class, 'cancel'])->name('orders.cancel');
+            Route::post('/orders/{order}/dispatch',       [\App\Http\Controllers\Storefront\AdminOrderController::class, 'fulfil'])->name('orders.dispatch');
+            Route::post('/orders/{order}/verify-payment', [\App\Http\Controllers\Storefront\AdminOrderController::class, 'verifyPayment'])->name('orders.verify-payment');
+        });
+    });
+
+});
+
+/*
+|--------------------------------------------------------------------------
+| Storefront — customer account area (Phase 1)
+|--------------------------------------------------------------------------
+| Authenticated, but NOT behind operational role/permission gates. Any
+| authenticated user with a valid organization context (enforced by the
+| appended EnsureOrganizationContext middleware) may reach their own account.
+*/
+Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified'])
+    ->prefix('account')->name('storefront.account.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'dashboard'])->name('dashboard');
+        Route::get('/profile', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'profile'])->name('profile');
+        Route::get('/addresses', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'addresses'])->name('addresses');
+        Route::post('/addresses', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'storeAddress'])->name('addresses.store');
+        // Phase 2 — saved items, quotes, favourite toggle.
+        Route::get('/saved', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'savedItems'])->name('saved');
+        Route::get('/quotes', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'quotes'])->name('quotes');
+        Route::post('/favourites/{listing}/toggle', [\App\Http\Controllers\Storefront\FavouriteController::class, 'toggle'])->name('favourites.toggle');
+
+        // Phase 3 — cart, checkout, payment callback, orders.
+        Route::get('/cart', [\App\Http\Controllers\Storefront\CartController::class, 'index'])->name('cart.index');
+        Route::post('/cart/add/{listing}', [\App\Http\Controllers\Storefront\CartController::class, 'add'])->name('cart.add');
+        Route::patch('/cart/items/{item}', [\App\Http\Controllers\Storefront\CartController::class, 'update'])->name('cart.update');
+        Route::delete('/cart/items/{item}', [\App\Http\Controllers\Storefront\CartController::class, 'remove'])->name('cart.remove');
+
+        Route::get('/checkout', [\App\Http\Controllers\Storefront\CheckoutController::class, 'show'])->name('checkout.show');
+        Route::post('/checkout', [\App\Http\Controllers\Storefront\CheckoutController::class, 'place'])->name('checkout.place');
+        Route::get('/paystack/callback', [\App\Http\Controllers\Storefront\PaystackWebhookController::class, 'callback'])->name('paystack.callback');
+
+        Route::get('/orders', [\App\Http\Controllers\Storefront\CustomerOrderController::class, 'index'])->name('orders.index');
+        Route::get('/orders/{order}', [\App\Http\Controllers\Storefront\CustomerOrderController::class, 'show'])->name('orders.show');
+    });
+
+/*
+|--------------------------------------------------------------------------
+| Storefront — public shop (Phase 1)
+|--------------------------------------------------------------------------
+| No authentication required. The appended EnsureOrganizationContext
+| middleware passes through unauthenticated requests, so these are open.
+*/
+Route::prefix('shop')->name('storefront.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Storefront\StorefrontController::class, 'home'])->name('home');
+    Route::get('/browse', [\App\Http\Controllers\Storefront\StorefrontController::class, 'shop'])->name('shop');
+
+    // Phase 2 — public listing detail + quote-request flow.
+    Route::get('/quote', [\App\Http\Controllers\Storefront\QuoteController::class, 'create'])->name('quote.create');
+    Route::post('/quote', [\App\Http\Controllers\Storefront\QuoteController::class, 'store'])->name('quote.store');
+    Route::get('/quote/thanks/{reference}', [\App\Http\Controllers\Storefront\QuoteController::class, 'thanks'])->name('quote.thanks');
+    Route::get('/listing/{slug}', [\App\Http\Controllers\Storefront\StorefrontController::class, 'detail'])->name('listing');
+
+    // Phase 3 — Paystack server-to-server webhook (CSRF-exempt; HMAC-verified
+    // in the controller). Path must match the exception in bootstrap/app.php.
+    Route::post('/paystack/webhook', [\App\Http\Controllers\Storefront\PaystackWebhookController::class, 'webhook'])->name('paystack.webhook');
 });

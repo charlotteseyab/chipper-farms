@@ -32,17 +32,25 @@ class DatabaseSeeder extends Seeder
         $this->call(Phase8LoansTreasuryPermissionsSeeder::class);
         $this->call(Phase9InvestorPermissionsSeeder::class);
         $this->call(FeedSalesPermissionsSeeder::class);
+        // 2d. Storefront permissions + Salesperson/Customer roles (Phase 1).
+        $this->call(StorefrontPermissionsSeeder::class);
+        // 2e. Storefront Phase 2 — quote + media permissions.
+        $this->call(StorefrontQuotePermissionsSeeder::class);
+        // 2f. Storefront Phase 3 — order/checkout permissions.
+        $this->call(StorefrontOrderPermissionsSeeder::class);
         // 3. Ensure each organization has current fiscal year + monthly periods.
         $this->call(FiscalYearSeeder::class);
         // 3b. Base chart of accounts (also seeded by migration 2026_05_01_120150).
         $this->call(ChartOfAccountsSeeder::class);
+        // 3c. Storefront catalogue (categories + placement slots) — Phase 1.
+        $this->call(StorefrontCatalogSeeder::class);
 
         $defaultOrgId = DB::table('organizations')
             ->where('slug', 'chipper-farms')
             ->value('id');
 
         // 4. Roles. Idempotent. Includes accountant.
-        $rolesList = ['admin', 'dataentry', 'farmmanager', 'superuser', 'accountant'];
+        $rolesList = ['admin', 'dataentry', 'farmmanager', 'superuser', 'accountant', 'salesperson', 'customer'];
         foreach ($rolesList as $role) {
             DB::table('roles')->updateOrInsert(
                 ['name' => $role],

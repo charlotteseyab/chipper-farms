@@ -11,4 +11,5 @@ return [
     // accumulated as 'pending' or were marked 'skipped' with no
     // subscribers. Phase 4 fixes both ends.
     App\Providers\FinanceServiceProvider::class,
+    App\Providers\StorefrontServiceProvider::class,
 ];

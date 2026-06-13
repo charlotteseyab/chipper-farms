@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    // Storefront — Paystack payment gateway (Phase 3).
+    'paystack' => [
+        'secret_key'   => env('PAYSTACK_SECRET_KEY'),
+        'public_key'   => env('PAYSTACK_PUBLIC_KEY'),
+        'base_url'     => env('PAYSTACK_BASE_URL', 'https://api.paystack.co'),
+        'currency'     => env('PAYSTACK_CURRENCY', 'GHS'),
+        // Optional callback override; defaults to the named route at runtime.
+        'callback_url' => env('PAYSTACK_CALLBACK_URL'),
+    ],
+
 ];

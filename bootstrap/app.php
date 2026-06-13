@@ -58,6 +58,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \App\Http\Middleware\PermissionMiddleware::class,
         ]);
 
+        // Paystack posts server-to-server webhooks with no CSRF token; the
+        // request is authenticated instead by HMAC signature verification in
+        // PaystackWebhookController. Exempt only that exact path.
+        $middleware->validateCsrfTokens(except: [
+            'shop/paystack/webhook',
+        ]);
+
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
