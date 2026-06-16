@@ -88,6 +88,13 @@
                                 </form>
                             @endif
 
+                            @if($quote->status === \App\Models\Storefront\StorefrontQuote::STATUS_ACCEPTED)
+                                <form method="POST" action="{{ route('storefront.admin.quotes.convert', $quote) }}" class="border-t border-slate-100 pt-3">@csrf
+                                    <button class="w-full px-3 py-2 rounded-xl bg-slate-800 text-white text-sm">Convert to order</button>
+                                </form>
+                                <p class="text-xs text-slate-400">Creates a pending order from this quote.</p>
+                            @endif
+
                             <form method="POST" action="{{ route('storefront.admin.quotes.decline', $quote) }}" class="border-t border-slate-100 pt-3" onsubmit="return confirm('Decline this quote?');">@csrf
                                 <input type="text" name="reason" placeholder="Reason (optional)" class="w-full rounded-xl border-slate-300 text-sm mb-2">
                                 <button class="w-full px-3 py-2 rounded-xl border border-red-300 text-red-600 text-sm">Decline</button>

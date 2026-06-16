@@ -1175,6 +1175,7 @@ Route::middleware($protectedMiddleware)->group(function () {
             Route::post('/quotes/{quote}/quote',   [\App\Http\Controllers\Storefront\AdminQuoteController::class, 'quote'])->name('quotes.quote');
             Route::post('/quotes/{quote}/accept',  [\App\Http\Controllers\Storefront\AdminQuoteController::class, 'accept'])->name('quotes.accept');
             Route::post('/quotes/{quote}/decline', [\App\Http\Controllers\Storefront\AdminQuoteController::class, 'decline'])->name('quotes.decline');
+            Route::post('/quotes/{quote}/convert', [\App\Http\Controllers\Storefront\AdminQuoteController::class, 'convert'])->name('quotes.convert');
         });
 
         // Orders workspace (Phase 3).
@@ -1186,7 +1187,19 @@ Route::middleware($protectedMiddleware)->group(function () {
             Route::post('/orders/{order}/confirm',        [\App\Http\Controllers\Storefront\AdminOrderController::class, 'confirm'])->name('orders.confirm');
             Route::post('/orders/{order}/cancel',         [\App\Http\Controllers\Storefront\AdminOrderController::class, 'cancel'])->name('orders.cancel');
             Route::post('/orders/{order}/dispatch',       [\App\Http\Controllers\Storefront\AdminOrderController::class, 'fulfil'])->name('orders.dispatch');
+            Route::post('/orders/{order}/complete',       [\App\Http\Controllers\Storefront\AdminOrderController::class, 'complete'])->name('orders.complete');
+            Route::post('/orders/{order}/note',           [\App\Http\Controllers\Storefront\AdminOrderController::class, 'addNote'])->name('orders.note');
             Route::post('/orders/{order}/verify-payment', [\App\Http\Controllers\Storefront\AdminOrderController::class, 'verifyPayment'])->name('orders.verify-payment');
+        });
+
+        // Reports (Phase 5).
+        Route::middleware('permission:view_storefront_reports')->group(function () {
+            Route::get('/reports/sales', [\App\Http\Controllers\Storefront\StorefrontReportController::class, 'sales'])->name('reports.sales');
+        });
+
+        // Refunds (Phase 6) — treasurer-grade, NOT salesperson.
+        Route::middleware('permission:refund_storefront_orders')->group(function () {
+            Route::post('/orders/{order}/refund', [\App\Http\Controllers\Storefront\AdminOrderController::class, 'refund'])->name('orders.refund');
         });
     });
 
@@ -1238,11 +1251,11 @@ Route::prefix('shop')->name('storefront.')->group(function () {
 
     // Phase 2 — public listing detail + quote-request flow.
     Route::get('/quote', [\App\Http\Controllers\Storefront\QuoteController::class, 'create'])->name('quote.create');
-    Route::post('/quote', [\App\Http\Controllers\Storefront\QuoteController::class, 'store'])->name('quote.store');
+    Route::post('/quote', [\App\Http\Controllers\Storefront\QuoteController::class, 'store'])->middleware('throttle:storefront-quote')->name('quote.store');
     Route::get('/quote/thanks/{reference}', [\App\Http\Controllers\Storefront\QuoteController::class, 'thanks'])->name('quote.thanks');
     Route::get('/listing/{slug}', [\App\Http\Controllers\Storefront\StorefrontController::class, 'detail'])->name('listing');
 
     // Phase 3 — Paystack server-to-server webhook (CSRF-exempt; HMAC-verified
     // in the controller). Path must match the exception in bootstrap/app.php.
-    Route::post('/paystack/webhook', [\App\Http\Controllers\Storefront\PaystackWebhookController::class, 'webhook'])->name('paystack.webhook');
+    Route::post('/paystack/webhook', [\App\Http\Controllers\Storefront\PaystackWebhookController::class, 'webhook'])->middleware('throttle:storefront-webhook')->name('paystack.webhook');
 });

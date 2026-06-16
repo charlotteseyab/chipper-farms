@@ -88,7 +88,8 @@ class StorefrontOrder extends Model
         'subtotal', 'delivery_fee', 'total', 'currency_code',
         'customer_note', 'staff_notes',
         'confirmed_by_user_id', 'confirmed_at', 'cancelled_by_user_id', 'cancelled_at', 'cancel_reason',
-        'placed_at', 'invoice_id', 'receipt_id', 'finance_posting_status', 'finance_posting_error',
+        'placed_at', 'completed_at', 'completed_by_user_id',
+        'refunded_at', 'refunded_by_user_id', 'refund_reason', 'finance_reversal_note', 'invoice_id', 'receipt_id', 'finance_posting_status', 'finance_posting_error',
     ];
 
     protected function casts(): array
@@ -100,6 +101,8 @@ class StorefrontOrder extends Model
             'confirmed_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'placed_at'    => 'datetime',
+            'completed_at' => 'datetime',
+            'refunded_at'  => 'datetime',
         ];
     }
 

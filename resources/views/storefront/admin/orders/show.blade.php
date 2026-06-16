@@ -110,6 +110,25 @@
                         @endcan
                     @endif
 
+                    @if(in_array($order->status, [StorefrontOrder::STATUS_READY_FOR_PICKUP, StorefrontOrder::STATUS_OUT_FOR_DELIVERY], true))
+                        @can('manage_storefront_orders')
+                            <form method="POST" action="{{ route('storefront.admin.orders.complete', $order) }}" class="border-t border-slate-100 pt-3">@csrf
+                                <button class="w-full px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm">Complete order</button>
+                            </form>
+                            <p class="text-xs text-slate-400">Completion settles cash-on-delivery and closes the listing.</p>
+                        @endcan
+                    @endif
+
+                    @can('refund_storefront_orders')
+                        @if(in_array($order->status, [StorefrontOrder::STATUS_CONFIRMED, StorefrontOrder::STATUS_READY_FOR_PICKUP, StorefrontOrder::STATUS_OUT_FOR_DELIVERY, StorefrontOrder::STATUS_COMPLETED], true))
+                            <form method="POST" action="{{ route('storefront.admin.orders.refund', $order) }}" class="border-t border-slate-100 pt-3" onsubmit="return confirm('Refund this order? This reverses customer-facing financial legs.');">@csrf
+                                <input name="reason" required maxlength="500" placeholder="Refund reason" class="w-full rounded-xl border-slate-300 text-sm mb-2">
+                                <button class="w-full px-3 py-2 rounded-xl bg-rose-600 text-white text-sm">Refund order</button>
+                            </form>
+                            <p class="text-xs text-slate-400">Treasurer-grade. COGS/inventory return is handed to finance.</p>
+                        @endif
+                    @endcan
+
                     @if($order->isCancellable())
                         @can('cancel_storefront_orders')
                             <form method="POST" action="{{ route('storefront.admin.orders.cancel', $order) }}" class="border-t border-slate-100 pt-3" onsubmit="return confirm('Cancel this order?');">@csrf
@@ -126,6 +145,14 @@
                         <p class="text-slate-600">{{ $order->customer_note }}</p>
                     </div>
                 @endif
+
+                @can('manage_storefront_orders')
+                    <form method="POST" action="{{ route('storefront.admin.orders.note', $order) }}" class="rounded-2xl bg-white border border-slate-200 p-5">@csrf
+                        <h2 class="font-semibold text-slate-700 mb-2 text-sm">Add a note</h2>
+                        <textarea name="note" rows="2" required class="w-full rounded-xl border-slate-300 text-sm" placeholder="Internal note (also shown on the timeline)"></textarea>
+                        <button class="mt-2 w-full px-3 py-2 rounded-xl border border-slate-300 text-sm">Add note</button>
+                    </form>
+                @endcan
             </div>
         </div>
     </div>

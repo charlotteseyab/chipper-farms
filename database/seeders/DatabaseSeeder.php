@@ -38,6 +38,7 @@ class DatabaseSeeder extends Seeder
         $this->call(StorefrontQuotePermissionsSeeder::class);
         // 2f. Storefront Phase 3 — order/checkout permissions.
         $this->call(StorefrontOrderPermissionsSeeder::class);
+        $this->call(StorefrontRefundPermissionsSeeder::class);
         // 3. Ensure each organization has current fiscal year + monthly periods.
         $this->call(FiscalYearSeeder::class);
         // 3b. Base chart of accounts (also seeded by migration 2026_05_01_120150).

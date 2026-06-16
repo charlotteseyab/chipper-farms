@@ -101,6 +101,21 @@ class AdminQuoteController extends Controller
             "Quote {$quote->reference} declined.");
     }
 
+    public function convert(StorefrontQuote $quote): RedirectResponse
+    {
+        $this->assertSameOrg($quote);
+
+        try {
+            $order = $this->quotes->convertToOrder($quote, request()->user());
+        } catch (InvalidQuoteTransitionException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()
+            ->route('storefront.admin.orders.show', $order)
+            ->with('success', "Quote {$quote->reference} converted to order {$order->reference}.");
+    }
+
     protected function guarded(\Closure $action, string $success): RedirectResponse
     {
         try {

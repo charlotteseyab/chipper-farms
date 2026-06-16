@@ -52,11 +52,21 @@ class RecordPigSaleService
             }
 
             // Resolve the price rate from settings at the moment of sale.
-            if (($data['weight_type'] ?? null) === 'live') {
-                $data['price_per_kg'] = (float) Setting::get('sales.pricing.live_weight_price', 30.00);
-            } elseif (($data['weight_type'] ?? null) === 'carcass') {
-                $data['price_per_kg'] = (float) Setting::get('sales.pricing.carcass_weight_price', 50.00);
+            // EXCEPTION: storefront-originated sales carry an agreed price the
+            // customer already accepted/paid. When price_source === 'explicit'
+            // we trust the supplied price_per_kg / sale_price and do NOT
+            // re-price from settings. Default behaviour (operations-recorded
+            // sales) is unchanged.
+            $explicitPrice = ($data['price_source'] ?? null) === 'explicit';
+
+            if (! $explicitPrice) {
+                if (($data['weight_type'] ?? null) === 'live') {
+                    $data['price_per_kg'] = (float) Setting::get('sales.pricing.live_weight_price', 30.00);
+                } elseif (($data['weight_type'] ?? null) === 'carcass') {
+                    $data['price_per_kg'] = (float) Setting::get('sales.pricing.carcass_weight_price', 50.00);
+                }
             }
+            unset($data['price_source']);
 
             // Collapse "other" selections into their text values.
             if (($data['sale_purpose'] ?? null) === 'other') {

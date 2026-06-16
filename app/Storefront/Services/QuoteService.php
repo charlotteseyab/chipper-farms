@@ -167,6 +167,101 @@ class QuoteService
         return $this->transition($quote, StorefrontQuote::STATUS_EXPIRED, $actor);
     }
 
+    /**
+     * Convert an ACCEPTED quote into an order (Phase 5). Idempotent: returns
+     * the existing order if already converted. The order is created at
+     * pending_confirmation with COD by default; staff adjust payment/fulfilment
+     * before confirming. Lines carry the quote's free-text items, so finance
+     * treats them as manually-invoiced (deferred) unless later linked to a
+     * listing — safe by design.
+     */
+    public function convertToOrder(StorefrontQuote $quote, User $actor): \App\Models\Storefront\StorefrontOrder
+    {
+        if ($quote->status === StorefrontQuote::STATUS_CONVERTED && $quote->converted_order_id) {
+            $existing = \App\Models\Storefront\StorefrontOrder::find($quote->converted_order_id);
+            if ($existing) {
+                return $existing;
+            }
+        }
+
+        if ($quote->status !== StorefrontQuote::STATUS_ACCEPTED) {
+            throw new InvalidQuoteTransitionException(
+                "Only an accepted quote can be converted to an order (quote #{$quote->id} is {$quote->status})."
+            );
+        }
+
+        return DB::transaction(function () use ($quote, $actor) {
+            $quote->loadMissing('items');
+            $orgId = $quote->organization_id;
+
+            $total = $quote->quoted_total !== null ? (string) $quote->quoted_total : '0.00';
+
+            $order = \App\Models\Storefront\StorefrontOrder::create([
+                'organization_id'   => $orgId,
+                'reference'         => $this->nextOrderReference($orgId),
+                'counterparty_id'   => $quote->counterparty_id,
+                'customer_user_id'  => $quote->customer_user_id,
+                'quote_id'          => $quote->id,
+                'status'            => \App\Models\Storefront\StorefrontOrder::STATUS_PENDING_CONFIRMATION,
+                'payment_status'    => \App\Models\Storefront\StorefrontOrder::PAY_COD,
+                'payment_method'    => \App\Models\Storefront\StorefrontOrder::METHOD_COD,
+                'fulfilment_method' => $quote->fulfilment_preference === 'delivery'
+                    ? \App\Models\Storefront\StorefrontOrder::FULFIL_DELIVERY
+                    : \App\Models\Storefront\StorefrontOrder::FULFIL_PICKUP,
+                'subtotal'          => $total,
+                'delivery_fee'      => '0.00',
+                'total'             => $total,
+                'currency_code'     => $quote->currency_code ?: 'GHS',
+                'customer_note'     => $quote->message,
+                'placed_at'         => now(),
+            ]);
+
+            foreach ($quote->items as $qItem) {
+                $unitPrice = $qItem->target_unit_price !== null ? (string) $qItem->target_unit_price : '0';
+                $lineTotal = bcmul($unitPrice, (string) $qItem->quantity, 2);
+
+                \App\Models\Storefront\StorefrontOrderItem::create([
+                    'organization_id' => $orgId,
+                    'order_id'        => $order->id,
+                    'listing_id'      => $qItem->listing_id,
+                    'kind'            => $qItem->kind,
+                    'description'     => $qItem->description,
+                    'quantity'        => $qItem->quantity,
+                    'quantity_unit'   => $qItem->quantity_unit,
+                    'price_basis'     => 'fixed',
+                    'unit_price'      => $unitPrice,
+                    'line_total'      => $lineTotal,
+                ]);
+            }
+
+            $quote->forceFill([
+                'status'             => StorefrontQuote::STATUS_CONVERTED,
+                'converted_order_id' => $order->id,
+                'responded_at'       => now(),
+            ])->save();
+
+            \App\Models\Storefront\StorefrontOrderEvent::create([
+                'organization_id' => $orgId,
+                'order_id'        => $order->id,
+                'type'            => 'system',
+                'note'            => "Created from quote {$quote->reference}.",
+                'actor_user_id'   => $actor->id,
+            ]);
+
+            return $order->fresh('items');
+        });
+    }
+
+    protected function nextOrderReference(?int $organizationId): string
+    {
+        $count = \App\Models\Storefront\StorefrontOrder::query()
+            ->where('organization_id', $organizationId)
+            ->withTrashed()
+            ->count();
+
+        return 'SO-' . str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
+    }
+
     public function canTransition(StorefrontQuote $quote, string $target): bool
     {
         return in_array($target, self::TRANSITIONS[$quote->status] ?? [], true);

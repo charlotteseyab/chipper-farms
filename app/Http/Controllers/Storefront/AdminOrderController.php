@@ -99,6 +99,59 @@ class AdminOrderController extends Controller
         );
     }
 
+    public function complete(StorefrontOrder $order): RedirectResponse
+    {
+        $this->assertSameOrg($order);
+        $this->authorizeConfirm();
+
+        return $this->guarded(
+            fn () => $this->orders->complete($order, request()->user()),
+            "Order {$order->reference} completed."
+        );
+    }
+
+    public function addNote(Request $request, StorefrontOrder $order): RedirectResponse
+    {
+        $this->assertSameOrg($order);
+
+        $validated = $request->validate([
+            'note' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $this->orders->recordEvent($order, 'note', null, null, $validated['note'], $request->user()->id);
+
+        // Keep a rolling staff_notes summary too.
+        $order->forceFill([
+            'staff_notes' => trim(($order->staff_notes ? $order->staff_notes . "\n" : '')
+                . '[' . now()->format('Y-m-d H:i') . ' — ' . $request->user()->name . '] ' . $validated['note']),
+        ])->save();
+
+        return back()->with('success', 'Note added.');
+    }
+
+    public function refund(
+        Request $request,
+        StorefrontOrder $order,
+        \App\Storefront\Services\StorefrontOrderRefundService $refunds
+    ): RedirectResponse {
+        $this->assertSameOrg($order);
+
+        // Treasurer-grade: NOT available to the salesperson role.
+        abort_unless($request->user()?->hasPermission('refund_storefront_orders'), 403);
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+
+        try {
+            $refunds->refund($order, $request->user(), $validated['reason']);
+        } catch (InvalidOrderTransitionException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', "Order {$order->reference} refunded.");
+    }
+
     /**
      * Re-verify a Paystack payment from the back office (e.g. webhook missed).
      */

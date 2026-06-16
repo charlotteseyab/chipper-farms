@@ -12,6 +12,9 @@
                 @can('view_storefront_orders')
                     <a href="{{ route('storefront.admin.orders.index') }}" class="px-4 py-2 border border-slate-300 rounded-xl text-sm">Orders</a>
                 @endcan
+                @can('view_storefront_reports')
+                    <a href="{{ route('storefront.admin.reports.sales') }}" class="px-4 py-2 border border-slate-300 rounded-xl text-sm">Reports</a>
+                @endcan
                 @can('push_to_storefront')
                     <a href="{{ route('storefront.admin.push.create') }}" class="px-4 py-2 bg-slate-800 text-white rounded-xl text-sm">Push to storefront</a>
                 @endcan

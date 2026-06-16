@@ -14,7 +14,7 @@ class StorefrontOrderItem extends Model
 
     protected $fillable = [
         'organization_id', 'order_id', 'listing_id',
-        'source_type', 'source_id', 'kind', 'description',
+        'source_type', 'source_id', 'posted_sale_type', 'posted_sale_id', 'kind', 'description',
         'quantity', 'quantity_unit', 'price_basis', 'unit_price', 'line_total', 'weight_kg',
     ];
 

@@ -258,6 +258,21 @@ class FinanceServiceProvider extends ServiceProvider
             \App\Domain\Events\Sales\FeedSaleRecorded::TYPE,
             \App\Finance\Subscribers\Sales\FeedSaleCogsSubscriber::class,
         );
+
+        // Phase 5 — feed sale payment settlement (the feed analogue of the pig
+        // payment-received path; closes the gap for pending feed AR).
+        $registry->register(
+            \App\Domain\Events\Sales\FeedSalePaymentStatusChanged::TYPE,
+            \App\Finance\Subscribers\Sales\FeedSalePaymentReceivedSubscriber::class,
+        );
+
+        // Phase 4 — storefront finance integration. Routes a confirmed
+        // storefront order's lines into the feed/pig sale spine above; never
+        // posts to the GL directly.
+        $registry->register(
+            \App\Domain\Events\Sales\StorefrontOrderConfirmed::TYPE,
+            \App\Finance\Subscribers\Sales\StorefrontOrderConfirmedSubscriber::class,
+        );
     }
 
     /**

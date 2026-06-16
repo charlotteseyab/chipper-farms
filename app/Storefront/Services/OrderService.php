@@ -2,11 +2,15 @@
 
 namespace App\Storefront\Services;
 
+use App\Domain\Events\Sales\StorefrontOrderConfirmed;
+use App\Domain\Events\Support\SourceReference;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontOrder;
 use App\Models\Storefront\StorefrontOrderEvent;
 use App\Models\User;
+use App\Services\DomainEvents\DispatchDomainEvent;
 use App\Storefront\Services\Exceptions\InvalidOrderTransitionException;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -65,6 +69,9 @@ class OrderService
 
     public function __construct(
         protected ListingService $listingService,
+        protected DispatchDomainEvent $dispatcher,
+        protected \App\Services\Sales\UpdatePigSalePaymentStatusService $pigPayment,
+        protected \App\Services\Sales\UpdateFeedSalePaymentStatusService $feedPayment,
     ) {
     }
 
@@ -90,8 +97,65 @@ class OrderService
             $this->recordEvent($order, 'status_change', $from, StorefrontOrder::STATUS_CONFIRMED,
                 'Order confirmed by staff.', $actor->id);
 
+            // Finance trigger (Phase 4): dispatch INSIDE this transaction so the
+            // outbox row rolls back with the confirmation if anything fails. The
+            // StorefrontOrderConfirmedSubscriber routes lines into the existing
+            // sale spine; the storefront never posts to the GL directly.
+            $this->dispatchConfirmedEvent($order, $actor);
+
             return $order->refresh();
         });
+    }
+
+    /**
+     * Build + dispatch the StorefrontOrderConfirmed domain event.
+     */
+    protected function dispatchConfirmedEvent(StorefrontOrder $order, User $actor): void
+    {
+        $order->loadMissing('items');
+
+        // Settlement state for the underlying sale: a Paystack order is already
+        // verified at confirmation (cash sale); COD is recognised as AR now and
+        // collected later.
+        $paymentStatus = ($order->payment_method === StorefrontOrder::METHOD_PAYSTACK
+            && $order->payment_status === StorefrontOrder::PAY_PAYSTACK_VERIF)
+            ? 'paid'
+            : 'pending';
+
+        $lines = $order->items->map(fn ($item) => [
+            'order_item_id' => $item->id,
+            'listing_id'    => $item->listing_id,
+            'source_type'   => $item->source_type,
+            'source_id'     => $item->source_id,
+            'kind'          => $item->kind,
+            'description'   => $item->description,
+            'quantity'      => (string) $item->quantity,
+            'quantity_unit' => $item->quantity_unit,
+            'price_basis'   => $item->price_basis,
+            'unit_price'    => (string) $item->unit_price,
+            'line_total'    => (string) $item->line_total,
+            'weight_kg'     => $item->weight_kg !== null ? (string) $item->weight_kg : null,
+        ])->all();
+
+        $this->dispatcher->dispatch(new StorefrontOrderConfirmed(
+            source: new SourceReference(
+                module:         'storefront',
+                sourceType:     StorefrontOrder::class,
+                sourceId:       (int) $order->id,
+                organizationId: (int) $order->organization_id,
+            ),
+            occurredAt:         CarbonImmutable::now(),
+            dispatchedByUserId: $actor->id,
+            orderId:            (int) $order->id,
+            orderReference:     (string) $order->reference,
+            counterpartyId:     $order->counterparty_id ? (int) $order->counterparty_id : null,
+            paymentStatus:      $paymentStatus,
+            paymentMethod:      $order->payment_method,
+            fulfilmentMethod:   (string) $order->fulfilment_method,
+            total:              (float) $order->total,
+            buyerName:          $order->ship_to_name ?: optional($order->counterparty)->name,
+            lines:              $lines,
+        ));
     }
 
     /**
@@ -191,6 +255,96 @@ class OrderService
     public function canTransition(StorefrontOrder $order, string $target): bool
     {
         return in_array($target, self::TRANSITIONS[$order->status] ?? [], true);
+    }
+
+    /**
+     * Complete fulfilment (pickup collected / delivery received). On
+     * completion:
+     *   - COD orders settle: each linked underlying sale is flipped to 'paid'
+     *     via the sale spine, which posts the cash receipt (Dr Cash / Cr AR).
+     *   - Pig-backed listings move to sold_out.
+     * Paystack orders are already paid; nothing to settle.
+     */
+    public function complete(StorefrontOrder $order, User $actor): StorefrontOrder
+    {
+        $this->assertTransitionAllowed($order, StorefrontOrder::STATUS_COMPLETED);
+
+        return DB::transaction(function () use ($order, $actor) {
+            $from = $order->status;
+            $order->loadMissing('items');
+
+            $isCod = $order->payment_method === StorefrontOrder::METHOD_COD;
+
+            if ($isCod && $order->payment_status !== StorefrontOrder::PAY_PAID) {
+                $this->settleCodPayments($order, $actor);
+                $order->forceFill(['payment_status' => StorefrontOrder::PAY_PAID])->save();
+            }
+
+            $this->markListingsSoldOut($order, $actor);
+
+            $order->forceFill([
+                'status'               => StorefrontOrder::STATUS_COMPLETED,
+                'completed_at'         => now(),
+                'completed_by_user_id' => $actor->id,
+            ])->save();
+
+            $this->recordEvent($order, 'status_change', $from, StorefrontOrder::STATUS_COMPLETED,
+                'Order completed/fulfilled.', $actor->id);
+
+            return $order->refresh();
+        });
+    }
+
+    /**
+     * Flip each linked underlying sale to 'paid' so the spine posts the COD
+     * cash receipt. Lines without a posted sale (deferred / not-yet-posted) are
+     * noted and skipped — never silently dropped.
+     */
+    protected function settleCodPayments(StorefrontOrder $order, User $actor): void
+    {
+        $unlinked = 0;
+
+        foreach ($order->items as $item) {
+            if ($item->posted_sale_id === null || $item->posted_sale_type === null) {
+                $unlinked++;
+                continue;
+            }
+
+            if ($item->posted_sale_type === \App\Models\PigSale::class) {
+                $sale = \App\Models\PigSale::find($item->posted_sale_id);
+                if ($sale && $sale->payment_status !== 'paid') {
+                    $this->pigPayment->execute($sale, $actor, 'paid');
+                }
+            } elseif ($item->posted_sale_type === \App\Models\FeedSale::class) {
+                $sale = \App\Models\FeedSale::find($item->posted_sale_id);
+                if ($sale && $sale->payment_status !== 'paid') {
+                    $this->feedPayment->execute($sale, $actor, 'paid');
+                }
+            }
+        }
+
+        if ($unlinked > 0) {
+            $this->recordEvent($order, 'system', null, null,
+                "COD settlement: {$unlinked} line(s) had no posted sale yet and were not settled automatically.",
+                $actor->id);
+        }
+    }
+
+    protected function markListingsSoldOut(StorefrontOrder $order, User $actor): void
+    {
+        foreach ($order->items as $item) {
+            if ($item->listing_id === null) {
+                continue;
+            }
+            $listing = StorefrontListing::find($item->listing_id);
+            if ($listing === null) {
+                continue;
+            }
+            if (in_array($listing->status, [StorefrontListing::STATUS_RESERVED, StorefrontListing::STATUS_PUBLISHED], true)
+                && $this->isPigBacked($listing)) {
+                $this->listingService->transitionTo($listing, StorefrontListing::STATUS_SOLD_OUT, $actor);
+            }
+        }
     }
 
     public function recordEvent(

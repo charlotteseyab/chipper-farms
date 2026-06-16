@@ -31,6 +31,17 @@ class StorefrontServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Phase 6 hardening — named rate limiters for the public-facing
+        // endpoints. Quote submission and the Paystack webhook are the two
+        // unauthenticated POST surfaces; both are throttled to blunt spam and
+        // abuse. Keyed by IP so one source can't flood.
+        \Illuminate\Support\Facades\RateLimiter::for('storefront-quote', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(5)->by($request->ip());
+        });
+        \Illuminate\Support\Facades\RateLimiter::for('storefront-webhook', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(60)->by($request->ip());
+        });
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 SyncListingAvailabilityCommand::class,
