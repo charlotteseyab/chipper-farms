@@ -132,7 +132,8 @@ class NavigationHelper
                 'title' => 'Finance',
                 'items' => array_values(array_filter([
                     self::link('Dashboard', 'finance.dashboard', 'finance', 'fa-solid fa-chart-line', ['superuser', 'admin', 'accountant', 'treasurer', 'farmmanager', 'dataentry']),
-                    self::link('Customers', 'finance.customers.index', 'finance/customers*', 'fa-solid fa-address-book', ['superuser', 'admin', 'accountant']), 
+                    self::link('Customers', 'finance.customers.index', 'finance/customers*', 'fa-solid fa-address-book', ['superuser', 'admin', 'accountant']),
+                    self::link('Invoices', 'finance.invoices.index', 'finance/invoices*', 'fa-solid fa-file-invoice', ['superuser', 'admin', 'accountant']),
                     self::link('Suppliers', 'finance.suppliers.index', 'finance/suppliers*', 'fa-solid fa-truck-fast', ['superuser', 'admin', 'accountant']),
                     self::link('Vendor Invoices', 'finance.vendor-invoices.index', 'finance/vendor-invoices*', 'fa-solid fa-file-invoice-dollar', ['superuser', 'admin', 'accountant', 'treasurer']),
                     self::link('Payments', 'finance.payments.index', 'finance/payments*', 'fa-solid fa-money-bill-transfer', ['superuser', 'admin', 'accountant', 'treasurer']),
