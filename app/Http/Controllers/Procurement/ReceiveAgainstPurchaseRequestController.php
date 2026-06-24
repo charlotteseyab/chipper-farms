@@ -26,8 +26,6 @@ class ReceiveAgainstPurchaseRequestController extends Controller
         protected CurrentOrganization $currentOrganization,
         protected ReceiveAgainstPurchaseRequestService $service,
     ) {
-        $this->middleware('auth');
-        $this->middleware('permission:receive_against_pr');
     }
 
     public function create(Request $request, PurchaseRequest $purchaseRequest)
