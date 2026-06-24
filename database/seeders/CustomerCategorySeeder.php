@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\CustomerCategory;
+use App\Models\Organization;
 use Illuminate\Database\Seeder;
 
 /**
@@ -22,8 +23,19 @@ class CustomerCategorySeeder extends Seeder
 {
     public function run(): void
     {
-        $organizationId = null;
+        $organizationIds = Organization::query()->pluck('id');
 
+        if ($organizationIds->isEmpty()) {
+            $organizationIds = collect([null]);
+        }
+
+        foreach ($organizationIds as $organizationId) {
+            $this->seedForOrganization($organizationId);
+        }
+    }
+
+    private function seedForOrganization(?int $organizationId): void
+    {
         $categories = [
             [
                 'code'        => 'WHOLESALE',

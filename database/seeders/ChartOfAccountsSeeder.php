@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Finance\Account;
+use App\Models\Organization;
 use Illuminate\Database\Seeder;
 
 /**
@@ -32,10 +33,19 @@ class ChartOfAccountsSeeder extends Seeder
 {
     public function run(): void
     {
-        $organizationId = null;
-        // Phase 1 ships single-tenant; null org_id is the default Chipper Farms org.
-        // For multi-tenant setups, this seeder would loop per organisation.
+        $organizationIds = Organization::query()->pluck('id');
 
+        if ($organizationIds->isEmpty()) {
+            $organizationIds = collect([null]);
+        }
+
+        foreach ($organizationIds as $organizationId) {
+            $this->seedForOrganization($organizationId);
+        }
+    }
+
+    public function seedForOrganization(?int $organizationId): void
+    {
         $accounts = $this->definition();
 
         // First pass: create/update all accounts WITHOUT parent_id (avoids

@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\PaymentMethod;
+use App\Models\Organization;
 use Illuminate\Database\Seeder;
 
 /**
@@ -19,6 +20,19 @@ use Illuminate\Database\Seeder;
 class PaymentMethodSeeder extends Seeder
 {
     public function run(): void
+    {
+        $organizationIds = Organization::query()->pluck('id');
+
+        if ($organizationIds->isEmpty()) {
+            $organizationIds = collect([null]);
+        }
+
+        foreach ($organizationIds as $organizationId) {
+            $this->seedForOrganization($organizationId);
+        }
+    }
+
+    private function seedForOrganization(?int $organizationId): void
     {
         $methods = [
             // Cash
@@ -70,7 +84,7 @@ class PaymentMethodSeeder extends Seeder
         foreach ($methods as $method) {
             PaymentMethod::updateOrCreate(
                 [
-                    'organization_id' => $method['organization_id'] ?? null,
+                    'organization_id' => $organizationId,
                     'code'            => $method['code'],
                 ],
                 array_merge([

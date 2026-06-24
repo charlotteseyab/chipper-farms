@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\TaxCode;
+use App\Models\Organization;
 use Illuminate\Database\Seeder;
 
 /**
@@ -29,6 +30,19 @@ use Illuminate\Database\Seeder;
 class TaxCodeSeeder extends Seeder
 {
     public function run(): void
+    {
+        $organizationIds = Organization::query()->pluck('id');
+
+        if ($organizationIds->isEmpty()) {
+            $organizationIds = collect([null]);
+        }
+
+        foreach ($organizationIds as $organizationId) {
+            $this->seedForOrganization($organizationId);
+        }
+    }
+
+    private function seedForOrganization(?int $organizationId): void
     {
         $codes = [
             // VAT — standard rate, recoverable (input vs output offset applies).
@@ -105,7 +119,7 @@ class TaxCodeSeeder extends Seeder
         foreach ($codes as $code) {
             TaxCode::updateOrCreate(
                 [
-                    'organization_id' => $code['organization_id'] ?? null,
+                    'organization_id' => $organizationId,
                     'code'            => $code['code'],
                 ],
                 array_merge([

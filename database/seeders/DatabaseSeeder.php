@@ -14,44 +14,26 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Organization first — every downstream record depends on it.
+        // 1. Organization and roles first — downstream seeders depend on them.
         $this->call(OrganizationSeeder::class);
-        // 2. Finance permissions and role mappings.
-        // Ensures permission middleware works for finance routes.
-        $this->call(FinancePermissionsSeeder::class);
-        // 2b. Phase-specific finance permissions (3d/3e).
-        $this->call(Phase3dPermissionsSeeder::class);
-        $this->call(Phase3ePermissionsSeeder::class);
-        // 2c. Finance module permissions — Phases 4–9 + feed sales. These grant
-        // access to inventory, pig/feed costing, reporting & close, treasury &
-        // loans, investor/fund tracking, and feed sales. Without these calls a
-        // fresh install cannot reach those finance routes.
-        $this->call(Phase4InventoryPermissionsSeeder::class);
-        $this->call(Phase5PigCostingPermissionsSeeder::class);
-        $this->call(Phase6ReportingClosePermissionsSeeder::class);
-        $this->call(Phase8LoansTreasuryPermissionsSeeder::class);
-        $this->call(Phase9InvestorPermissionsSeeder::class);
-        $this->call(FeedSalesPermissionsSeeder::class);
-        // 2d. Storefront permissions + Salesperson/Customer roles (Phase 1).
-        $this->call(StorefrontPermissionsSeeder::class);
-        // 2e. Storefront Phase 2 — quote + media permissions.
-        $this->call(StorefrontQuotePermissionsSeeder::class);
-        // 2f. Storefront Phase 3 — order/checkout permissions.
-        $this->call(StorefrontOrderPermissionsSeeder::class);
-        $this->call(StorefrontRefundPermissionsSeeder::class);
-        // 3. Ensure each organization has current fiscal year + monthly periods.
-        $this->call(FiscalYearSeeder::class);
-        // 3b. Base chart of accounts (also seeded by migration 2026_05_01_120150).
-        $this->call(ChartOfAccountsSeeder::class);
-        // 3c. Storefront catalogue (categories + placement slots) — Phase 1.
-        $this->call(StorefrontCatalogSeeder::class);
 
         $defaultOrgId = DB::table('organizations')
             ->where('slug', 'chipper-farms')
             ->value('id');
 
-        // 4. Roles. Idempotent. Includes accountant.
-        $rolesList = ['admin', 'dataentry', 'farmmanager', 'superuser', 'accountant', 'salesperson', 'customer'];
+        $rolesList = [
+            'admin',
+            'dataentry',
+            'farmmanager',
+            'manager',
+            'superuser',
+            'accountant',
+            'treasurer',
+            'mill_operator',
+            'salesperson',
+            'customer',
+        ];
+
         foreach ($rolesList as $role) {
             DB::table('roles')->updateOrInsert(
                 ['name' => $role],
@@ -59,7 +41,49 @@ class DatabaseSeeder extends Seeder
             );
         }
 
-        if (!app()->environment(['local', 'testing']) && !filter_var(env('CHIPPER_SEED_DEFAULT_USERS', false), FILTER_VALIDATE_BOOL)) {
+        // 2. Every finance permission phase, in business-flow order.
+        $this->call([
+            FinancePermissionsSeeder::class,
+            Phase2aFinancePermissionsSeeder::class,
+            Phase2bInvoicePermissionsSeeder::class,
+            Phase2cReceiptPermissionsSeeder::class,
+            Phase2dPermissionsSeeder::class,
+            Phase3aSupplierPermissionsSeeder::class,
+            Phase3bVendorInvoicePermissionsSeeder::class,
+            Phase3cPaymentPermissionsSeeder::class,
+            Phase3dPermissionsSeeder::class,
+            Phase3ePermissionsSeeder::class,
+            Phase4InventoryPermissionsSeeder::class,
+            Phase5PigCostingPermissionsSeeder::class,
+            Phase6ReportingClosePermissionsSeeder::class,
+            Phase8LoansTreasuryPermissionsSeeder::class,
+            Phase9InvestorPermissionsSeeder::class,
+            FeedSalesPermissionsSeeder::class,
+        ]);
+
+        // 3. Storefront permissions.
+        $this->call([
+            StorefrontPermissionsSeeder::class,
+            StorefrontQuotePermissionsSeeder::class,
+            StorefrontOrderPermissionsSeeder::class,
+            StorefrontRefundPermissionsSeeder::class,
+        ]);
+
+        // 4. Organization-scoped accounting and reference data.
+        $this->call([
+            ChartOfAccountsSeeder::class,
+            FiscalYearSeeder::class,
+            PaymentMethodSeeder::class,
+            TaxCodeSeeder::class,
+            CustomerCategorySeeder::class,
+            SupplierCategoriesSeeder::class,
+            StorefrontCatalogSeeder::class,
+        ]);
+
+        $seedDefaultUsers = app()->environment(['local', 'testing'])
+            || filter_var(env('CHIPPER_SEED_DEFAULT_USERS', false), FILTER_VALIDATE_BOOL);
+
+        if (! $seedDefaultUsers) {
             return;
         }
 
@@ -69,46 +93,54 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Admin',
                 'email' => 'admin@chipperfarms.com',
-                'password' => env('CHIPPER_ADMIN_PASSWORD', Str::random(24)),
+                'password' => env('CHIPPER_ADMIN_PASSWORD'),
                 'role' => 'admin',
                 'role_id' => $roles['admin'],
             ],
             [
                 'name' => 'Data Entry',
                 'email' => 'dataentry@chipperfarms.com',
-                'password' => env('CHIPPER_DATAENTRY_PASSWORD', Str::random(24)),
+                'password' => env('CHIPPER_DATAENTRY_PASSWORD'),
                 'role' => 'dataentry',
                 'role_id' => $roles['dataentry'],
             ],
             [
                 'name' => 'Farm Manager',
                 'email' => 'manager@chipperfarms.com',
-                'password' => env('CHIPPER_MANAGER_PASSWORD', Str::random(24)),
+                'password' => env('CHIPPER_MANAGER_PASSWORD'),
                 'role' => 'farmmanager',
                 'role_id' => $roles['farmmanager'],
             ],
             [
                 'name' => 'Super User',
                 'email' => 'superuser@chipperfarms.com',
-                'password' => env('CHIPPER_SUPERUSER_PASSWORD', Str::random(24)),
+                'password' => env('CHIPPER_SUPERUSER_PASSWORD'),
                 'role' => 'superuser',
                 'role_id' => $roles['superuser'],
             ],
             [
                 'name' => 'Accountant',
                 'email' => 'accountant@chipperfarms.com',
-                'password' => env('CHIPPER_ACCOUNTANT_PASSWORD', Str::random(24)),
+                'password' => env('CHIPPER_ACCOUNTANT_PASSWORD'),
                 'role' => 'accountant',
                 'role_id' => $roles['accountant'],
             ],
         ];
 
         foreach ($users as $user) {
+            $existingPassword = DB::table('users')
+                ->where('email', $user['email'])
+                ->value('password');
+
+            $password = $user['password']
+                ? Hash::make($user['password'])
+                : ($existingPassword ?: Hash::make(Str::random(24)));
+
             DB::table('users')->updateOrInsert(
                 ['email' => $user['email']],
                 [
                     'name' => $user['name'],
-                    'password' => Hash::make($user['password']),
+                    'password' => $password,
                     'role' => $user['role'],
                     'role_id' => $user['role_id'],
                     'organization_id' => $defaultOrgId,
@@ -117,6 +149,19 @@ class DatabaseSeeder extends Seeder
                     'created_at' => now(),
                 ]
             );
+        }
+
+        // Reference standards need a user for their created_by foreign key.
+        $this->call(ExpectedWeightStandardSeeder::class);
+
+        // Optional operational demo data. These seeders create fictional barns,
+        // pigs, and weight records, so they are never enabled implicitly.
+        if (filter_var(env('CHIPPER_SEED_DEMO_DATA', false), FILTER_VALIDATE_BOOL)) {
+            $this->call([
+                StructureSeeder::class,
+                PigManagementSeeder::class,
+                PigWeightSeeder::class,
+            ]);
         }
     }
 }

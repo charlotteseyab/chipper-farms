@@ -22,7 +22,10 @@ return new class extends Migration
             return;
         }
 
-        (new ChartOfAccountsSeeder)->run();
+        // Later historical COA migrations extend the original shared/null
+        // chart. DatabaseSeeder subsequently creates the organization-scoped
+        // chart used by the application.
+        (new ChartOfAccountsSeeder)->seedForOrganization(null);
     }
 
     public function down(): void
