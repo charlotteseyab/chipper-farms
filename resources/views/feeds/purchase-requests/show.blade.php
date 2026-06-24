@@ -17,6 +17,13 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
+                @if($purchaseRequest->status === 'approved' && auth()->user()?->hasPermission('receive_against_pr'))
+                    <a href="{{ route('finance.procurement.receive-against-pr.create', $purchaseRequest) }}"
+                       class="inline-flex items-center px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
+                        Receive Goods
+                    </a>
+                @endif
+
                 @can('update', $purchaseRequest)
                     <a href="{{ route('purchase-requests.edit', $purchaseRequest) }}"
                        class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">

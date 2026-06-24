@@ -159,6 +159,92 @@ class NavigationHelper
                     ],
                     self::link('Journal Entries', 'finance.journals.index', 'finance/journals*', 'fa-solid fa-book', ['superuser', 'admin', 'accountant']),
                     self::link('Trial Balance', 'finance.trial-balance', 'finance/trial-balance*', 'fa-solid fa-scale-balanced', ['superuser', 'admin', 'accountant', 'farmmanager']),
+                    self::permissionGroup('Inventory & Costing', 'fa-solid fa-boxes-stacked', [
+                        'finance/inventory*',
+                        'finance/procurement*',
+                        'finance/feed/issues*',
+                        'finance/costing*',
+                        'finance/biological-assets*',
+                        'finance/feed-sales*',
+                    ], [
+                        self::permissionLink(
+                            'Inventory',
+                            'finance.inventory.value.index',
+                            'finance/inventory/value*',
+                            'fa-solid fa-warehouse',
+                            'view_inventory_value',
+                        ),
+                        self::permissionLink(
+                            'Account Mappings',
+                            'finance.inventory.account-mappings.index',
+                            'finance/inventory/account-mappings*',
+                            'fa-solid fa-code-branch',
+                            'view_inventory_value',
+                        ),
+                        self::permissionLink(
+                            'Opening Balances',
+                            'finance.inventory.opening-balances.index',
+                            'finance/inventory/opening-balances*',
+                            'fa-solid fa-scale-unbalanced-flip',
+                            'view_inventory_value',
+                        ),
+                        self::permissionLink(
+                            'GR/IR Ageing',
+                            'finance.inventory.gr-ir-ageing.index',
+                            'finance/inventory/gr-ir-ageing*',
+                            'fa-solid fa-clock',
+                            'view_gr_ir_ageing',
+                        ),
+                        self::permissionLink(
+                            'Purchase Receiving',
+                            'purchase-requests.index',
+                            ['purchase-requests*', 'finance/procurement*'],
+                            'fa-solid fa-truck-ramp-box',
+                            'receive_against_pr',
+                        ),
+                        self::permissionLink(
+                            'Feed Issues',
+                            'finance.feed.issues.index',
+                            'finance/feed/issues*',
+                            'fa-solid fa-bowl-food',
+                            ['view_group_pools', 'manage_feed_issues'],
+                        ),
+                        self::permissionLink(
+                            'Group Cost Pools',
+                            'finance.costing.group-pools.index',
+                            'finance/costing/group-pools*',
+                            'fa-solid fa-layer-group',
+                            'view_group_pools',
+                        ),
+                        self::permissionLink(
+                            'Opening Pig Inventory',
+                            'finance.costing.opening-pig-inventory.index',
+                            'finance/costing/opening-pig-inventory*',
+                            'fa-solid fa-piggy-bank',
+                            'view_group_pools',
+                        ),
+                        self::permissionLink(
+                            'Mortality Write-offs',
+                            'finance.costing.mortality-writeoffs.index',
+                            'finance/costing/mortality-writeoffs*',
+                            'fa-solid fa-file-circle-minus',
+                            'manage_pig_mortality',
+                        ),
+                        self::permissionLink(
+                            'Biological Assets',
+                            'finance.biological-assets.index',
+                            'finance/biological-assets*',
+                            'fa-solid fa-chart-area',
+                            'view_financial_reports',
+                        ),
+                        self::permissionLink(
+                            'Feed Sales',
+                            'finance.feed-sales.index',
+                            'finance/feed-sales*',
+                            'fa-solid fa-sack-dollar',
+                            'view_feed_sales',
+                        ),
+                    ]),
                     [
                         'label' => 'AP Ageing',
                         'route' => 'finance.ageing.ap',
@@ -393,6 +479,49 @@ class NavigationHelper
             return null;
         }
 
+        $children = array_values(array_filter($children));
+
+        if ($children === []) {
+            return null;
+        }
+
+        return [
+            'type' => 'group',
+            'label' => $label,
+            'icon' => $icon,
+            'active_patterns' => (array) $activePatterns,
+            'children' => $children,
+        ];
+    }
+
+    private static function permissionLink(
+        string $label,
+        string $route,
+        array|string $activePatterns,
+        string $icon,
+        array|string $permissions,
+    ): ?array {
+        $user = auth()->user();
+
+        if (! $user || ! $user->hasAnyPermission($permissions)) {
+            return null;
+        }
+
+        return [
+            'type' => 'link',
+            'label' => $label,
+            'route' => $route,
+            'active_patterns' => (array) $activePatterns,
+            'icon' => $icon,
+        ];
+    }
+
+    private static function permissionGroup(
+        string $label,
+        string $icon,
+        array|string $activePatterns,
+        array $children,
+    ): ?array {
         $children = array_values(array_filter($children));
 
         if ($children === []) {

@@ -52,7 +52,7 @@
                 </table>
             </div>
 
-            <form method="POST" action="{{ route('procurement.receive-against-pr.store', $purchaseRequest) }}" class="space-y-4">
+            <form method="POST" action="{{ route('finance.procurement.receive-against-pr.store', $purchaseRequest) }}" class="space-y-4">
                 @csrf
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">

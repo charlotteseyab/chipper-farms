@@ -966,7 +966,7 @@ Route::middleware($protectedMiddleware)->group(function () {
         ->name('feed.issues.')
         ->group(function () {
             Route::get('/',          [FeedIssueController::class, 'index'])
-                ->middleware('permission:view_group_pools')
+                ->middleware('permission:view_group_pools,manage_feed_issues')
                 ->name('index');
             Route::get('/create',    [FeedIssueController::class, 'create'])
                 ->middleware('permission:manage_feed_issues')
@@ -975,7 +975,7 @@ Route::middleware($protectedMiddleware)->group(function () {
                 ->middleware('permission:manage_feed_issues')
                 ->name('store');
             Route::get('/{issue}',   [FeedIssueController::class, 'show'])
-                ->middleware('permission:view_group_pools')
+                ->middleware('permission:view_group_pools,manage_feed_issues')
                 ->name('show');
         });
 

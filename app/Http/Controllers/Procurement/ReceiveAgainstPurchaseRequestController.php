@@ -89,7 +89,7 @@ class ReceiveAgainstPurchaseRequestController extends Controller
             );
 
             return redirect()
-                ->route('procurement.receive-against-pr.create', $purchaseRequest)
+                ->route('finance.procurement.receive-against-pr.create', $purchaseRequest)
                 ->with('success', sprintf(
                     'Received %s for PR item #%d. %s',
                     number_format((float) $validated['quantity'], 2),
