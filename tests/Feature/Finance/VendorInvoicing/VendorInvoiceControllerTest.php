@@ -6,6 +6,8 @@ use App\Models\Counterparty;
 use App\Models\Finance\Account;
 use App\Models\Finance\SupplierCategory;
 use App\Models\Finance\VendorInvoice;
+use App\Models\PurchaseRequest;
+use App\Models\RawMaterial;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\Finance\VendorInvoicing\VendorInvoiceLineDraft;
@@ -107,6 +109,53 @@ class VendorInvoiceControllerTest extends TestCase
             ->get(route('finance.vendor-invoices.create'))
             ->assertOk()
             ->assertSee('New Vendor Invoice');
+    }
+
+    public function test_create_from_purchase_request_prefills_matching_links(): void
+    {
+        $material = RawMaterial::create([
+            'name' => 'Maize',
+            'category' => 'grain',
+            'unit' => 'kg',
+            'quantity_in_stock' => 0,
+            'unit_cost' => 0,
+            'reorder_level' => 100,
+        ]);
+
+        $purchaseRequest = PurchaseRequest::create([
+            'organization_id' => $this->org->id,
+            'request_no' => 'PR-TEST-001',
+            'request_date' => '2026-11-01',
+            'requested_by' => $this->accountant->id,
+            'status' => 'approved',
+            'total_amount' => 3000,
+            'supplier_id' => $this->supplier->id,
+        ]);
+
+        $item = $purchaseRequest->items()->create([
+            'item_name' => 'Maize',
+            'description' => 'Maize',
+            'quantity' => 1500,
+            'unit_price' => 2,
+            'total_price' => 3000,
+            'raw_material_id' => $material->id,
+            'unit' => 'kg',
+        ]);
+
+        $this->actingAs($this->accountant)
+            ->get(route('finance.vendor-invoices.create', [
+                'purchase_request_id' => $purchaseRequest->id,
+            ]))
+            ->assertOk()
+            ->assertSee('From PR PR-TEST-001')
+            ->assertViewHas('pr', fn ($pr) => $pr->is($purchaseRequest))
+            ->assertViewHas('prItems', function ($items) use ($item, $material) {
+                $prefill = $items->first();
+
+                return $prefill?->is($item)
+                    && (int) $prefill->raw_material_id === $material->id
+                    && $prefill->unit === 'kg';
+            });
     }
 
     public function test_store_creates_draft(): void

@@ -176,7 +176,13 @@ class PurchaseRequestController extends Controller
 
         abort_unless($this->canManageRequest($purchaseRequest), 403);
 
-        $purchaseRequest->load(['items.rawMaterial', 'requester', 'approver', 'supplier']);
+        $purchaseRequest->load([
+            'items.rawMaterial',
+            'requester',
+            'approver',
+            'supplier',
+            'vendorInvoices' => fn ($query) => $query->latest('id'),
+        ]);
 
         return view('feeds.purchase-requests.show', compact('purchaseRequest'));
     }

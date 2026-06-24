@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PurchaseRequest extends Model
 {
@@ -77,5 +78,10 @@ class PurchaseRequest extends Model
     public function taxCode(): BelongsTo
     {
         return $this->belongsTo(TaxCode::class, 'tax_code_id');
+    }
+
+    public function vendorInvoices(): HasMany
+    {
+        return $this->hasMany(\App\Models\Finance\VendorInvoice::class);
     }
 }

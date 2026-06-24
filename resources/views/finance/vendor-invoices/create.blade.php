@@ -91,6 +91,8 @@
                                 'description' => $i->item_name . ($i->description ? ' — ' . $i->description : ''),
                                 'quantity'    => $i->quantity,
                                 'unit_cost'   => $i->unit_price,
+                                'unit'        => $i->unit ?? $i->rawMaterial?->unit,
+                                'raw_material_id' => $i->raw_material_id,
                                 'purchase_request_item_id' => $i->id,
                                 'tax_rate'    => 0,
                                 'withholding_rate' => 0,
