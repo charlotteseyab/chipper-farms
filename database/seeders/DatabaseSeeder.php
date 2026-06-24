@@ -75,6 +75,7 @@ class DatabaseSeeder extends Seeder
             FiscalYearSeeder::class,
             PaymentMethodSeeder::class,
             TaxCodeSeeder::class,
+            RawMaterialSeeder::class,
             CustomerCategorySeeder::class,
             SupplierCategoriesSeeder::class,
             StorefrontCatalogSeeder::class,
