@@ -148,6 +148,14 @@ class VendorInvoiceControllerTest extends TestCase
             ]))
             ->assertOk()
             ->assertSee('From PR PR-TEST-001')
+            ->assertSee(
+                'name="lines[0][purchase_request_item_id]" value="' . $item->id . '"',
+                false,
+            )
+            ->assertSee(
+                'name="lines[0][unit]" value="kg"',
+                false,
+            )
             ->assertViewHas('pr', fn ($pr) => $pr->is($purchaseRequest))
             ->assertViewHas('prItems', function ($items) use ($item, $material) {
                 $prefill = $items->first();

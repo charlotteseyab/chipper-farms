@@ -81,6 +81,28 @@ class PurchaseRequestWorkflowBaselineTest extends TestCase
         return $pr->fresh(['items']);
     }
 
+    public function test_new_purchase_request_is_scoped_to_current_organization(): void
+    {
+        $this->actingAs($this->dataEntry)
+            ->post(route('purchase-requests.store'), [
+                'request_date' => now()->toDateString(),
+                'purpose' => 'Feed stock top-up',
+                'items' => [[
+                    'description' => 'Maize',
+                    'quantity' => 10,
+                    'unit_price' => 50,
+                    'unit' => 'kg',
+                ]],
+            ])
+            ->assertRedirect(route('purchase-requests.index'));
+
+        $this->assertDatabaseHas('purchase_requests', [
+            'organization_id' => $this->org->id,
+            'requested_by' => $this->dataEntry->id,
+            'purpose' => 'Feed stock top-up',
+        ]);
+    }
+
     public function test_admin_can_approve_pending_request_and_event_is_emitted(): void
     {
         $pr = $this->makePendingRequest($this->dataEntry);

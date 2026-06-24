@@ -148,7 +148,7 @@ class VendorInvoiceController extends Controller
         $pr = null;
         $prItems = collect();
         if ($request->filled('purchase_request_id')) {
-            $pr = PurchaseRequest::with('items')->find($request->get('purchase_request_id'));
+            $pr = PurchaseRequest::with('items.rawMaterial')->find($request->get('purchase_request_id'));
             if ($pr && $pr->organization_id == $orgId) {
                 $prItems = $pr->items;
             } else {

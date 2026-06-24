@@ -130,6 +130,7 @@ class PurchaseRequestController extends Controller
             });
 
             $purchaseRequest = PurchaseRequest::create([
+                'organization_id' => $request->user()->organization_id,
                 'request_no'   => 'TMP-' . Str::uuid(),
                 'request_date' => $request->request_date,
                 'requested_by' => Auth::id(),
@@ -309,6 +310,8 @@ class PurchaseRequestController extends Controller
             });
 
             $purchaseRequest->update([
+                'organization_id' => $purchaseRequest->organization_id
+                    ?? $request->user()->organization_id,
                 'request_date' => $request->request_date,
                 'total_amount' => $totalAmount,
                 'purpose'      => $request->purpose,
