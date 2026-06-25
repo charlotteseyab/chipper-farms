@@ -25,7 +25,9 @@ use Illuminate\Validation\Rule;
  *
  * Permissions (route level):
  *   index, show:                  view_finance
- *   create, store:                create_vendor_invoice
+ *   create, store:                create_vendor_invoice OR
+ *                                 create_purchase_request_vendor_invoice
+ *                                 for PR-linked invoices only
  *   edit, update, addLine,
  *   removeLine, submit, cancel:   create_vendor_invoice (still draft phase)
  *   approve (post):               approve_vendor_invoice (two-person rule)
@@ -122,6 +124,8 @@ class VendorInvoiceController extends Controller
     {
         $orgId = $currentOrg->id();
 
+        $this->authorizeDraftAccessForRequest($request, $orgId);
+
         $suppliers = Counterparty::suppliers()->active()
             ->when($orgId, fn ($q) => $q->where('organization_id', $orgId))
             ->orderBy('name')
@@ -164,6 +168,8 @@ class VendorInvoiceController extends Controller
     public function store(Request $request, VendorInvoiceService $service, CurrentOrganization $currentOrg)
     {
         $orgId = $currentOrg->id();
+
+        $this->authorizeDraftAccessForRequest($request, $orgId);
 
         $validated = $request->validate([
             'counterparty_id'          => ['required', 'integer',
@@ -244,6 +250,7 @@ class VendorInvoiceController extends Controller
         CurrentOrganization $currentOrg,
     ) {
         $this->ensureInOrg($invoice, $currentOrg);
+        $this->authorizeDraftAccessForInvoice($request, $invoice);
 
         try {
             $service->submitForApproval($invoice, $request->user());
@@ -286,6 +293,7 @@ class VendorInvoiceController extends Controller
         CurrentOrganization $currentOrg,
     ) {
         $this->ensureInOrg($invoice, $currentOrg);
+        $this->authorizeDraftAccessForInvoice($request, $invoice);
 
         $validated = $request->validate([
             'reason' => ['required', 'string', 'max:500'],
@@ -354,5 +362,44 @@ class VendorInvoiceController extends Controller
         if ($orgId !== null && $invoice->organization_id !== null && (int) $invoice->organization_id !== (int) $orgId) {
             abort(403);
         }
+    }
+
+    protected function authorizeDraftAccessForRequest(Request $request, ?int $orgId): void
+    {
+        $user = $request->user();
+
+        if ($user?->hasPermission('create_vendor_invoice')) {
+            return;
+        }
+
+        abort_unless($user?->hasPermission('create_purchase_request_vendor_invoice'), 403);
+
+        $purchaseRequestId = $request->input('purchase_request_id');
+        abort_unless($purchaseRequestId, 403);
+        abort_unless($this->purchaseRequestIsInvoiceable((int) $purchaseRequestId, $orgId), 403);
+    }
+
+    protected function authorizeDraftAccessForInvoice(Request $request, VendorInvoice $invoice): void
+    {
+        $user = $request->user();
+
+        if ($user?->hasPermission('create_vendor_invoice')) {
+            return;
+        }
+
+        abort_unless(
+            $user?->hasPermission('create_purchase_request_vendor_invoice')
+            && $invoice->purchase_request_id !== null,
+            403,
+        );
+    }
+
+    protected function purchaseRequestIsInvoiceable(int $purchaseRequestId, ?int $orgId): bool
+    {
+        return PurchaseRequest::query()
+            ->whereKey($purchaseRequestId)
+            ->when($orgId !== null, fn ($q) => $q->where('organization_id', $orgId))
+            ->whereIn('status', ['approved', 'paid'])
+            ->exists();
     }
 }

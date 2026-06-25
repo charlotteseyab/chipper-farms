@@ -26,9 +26,6 @@ class FeedSaleController extends Controller
         protected CurrentOrganization $currentOrg,
         protected RecordFeedSaleService $recorder,
     ) {
-        $this->middleware('auth');
-        $this->middleware('permission:view_feed_sales')->only(['index']);
-        $this->middleware('permission:record_feed_sales')->only(['create', 'store']);
     }
 
     public function index()

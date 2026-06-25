@@ -32,9 +32,9 @@ class Phase8LoansTreasuryPermissionsSeeder extends Seeder
         }
 
         $assignments = [
-            'view_loans'    => ['admin', 'accountant', 'manager', 'superuser'],
+            'view_loans'    => ['admin', 'accountant', 'manager', 'farmmanager', 'superuser'],
             'manage_loans'  => ['admin', 'accountant', 'superuser'],
-            'view_treasury' => ['admin', 'accountant', 'manager', 'superuser'],
+            'view_treasury' => ['admin', 'accountant', 'manager', 'farmmanager', 'superuser'],
         ];
 
         foreach ($assignments as $code => $roleNames) {

@@ -24,7 +24,8 @@
                     </a>
                 @endif
 
-                @if(in_array($purchaseRequest->status, ['approved', 'paid'], true) && auth()->user()?->hasPermission('create_vendor_invoice'))
+                @if(in_array($purchaseRequest->status, ['approved', 'paid'], true)
+                    && auth()->user()?->hasAnyPermission(['create_vendor_invoice', 'create_purchase_request_vendor_invoice']))
                     <a href="{{ route('finance.vendor-invoices.create', ['purchase_request_id' => $purchaseRequest->id]) }}"
                        class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
                         Create Vendor Invoice

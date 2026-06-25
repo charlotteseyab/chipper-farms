@@ -17,7 +17,9 @@ class StoreFeedIssueRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'group_id'     => ['required', 'integer', 'exists:groups,id'],
+            'group_id'     => ['nullable', 'required_without:new_group_name', 'integer', 'exists:groups,id'],
+            'new_group_name' => ['nullable', 'required_without:group_id', 'string', 'max:120'],
+            'new_group_type' => ['nullable', 'string', 'max:60'],
             'feed_type_id' => ['required', 'integer', 'exists:feed_types,id'],
             'quantity_kg'  => ['required', 'numeric', 'gt:0', 'max:1000000'],
             'issued_at'    => ['nullable', 'date', 'before_or_equal:now'],

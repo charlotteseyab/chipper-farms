@@ -15,8 +15,6 @@ class TreasuryController extends Controller
 {
     public function __construct(protected CurrentOrganization $currentOrg)
     {
-        $this->middleware('auth');
-        $this->middleware('permission:view_treasury');
     }
 
     public function __invoke(Request $request, TreasuryService $service)

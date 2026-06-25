@@ -128,7 +128,7 @@ class InvestorProfitAllocationService
             }
 
             $batch = $this->postingEngine->post(new JournalBatchDraft(
-                batchType:      'auto_investor_profit_allocation',
+                batchType:      'auto_investor_allocation',
                 postingDate:    $date,
                 journals:       [new JournalDraft(journalType: 'investor_profit_allocation', lines: $lines)],
                 description:    "Investor profit allocation FY{$year->id}",

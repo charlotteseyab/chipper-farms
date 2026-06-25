@@ -24,8 +24,6 @@ class BiologicalAssetController extends Controller
 {
     public function __construct(protected CurrentOrganization $currentOrg)
     {
-        $this->middleware('auth');
-        $this->middleware('permission:view_financial_reports');
     }
 
     public function index(

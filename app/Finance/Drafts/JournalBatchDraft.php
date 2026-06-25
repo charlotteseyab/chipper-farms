@@ -63,9 +63,16 @@ final class JournalBatchDraft
         return $this->idempotencyKey !== null;
     }
 
+    public function isSystemGenerated(): bool
+    {
+        return $this->isAuto()
+            || str_starts_with($this->batchType, 'auto_')
+            || $this->isReversal();
+    }
+
     public function isManual(): bool
     {
-        return $this->idempotencyKey === null;
+        return ! $this->isSystemGenerated();
     }
 
     public function isReversal(): bool

@@ -15,6 +15,11 @@ use Illuminate\Database\Seeder;
  *                            cancelling drafts, and editing draft lines.
  *                            Junior accountants get this.
  *
+ *   create_purchase_request_vendor_invoice
+ *                            Allows farm managers to draft/submit/cancel
+ *                            vendor invoices only when linked to a purchase
+ *                            request. It does not grant general VI creation.
+ *
  *   approve_vendor_invoice   Allows approving and posting a vendor invoice
  *                            to GL. Distinct from create_vendor_invoice
  *                            so the same user can't draft AND post (the
@@ -27,8 +32,8 @@ use Illuminate\Database\Seeder;
  *   treasurer   → both (drafts rare for treasury but technically allowed)
  *   superuser   → both
  *
- * Notably 'manager' role does NOT get either — managers approve PRs in
- * procurement, but vendor invoice approval is segregated to finance.
+ * Managers do not get general vendor invoice permissions. They only receive
+ * the PR-scoped drafting permission below.
  *
  * Idempotent.
  */
@@ -52,6 +57,14 @@ class Phase3bVendorInvoicePermissionsSeeder extends Seeder
             ],
         );
 
+        $prScopedCreatePerm = Permission::firstOrCreate(
+            ['name' => 'create_purchase_request_vendor_invoice'],
+            [
+                'description' => 'Draft, submit, and cancel vendor invoices only when linked to a purchase request',
+                'module'      => 'finance',
+            ],
+        );
+
         // Role grants
         $createGrants = ['admin', 'accountant', 'treasurer', 'superuser'];
         foreach ($createGrants as $roleName) {
@@ -71,8 +84,18 @@ class Phase3bVendorInvoicePermissionsSeeder extends Seeder
             }
         }
 
+        $prScopedCreateGrants = ['manager', 'farmmanager'];
+        foreach ($prScopedCreateGrants as $roleName) {
+            $role = Role::where('name', $roleName)->first();
+            if (! $role) continue;
+            if (! $role->permissions()->where('permissions.id', $prScopedCreatePerm->id)->exists()) {
+                $role->permissions()->attach($prScopedCreatePerm->id);
+            }
+        }
+
         $this->command?->info("Phase 3b: granted 'create_vendor_invoice' to: " . implode(', ', $createGrants));
         $this->command?->info("Phase 3b: granted 'approve_vendor_invoice' to: " . implode(', ', $approveGrants));
+        $this->command?->info("Phase 3b: granted 'create_purchase_request_vendor_invoice' to: " . implode(', ', $prScopedCreateGrants));
         $this->command?->warn("Note: 'accountant' has create but NOT approve — two-person rule per Decision 30.");
     }
 }

@@ -44,6 +44,25 @@ class FeedIssueControllerTest extends TestCase
         $resp->assertForbidden();
     }
 
+    public function test_create_explains_empty_group_dropdown(): void
+    {
+        $this->grantPermission('manage_feed_issues');
+
+        $feedType = FeedType::create(['name' => 'Grower Feed']);
+        $this->app->make(InventoryService::class)->recordFeedProduction(
+            feedTypeId: $feedType->id,
+            quantity: 1000.0,
+            totalCost: 5000.0,
+            feedBatchId: 1,
+        );
+
+        $this->actingAs($this->user)
+            ->get(route('finance.feed.issues.create'))
+            ->assertOk()
+            ->assertSee('No pig groups exist yet.')
+            ->assertSee('name="new_group_name"', false);
+    }
+
     public function test_store_creates_issue_and_redirects_to_show(): void
     {
         $this->grantPermission('manage_feed_issues');
@@ -69,6 +88,39 @@ class FeedIssueControllerTest extends TestCase
             'group_id'     => $group->id,
             'feed_type_id' => $feedType->id,
             'quantity_kg'  => '50.0000',
+        ]);
+    }
+
+    public function test_store_can_create_group_inline_when_none_selected(): void
+    {
+        $this->grantPermission('manage_feed_issues');
+        $this->grantPermission('view_group_pools');
+
+        $feedType = FeedType::create(['name' => 'Starter Feed']);
+        $this->app->make(InventoryService::class)->recordFeedProduction(
+            feedTypeId: $feedType->id,
+            quantity: 1000.0,
+            totalCost: 5000.0,
+            feedBatchId: 2,
+        );
+
+        $resp = $this->actingAs($this->user)->post(route('finance.feed.issues.store'), [
+            'new_group_name' => 'Grower Pen 1',
+            'new_group_type' => 'pen',
+            'feed_type_id' => $feedType->id,
+            'quantity_kg' => 25.0,
+        ]);
+
+        $resp->assertRedirect();
+        $resp->assertSessionHas('success');
+
+        $group = Group::where('name', 'Grower Pen 1')->first();
+        $this->assertNotNull($group);
+
+        $this->assertDatabaseHas('feed_issues', [
+            'group_id' => $group->id,
+            'feed_type_id' => $feedType->id,
+            'quantity_kg' => '25.0000',
         ]);
     }
 

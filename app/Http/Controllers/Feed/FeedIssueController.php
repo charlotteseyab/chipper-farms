@@ -73,10 +73,19 @@ class FeedIssueController extends Controller
         $validated = $request->validated();
 
         try {
+            $groupId = (int) ($validated['group_id'] ?? 0);
+            if ($groupId === 0) {
+                $group = Group::create([
+                    'name' => trim($validated['new_group_name']),
+                    'type' => trim($validated['new_group_type'] ?? '') ?: 'pen',
+                ]);
+                $groupId = (int) $group->id;
+            }
+
             $issue = $this->service->execute(
                 actor: $request->user(),
                 data: [
-                    'group_id'     => (int) $validated['group_id'],
+                    'group_id'     => $groupId,
                     'feed_type_id' => (int) $validated['feed_type_id'],
                     'quantity_kg'  => (float) $validated['quantity_kg'],
                     'issued_at'    => $validated['issued_at'] ?? null,

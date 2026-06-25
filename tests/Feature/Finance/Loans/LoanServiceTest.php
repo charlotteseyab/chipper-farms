@@ -24,9 +24,9 @@ class LoanServiceTest extends TestCase
         $this->setUpFinanceFixtures();
 
         // Loan + interest COA accounts the service resolves by code.
-        $this->acct('2110', 'Bank Loans — Current Portion', Account::TYPE_LIABILITY, 'current_liability');
-        $this->acct('2510', 'Bank Loans — Long-term', Account::TYPE_LIABILITY, 'non_current_liability');
-        $this->acct('2130', 'Accrued Loan Interest', Account::TYPE_LIABILITY, 'current_liability');
+        $this->acct('2110', 'Bank Loans — Current Portion', Account::TYPE_LIABILITY, 'current_liability', false);
+        $this->acct('2510', 'Bank Loans — Long-term', Account::TYPE_LIABILITY, 'non_current_liability', false);
+        $this->acct('2130', 'Accrued Loan Interest', Account::TYPE_LIABILITY, 'current_liability', false);
         $this->acct('7010', 'Loan Interest Expense', Account::TYPE_EXPENSE, 'finance_cost');
         $this->acct('7020', 'Loan Fees', Account::TYPE_EXPENSE, 'finance_cost');
         $this->acct('7030', 'Loan Penalties', Account::TYPE_EXPENSE, 'finance_cost');
@@ -121,6 +121,20 @@ class LoanServiceTest extends TestCase
         $this->assertSame('0.00', $loan->interest_accrued_outstanding); // cleared
     }
 
+    public function test_repayment_can_post_to_protected_loan_control_accounts(): void
+    {
+        $this->assertFalse((bool) Account::where('code', '2110')->firstOrFail()->allow_manual_journal);
+
+        $loan = $this->draftLoan(principal: '1000.00', rate: '0', term: 1);
+        $loan = app(LoanService::class)->disburse($loan, $this->user, CarbonImmutable::parse('2026-05-10'));
+
+        $txn = app(LoanService::class)->repay($loan->fresh(), ['principal' => '100.00'], $this->user, CarbonImmutable::parse('2026-05-15'));
+
+        $lines = $this->batchLines($txn->journal_batch_id);
+        $this->assertTrue($this->lineExists($lines, '2110', debit: '100.00'));
+        $this->assertTrue($this->lineExists($lines, '1030', credit: '100.00'));
+    }
+
     public function test_full_repayment_settles_loan(): void
     {
         $loan = $this->draftLoan(principal: '1000.00', rate: '0', term: 1);
@@ -149,12 +163,12 @@ class LoanServiceTest extends TestCase
         ], $this->user);
     }
 
-    protected function acct(string $code, string $name, string $type, string $subtype): Account
+    protected function acct(string $code, string $name, string $type, string $subtype, bool $allowManualJournal = true): Account
     {
         return Account::create([
             'organization_id' => $this->org->id, 'code' => $code, 'name' => $name,
             'account_type' => $type, 'account_subtype' => $subtype, 'currency_code' => 'GHS',
-            'is_active' => true, 'allow_manual_journal' => true,
+            'is_active' => true, 'allow_manual_journal' => $allowManualJournal,
         ]);
     }
 

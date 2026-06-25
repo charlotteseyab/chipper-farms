@@ -1,4 +1,9 @@
 <x-app-layout>
+    @php
+        $canDraftVendorInvoice = auth()->user()?->hasPermission('create_vendor_invoice')
+            || ($invoice->purchase_request_id !== null
+                && auth()->user()?->hasPermission('create_purchase_request_vendor_invoice'));
+    @endphp
     <div class="max-w-6xl mx-auto py-6 px-4">
         <div class="mb-4 flex items-center justify-between">
             <a href="{{ route('finance.vendor-invoices.index') }}" class="text-sm text-slate-500 hover:underline">← Back to Vendor Invoices</a>
@@ -59,7 +64,7 @@
                 </div>
 
                 <div class="flex flex-col gap-2 min-w-[220px]">
-                    @if($invoice->canSubmitForApproval() && auth()->user()?->hasPermission('create_vendor_invoice'))
+                    @if($invoice->canSubmitForApproval() && $canDraftVendorInvoice)
                         <form method="POST" action="{{ route('finance.vendor-invoices.submit', $invoice) }}">
                             @csrf
                             <button type="submit" class="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-xl">Submit for Approval</button>
@@ -74,7 +79,7 @@
                         </form>
                     @endif
 
-                    @if($invoice->canCancel() && auth()->user()?->hasPermission('create_vendor_invoice'))
+                    @if($invoice->canCancel() && $canDraftVendorInvoice)
                         <button type="button" onclick="confirmCancel()" class="w-full px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-xl">Cancel</button>
                     @endif
 

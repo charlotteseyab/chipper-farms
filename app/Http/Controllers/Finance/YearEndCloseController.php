@@ -30,10 +30,6 @@ class YearEndCloseController extends Controller
         protected CurrentOrganization $currentOrg,
         protected YearEndCloseService $service,
     ) {
-        $this->middleware('auth');
-        $this->middleware('permission:view_period_close')->only(['index']);
-        $this->middleware('permission:manage_year_end_close')->only(['run']);
-        $this->middleware('permission:override_period_close')->only(['reverse']);
     }
 
     public function index(Request $request)

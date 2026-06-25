@@ -699,17 +699,17 @@ Route::middleware($protectedMiddleware)->group(function () {
             Route::get('/',                          [\App\Http\Controllers\Finance\VendorInvoiceController::class, 'index'])
                 ->name('index');
             Route::get('/create',                    [\App\Http\Controllers\Finance\VendorInvoiceController::class, 'create'])
-                ->middleware('permission:create_vendor_invoice')
+                ->middleware('permission:create_vendor_invoice,create_purchase_request_vendor_invoice')
                 ->name('create');
             Route::post('/',                         [\App\Http\Controllers\Finance\VendorInvoiceController::class, 'store'])
-                ->middleware('permission:create_vendor_invoice')
+                ->middleware('permission:create_vendor_invoice,create_purchase_request_vendor_invoice')
                 ->name('store');
             Route::get('/{invoice}',                 [\App\Http\Controllers\Finance\VendorInvoiceController::class, 'show'])
                 ->whereNumber('invoice')
                 ->name('show');
             Route::post('/{invoice}/submit',         [\App\Http\Controllers\Finance\VendorInvoiceController::class, 'submitForApproval'])
                 ->whereNumber('invoice')
-                ->middleware('permission:create_vendor_invoice')
+                ->middleware('permission:create_vendor_invoice,create_purchase_request_vendor_invoice')
                 ->name('submit');
             Route::post('/{invoice}/post',           [\App\Http\Controllers\Finance\VendorInvoiceController::class, 'post'])
                 ->whereNumber('invoice')
@@ -717,7 +717,7 @@ Route::middleware($protectedMiddleware)->group(function () {
                 ->name('post');
             Route::post('/{invoice}/cancel',         [\App\Http\Controllers\Finance\VendorInvoiceController::class, 'cancel'])
                 ->whereNumber('invoice')
-                ->middleware('permission:create_vendor_invoice')
+                ->middleware('permission:create_vendor_invoice,create_purchase_request_vendor_invoice')
                 ->name('cancel');
             Route::post('/{invoice}/reverse',        [\App\Http\Controllers\Finance\VendorInvoiceController::class, 'reverse'])
                 ->whereNumber('invoice')

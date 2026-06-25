@@ -58,7 +58,28 @@ class ManualJournalServiceTest extends TestCase
         );
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('idempotency_key set');
+        $this->expectExceptionMessage('system-generated draft');
+        app(ManualJournalService::class)->propose($draft, $this->user);
+    }
+
+    public function test_propose_rejects_auto_batch_type_without_idempotency_key(): void
+    {
+        $draft = new JournalBatchDraft(
+            batchType: 'auto_loan_repayment',
+            postingDate: CarbonImmutable::parse('2026-05-15'),
+            journals: [
+                new JournalDraft(
+                    journalType: 'loan_repayment',
+                    lines: [
+                        JournalLineDraft::debit($this->cashAccount->id, '100.00'),
+                        JournalLineDraft::credit($this->revenueAccount->id, '100.00'),
+                    ],
+                ),
+            ],
+        );
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('system-generated draft');
         app(ManualJournalService::class)->propose($draft, $this->user);
     }
 

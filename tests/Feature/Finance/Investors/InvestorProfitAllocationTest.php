@@ -6,6 +6,7 @@ use App\Models\Finance\Account;
 use App\Models\Finance\Investor;
 use App\Models\Finance\InvestorProfitAllocationRun;
 use App\Models\Finance\Journal;
+use App\Models\Finance\JournalBatch;
 use App\Models\Finance\JournalLine;
 use App\Services\Finance\Investors\Exceptions\InvestorException;
 use App\Services\Finance\Investors\InvestorProfitAllocationService;
@@ -66,6 +67,11 @@ class InvestorProfitAllocationTest extends TestCase
         $lines = $this->batchLines($run->transactions->first()->journal_batch_id);
         $this->assertEqualsWithDelta($lines->sum(fn ($l) => (float) $l->debit), $lines->sum(fn ($l) => (float) $l->credit), 0.001);
         $this->assertTrue($this->lineExists($lines, '3200', debit: '100000.00'));
+        $this->assertSame(
+            'auto_investor_allocation',
+            JournalBatch::findOrFail($run->transactions->first()->journal_batch_id)->batch_type,
+        );
+        $this->assertLessThanOrEqual(30, strlen('auto_investor_allocation'));
 
         // Total credited to 3100 = 100000.
         $cr3100 = $lines->where('account_id', $this->acctId('3100'))->sum(fn ($l) => (float) $l->credit);

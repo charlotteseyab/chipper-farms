@@ -28,8 +28,8 @@ class FeedSalesPermissionsSeeder extends Seeder
         }
 
         $assignments = [
-            'view_feed_sales'   => ['admin', 'accountant', 'manager', 'superuser'],
-            'record_feed_sales' => ['admin', 'accountant', 'manager', 'superuser'],
+            'view_feed_sales'   => ['admin', 'accountant', 'manager', 'farmmanager', 'superuser'],
+            'record_feed_sales' => ['admin', 'accountant', 'manager', 'farmmanager', 'superuser'],
         ];
 
         foreach ($assignments as $code => $roleNames) {

@@ -53,7 +53,7 @@ class Phase6ReportingClosePermissionsSeeder extends Seeder
 
         $assignments = [
             'view_financial_reports' => ['admin', 'accountant', 'manager', 'farmmanager', 'superuser'],
-            'view_period_close'      => ['admin', 'accountant', 'manager', 'superuser'],
+            'view_period_close'      => ['admin', 'accountant', 'manager', 'farmmanager', 'superuser'],
             'manage_period_close'    => ['admin', 'accountant', 'superuser'],
             'override_period_close'  => ['admin', 'superuser'],
             'manage_year_end_close'  => ['admin', 'superuser'],

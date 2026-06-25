@@ -70,10 +70,10 @@ class ManualJournalService
      */
     public function propose(JournalBatchDraft $draft, User $proposer): JournalBatch
     {
-        if ($draft->isAuto()) {
+        if ($draft->isSystemGenerated()) {
             throw new \InvalidArgumentException(
-                'ManualJournalService::propose called with auto draft (idempotency_key set). '
-                . 'Manual journals must have idempotency_key === null.'
+                'ManualJournalService::propose called with system-generated draft. '
+                . 'Manual journals must use a manual batch type and have idempotency_key === null.'
             );
         }
 

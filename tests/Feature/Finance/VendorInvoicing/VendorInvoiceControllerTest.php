@@ -103,6 +103,18 @@ class VendorInvoiceControllerTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_manager_can_create_from_purchase_request_only(): void
+    {
+        $purchaseRequest = $this->makeApprovedPurchaseRequest($this->manager);
+
+        $this->actingAs($this->manager)
+            ->get(route('finance.vendor-invoices.create', [
+                'purchase_request_id' => $purchaseRequest->id,
+            ]))
+            ->assertOk()
+            ->assertSee('From PR PR-MGR-001');
+    }
+
     public function test_create_loads_for_accountant(): void
     {
         $this->actingAs($this->accountant)
@@ -186,6 +198,69 @@ class VendorInvoiceControllerTest extends TestCase
             'counterparty_id' => $this->supplier->id,
             'status' => 'draft',
         ]);
+    }
+
+    public function test_manager_can_store_purchase_request_invoice_but_not_general_invoice(): void
+    {
+        $purchaseRequest = $this->makeApprovedPurchaseRequest($this->manager);
+
+        $this->actingAs($this->manager)
+            ->post(route('finance.vendor-invoices.store'), [
+                'counterparty_id' => $this->supplier->id,
+                'invoice_date' => '2026-11-01',
+                'currency_code' => 'GHS',
+                'purchase_request_id' => $purchaseRequest->id,
+                'lines' => [[
+                    'description' => 'PR line',
+                    'quantity' => 5,
+                    'unit_cost' => 100,
+                ]],
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('vendor_invoices', [
+            'counterparty_id' => $this->supplier->id,
+            'purchase_request_id' => $purchaseRequest->id,
+            'created_by_user_id' => $this->manager->id,
+            'status' => 'draft',
+        ]);
+
+        $this->actingAs($this->manager)
+            ->post(route('finance.vendor-invoices.store'), [
+                'counterparty_id' => $this->supplier->id,
+                'invoice_date' => '2026-11-01',
+                'currency_code' => 'GHS',
+                'lines' => [[
+                    'description' => 'General line',
+                    'quantity' => 1,
+                    'unit_cost' => 50,
+                ]],
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_manager_can_submit_pr_invoice_but_not_general_invoice(): void
+    {
+        $purchaseRequest = $this->makeApprovedPurchaseRequest($this->manager);
+
+        $prInvoice = $this->service->createDraft(
+            $this->supplier,
+            ['invoice_date' => '2026-11-01', 'purchase_request_id' => $purchaseRequest->id],
+            [new VendorInvoiceLineDraft(description: 'PR line', quantity: '1', unitCost: '100')],
+            $this->manager,
+        );
+
+        $this->actingAs($this->manager)
+            ->post(route('finance.vendor-invoices.submit', $prInvoice))
+            ->assertRedirect();
+
+        $this->assertSame(VendorInvoice::STATUS_PENDING_APPROVAL, $prInvoice->fresh()->status);
+
+        $generalInvoice = $this->makeDraftInvoice($this->manager);
+
+        $this->actingAs($this->manager)
+            ->post(route('finance.vendor-invoices.submit', $generalInvoice))
+            ->assertForbidden();
     }
 
     public function test_store_validates_lines_required(): void
@@ -329,6 +404,19 @@ class VendorInvoiceControllerTest extends TestCase
             [new VendorInvoiceLineDraft(description: 'X', quantity: '1', unitCost: '100')],
             $createdBy ?? $this->accountant,
         );
+    }
+
+    protected function makeApprovedPurchaseRequest(User $requester): PurchaseRequest
+    {
+        return PurchaseRequest::create([
+            'organization_id' => $this->org->id,
+            'request_no' => 'PR-MGR-001',
+            'request_date' => '2026-11-01',
+            'requested_by' => $requester->id,
+            'status' => 'approved',
+            'total_amount' => 500,
+            'supplier_id' => $this->supplier->id,
+        ]);
     }
 
     protected function makeUser(string $roleName): User

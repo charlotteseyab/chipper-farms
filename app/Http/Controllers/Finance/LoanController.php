@@ -30,9 +30,6 @@ class LoanController extends Controller
         protected CurrentOrganization $currentOrg,
         protected LoanService $loans,
     ) {
-        $this->middleware('auth');
-        $this->middleware('permission:view_loans')->only(['index', 'show', 'create', 'reclassification']);
-        $this->middleware('permission:manage_loans')->only(['store', 'disburse', 'repay']);
     }
 
     public function index(Request $request)

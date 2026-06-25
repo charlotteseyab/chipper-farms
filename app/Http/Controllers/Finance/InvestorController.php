@@ -32,9 +32,6 @@ class InvestorController extends Controller
         protected CurrentOrganization $currentOrg,
         protected InvestorService $investors,
     ) {
-        $this->middleware('auth');
-        $this->middleware('permission:view_investors')->only(['index', 'show', 'capTable', 'statement', 'allocateForm']);
-        $this->middleware('permission:manage_investors')->only(['store', 'contribute', 'distribute', 'allocateProfit']);
     }
 
     public function index()

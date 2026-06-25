@@ -35,14 +35,37 @@
                 @csrf
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Pig group receiving this feed</label>
+                        @if($groups->isEmpty())
+                            <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 mb-3">
+                                No pig groups exist yet. Create one below, then this feed issue will be attached to it.
+                            </div>
+                        @else
+                            <select name="group_id" class="w-full rounded-lg border-slate-200">
+                                <option value="">— pick an existing group —</option>
+                                @foreach($groups as $g)
+                                    <option value="{{ $g->id }}" @selected(old('group_id') == $g->id)>
+                                        {{ $g->name }} ({{ $g->type }})
+                                    </option>
+                                @endforeach
+                            </select>
+                            <p class="mt-1 text-xs text-slate-500">Or create a new group for this issue:</p>
+                        @endif
+                    </div>
+
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Group</label>
-                        <select name="group_id" required class="w-full rounded-lg border-slate-200">
-                            <option value="">— pick a group —</option>
-                            @foreach($groups as $g)
-                                <option value="{{ $g->id }}" @selected(old('group_id') == $g->id)>
-                                    {{ $g->name }} ({{ $g->type }})
-                                </option>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">New group name</label>
+                        <input type="text" name="new_group_name" value="{{ old('new_group_name') }}" maxlength="120"
+                               placeholder="e.g. Grower Pen 1"
+                               class="w-full rounded-lg border-slate-200">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">New group type</label>
+                        <select name="new_group_type" class="w-full rounded-lg border-slate-200">
+                            @foreach(['pen' => 'Pen', 'age_group' => 'Age group', 'stage' => 'Stage'] as $value => $label)
+                                <option value="{{ $value }}" @selected(old('new_group_type', 'pen') === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
                     </div>

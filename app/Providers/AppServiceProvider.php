@@ -101,7 +101,19 @@ class AppServiceProvider extends ServiceProvider
         // handle that INSIDE the policy with an explicit Auth::user() check
         // rather than removing this bypass.
         Gate::before(function (?User $user, string $ability) {
-            return $user && $user->isSuperuser() ? true : null;
+            if (! $user) {
+                return null;
+            }
+
+            if ($user->isSuperuser()) {
+                return true;
+            }
+
+            if (method_exists($user, 'hasPermission') && $user->hasPermission($ability)) {
+                return true;
+            }
+
+            return null;
         });
 
         // Register policies explicitly.
