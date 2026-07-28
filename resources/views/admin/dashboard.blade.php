@@ -1050,7 +1050,7 @@
                     <div class="admin-gender-strip">
                         <div class="admin-gender-head">
                             <span>Gender Distribution</span>
-                            <span>{{ number_format($activeMaleCount + $activeFemaleCount) }} active</span>
+                            <span>{{ number_format($activeMaleCount + $activeFemaleCount) }}</span>
                         </div>
                         <div class="admin-gender-track" aria-label="Gender distribution">
                             <div class="admin-gender-male" style="width: {{ $malePercent }}%;"></div>
