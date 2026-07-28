@@ -8,6 +8,7 @@ use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 /**
@@ -63,9 +64,7 @@ class PigSalePolicyTest extends TestCase
         ]);
     }
 
-    /**
-     * @dataProvider viewAbilityProvider
-     */
+    #[DataProvider('viewAbilityProvider')]
     public function test_view_any_role_matrix(string $role, bool $expected): void
     {
         $this->actingAs($this->makeUser($role));
@@ -82,9 +81,7 @@ class PigSalePolicyTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider createAbilityProvider
-     */
+    #[DataProvider('createAbilityProvider')]
     public function test_create_role_matrix(string $role, bool $expected): void
     {
         $this->actingAs($this->makeUser($role));
@@ -101,9 +98,7 @@ class PigSalePolicyTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider updatePaymentProvider
-     */
+    #[DataProvider('updatePaymentProvider')]
     public function test_update_payment_role_matrix(string $role, bool $expected): void
     {
         $this->actingAs($this->makeUser($role));
@@ -121,9 +116,7 @@ class PigSalePolicyTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider deleteProvider
-     */
+    #[DataProvider('deleteProvider')]
     public function test_delete_role_matrix(string $role, bool $expected): void
     {
         $this->actingAs($this->makeUser($role));
@@ -141,9 +134,7 @@ class PigSalePolicyTest extends TestCase
         ];
     }
 
-    /**
-     * @dataProvider exportProvider
-     */
+    #[DataProvider('exportProvider')]
     public function test_export_role_matrix(string $role, bool $expected): void
     {
         $this->actingAs($this->makeUser($role));
