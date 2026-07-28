@@ -114,6 +114,7 @@ class StorefrontQuote extends Model
             self::STATUS_REQUESTED,
             self::STATUS_REVIEWING,
             self::STATUS_QUOTED,
+            self::STATUS_ACCEPTED,
         ]);
     }
 

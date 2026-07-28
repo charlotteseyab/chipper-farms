@@ -9,6 +9,8 @@ use App\Models\PigManagement;
 use App\Models\PigWeight;
 use App\Models\Room;
 use App\Models\Structure;
+use App\Services\Audit\AuditTrailService;
+use App\Services\Stock\Imports\StockExcelImportService;
 use App\Services\Stock\PigStockService;
 use App\Services\Stock\StockValidationException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -54,6 +56,25 @@ class PigStockController extends Controller
         $this->authorize('viewAny', PigManagement::class);
         $q = trim((string) $request->get('q', ''));
         $query = PigManagement::active();
+        $this->applyAllStockFilters($query, $request);
+
+        $pigmanagement = $query
+            ->with([
+                'recentWeightAlerts' => fn ($q) => $q->where('acknowledged', false)->orderBy('created_at', 'desc')->limit(1),
+                'room.structure',
+                'father', 'mother',
+                'latestWeight', 'sale',
+            ])
+            ->orderBy('created_at', 'desc')
+            ->paginate(10)
+            ->appends($request->query());
+
+        return view('stocks.all.index', compact('pigmanagement', 'q'));
+    }
+
+    protected function applyAllStockFilters($query, Request $request): void
+    {
+        $q = trim((string) $request->get('q', ''));
 
         if ($q !== '') {
             $query->where(function ($subQuery) use ($q) {
@@ -115,19 +136,6 @@ class PigStockController extends Controller
                 $query->whereDoesntHave('weights', fn ($w) => $w->where('created_at', '>=', now()->subDays($days)));
             }
         }
-
-        $pigmanagement = $query
-            ->with([
-                'recentWeightAlerts' => fn ($q) => $q->where('acknowledged', false)->orderBy('created_at', 'desc')->limit(1),
-                'room.structure',
-                'father', 'mother',
-                'latestWeight', 'sale',
-            ])
-            ->orderBy('created_at', 'desc')
-            ->paginate(10)
-            ->appends($request->query());
-
-        return view('stocks.all.index', compact('pigmanagement', 'q'));
     }
 
     public function index(Request $request)
@@ -223,6 +231,12 @@ class PigStockController extends Controller
         $this->authorize('create', PigManagement::class);
         try {
             $pig = $this->stockService->create($request->validated());
+            app(AuditTrailService::class)->log('stock', 'created', [
+                'auditable' => $pig,
+                'record_label' => $pig->ear_tag_number ?: $pig->code,
+                'description' => "Pig {$pig->code} was created.",
+                'new_values' => $pig->only(['ear_tag_number', 'breed', 'gender', 'stock_type', 'date_of_birth', 'room_id']),
+            ]);
 
             $route = $pig->stock_type === 'breeding' ? 'breeding-stocks.index' : 'standard-stocks.index';
             return redirect()->route($route)
@@ -241,7 +255,19 @@ class PigStockController extends Controller
         $this->authorize('update', $pig);
 
         try {
+            $before = $pig->only(['ear_tag_number', 'breed', 'gender', 'stock_type', 'date_of_birth', 'father_id', 'mother_id', 'room_id']);
             $pig = $this->stockService->updateBreeding($pig, $request->validated());
+            app(AuditTrailService::class)->logModelChanges(
+                $pig,
+                'stock',
+                'updated',
+                $before,
+                $pig->only(['ear_tag_number', 'breed', 'gender', 'stock_type', 'date_of_birth', 'father_id', 'mother_id', 'room_id']),
+                [
+                    'record_label' => $pig->ear_tag_number ?: $pig->code,
+                    'description' => "Pig {$pig->code} was updated.",
+                ]
+            );
 
             $route = $pig->stock_type === 'breeding' ? 'breeding-stocks.index' : 'standard-stocks.index';
             $label = $pig->stock_type === 'breeding' ? 'Breeding' : 'Standard';
@@ -255,7 +281,19 @@ class PigStockController extends Controller
     {
         $this->authorize('update', $pig);
         try {
-            $this->stockService->updateStandard($pig, $request->validated());
+            $before = $pig->only(['ear_tag_number', 'breed', 'gender', 'date_of_birth', 'father_id', 'mother_id', 'room_id', 'notes']);
+            $updatedPig = $this->stockService->updateStandard($pig, $request->validated());
+            app(AuditTrailService::class)->logModelChanges(
+                $updatedPig,
+                'stock',
+                'updated',
+                $before,
+                $updatedPig->only(['ear_tag_number', 'breed', 'gender', 'date_of_birth', 'father_id', 'mother_id', 'room_id', 'notes']),
+                [
+                    'record_label' => $updatedPig->ear_tag_number ?: $updatedPig->code,
+                    'description' => "Pig {$updatedPig->code} was updated.",
+                ]
+            );
             return redirect()->route('standard-stocks.index')->with('success', 'Standard stock updated successfully.');
         } catch (StockValidationException $e) {
             if ($e->field === 'stock_type') {
@@ -269,7 +307,16 @@ class PigStockController extends Controller
     {
         $pig = PigManagement::findOrFail($id);
         $this->authorize('delete', $pig);
+        $label = $pig->ear_tag_number ?: $pig->code;
+        $code = $pig->code;
+        $oldValues = $pig->only(['ear_tag_number', 'breed', 'gender', 'stock_type', 'room_id']);
         $pig->delete();
+        app(AuditTrailService::class)->log('stock', 'archived', [
+            'auditable' => $pig,
+            'record_label' => $label,
+            'description' => "Pig {$code} was archived.",
+            'old_values' => $oldValues,
+        ]);
 
         if (request()->headers->get('referer')) {
             return redirect()->back()->with('success', 'Pig deleted successfully.');
@@ -449,36 +496,109 @@ class PigStockController extends Controller
 
     public function allExportCsv(Request $request)
     {
-        $this->authorize('viewAny', PigManagement::class);
-        $query = PigManagement::active()->with(['latestWeight', 'sale']);
-        $this->applyBasicFilters($query, $request);
-        if ($request->stock_type) $query->where('stock_type', $request->stock_type);
+        return $this->allExportExcel($request, app(StockExcelImportService::class));
+    }
 
-        return $this->streamCsv('all_stocks_' . date('Y-m-d') . '.csv', $query->get(), [
-            'Code', 'Ear Tag', 'Stock Type', 'Breed', 'Gender', 'Date of Birth', 'Age (days)',
-            'Breeding Ready', 'Age Status', 'Weight Status', 'Current Weight',
-            'Sale Status', 'Sale Price', 'Father', 'Mother',
-        ], function ($pig) {
-            $r  = $pig->breeding_readiness;
-            $ss = $pig->sale_status;
-            return [
-                $pig->code,
-                $pig->ear_tag_number,
-                ucfirst($pig->stock_type),
-                $pig->breed,
-                $pig->gender === 'M' ? 'Male' : 'Female',
-                $pig->date_of_birth ? $pig->date_of_birth->format('Y-m-d') : 'Not set',
-                $pig->current_age_in_days,
-                $r['ready'] ? 'Yes' : 'No',
-                ucfirst(str_replace('_', ' ', $r['age_status'])),
-                ucfirst(str_replace('_', ' ', $r['factors']['weight']['status'])),
-                $pig->latestWeight ? $pig->latestWeight->weight . ' kg' : 'No data',
-                $ss['sold'] ? 'Sold' : 'Available',
-                $ss['sold'] && $pig->sale ? $pig->sale->formatted_sale_price : 'N/A',
-                $pig->father ? $pig->father->ear_tag_number : 'N/A',
-                $pig->mother ? $pig->mother->ear_tag_number : 'N/A',
+    public function allExportExcel(Request $request, StockExcelImportService $service)
+    {
+        $this->authorize('viewAny', PigManagement::class);
+        $query = PigManagement::active()->with(['latestWeight', 'sale', 'father', 'mother', 'room.structure']);
+        $this->applyAllStockFilters($query, $request);
+
+        $rows = (function () use ($query) {
+            yield [
+            'code', 'ear_tag_number', 'breed', 'gender', 'stock_type', 'date_of_birth', 'age',
+            'Structure', 'room_name', 'father_ear_tag', 'mother_ear_tag', 'acquisition_source',
+            'acquisition_date', 'acquisition_cost', 'status', 'notes',
             ];
-        });
+
+            foreach ($query->lazyById(500) as $pig) {
+                $ss = $pig->sale_status;
+                yield [
+                    $pig->code,
+                    $pig->ear_tag_number,
+                    $pig->breed,
+                    $pig->gender,
+                    $pig->stock_type,
+                    $pig->date_of_birth ? $pig->date_of_birth->format('Y-m-d') : '',
+                    $pig->current_age_in_days,
+                    $pig->room?->structure?->name ?? '',
+                    $pig->room?->name ?? '',
+                    $pig->father?->ear_tag_number ?? '',
+                    $pig->mother?->ear_tag_number ?? '',
+                    $pig->acquisition_source ?? '',
+                    $pig->acquisition_date ? $pig->acquisition_date->format('Y-m-d') : '',
+                    $pig->acquisition_cost ?? '',
+                    $ss['sold'] ? 'Sold' : 'Available',
+                    $pig->notes ?? '',
+                ];
+            }
+        })();
+
+        $path = $service->buildXlsx($rows);
+
+        return response()->download(
+            $path,
+            'all_stocks_' . date('Y-m-d') . '.xlsx',
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+        )->deleteFileAfterSend(true);
+    }
+
+    public function allImportCreate()
+    {
+        $this->authorize('create', PigManagement::class);
+
+        return view('stocks.all.import.create');
+    }
+
+    public function allImportPreview(Request $request, StockExcelImportService $service)
+    {
+        $this->authorize('create', PigManagement::class);
+
+        $data = $request->validate([
+            'stock_file' => ['required', 'file', 'mimes:xlsx', 'max:4096'],
+        ]);
+
+        $preview = $service->preview($data['stock_file']);
+        $request->session()->put('stock_import_preview', $preview);
+
+        return view('stocks.all.import.preview', compact('preview'));
+    }
+
+    public function allImportConfirm(Request $request, StockExcelImportService $service)
+    {
+        $this->authorize('create', PigManagement::class);
+
+        $preview = $request->session()->get('stock_import_preview');
+        if (! $preview) {
+            return redirect()->route('all-stocks.import.create')
+                ->withErrors(['stock_file' => 'Upload and preview an Excel file before confirming import.']);
+        }
+
+        try {
+            $result = $service->import($preview, $request->user());
+        } catch (StockValidationException $e) {
+            return redirect()->route('all-stocks.import.create')
+                ->withErrors([$e->field => $e->getMessage()]);
+        }
+
+        $request->session()->forget('stock_import_preview');
+
+        return redirect()->route('all-stocks.index')
+            ->with('success', $result['created_count'] . ' stock record(s) imported successfully.');
+    }
+
+    public function allImportSample(StockExcelImportService $service)
+    {
+        $this->authorize('viewAny', PigManagement::class);
+
+        $path = $service->buildXlsx($service->sampleRows());
+
+        return response()->download(
+            $path,
+            'all_stock_import_sample.xlsx',
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']
+        )->deleteFileAfterSend(true);
     }
 
     public function allExportPdf(Request $request)
@@ -545,7 +665,9 @@ class PigStockController extends Controller
     {
         $response = new StreamedResponse(function () use ($rows, $headers, $rowMapper) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, $headers);
+            if ($headers !== []) {
+                fputcsv($handle, $headers);
+            }
             foreach ($rows as $row) {
                 fputcsv($handle, $rowMapper($row));
             }

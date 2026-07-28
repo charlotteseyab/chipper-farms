@@ -8,7 +8,7 @@ use App\Models\PigDeath;
 use App\Models\PigManagement;
 use App\Models\PigWeight;
 use App\Models\WeightAlert;
-use Illuminate\Support\Collection;
+use App\Services\Stock\PurchasedStockDashboardMetrics;
 
 class FarmManagerDashboardController extends Controller
 {
@@ -32,6 +32,7 @@ class FarmManagerDashboardController extends Controller
     }, 0);
 
     $totalStockActive = $weanedActive + $activePigletsAdjusted;
+    $purchasedStockMetrics = app(PurchasedStockDashboardMetrics::class)->summary();
 
     $breedingStockActive = (clone $activeBaseQuery)
         ->where('stock_type', 'breeding')
@@ -101,6 +102,29 @@ class FarmManagerDashboardController extends Controller
     ];
 
     $upcomingEvents = $this->buildUpcomingEvents();
+    $pregnancyChecksDue = Mating::pregnancyCheckDue()->count();
+    $pregnancyChecksOverdue = Mating::pregnancyCheckOverdue()->count();
+    $uncertainPregnancies = Mating::uncertainPregnancy()->count();
+    $pregnancyFollowUpsDue = Mating::query()->pregnancyFollowUpDue()->count();
+    $pregnancyFollowUpsOverdue = Mating::query()->pregnancyFollowUpOverdue()->count();
+    $readyToWean = Farrowing::where('status', 'active')
+        ->whereDate('farrowing_date', '<=', now()->subDays($weaningAge))
+        ->whereDoesntHave('weanings', function ($query) {
+            $query->where('maturity_completed', true);
+        })
+        ->count();
+    $overdueWeaning = Farrowing::where('status', 'active')
+        ->whereDate('farrowing_date', '<', now()->subDays($weaningAge + 7))
+        ->whereDoesntHave('weanings', function ($query) {
+            $query->where('maturity_completed', true);
+        })
+        ->count();
+    $maturityReviews = PigManagement::active()
+        ->whereBetween('date_of_birth', [
+            now()->subDays(190)->toDateString(),
+            now()->subDays(150)->toDateString(),
+        ])
+        ->count();
 
     $allOverduePigs = PigManagement::query()
     ->get()
@@ -123,7 +147,7 @@ class FarmManagerDashboardController extends Controller
             'weighingStatus' => [
                 'message' => 'Overdue for weighing',
                 'color' => 'red',
-                'icon' => '⚠️',
+                'icon' => 'Warning',
             ],
         ];
     });
@@ -142,10 +166,115 @@ class FarmManagerDashboardController extends Controller
             'weighingStatus' => [
                 'message' => 'Overdue for weighing',
                 'color' => 'red',
-                'icon' => '⚠️',
+                'icon' => 'Warning',
             ],
         ];
     });
+
+    $managerWorkQueue = collect([
+        [
+            'type' => 'Weight',
+            'item' => 'Overdue weighing',
+            'details' => 'Animals are late for routine weighing.',
+            'count' => $overdueForWeighing,
+            'due' => 'Overdue',
+            'severity' => 'high',
+            'route' => route('weight-alerts.index'),
+        ],
+        [
+            'type' => 'Breeding',
+            'item' => 'Pregnancy checks',
+            'details' => 'Completed matings waiting for pregnancy confirmation.',
+            'count' => $pregnancyChecksDue,
+            'due' => $pregnancyChecksOverdue > 0 ? 'Overdue' : 'Today',
+            'severity' => $pregnancyChecksOverdue > 0 ? 'high' : 'medium',
+            'route' => route('mating.manage'),
+        ],
+        [
+            'type' => 'Breeding',
+            'item' => 'Pregnancy follow-ups',
+            'details' => 'Uncertain pregnancies needing another check.',
+            'count' => $pregnancyFollowUpsDue,
+            'due' => $pregnancyFollowUpsOverdue > 0 ? 'Overdue' : 'Scheduled',
+            'severity' => $pregnancyFollowUpsOverdue > 0 ? 'high' : 'medium',
+            'route' => route('mating.manage'),
+        ],
+        [
+            'type' => 'Weaning',
+            'item' => 'Litters ready to wean',
+            'details' => 'Active farrowings past the configured weaning age.',
+            'count' => $readyToWean,
+            'due' => $overdueWeaning > 0 ? 'Overdue' : 'This week',
+            'severity' => $overdueWeaning > 0 ? 'high' : 'medium',
+            'route' => route('weaning.dashboard'),
+        ],
+        [
+            'type' => 'Health',
+            'item' => 'Critical health/weight alerts',
+            'details' => 'Unacknowledged high-severity alerts need review.',
+            'count' => $criticalAlerts,
+            'due' => 'Today',
+            'severity' => $criticalAlerts > 0 ? 'high' : 'low',
+            'route' => route('weight-alerts.index'),
+        ],
+        [
+            'type' => 'Stock',
+            'item' => 'Maturity review',
+            'details' => 'Young pigs approaching review age.',
+            'count' => $maturityReviews,
+            'due' => 'This week',
+            'severity' => $maturityReviews > 0 ? 'low' : 'low',
+            'route' => route('all-stocks.index'),
+        ],
+    ])->filter(fn ($item) => $item['count'] > 0)->values();
+
+    $weightTrendLabels = [];
+    $weightTrendValues = [];
+    $weightTrendRows = PigWeight::selectRaw('DATE(weigh_date) as weigh_day, AVG(weight) as avg_weight')
+        ->whereDate('weigh_date', '>=', now()->subDays(6)->toDateString())
+        ->groupBy('weigh_day')
+        ->orderBy('weigh_day')
+        ->pluck('avg_weight', 'weigh_day');
+
+    for ($i = 6; $i >= 0; $i--) {
+        $date = now()->subDays($i);
+        $key = $date->toDateString();
+        $weightTrendLabels[] = $date->format('M j');
+        $weightTrendValues[] = round((float) ($weightTrendRows[$key] ?? 0), 1);
+    }
+
+    $breedingReadiness = [
+        'ready' => PigManagement::availableForBreeding()->count(),
+        'due_soon' => PigManagement::breedingAge()->count(),
+        'not_ready' => max(0, $breedingStockActive - PigManagement::availableForBreeding()->count()),
+    ];
+
+    $recentActivity = collect([
+        [
+            'label' => 'Weight records',
+            'description' => $recentWeightRecords . ' records added in the last 30 days',
+            'when' => '30 days',
+            'severity' => 'low',
+        ],
+        [
+            'label' => 'High alerts',
+            'description' => $highAlerts . ' unacknowledged high-severity alerts',
+            'when' => 'Now',
+            'severity' => $highAlerts > 0 ? 'high' : 'low',
+        ],
+        [
+            'label' => 'Pregnancy checks',
+            'description' => $pregnancyChecksDue . ' checks due',
+            'when' => 'Today',
+            'severity' => $pregnancyChecksOverdue > 0 ? 'high' : 'medium',
+        ],
+        [
+            'label' => 'Weaning review',
+            'description' => $readyToWean . ' litters ready',
+            'when' => 'This week',
+            'severity' => $overdueWeaning > 0 ? 'high' : 'medium',
+        ],
+    ]);
 
     return view('manager.dashboard', [
         'totalStockActive' => $totalStockActive,
@@ -175,6 +304,20 @@ class FarmManagerDashboardController extends Controller
         'allOverduePigs' => $allOverduePigs,
         'overduePigsPreview' => $overduePigsPreview,
         'allOverduePigsDetails' => $allOverduePigsDetails,
+        'pregnancyChecksDue' => $pregnancyChecksDue,
+        'pregnancyChecksOverdue' => $pregnancyChecksOverdue,
+        'uncertainPregnancies' => $uncertainPregnancies,
+        'pregnancyFollowUpsDue' => $pregnancyFollowUpsDue,
+        'pregnancyFollowUpsOverdue' => $pregnancyFollowUpsOverdue,
+        'readyToWean' => $readyToWean,
+        'overdueWeaning' => $overdueWeaning,
+        'maturityReviews' => $maturityReviews,
+        'managerWorkQueue' => $managerWorkQueue,
+        'weightTrendLabels' => $weightTrendLabels,
+        'weightTrendValues' => $weightTrendValues,
+        'breedingReadiness' => $breedingReadiness,
+        'recentActivity' => $recentActivity,
+        'purchasedStockMetrics' => $purchasedStockMetrics,
     ]);
 }
 

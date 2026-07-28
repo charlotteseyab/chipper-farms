@@ -77,9 +77,9 @@
                             <td class="px-4 py-3 text-right">{{ number_format((float) $totals['credit'], 2) }}</td>
                             <td class="px-4 py-3 text-right">
                                 @if($totals['balanced'])
-                                    <span class="text-emerald-700">✓ Balanced</span>
+                                    <span class="text-emerald-700">Balanced</span>
                                 @else
-                                    <span class="text-red-700">✗ {{ number_format(abs((float) $totals['debit'] - (float) $totals['credit']), 2) }} off</span>
+                                    <span class="text-red-700">No {{ number_format(abs((float) $totals['debit'] - (float) $totals['credit']), 2) }} off</span>
                                 @endif
                             </td>
                         </tr>

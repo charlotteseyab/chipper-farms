@@ -96,8 +96,8 @@
                                     <span x-text="totalCredit.toFixed(2)"></span> Cr
                                 </td>
                                 <td colspan="2" class="px-2 py-3">
-                                    <span x-show="balanced()" class="text-emerald-700 text-xs">✓ Balanced</span>
-                                    <span x-show="!balanced()" class="text-amber-700 text-xs">✗ Unbalanced — diff: <span x-text="(totalDebit - totalCredit).toFixed(2)"></span></span>
+                                    <span x-show="balanced()" class="text-emerald-700 text-xs">Balanced</span>
+                                    <span x-show="!balanced()" class="text-amber-700 text-xs">No Unbalanced — diff: <span x-text="(totalDebit - totalCredit).toFixed(2)"></span></span>
                                 </td>
                             </tr>
                         </tfoot>

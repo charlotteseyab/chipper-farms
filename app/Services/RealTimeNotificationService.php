@@ -62,7 +62,7 @@ class RealTimeNotificationService
                 'count' => $criticalPigs->count(),
                 'severity' => 'high',
                 'color' => 'red',
-                'icon' => '🚨',
+                'icon' => 'Alert',
                 'link' => route('weights.index') . '?overdue=1',
                 'items' => $criticalPigs->take(5)->map(function($pig) {
                     return [
@@ -85,7 +85,7 @@ class RealTimeNotificationService
                 'count' => $overduePigs->count(),
                 'severity' => 'high',
                 'color' => 'orange',
-                'icon' => '⚖️',
+                'icon' => 'Weight',
                 'link' => route('weights.index') . '?overdue=1',
                 'items' => $overduePigs->take(5)->map(function($pig) {
                     return [
@@ -108,7 +108,7 @@ class RealTimeNotificationService
                 'count' => $dueSoonPigs->count(),
                 'severity' => 'medium',
                 'color' => 'yellow',
-                'icon' => '⚠️',
+                'icon' => 'Warning',
                 'link' => route('weights.index') . '?due_soon=1',
                 'items' => $dueSoonPigs->take(5)->map(function($pig) {
                     return [
@@ -182,7 +182,7 @@ class RealTimeNotificationService
                 'count' => $overdue->count(),
                 'severity' => 'high',
                 'color' => 'red',
-                'icon' => '🚨',
+                'icon' => 'Alert',
                 'link' => route('gestation.index') . '?overdue=1',
                 'items' => $overdue->take(5)->map(function($mating) use ($today) {
                     $expected = $mating->expected_farrowing_date->startOfDay();
@@ -208,7 +208,7 @@ class RealTimeNotificationService
                 'count' => $dueToday->count(),
                 'severity' => 'high',
                 'color' => 'orange',
-                'icon' => '🐷',
+                'icon' => 'Pig',
                 'link' => route('gestation.index') . '?due_today=1',
                 'items' => $dueToday->take(5)->map(function($mating) {
                     return [
@@ -231,7 +231,7 @@ class RealTimeNotificationService
                 'count' => $dueSoon->count(),
                 'severity' => 'medium',
                 'color' => 'yellow',
-                'icon' => '⚠️',
+                'icon' => 'Warning',
                 'link' => route('gestation.index') . '?due_soon=1',
                 'items' => $dueSoon->take(5)->map(function($mating) {
                     return [
@@ -297,7 +297,7 @@ class RealTimeNotificationService
                 'count' => $criticalStock->count(),
                 'severity' => 'high',
                 'color' => 'red',
-                'icon' => '🚨',
+                'icon' => 'Alert',
                 'link' => route('notifications.index'),
                 'items' => $criticalStock->take(5)->toArray(),
             ];

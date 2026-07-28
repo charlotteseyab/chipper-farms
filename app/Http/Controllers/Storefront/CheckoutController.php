@@ -33,7 +33,7 @@ class CheckoutController extends Controller
         $cart->load('items.listing');
 
         if ($cart->items->isEmpty()) {
-            return redirect()->route('storefront.cart.index')->with('error', 'Your cart is empty.');
+            return redirect()->route('storefront.account.cart.index')->with('error', 'Your cart is empty.');
         }
 
         $profile = $this->accounts->ensureProfile($request->user());
@@ -55,7 +55,7 @@ class CheckoutController extends Controller
         try {
             $order = $this->checkout->checkout($request->user(), $data);
         } catch (CheckoutException $e) {
-            return redirect()->route('storefront.cart.index')->with('error', $e->getMessage());
+            return redirect()->route('storefront.account.cart.index')->with('error', $e->getMessage());
         }
 
         // Paystack orders go straight to the gateway; COD lands on the order page.

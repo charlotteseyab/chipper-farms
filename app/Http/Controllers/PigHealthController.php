@@ -245,13 +245,13 @@ class PigHealthController extends Controller
             ->orderByDesc('count')
             ->limit(5)
             ->get();
-        $recentHealthRecords = HealthRecord::with('pig')
+        $recentHealthRecords = HealthRecord::with(['pig' => fn ($query) => $query->withTrashed()])
             ->where('record_date', '>=', $start->toDateString())
             ->latest('record_date')
             ->limit(10)
             ->get();
 
-        $recentMedications = MedicationAdministration::with('pig')
+        $recentMedications = MedicationAdministration::with(['pig' => fn ($query) => $query->withTrashed()])
             ->where('administration_date', '>=', $start->toDateString())
             ->latest('administration_date')
             ->limit(10)

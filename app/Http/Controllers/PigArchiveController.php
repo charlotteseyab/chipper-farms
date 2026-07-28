@@ -70,7 +70,7 @@ class PigArchiveController extends Controller
 
         $service->restorePig($pig, $request->user());
 
-        return redirect()->route('pigs.archived')
+        return redirect()->route('audit-trail.index', ['tab' => 'archived'])
             ->with('success', "Pig {$pig->code} has been restored to active records.");
     }
 
@@ -89,6 +89,6 @@ class PigArchiveController extends Controller
 
         $service->restorePigletDeath($pigletDeath, $request->user());
 
-        return redirect()->route('pigs.archived')->with('success', 'Piglet death record restored.');
+        return redirect()->route('audit-trail.index', ['tab' => 'archived'])->with('success', 'Piglet death record restored.');
     }
 }

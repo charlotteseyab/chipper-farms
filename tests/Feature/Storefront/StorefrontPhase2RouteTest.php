@@ -96,6 +96,28 @@ class StorefrontPhase2RouteTest extends StorefrontTestCase
             ->assertOk();
     }
 
+    public function test_quote_workspace_shows_lifecycle_actions_and_keeps_accepted_quotes_open(): void
+    {
+        $this->seedStorefrontPermissions();
+        $this->seedStorefrontQuotePermissions();
+
+        $requested = $this->makeQuote('requested', 'REQ-TEST');
+        $quoted = $this->makeQuote('quoted', 'QUO-TEST', ['quoted_total' => '1500.00']);
+        $accepted = $this->makeQuote('accepted', 'ACC-TEST', ['quoted_total' => '2000.00']);
+
+        $this->actingAs($this->makeUser('salesperson'))
+            ->get(route('storefront.admin.quotes.index'))
+            ->assertOk()
+            ->assertSee($requested->reference)
+            ->assertSee($quoted->reference)
+            ->assertSee($accepted->reference)
+            ->assertSee(route('storefront.admin.quotes.review', $requested), false)
+            ->assertSee(route('storefront.admin.quotes.quote', $requested), false)
+            ->assertSee(route('storefront.admin.quotes.accept', $quoted), false)
+            ->assertSee(route('storefront.admin.quotes.convert', $accepted), false)
+            ->assertSee('Decline');
+    }
+
     public function test_customer_cannot_view_quotes_workspace(): void
     {
         $this->seedStorefrontPermissions();
@@ -104,5 +126,19 @@ class StorefrontPhase2RouteTest extends StorefrontTestCase
         $this->actingAs($this->makeUser('customer'))
             ->get(route('storefront.admin.quotes.index'))
             ->assertForbidden();
+    }
+
+    protected function makeQuote(string $status, string $reference, array $overrides = []): StorefrontQuote
+    {
+        return StorefrontQuote::create(array_merge([
+            'organization_id'          => $this->org->id,
+            'reference'                => $reference,
+            'contact_name'             => 'Quote Customer',
+            'contact_phone'            => '0240000000',
+            'source'                   => 'bulk',
+            'fulfilment_preference'    => 'pickup',
+            'status'                   => $status,
+            'currency_code'            => 'GHS',
+        ], $overrides));
     }
 }

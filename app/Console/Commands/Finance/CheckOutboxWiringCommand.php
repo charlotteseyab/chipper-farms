@@ -55,7 +55,7 @@ class CheckOutboxWiringCommand extends Command
                 $this->line(sprintf('   %-50s → %d subscriber(s)', $type, count($subs)));
                 foreach ($subs as $sub) {
                     $exists = class_exists($sub);
-                    $marker = $exists ? '✓' : '✗ (MISSING)';
+                    $marker = $exists ? 'OK' : 'No (MISSING)';
                     $this->line(sprintf('       %s %s', $marker, $sub));
                     if (! $exists) {
                         $unhealthy = true;
@@ -80,7 +80,7 @@ class CheckOutboxWiringCommand extends Command
         } else {
             foreach ($pending as $type => $count) {
                 $hasSub = ! empty($registry->subscribersFor((string) $type));
-                $marker = $hasSub ? '' : ' ✗ NO SUBSCRIBER';
+                $marker = $hasSub ? '' : ' No NO SUBSCRIBER';
                 $this->line(sprintf('   %-50s %6d%s', $type, (int) $count, $marker));
                 if (! $hasSub) {
                     $unhealthy = true;

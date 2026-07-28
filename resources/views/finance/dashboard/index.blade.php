@@ -126,9 +126,9 @@
                     <div>
                         <p class="text-xs text-gray-500">Status</p>
                         @if($tbSummary['balanced'])
-                            <p class="text-xl font-bold text-emerald-700">✓ Balanced</p>
+                            <p class="text-xl font-bold text-emerald-700">Balanced</p>
                         @else
-                            <p class="text-xl font-bold text-red-700">✗ UNBALANCED</p>
+                            <p class="text-xl font-bold text-red-700">No UNBALANCED</p>
                         @endif
                     </div>
                 </div>

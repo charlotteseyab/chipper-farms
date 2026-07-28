@@ -129,7 +129,7 @@
                                                 <div class="flex-shrink-0 h-10 w-10">
                                                     <div class="h-10 w-10 rounded-full @if($litter->is_critical) bg-red-200 @elseif($litter->is_overdue) bg-orange-200 @else bg-green-200 @endif flex items-center justify-center">
                                                         <span class="text-sm font-medium @if($litter->is_critical) text-red-800 @elseif($litter->is_overdue) text-orange-800 @else text-green-800 @endif">
-                                                            🐷
+                                                            Pig
                                                         </span>
                                                     </div>
                                                 </div>
@@ -246,7 +246,7 @@
                                                 <div class="flex-shrink-0 h-10 w-10">
                                                     <div class="h-10 w-10 rounded-full bg-yellow-200 flex items-center justify-center">
                                                         <span class="text-sm font-medium text-yellow-800">
-                                                            🐷
+                                                            Pig
                                                         </span>
                                                     </div>
                                                 </div>
@@ -335,7 +335,7 @@
                                                 <div class="flex-shrink-0 h-10 w-10">
                                                     <div class="h-10 w-10 rounded-full bg-blue-200 flex items-center justify-center">
                                                         <span class="text-sm font-medium text-blue-800">
-                                                            {{ $pig->gender === 'M' ? '🐗' : '🐷' }}
+                                                            {{ $pig->gender === 'M' ? 'Boar' : 'Pig' }}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -437,7 +437,7 @@
                                                 <div class="flex-shrink-0 h-10 w-10">
                                                     <div class="h-10 w-10 rounded-full bg-green-200 flex items-center justify-center">
                                                         <span class="text-sm font-medium text-green-800">
-                                                            {{ $weaning->pig->gender === 'M' ? '🐗' : '🐷' }}
+                                                            {{ $weaning->pig->gender === 'M' ? 'Boar' : 'Pig' }}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -512,7 +512,7 @@ function openLitterWeaningModal(litterId, sowTag, pigletCount, litterAge) {
     }
     litterInfo.innerHTML = `
         <div class="text-sm text-green-800">
-            <strong>✅ READY FOR WEANING</strong><br>
+            <strong>READY FOR WEANING</strong><br>
             <strong>Mother:</strong> ${sowTag}<br>
             <strong>Litter Age:</strong> ${litterAge} days<br>
             <strong>Surviving Piglets:</strong> ${pigletCount}<br>

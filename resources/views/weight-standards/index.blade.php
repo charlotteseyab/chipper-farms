@@ -8,7 +8,7 @@
         </div>
         <div class="flex gap-3">
             <a href="{{ route('weight-standards.create') }}" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
-                ➕ Add Expected Weight
+                Add Add Expected Weight
             </a>
         </div>
     </div>
@@ -26,7 +26,7 @@
                 <div class="mt-2 text-sm text-blue-700">
                     <p>1. Set expected weight ranges for each pig type (breed + gender) at different ages</p>
                     <p>2. When you record weekly weights, system automatically compares against these standards</p>
-                    <p>3. See instant alerts: <span class="text-red-600">⬇️ Under Weight</span> | <span class="text-green-600">✅ Normal</span> | <span class="text-black">⬆️ Over Weight</span></p>
+                    <p>3. See instant alerts: <span class="text-red-600">Under Weight</span> | <span class="text-green-600">Normal</span> | <span class="text-black">Over Weight</span></p>
                 </div>
             </div>
         </div>

@@ -51,13 +51,22 @@ class FarrowingController extends Controller
             // CRITICAL: Append the search term to pagination links
             ->appends($request->only('search')); 
 
+        $totalBorn = (int) Farrowing::sum('total_piglets_born');
+        $totalLiveBirths = (int) Farrowing::sum('live_births');
+        $totalPigletDeaths = (int) PigletDeath::sum('count');
+        $currentSurvivingPiglets = max(0, $totalLiveBirths - $totalPigletDeaths);
+
         // --- Stats Compilation (This remains unaffected by the search query, which is usually correct for overall stats) ---
         $stats = [
             'total_farrowings' => Farrowing::count(),
             'farrowings_this_month' => Farrowing::thisMonth()->count(),
             'average_litter_size' => Farrowing::avg('live_births'),
-            'average_survival_rate' => Farrowing::selectRaw('AVG(CASE WHEN total_piglets_born > 0 THEN (live_births / total_piglets_born) * 100 ELSE 0 END) as avg_survival')
-                ->value('avg_survival'),
+            'average_survival_rate' => $totalBorn > 0 ? ($totalLiveBirths / $totalBorn) * 100 : null,
+            'current_survival_rate' => $totalBorn > 0 ? ($currentSurvivingPiglets / $totalBorn) * 100 : null,
+            'total_live_births' => $totalLiveBirths,
+            'current_surviving_piglets' => $currentSurvivingPiglets,
+            'total_piglet_deaths' => $totalPigletDeaths,
+            'total_piglets_born' => $totalBorn,
             'natural_farrowings' => Farrowing::where('farrowing_type', 'natural')->count(),
             'assisted_farrowings' => Farrowing::where('farrowing_type', 'assisted')->count(),
             'cesarean_farrowings' => Farrowing::where('farrowing_type', 'cesarean')->count(),
@@ -245,9 +254,7 @@ class FarrowingController extends Controller
                     $q->with(['pigletDeaths', 'boar'])
                       ->orderBy('farrowing_date', 'desc');
                 }
-            ])
-            ->where('gender', 'F')
-            ->where('stock_type', 'breeding');
+            ]);
 
         // Filter by sow if search provided
         if ($search = $request->get('search')) {

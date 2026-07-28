@@ -25,6 +25,7 @@ use App\Models\PigDeath;
 use App\Models\PigManagement;
 use App\Models\PigSale;
 use App\Models\PurchaseRequest;
+use App\Models\PurchaseStockIntake;
 use App\Models\User;
 use App\Models\Weaning;
 use App\Policies\FarrowingPolicy;
@@ -34,6 +35,7 @@ use App\Policies\PigDeathPolicy;
 use App\Policies\PigManagementPolicy;
 use App\Policies\PigSalePolicy;
 use App\Policies\PurchaseRequestPolicy;
+use App\Policies\PurchaseStockIntakePolicy;
 use App\Policies\WeaningPolicy;
 
 class AppServiceProvider extends ServiceProvider
@@ -54,6 +56,7 @@ class AppServiceProvider extends ServiceProvider
         Mating::class => MatingPolicy::class,
         Weaning::class => WeaningPolicy::class,
         PurchaseRequest::class => PurchaseRequestPolicy::class,
+        PurchaseStockIntake::class => PurchaseStockIntakePolicy::class,
         \App\Models\Storefront\StorefrontListing::class => \App\Policies\StorefrontListingPolicy::class,
     ];
 

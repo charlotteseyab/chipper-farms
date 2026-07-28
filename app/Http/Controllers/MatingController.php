@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Domain\Events\Lifecycle\PigBirthRecorded;
 use App\Domain\Events\Support\SourceReference;
+use App\Models\ActivityLog;
 use App\Models\Farrowing;
 use App\Models\Mating;
 use App\Models\PigManagement;
@@ -98,6 +99,9 @@ class MatingController extends Controller
             'upcoming'                  => Mating::upcoming()->count(),
             'pregnancy_checks_due'      => Mating::pregnancyCheckDue()->count(),
             'pregnancy_checks_overdue'  => Mating::pregnancyCheckOverdue()->count(),
+            'uncertain'                 => Mating::uncertainPregnancy()->count(),
+            'follow_ups_due'            => Mating::query()->pregnancyFollowUpDue()->count(),
+            'follow_ups_overdue'        => Mating::query()->pregnancyFollowUpOverdue()->count(),
             'pregnant'                  => Mating::pregnant()->count(),
             'not_pregnant'              => Mating::notPregnant()->count(),
         ];
@@ -167,10 +171,10 @@ class MatingController extends Controller
             . Carbon::parse($data['planned_date'])->format('M d, Y');
 
         if ($relationship['risk_level'] !== 'none') {
-            $successMessage .= ' ⚠️ Note: ' . $relationship['message'];
+            $successMessage .= ' Warning Note: ' . $relationship['message'];
         }
         if (! empty($warnings)) {
-            $successMessage .= ' ⚖️ Weight Warning: ' . implode('; ', $warnings);
+            $successMessage .= ' Weight Weight Warning: ' . implode('; ', $warnings);
         }
 
         return back()->with('success', $successMessage);
@@ -178,16 +182,16 @@ class MatingController extends Controller
 
     public function destroyMating($id)
     {
-        $this->authorize('delete', Mating::class);
         $mating = Mating::findOrFail($id);
+        $this->authorize('delete', $mating);
         $mating->delete();
         return redirect()->route('mating.manage')->with('success', 'Mating record deleted successfully.');
     }
 
     public function recordPregnancyCheck(Request $request, $id)
     {
-        $this->authorize('pregnancyCheck', Mating::class);
         $mating = Mating::findOrFail($id);
+        $this->authorize('pregnancyCheck', $mating);
 
         $data = $request->validate([
             'pregnancy_status'         => ['required', 'in:pregnant,not_pregnant,uncertain'],
@@ -195,7 +199,13 @@ class MatingController extends Controller
             'pregnancy_confidence'     => ['required', 'in:high,medium,low'],
             'pregnancy_check_date'     => ['required', 'date', 'before_or_equal:today'],
             'pregnancy_check_notes'    => ['nullable', 'string', 'max:1000'],
+            'pregnancy_follow_up_date' => ['nullable', 'required_if:pregnancy_status,uncertain', 'date', 'after_or_equal:today'],
+        ], [
+            'pregnancy_follow_up_date.required_if' => 'A follow-up date is required when pregnancy status is uncertain.',
+            'pregnancy_follow_up_date.after_or_equal' => 'The follow-up date must be today or a future date.',
         ]);
+
+        $wasUncertain = $mating->pregnancy_status === 'uncertain';
 
         $success = $mating->recordPregnancyCheck(
             $data['pregnancy_status'],
@@ -204,16 +214,37 @@ class MatingController extends Controller
             $data['pregnancy_check_notes'] ?? null,
             $data['pregnancy_check_date'],
             auth()->id(),
+            $data['pregnancy_follow_up_date'] ?? null,
         );
 
         if (! $success) {
             return back()->withErrors(['pregnancy' => 'Failed to record pregnancy check.']);
         }
 
+        $freshMating = $mating->fresh(['male', 'female']);
+        ActivityLog::create([
+            'user_id' => auth()->id(),
+            'action' => $data['pregnancy_status'] === 'uncertain'
+                ? ($wasUncertain ? 'follow_up_scheduled' : 'uncertain_pregnancy_recorded')
+                : 'pregnancy_check_completed',
+            'module' => 'breeding',
+            'auditable_type' => Mating::class,
+            'auditable_id' => $mating->id,
+            'record_label' => trim(($freshMating->male->ear_tag_number ?? 'Male') . ' x ' . ($freshMating->female->ear_tag_number ?? 'Female')),
+            'description' => $data['pregnancy_status'] === 'uncertain'
+                ? 'Pregnancy check was uncertain and a follow-up was scheduled.'
+                : 'Pregnancy check result was recorded.',
+            'new_values' => [
+                'pregnancy_status' => $data['pregnancy_status'],
+                'pregnancy_check_date' => $data['pregnancy_check_date'],
+                'pregnancy_follow_up_date' => $data['pregnancy_follow_up_date'] ?? null,
+            ],
+        ]);
+
         $statusMessage = match ($data['pregnancy_status']) {
-            'pregnant'     => '🤰 Pregnancy confirmed! Expected farrowing: ' . $mating->fresh()->expected_farrowing_date->format('M d, Y'),
-            'not_pregnant' => '❌ Not pregnant. Consider re-mating or health check.',
-            'uncertain'    => '❓ Pregnancy uncertain. Consider follow-up check in a few days.',
+            'pregnant'     => 'Pregnancy confirmed. Expected farrowing: ' . $mating->fresh()->expected_farrowing_date->format('M d, Y'),
+            'not_pregnant' => 'Not pregnant. Consider re-mating or health check.',
+            'uncertain'    => 'Pregnancy uncertain. Follow-up check scheduled for ' . Carbon::parse($data['pregnancy_follow_up_date'])->format('M d, Y') . '.',
         };
 
         return back()->with('success', 'Pregnancy check recorded successfully. ' . $statusMessage);
@@ -221,8 +252,8 @@ class MatingController extends Controller
 
     public function completeMating(Request $request, $id)
     {
-        $this->authorize('complete', Mating::class);
         $mating = Mating::findOrFail($id);
+        $this->authorize('complete', $mating);
 
         $data = $request->validate([
             'actual_date'   => ['required', 'date', 'before_or_equal:today'],
@@ -251,8 +282,8 @@ class MatingController extends Controller
 
     public function cancelMating(Request $request, $id)
     {
-        $this->authorize('cancel', Mating::class);
         $mating = Mating::findOrFail($id);
+        $this->authorize('cancel', $mating);
 
         if ($mating->status !== 'planned') {
             return back()->withErrors(['mating' => 'Only planned matings can be cancelled.']);
@@ -339,21 +370,21 @@ class MatingController extends Controller
 
     public function destroyGestation(Mating $mating)
     {
-        $this->authorize('delete', Mating::class);
+        $this->authorize('delete', $mating);
         $mating->delete();
         return redirect()->route('gestation.index')->with('success', 'Gestation record deleted successfully.');
     }
 
     public function editGestation(Mating $mating)
     {
-        $this->authorize('update', Mating::class);
+        $this->authorize('update', $mating);
         $mating->load(['male', 'female', 'createdBy', 'checkedBy']);
         return view('gestation.edit', compact('mating'));
     }
 
     public function updateGestation(Request $request, Mating $mating)
     {
-        $this->authorize('update', Mating::class);
+        $this->authorize('update', $mating);
         $data = $request->validate([
             'actual_date'             => ['required', 'date', 'before_or_equal:today'],
             'expected_farrowing_date' => ['required', 'date', 'after:actual_date'],
@@ -376,8 +407,8 @@ class MatingController extends Controller
 
     public function updateGestationStatus(Request $request, $id)
     {
-        $this->authorize('update', Mating::class);
         $mating = Mating::findOrFail($id);
+        $this->authorize('update', $mating);
 
         $data = $request->validate([
             'status'      => ['required', 'in:pregnant,lost_pregnancy,aborted'],

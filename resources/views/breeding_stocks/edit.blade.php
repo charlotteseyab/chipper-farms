@@ -406,7 +406,7 @@
 
                     <div class="pig-card-body">
                         <div class="pig-section">
-                            <div class="pig-section-title">🐷 Stock & Identity</div>
+                            <div class="pig-section-title">Pig Stock & Identity</div>
 
                             <div class="pig-grid-2">
                                 <div class="pig-field">
@@ -489,7 +489,7 @@
 
                     <div class="pig-card-body">
                         <div class="pig-section">
-                            <div class="pig-section-title">🏠 Housing Assignment</div>
+                            <div class="pig-section-title">Housing Housing Assignment</div>
 
                             <div class="pig-field">
                                 <label class="pig-label">Room (optional)</label>
@@ -515,7 +515,7 @@
                         </div>
 
                         <div class="pig-section">
-                            <div class="pig-section-title">👨‍👩‍👧‍👦 Parent Information</div>
+                            <div class="pig-section-title">Parents Parent Information</div>
 
                             <div class="pig-field" style="margin-bottom:14px;">
                                 <label class="pig-label">Father (optional)</label>
@@ -594,7 +594,7 @@
 
                 const loadingIndicator = document.createElement('div');
                 loadingIndicator.className = 'ear-tag-warning inline-feedback info';
-                loadingIndicator.innerHTML = '🔍 Checking ear tag availability...';
+                loadingIndicator.innerHTML = 'Search Checking ear tag availability...';
                 earTagInput.parentNode.appendChild(loadingIndicator);
 
                 fetch('/api/check-ear-tag', {
@@ -612,8 +612,8 @@
                     const feedback = document.createElement('div');
                     feedback.className = `ear-tag-warning inline-feedback ${data.exists ? 'error' : 'success'}`;
                     feedback.innerHTML = data.exists
-                        ? '❌ This ear tag number already exists. Please choose a different one.'
-                        : '✅ This ear tag number is available.';
+                        ? 'This ear tag number already exists. Please choose a different one.'
+                        : 'This ear tag number is available.';
 
                     earTagInput.parentNode.appendChild(feedback);
 
@@ -642,7 +642,7 @@
                 if (fatherId && motherId && fatherId === motherId) {
                     const warning = document.createElement('div');
                     warning.className = 'inbreeding-warning inline-warning';
-                    warning.innerHTML = '⚠️ The same pig cannot be selected as both father and mother.';
+                    warning.innerHTML = 'The same pig cannot be selected as both father and mother.';
                     motherSelect.parentNode.appendChild(warning);
                 }
 

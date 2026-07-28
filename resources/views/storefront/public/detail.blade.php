@@ -11,7 +11,7 @@
                     @if($primary && $primary->url())
                         <img src="{{ $primary->url() }}" alt="{{ $primary->alt_text ?? $listing->title }}" class="w-full h-full object-cover">
                     @else
-                        <span class="text-6xl">🐷</span>
+                        <x-ui-icon name="pig" class="h-16 w-16 text-slate-400" />
                     @endif
                 </div>
                 @if($listing->media->count() > 1)
@@ -96,7 +96,7 @@
                         <form method="POST" action="{{ route('storefront.account.favourites.toggle', $listing) }}">
                             @csrf
                             <button class="px-5 py-2.5 rounded-xl border border-slate-300 font-medium">
-                                {{ $favourited ? '★ Saved' : '☆ Save' }}
+                                {{ $favourited ? 'Saved' : 'Save' }}
                             </button>
                         </form>
                     @endauth

@@ -34,6 +34,7 @@ use App\Http\Controllers\Finance\LoanController;
 use App\Http\Controllers\Finance\TreasuryController;
 use App\Http\Controllers\Finance\InvestorController;
 use App\Http\Controllers\Finance\FeedSaleController;
+use App\Http\Controllers\Audit\AuditTrailController;
 
 
 
@@ -128,8 +129,20 @@ Route::middleware($protectedMiddleware)->group(function () {
     // All Stock Routes
     Route::get('all-stocks', [App\Http\Controllers\PigManagementController::class, 'allIndex'])->name('all-stocks.index');
     Route::get('all-stocks/create', [App\Http\Controllers\PigManagementController::class, 'allCreate'])->name('all-stocks.create');
+    Route::get('all-stocks/import', [App\Http\Controllers\PigStockController::class, 'allImportCreate'])->name('all-stocks.import.create');
+    Route::post('all-stocks/import/preview', [App\Http\Controllers\PigStockController::class, 'allImportPreview'])->name('all-stocks.import.preview');
+    Route::post('all-stocks/import/confirm', [App\Http\Controllers\PigStockController::class, 'allImportConfirm'])->name('all-stocks.import.confirm');
+    Route::get('all-stocks/import/sample', [App\Http\Controllers\PigStockController::class, 'allImportSample'])->name('all-stocks.import.sample');
+    Route::get('all-stocks-export/excel', [App\Http\Controllers\PigStockController::class, 'allExportExcel'])->name('all-stocks.export.excel');
     Route::get('all-stocks-export/csv', [App\Http\Controllers\PigManagementController::class, 'allExportCsv'])->name('all-stocks.export.csv');
     Route::get('all-stocks-export/pdf', [App\Http\Controllers\PigManagementController::class, 'allExportPdf'])->name('all-stocks.export.pdf');
+    Route::resource('purchase-stock-intakes', App\Http\Controllers\PurchaseStockIntakeController::class)
+        ->only(['index', 'create', 'store', 'show'])
+        ->parameters(['purchase-stock-intakes' => 'purchaseStockIntake']);
+    Route::post('purchase-stock-intakes/{purchaseStockIntake}/receive', [App\Http\Controllers\PurchaseStockIntakeController::class, 'receive'])->name('purchase-stock-intakes.receive');
+    Route::post('purchase-stock-intakes/{purchaseStockIntake}/quarantine', [App\Http\Controllers\PurchaseStockIntakeController::class, 'quarantine'])->name('purchase-stock-intakes.quarantine');
+    Route::post('purchase-stock-intakes/{purchaseStockIntake}/approve', [App\Http\Controllers\PurchaseStockIntakeController::class, 'approve'])->name('purchase-stock-intakes.approve');
+    Route::post('purchase-stock-intakes/{purchaseStockIntake}/add-to-stock', [App\Http\Controllers\PurchaseStockIntakeController::class, 'addToStock'])->name('purchase-stock-intakes.add-to-stock');
 
     // Breeding Stock Routes (existing)
     Route::resource('breeding-stocks', 'App\Http\Controllers\PigManagementController');
@@ -171,8 +184,9 @@ Route::middleware($protectedMiddleware)->group(function () {
     // Piglet Tracking routes
     Route::get('piglets/tracking', [App\Http\Controllers\FarrowingController::class, 'pigletTracking'])->name('piglets.tracking');
 
-    // Archived pigs (soft deletes)
-    Route::get('pigs/archived', [App\Http\Controllers\PigManagementController::class, 'archived'])->name('pigs.archived');
+    // Audit trail and archived records
+    Route::get('audit-trail', [AuditTrailController::class, 'index'])->name('audit-trail.index');
+    Route::get('pigs/archived', fn () => redirect()->route('audit-trail.index', ['tab' => 'archived']))->name('pigs.archived');
     Route::patch('pigs/{id}/restore', [App\Http\Controllers\PigManagementController::class, 'restorePig'])->name('pigs.restore');
     Route::patch('piglet-deaths/{id}/restore', [App\Http\Controllers\PigManagementController::class, 'restorePigletDeath'])->name('pigs.piglet-death-restore');
 

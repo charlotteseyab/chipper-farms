@@ -6,10 +6,10 @@
             </h2>
             <div class="flex space-x-2">
                 <!-- <a href="{{ route('weight-alerts.dashboard') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                    📊 Dashboard
+                    Analytics Dashboard
                 </a> -->
                 <a href="{{ route('weights.index') }}" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                    ⚖️ Weight Records
+                    Weight Weight Records
                 </a>
             </div>
         </div>
@@ -41,7 +41,7 @@
                         <div class="flex items-center">
                             <div class="flex-shrink-0">
                                 <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                                    <span class="text-red-600 font-bold text-sm">🚨</span>
+                                    <span class="text-red-600 font-bold text-sm">Alert</span>
                                 </div>
                             </div>
                             <div class="ml-4">
@@ -57,7 +57,7 @@
                         <div class="flex items-center">
                             <div class="flex-shrink-0">
                                 <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <span class="text-blue-600 font-bold text-sm">⬇️</span>
+                                    <span class="text-blue-600 font-bold text-sm">Under</span>
                                 </div>
                             </div>
                             <div class="ml-4">
@@ -73,7 +73,7 @@
                         <div class="flex items-center">
                             <div class="flex-shrink-0">
                                 <div class="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                                    <span class="text-orange-600 font-bold text-sm">⬆️</span>
+                                    <span class="text-orange-600 font-bold text-sm">Over</span>
                                 </div>
                             </div>
                             <div class="ml-4">
@@ -136,7 +136,7 @@
                         <h3 class="text-lg font-medium text-gray-900">Weight Alerts ({{ $alerts->total() }})</h3>
                         @if(Auth::user() && (Auth::user()->isAdmin() || Auth::user()->isSuperuser()) && $alerts->where('acknowledged', false)->count() > 0)
                             <button onclick="openBulkAcknowledgeModal()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                                ✅ Bulk Acknowledge
+                                Bulk Acknowledge
                             </button>
                         @endif
                     </div>
@@ -223,7 +223,7 @@
                             @empty
                                 <tr>
                                     <td colspan="9" class="px-6 py-12 text-center text-gray-500">
-                                        <div class="text-lg">📊 No weight alerts found</div>
+                                        <div class="text-lg">Analytics No weight alerts found</div>
                                         <p class="mt-2">Weight alerts will appear here when pigs' weights deviate from expected standards.</p>
                                     </td>
                                 </tr>

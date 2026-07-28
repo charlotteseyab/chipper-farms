@@ -19,7 +19,7 @@
             live weight × price/kg × (1 − costs-to-sell {{ $pct }}%). Prices come from
             <code>config/biological_assets.php</code> and must be reviewed against the local market.
             @if($d['meta']['has_unreliable'])
-                <span class="block mt-1 text-amber-700">⚠ Some stages have no reliable market price configured; fair value for those could not be measured (shown as 0). This is itself an IAS 41 disclosure.</span>
+                <span class="block mt-1 text-amber-700">Warning Some stages have no reliable market price configured; fair value for those could not be measured (shown as 0). This is itself an IAS 41 disclosure.</span>
             @endif
         </div>
 

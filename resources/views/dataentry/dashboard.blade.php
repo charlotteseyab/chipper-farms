@@ -117,6 +117,36 @@
             margin-top: 24px;
         }
 
+        .entry-topbar{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap: 16px;
+            flex-wrap:wrap;
+            margin-bottom: 18px;
+        }
+
+        .entry-page-title{
+            margin: 0;
+            color:#0f172a;
+            font-size: 2rem;
+            line-height: 1.08;
+            font-weight: 900;
+        }
+
+        .entry-page-subtitle{
+            color:#64748b;
+            margin-top: 6px;
+            font-size:.92rem;
+        }
+
+        .entry-top-actions{
+            display:flex;
+            align-items:center;
+            gap:10px;
+            flex-wrap:wrap;
+        }
+
         .metric-grid{
             display: grid;
             grid-template-columns: repeat(5, minmax(0,1fr));
@@ -277,6 +307,229 @@
             grid-template-columns: minmax(0,2fr) minmax(320px,1fr);
             gap: 24px;
             margin-top: 24px;
+        }
+
+        .workbench-grid{
+            display:grid;
+            grid-template-columns: repeat(3, minmax(0,1fr));
+            gap: 14px;
+            padding: 0 24px 24px;
+        }
+
+        .workbench-action{
+            border: 1px solid #e5efe9;
+            border-radius: 18px;
+            padding: 18px;
+            min-height: 140px;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            gap: 10px;
+            text-align:center;
+            background: linear-gradient(180deg,#fff 0%,#fbfefc 100%);
+            color:#0f172a;
+            text-decoration:none;
+            transition:.24s ease;
+        }
+
+        .workbench-action:hover{
+            transform: translateY(-2px);
+            border-color:#bbf7d0;
+            box-shadow:0 14px 28px rgba(15,23,42,.07);
+        }
+
+        .workbench-icon{
+            width:56px;
+            height:56px;
+            border-radius:16px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:#fff;
+        }
+
+        .workbench-icon svg{
+            width:26px;
+            height:26px;
+        }
+
+        .workbench-title{
+            font-size:.95rem;
+            font-weight:900;
+        }
+
+        .workbench-sub{
+            font-size:.76rem;
+            color:#64748b;
+        }
+
+        .needs-table{
+            width:100%;
+            border-collapse:collapse;
+        }
+
+        .needs-table th,
+        .needs-table td{
+            padding: 12px 14px;
+            border-top:1px solid #eef2f7;
+            text-align:left;
+            vertical-align:middle;
+            font-size:.82rem;
+        }
+
+        .needs-table th{
+            color:#64748b;
+            background:#f8fafc;
+            font-size:.68rem;
+            font-weight:900;
+            text-transform:uppercase;
+        }
+
+        .priority-pill{
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            padding:5px 9px;
+            border-radius:999px;
+            font-size:.66rem;
+            font-weight:900;
+            text-transform:uppercase;
+        }
+
+        .priority-high{ background:#fee2e2; color:#b91c1c; }
+        .priority-medium{ background:#ffedd5; color:#c2410c; }
+        .priority-low{ background:#dbeafe; color:#1d4ed8; }
+
+        .entry-small-link{
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            padding:6px 10px;
+            border-radius:10px;
+            border:1px solid #bbf7d0;
+            background:#f0fdf4;
+            color:#166534;
+            font-size:.72rem;
+            font-weight:900;
+            text-decoration:none;
+            white-space:nowrap;
+        }
+
+        .lower-grid{
+            display:grid;
+            grid-template-columns: minmax(0,1.1fr) minmax(0,1.2fr) minmax(300px,.8fr);
+            gap: 16px;
+            margin-top:24px;
+        }
+
+        .recent-entry-table{
+            width:100%;
+            border-collapse:collapse;
+        }
+
+        .recent-entry-table th,
+        .recent-entry-table td{
+            padding: 11px 14px;
+            border-top:1px solid #eef2f7;
+            text-align:left;
+            font-size:.8rem;
+        }
+
+        .recent-entry-table th{
+            font-size:.68rem;
+            text-transform:uppercase;
+            font-weight:900;
+            color:#64748b;
+            background:#f8fafc;
+        }
+
+        .quality-list{
+            padding: 0 24px 24px;
+            display:grid;
+            gap:16px;
+        }
+
+        .quality-row{
+            display:grid;
+            gap:7px;
+        }
+
+        .quality-top{
+            display:flex;
+            justify-content:space-between;
+            gap:12px;
+            color:#334155;
+            font-size:.82rem;
+            font-weight:800;
+        }
+
+        .quality-track{
+            height:7px;
+            border-radius:999px;
+            background:#e2e8f0;
+            overflow:hidden;
+        }
+
+        .quality-fill{
+            height:100%;
+            border-radius:999px;
+        }
+
+        .quality-green{ background:#16a34a; }
+        .quality-blue{ background:#2563eb; }
+        .quality-amber{ background:#f59e0b; }
+        .quality-red{ background:#dc2626; }
+
+        .quality-detail-list{
+            display:grid;
+            gap:10px;
+            padding-top:4px;
+        }
+
+        .quality-detail-row{
+            display:grid;
+            grid-template-columns: 1fr auto;
+            gap:10px;
+            align-items:center;
+            padding:10px 12px;
+            border:1px solid #e2e8f0;
+            border-radius:14px;
+            background:#f8fafc;
+        }
+
+        .quality-detail-title{
+            color:#0f172a;
+            font-size:.8rem;
+            font-weight:900;
+        }
+
+        .quality-detail-place{
+            margin-top:2px;
+            color:#64748b;
+            font-size:.7rem;
+            line-height:1.35;
+        }
+
+        .quality-detail-meta{
+            display:flex;
+            align-items:center;
+            gap:8px;
+            flex-wrap:wrap;
+            justify-content:flex-end;
+        }
+
+        .quality-count{
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            min-width:32px;
+            height:28px;
+            border-radius:9px;
+            background:#fff7ed;
+            color:#c2410c;
+            font-size:.78rem;
+            font-weight:900;
         }
 
         .quick-grid{
@@ -537,7 +790,8 @@
         }
 
         @media (max-width: 1024px){
-            .content-grid{
+            .content-grid,
+            .lower-grid{
                 grid-template-columns: 1fr;
             }
         }
@@ -548,7 +802,8 @@
             }
 
             .metric-grid,
-            .quick-grid{
+            .quick-grid,
+            .workbench-grid{
                 grid-template-columns: 1fr;
             }
 
@@ -585,396 +840,236 @@
     <div class="entry-page">
         <div class="entry-wrap">
 
-            <div class="entry-header">
-                <div class="entry-header-inner">
-                    <div>
-                        <div class="entry-eyebrow">
-                            <span class="entry-dot"></span>
-                            Daily Operations
-                        </div>
-                        <h1 class="entry-title">Data Entry Dashboard</h1>
-                        <p class="entry-subtitle">Quick overview, recent activity, and shortcuts for the most important daily farm tasks.</p>
-                    </div>
+            <div class="entry-topbar">
+                <div>
+                    <h1 class="entry-page-title">Data Entry Dashboard</h1>
+                    <div class="entry-page-subtitle">Enter daily records, clear missing data, and confirm recent work was saved.</div>
+                </div>
 
-                    <div class="entry-actions">
-                        <a href="{{ route('weights.create') }}" class="entry-btn entry-btn-soft">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                            </svg>
-                            New Weight
-                        </a>
-
-                        <a href="{{ route('all-stocks.create') }}" class="entry-btn entry-btn-soft">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                            </svg>
-                            New Pig
-                        </a>
-                    </div>
+                <div class="entry-top-actions">
+                    <a href="{{ route('weights.create') }}" class="entry-btn entry-btn-soft" style="background:#166534;border-color:#166534;">
+                        New Weight
+                    </a>
+                    <a href="{{ route('all-stocks.create') }}" class="entry-btn entry-btn-soft" style="background:#2563eb;border-color:#2563eb;">
+                        New Pig
+                    </a>
                 </div>
             </div>
 
             <div class="entry-section">
                 <div class="metric-grid">
-                    <a href="{{ route('all-stocks.index') }}" class="metric-card metric-green">
-                        <div class="flex items-start justify-between gap-4">
-                            <div>
-                                <div class="metric-label">Total Pigs</div>
-                                <p class="metric-value">{{ number_format($totalPigs) }}</p>
-                                <div class="metric-sub">{{ number_format($pigletsCount) }} piglets recorded</div>
+                    @foreach($entryMetrics as $metric)
+                        <a href="{{ $metric['route'] }}" class="metric-card {{ $metric['color'] }}">
+                            <div class="flex items-start justify-between gap-4">
+                                <div>
+                                    <div class="metric-label">{{ $metric['label'] }}</div>
+                                    <p class="metric-value">{{ number_format($metric['value']) }}</p>
+                                    <div class="metric-sub">{{ $metric['sub'] }}</div>
+                                </div>
+                                <div class="metric-icon">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414A1 1 0 0 1 19 9.414V19a2 2 0 0 1-2 2Z"/>
+                                    </svg>
+                                </div>
                             </div>
-                            <div class="metric-icon">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-                                </svg>
-                            </div>
-                        </div>
-                    </a>
-
-                    <a href="{{ route('weights.create') }}" class="metric-card metric-blue">
-                        <div class="flex items-start justify-between gap-4">
-                            <div>
-                                <div class="metric-label">Weights Today</div>
-                                <p class="metric-value">{{ $todayWeights }}</p>
-                                <div class="metric-sub">Entries recorded today</div>
-                            </div>
-                            <div class="metric-icon">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
-                                </svg>
-                            </div>
-                        </div>
-                    </a>
-
-                    <!-- <a href="{{ route('weight-alerts.index') }}" class="metric-card metric-red">
-                        <div class="flex items-start justify-between gap-4">
-                            <div>
-                                <div class="metric-label">Active Alerts</div>
-                                <p class="metric-value">{{ $activeAlerts }}</p>
-                                <div class="metric-sub">Need attention now</div>
-                            </div>
-                            <div class="metric-icon">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z"/>
-                                </svg>
-                            </div>
-                        </div>
-                    </a> -->
-
-                    <button onclick="toggleWeighingAlertsModal()" class="metric-card metric-yellow text-left">
-                        <div class="flex items-start justify-between gap-4">
-                            <div>
-                                <div class="metric-label">Weighing Alerts</div>
-                                <p class="metric-value">{{ $overdueForWeighing }}</p>
-                                <div class="metric-sub">{{ \App\Models\PigManagement::countDueForWeighing() }} due for weighing</div>
-                            </div>
-                            <div class="metric-icon">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
-                                </svg>
-                            </div>
-                        </div>
-                    </button>
-
-                    <div class="metric-card metric-slate">
-                        <div class="flex items-start justify-between gap-4">
-                            <div>
-                                <div class="metric-label">This Week</div>
-                                <p class="metric-value">{{ \App\Models\PigWeight::where('created_at', '>=', now()->startOfWeek())->count() }}</p>
-                                <div class="metric-sub">Weights added this week</div>
-                            </div>
-                            <div class="metric-icon">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="entry-section surface-card">
-                <div class="surface-head">
-                    <div>
-                        <h2 class="surface-title">Daily Weights Recorded</h2>
-                        <p class="surface-sub">Counts per day with a 7-day moving average</p>
-                    </div>
-
-                    <div class="chart-toolbar">
-                        <div class="flex items-center gap-2">
-                            <label for="startDate">From:</label>
-                            <input type="date" id="startDate" class="chart-input">
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <label for="endDate">To:</label>
-                            <input type="date" id="endDate" class="chart-input">
-                        </div>
-                        <button onclick="updateChart()" class="chart-btn">Update</button>
-                    </div>
-                </div>
-
-                <div class="chart-body">
-                    <div class="chart-frame">
-                        <canvas id="dailyWeightsChart"></canvas>
-                    </div>
+                        </a>
+                    @endforeach
                 </div>
             </div>
 
             <div class="content-grid">
-                <div class="space-y-6">
-                    <div class="surface-card">
-                        <div class="surface-head">
-                            <div>
-                                <h2 class="surface-title">Quick Actions</h2>
-                                <p class="surface-sub">Fast entry points for the most common tasks</p>
-                            </div>
-                        </div>
-
-                        <div class="quick-grid">
-                            <a href="{{ route('all-stocks.create') }}" class="quick-card quick-green">
-                                <div class="quick-top">
-                                    <div class="quick-icon">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h3 class="quick-title">Add New Pig</h3>
-                                        <p class="quick-desc">Register new livestock</p>
-                                    </div>
-                                </div>
-                                <div class="quick-foot">
-                                    <span>Start registration</span>
-                                    <svg class="w-3 h-3 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                    </svg>
-                                </div>
-                            </a>
-
-                            <a href="{{ route('weights.create') }}" class="quick-card quick-blue">
-                                <div class="quick-top">
-                                    <div class="quick-icon">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h3 class="quick-title">Record Weight</h3>
-                                        <p class="quick-desc">Log weight measurements</p>
-                                    </div>
-                                </div>
-                                <div class="quick-foot">
-                                    <span>Enter weight data</span>
-                                    <svg class="w-3 h-3 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                    </svg>
-                                </div>
-                            </a>
-
-                            <a href="{{ route('mating.index') }}" class="quick-card quick-pink">
-                                <div class="quick-top">
-                                    <div class="quick-icon">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h3 class="quick-title">Plan Mating</h3>
-                                        <p class="quick-desc">Schedule breeding</p>
-                                    </div>
-                                </div>
-                                <div class="quick-foot">
-                                    <span>Create mating plan</span>
-                                    <svg class="w-3 h-3 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                    </svg>
-                                </div>
-                            </a>
-
-                            <a href="{{ route('weights.reports') }}" class="quick-card quick-purple">
-                                <div class="quick-top">
-                                    <div class="quick-icon">
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h3 class="quick-title">View Weight Reports</h3>
-                                        <p class="quick-desc">Analytics and insights</p>
-                                    </div>
-                                </div>
-                                <div class="quick-foot">
-                                    <span>Generate reports</span>
-                                    <svg class="w-3 h-3 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                    </svg>
-                                </div>
-                            </a>
+                <div class="surface-card">
+                    <div class="surface-head">
+                        <div>
+                            <h2 class="surface-title">Entry Workbench</h2>
+                            <p class="surface-sub">Fast entry points for the daily records this role handles most often</p>
                         </div>
                     </div>
 
-                    <div class="surface-card">
-                        <div class="surface-head">
-                            <div>
-                                <h2 class="surface-title">Recent Activity</h2>
-                                <p class="surface-sub">Latest actions recorded across the system</p>
-                            </div>
+                    <div class="workbench-grid">
+                        <a href="{{ route('all-stocks.create') }}" class="workbench-action">
+                            <div class="workbench-icon" style="background:#16a34a;"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m7-7H5"/></svg></div>
+                            <div class="workbench-title">Add Pig</div>
+                            <div class="workbench-sub">Create a new pig record</div>
+                        </a>
+                        <a href="{{ route('weights.create') }}" class="workbench-action">
+                            <div class="workbench-icon" style="background:#2563eb;"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M7 6l-3 8a3 3 0 0 0 6 0L7 6Zm10 0-3 8a3 3 0 0 0 6 0l-3-8ZM12 3v18"/></svg></div>
+                            <div class="workbench-title">Record Weight</div>
+                            <div class="workbench-sub">Add weight measurement</div>
+                        </a>
+                        <a href="{{ route('health.create') }}" class="workbench-action">
+                            <div class="workbench-icon" style="background:#059669;"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v8m4-4H8m13 0A9 9 0 1 1 3 12a9 9 0 0 1 18 0Z"/></svg></div>
+                            <div class="workbench-title">Record Health</div>
+                            <div class="workbench-sub">Log health treatment</div>
+                        </a>
+                        <a href="{{ route('mating.index') }}" class="workbench-action">
+                            <div class="workbench-icon" style="background:#8b5cf6;"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m5-11a5 5 0 1 1-10 0 5 5 0 0 1 10 0Z"/></svg></div>
+                            <div class="workbench-title">Record Mating</div>
+                            <div class="workbench-sub">Add breeding record</div>
+                        </a>
+                        <a href="{{ route('all-stocks.import.create') }}" class="workbench-action">
+                            <div class="workbench-icon" style="background:#1d4ed8;"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12m0 0 4-4m-4 4-4-4M4 21h16"/></svg></div>
+                            <div class="workbench-title">Import Stock</div>
+                            <div class="workbench-sub">Upload Excel records</div>
+                        </a>
+                        <a href="{{ route('deaths.index') }}" class="workbench-action">
+                            <div class="workbench-icon" style="background:#dc2626;"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3Z"/></svg></div>
+                            <div class="workbench-title">Record Mortality</div>
+                            <div class="workbench-sub">Open mortality records</div>
+                        </a>
+                    </div>
+                </div>
+
+                <div class="surface-card">
+                    <div class="surface-head">
+                        <div>
+                            <h2 class="surface-title">Needs Data Entry</h2>
+                            <p class="surface-sub">Records that need entry or cleanup</p>
                         </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="needs-table">
+                            <thead>
+                                <tr>
+                                    <th>Priority</th>
+                                    <th>Item</th>
+                                    <th>Count</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($needsDataEntry as $need)
+                                    <tr>
+                                        <td><span class="priority-pill priority-{{ $need['priority'] }}">{{ $need['priority'] }}</span></td>
+                                        <td>
+                                            <div class="font-bold text-slate-900">{{ $need['item'] }}</div>
+                                            <div class="text-xs text-slate-500 mt-1">{{ $need['details'] }}</div>
+                                        </td>
+                                        <td class="font-black text-slate-900">{{ number_format($need['count']) }}</td>
+                                        <td><a href="{{ $need['route'] }}" class="entry-small-link">Enter Data</a></td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="4" class="text-center text-slate-500 py-8">No data entry issues waiting right now.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
 
-                        <div class="activity-list">
-                            @forelse($recentActivities as $activity)
-                                <a href="{{ $activity['route'] }}" class="activity-item">
-                                    <div class="activity-icon bg-{{ $activity['color'] }}-100 text-{{ $activity['color'] }}-600">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $activity['icon'] }}"/>
-                                        </svg>
-                                    </div>
-
-                                    <div class="activity-main">
-                                        <div class="activity-title">{{ $activity['title'] }}</div>
-                                        <div class="activity-desc">{{ $activity['description'] }}</div>
-                                        <div class="activity-time">{{ $activity['time']->diffForHumans() }}</div>
-                                    </div>
-
-                                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                    </svg>
-                                </a>
-                            @empty
-                                <div class="empty-state">
-                                    <div class="empty-icon">
-                                        <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                                        </svg>
-                                    </div>
-                                    <p class="text-sm">No recent activity</p>
-                                </div>
-                            @endforelse
+            <div class="lower-grid">
+                <div class="surface-card">
+                    <div class="surface-head">
+                        <div>
+                            <h2 class="surface-title">Daily Entry Volume</h2>
+                            <p class="surface-sub">Weight entries per day with a 7-day moving average</p>
+                        </div>
+                        <div class="chart-toolbar">
+                            <div class="flex items-center gap-2">
+                                <label for="startDate">From:</label>
+                                <input type="date" id="startDate" class="chart-input">
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <label for="endDate">To:</label>
+                                <input type="date" id="endDate" class="chart-input">
+                            </div>
+                            <button onclick="updateChart()" class="chart-btn">Update</button>
+                        </div>
+                    </div>
+                    <div class="chart-body">
+                        <div class="chart-frame">
+                            <canvas id="dailyWeightsChart"></canvas>
                         </div>
                     </div>
                 </div>
 
-                <div class="side-stack">
-                    <div class="surface-card">
-                        <div class="surface-head">
-                            <div>
-                                <h2 class="surface-title">Today's Summary</h2>
-                                <p class="surface-sub">Daily activity at a glance</p>
-                            </div>
-                        </div>
-
-                        <div class="summary-list">
-                            <div class="summary-row bg-blue-50/70">
-                                <div class="summary-left">
-                                    <div class="summary-icon bg-blue-100 text-blue-600">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
-                                        </svg>
-                                    </div>
-                                    <div class="summary-text">
-                                        <div class="summary-label">Weights Recorded</div>
-                                        <div class="summary-sub">Today</div>
-                                    </div>
-                                </div>
-                                <div class="summary-value text-blue-600">{{ $todayWeights }}</div>
-                            </div>
-
-                            <div class="summary-row bg-green-50/70">
-                                <div class="summary-left">
-                                    <div class="summary-icon bg-green-100 text-green-600">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                                        </svg>
-                                    </div>
-                                    <div class="summary-text">
-                                        <div class="summary-label">New Pigs Added</div>
-                                        <div class="summary-sub">Today</div>
-                                    </div>
-                                </div>
-                                <div class="summary-value text-green-600">{{ \App\Models\PigManagement::whereDate('created_at', today())->count() }}</div>
-                            </div>
-
-                            <div class="summary-row bg-purple-50/70">
-                                <div class="summary-left">
-                                    <div class="summary-icon bg-purple-100 text-purple-600">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                                        </svg>
-                                    </div>
-                                    <div class="summary-text">
-                                        <div class="summary-label">Weights Added</div>
-                                        <div class="summary-sub">This Week</div>
-                                    </div>
-                                </div>
-                                <div class="summary-value text-purple-600">{{ \App\Models\PigWeight::where('created_at', '>=', now()->startOfWeek())->count() }}</div>
-                            </div>
-
-                            <div class="summary-row bg-red-50/70">
-                                <div class="summary-left">
-                                    <div class="summary-icon bg-red-100 text-red-600">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-                                        </svg>
-                                    </div>
-                                    <div class="summary-text">
-                                        <div class="summary-label">Delayed Weighings</div>
-                                        <div class="summary-sub">Overdue pigs</div>
-                                    </div>
-                                </div>
-                                <div class="summary-value text-red-600">{{ $overdueForWeighing }}</div>
-                            </div>
+                <div class="surface-card">
+                    <div class="surface-head">
+                        <div>
+                            <h2 class="surface-title">Recent Entries</h2>
+                            <p class="surface-sub">Latest saved records</p>
                         </div>
                     </div>
+                    <div class="overflow-x-auto">
+                        <table class="recent-entry-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Type</th>
+                                    <th>Record</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($recentActivities as $activity)
+                                    <tr>
+                                        <td>{{ $activity['time']->format('H:i') }}</td>
+                                        <td>{{ $activity['title'] }}</td>
+                                        <td>
+                                            <a href="{{ $activity['route'] }}" class="font-semibold text-slate-900 hover:text-emerald-700">{{ $activity['description'] }}</a>
+                                            <div class="text-xs text-slate-500 mt-1">{{ $activity['details'] }}</div>
+                                        </td>
+                                        <td><span class="priority-pill priority-low">Saved</span></td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="4" class="text-center text-slate-500 py-8">No recent entries found.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-                    <button onclick="toggleWeighingAlertsModal()" class="surface-card text-left hover:shadow-xl transition-all duration-300">
-                        <div class="surface-head">
-                            <div>
-                                <h2 class="surface-title">Weighing Schedule Alerts</h2>
-                                <p class="surface-sub">Pigs that need attention now</p>
-                            </div>
-                            <div class="summary-icon bg-yellow-100 text-yellow-600">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
-                                </svg>
-                            </div>
+                <div class="surface-card">
+                    <div class="surface-head">
+                        <div>
+                            <h2 class="surface-title">Data Quality</h2>
+                            <p class="surface-sub">Completeness and cleanup signals</p>
+                        </div>
+                    </div>
+                    <div class="quality-list">
+                        <div class="quality-row">
+                            <div class="quality-top"><span>Completeness</span><span>{{ $dataQuality['completeness'] }}%</span></div>
+                            <div class="quality-track"><div class="quality-fill quality-green" style="width: {{ $dataQuality['completeness'] }}%;"></div></div>
+                        </div>
+                        <div class="quality-row">
+                            <div class="quality-top"><span>Duplicates</span><span>{{ number_format($dataQuality['duplicates']) }}</span></div>
+                            <div class="quality-track"><div class="quality-fill quality-blue" style="width: {{ min(100, $dataQuality['duplicates'] * 10) }}%;"></div></div>
+                        </div>
+                        <div class="quality-row">
+                            <div class="quality-top"><span>Missing Fields</span><span>{{ number_format($dataQuality['missing_fields']) }}</span></div>
+                            <div class="quality-track"><div class="quality-fill quality-amber" style="width: {{ min(100, $dataQuality['missing_fields']) }}%;"></div></div>
+                        </div>
+                        <div class="quality-row">
+                            <div class="quality-top"><span>Failed Imports</span><span>{{ number_format($dataQuality['failed_imports']) }}</span></div>
+                            <div class="quality-track"><div class="quality-fill quality-red" style="width: {{ min(100, $dataQuality['failed_imports'] * 10) }}%;"></div></div>
                         </div>
 
-                        <div class="alert-preview">
-                            @forelse($overduePigsPreview as $row)
-                                @php $status = $row['weighingStatus']; @endphp
+                        <div class="quality-detail-list">
+                            <div class="quality-top">
+                                <span>Missing Details</span>
+                                <span>{{ number_format($dataQualityDetails->sum('count')) }}</span>
+                            </div>
 
-                                <div class="alert-tile">
-                                    <div class="alert-left">
-                                        <span class="text-lg">{{ $status['icon'] }}</span>
-                                        <div>
-                                            <div class="alert-code">{{ $row['pig']->ear_tag_number }}</div>
-                                            <div class="alert-meta">{{ $row['pig']->breed }} • {{ $row['pig']->gender }}</div>
-                                        </div>
+                            @forelse($dataQualityDetails as $detail)
+                                <div class="quality-detail-row">
+                                    <div>
+                                        <div class="quality-detail-title">{{ $detail['label'] }}</div>
+                                        <div class="quality-detail-place">Fix in: {{ $detail['where'] }}</div>
                                     </div>
-
-                                    <div class="alert-status">
-                                        <div class="alert-message text-{{ $status['color'] }}-700">{{ $status['message'] }}</div>
-                                        <div class="alert-days">{{ (int)$row['daysSince'] }} days</div>
+                                    <div class="quality-detail-meta">
+                                        <span class="quality-count">{{ number_format($detail['count']) }}</span>
+                                        <a href="{{ $detail['route'] }}" class="entry-small-link">Open</a>
                                     </div>
                                 </div>
                             @empty
-                                <div class="empty-state">
-                                    <div class="empty-icon">
-                                        <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                        </svg>
-                                    </div>
-                                    <p class="text-sm">All pigs are up to date with weighing</p>
+                                <div class="empty-state" style="padding:18px 12px;">
+                                    <p class="text-sm">No missing data details found.</p>
                                 </div>
                             @endforelse
-
-                            @if($overduePigsPreview->count() > 0)
-                                <div class="text-center text-xs font-semibold text-yellow-700 mt-1">
-                                    Click to view detailed alerts →
-                                </div>
-                            @endif
                         </div>
-                    </button>
+                    </div>
                 </div>
             </div>
         </div>

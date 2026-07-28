@@ -53,7 +53,7 @@
 
 <!-- Weight Analytics Section -->
 <div class="mb-8">
-    <h2 class="text-xl font-semibold text-gray-900 mb-4">📊 Weight Analytics Overview</h2>
+    <h2 class="text-xl font-semibold text-gray-900 mb-4">Analytics Weight Analytics Overview</h2>
     
     <!-- Main Weight Metrics -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
@@ -156,7 +156,7 @@
     <!-- <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         Breed Performance
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">🐷 Breed Performance</h3>
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Breed Performance</h3>
             @if($breedPerformance->count() > 0)
                 <div class="space-y-3">
                     @foreach($breedPerformance as $breed)
@@ -179,7 +179,7 @@
 
         Age Distribution
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">📅 Age Distribution</h3>
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Date Age Distribution</h3>
             <div class="space-y-3">
                 @foreach($ageGroups as $group => $count)
                     @php

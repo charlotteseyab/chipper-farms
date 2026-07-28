@@ -7,17 +7,20 @@ use App\Models\Farrowing;
 use App\Models\HealthRecord;
 use App\Models\Mating;
 use App\Models\MedicationAdministration;
+use App\Models\Organization;
 use App\Models\PigDeath;
 use App\Models\PigletDeath;
 use App\Models\PigManagement;
 use App\Models\PigSale;
 use App\Models\PigWeight;
+use App\Models\PurchaseStockIntake;
 use App\Models\Setting;
 use App\Models\User;
 use App\Models\Weaning;
 use App\Models\WeightAlert;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use App\Services\Stock\PurchasedStockDashboardMetrics;
 use Illuminate\Support\Facades\DB;
 
 class SuperuserController extends Controller
@@ -549,6 +552,44 @@ class SuperuserController extends Controller
             'critical_alerts' => (int) $criticalAlerts,
         ];
 
+        $portfolioOverview = $this->getPortfolioOverview($startDate, $endDate);
+        $purchasedStockMetrics = app(PurchasedStockDashboardMetrics::class)->summary();
+        $workspaceRevenueComparison = collect($portfolioOverview)->map(fn ($workspace) => [
+            'workspace_name' => $workspace['name'],
+            'name' => $workspace['name'],
+            'revenue' => $workspace['revenue'],
+            'stock' => $workspace['stock'],
+        ])->values();
+        $governanceQueue = $this->getGovernanceQueue($opsSnapshot, $dataQuality, $receivablesAging);
+        $riskMatrix = $this->getRiskMatrix($portfolioOverview);
+        $auditTrail = ActivityLog::with('user')
+            ->when($startDate, function ($q) use ($startDate, $endDate) {
+                $q->whereBetween('created_at', [$startDate, $endDate]);
+            })
+            ->latest()
+            ->take(5)
+            ->get();
+        $platformCards = [
+            'health' => [
+                'active_users' => $userHealth['active'] ?? User::where('active_status', true)->count(),
+                'inactive_users' => $userHealth['inactive'] ?? User::where('active_status', false)->count(),
+                'open_alerts' => $alertOverview['open_alerts'] ?? $totalAlerts,
+                'critical_alerts' => $globalKpis['critical_alerts'] ?? $criticalAlerts,
+            ],
+            'portfolio' => [
+                'total_pigs' => $globalKpis['total_pigs'] ?? $totalPigs,
+                'live_stock' => $activePigs,
+                'breeding_stock' => $breedingStock,
+                'farm_value' => $totalFarmValue,
+            ],
+            'finance' => [
+                'revenue' => $globalKpis['total_revenue'] ?? $totalRevenue,
+                'unpaid_sales' => $receivablesAging['total']['amount'] ?? 0,
+                'aged_receivables' => $receivablesAging['60_plus']['amount'] ?? 0,
+                'net_position' => (($globalKpis['total_revenue'] ?? $totalRevenue) - ($receivablesAging['total']['amount'] ?? 0)),
+            ],
+        ];
+
         return view('superuser.dashboard', compact(
             'range',
             'startDate',
@@ -639,10 +680,178 @@ class SuperuserController extends Controller
             'totalSales',
             'totalRevenue',
             'financialTrends',
+            'workspaceRevenueComparison',
             'dataQuality',
             'receivablesAging',
-            'opsSnapshot'
+            'opsSnapshot',
+            'portfolioOverview',
+            'governanceQueue',
+            'riskMatrix',
+            'auditTrail',
+            'platformCards',
+            'purchasedStockMetrics'
         ));
+    }
+
+    private function getPortfolioOverview(?Carbon $startDate, Carbon $endDate): array
+    {
+        $organizations = Organization::with(['users' => function ($query) {
+                $query->orderBy('first_name')->orderBy('last_name');
+            }])
+            ->orderBy('name')
+            ->get();
+
+        if ($organizations->isEmpty()) {
+            $organizations = collect([(object) [
+                'id' => null,
+                'name' => 'Default Workspace',
+                'is_active' => true,
+                'users' => User::orderBy('first_name')->orderBy('last_name')->get(),
+            ]]);
+        } elseif (
+            PigManagement::whereNull('organization_id')->exists()
+            || PigSale::whereNull('organization_id')->exists()
+        ) {
+            $organizations->push((object) [
+                'id' => null,
+                'name' => 'Default Workspace',
+                'is_active' => true,
+                'users' => User::whereNull('organization_id')->orderBy('first_name')->orderBy('last_name')->get(),
+            ]);
+        }
+
+        return $organizations->map(function ($organization) use ($startDate, $endDate) {
+            $orgId = $organization->id ?? null;
+            $stockQuery = PigManagement::query()
+                ->when($orgId, fn ($q) => $q->where('organization_id', $orgId), fn ($q) => $q->whereNull('organization_id'));
+            $stock = (clone $stockQuery)->active()->count();
+            $breeding = (clone $stockQuery)->where('stock_type', 'breeding')->count();
+
+            $salesQuery = PigSale::query()
+                ->when($orgId, fn ($q) => $q->where('organization_id', $orgId), fn ($q) => $q->whereNull('organization_id'))
+                ->when($startDate, fn ($q) => $q->whereBetween('sale_date', [$startDate, $endDate]));
+            $revenue = (float) (clone $salesQuery)->sum('sale_price');
+            $unpaid = (float) (clone $salesQuery)->where('payment_status', '!=', 'paid')->sum('sale_price');
+
+            $missingDetails = (clone $stockQuery)
+                ->where(function ($q) {
+                    $q->whereNull('ear_tag_number')->orWhere('ear_tag_number', '')
+                        ->orWhereNull('date_of_birth')
+                        ->orWhereNull('gender')->orWhere('gender', '')
+                        ->orWhereNull('breed')->orWhere('breed', '');
+                })
+                ->count();
+
+            $alerts = WeightAlert::where('acknowledged', false)
+                ->whereHas('pig', function ($q) use ($orgId) {
+                    $orgId
+                        ? $q->where('organization_id', $orgId)
+                        : $q->whereNull('organization_id');
+                })
+                ->count();
+
+            $dataScore = $stock > 0 ? max(0, round((1 - ($missingDetails / max(1, $stock))) * 100)) : 100;
+            $riskScore = $alerts + ($missingDetails * 0.4) + ($unpaid > 0 ? 2 : 0);
+            $status = match (true) {
+                $riskScore >= 10 || $dataScore < 70 => 'Critical',
+                $riskScore >= 5 || $dataScore < 85 => 'At Risk',
+                default => 'Healthy',
+            };
+
+            $manager = collect($organization->users ?? [])
+                ->first(fn ($user) => $user->isManager() || $user->isAdmin());
+
+            return [
+                'id' => $orgId,
+                'name' => $organization->name ?? 'Default Workspace',
+                'manager' => $manager ? trim($manager->first_name . ' ' . $manager->last_name) : 'Unassigned',
+                'stock' => $stock,
+                'breeding_stock' => $breeding,
+                'revenue' => $revenue,
+                'unpaid' => $unpaid,
+                'data_quality' => $dataScore,
+                'alerts' => $alerts,
+                'status' => $status,
+                'active' => (bool) ($organization->is_active ?? true),
+            ];
+        })->sortByDesc(fn ($workspace) => $workspace['alerts'] + (100 - $workspace['data_quality']))->values()->all();
+    }
+
+    private function getGovernanceQueue(array $opsSnapshot, array $dataQuality, array $receivablesAging): array
+    {
+        $pendingIntakes = PurchaseStockIntake::whereIn('status', [
+            PurchaseStockIntake::STATUS_PENDING_RECEIVE,
+            PurchaseStockIntake::STATUS_RECEIVED,
+            PurchaseStockIntake::STATUS_QUARANTINED,
+            PurchaseStockIntake::STATUS_APPROVED,
+        ])->count();
+
+        $duplicateEarTags = (int) ($dataQuality['duplicate_ear_tags'] ?? 0);
+        $missingCoreDetails = (int) ($dataQuality['missing_ear_tag'] ?? 0)
+            + (int) ($dataQuality['missing_dob'] ?? 0)
+            + (int) ($dataQuality['missing_gender'] ?? 0)
+            + (int) ($dataQuality['missing_breed'] ?? 0);
+        $overdueActions = (int) ($opsSnapshot['overdue_weighings'] ?? 0)
+            + (int) ($opsSnapshot['overdue_weaning'] ?? 0)
+            + (int) ($opsSnapshot['preg_checks_overdue'] ?? 0)
+            + (int) ($opsSnapshot['overdue_gestation'] ?? 0);
+
+        return [
+            [
+                'label' => 'Pending purchased stock approvals',
+                'detail' => 'Intakes waiting for receive, quarantine, approval, or stock entry',
+                'count' => $pendingIntakes,
+                'tone' => $pendingIntakes > 0 ? 'amber' : 'green',
+            ],
+            [
+                'label' => 'Duplicate ear tags',
+                'detail' => 'Animal records that may need data correction',
+                'count' => $duplicateEarTags,
+                'tone' => $duplicateEarTags > 0 ? 'red' : 'green',
+            ],
+            [
+                'label' => 'Missing core animal details',
+                'detail' => 'Ear tag, birth date, gender, or breed missing',
+                'count' => $missingCoreDetails,
+                'tone' => $missingCoreDetails > 0 ? 'amber' : 'green',
+            ],
+            [
+                'label' => 'Overdue operational actions',
+                'detail' => 'Weighing, weaning, pregnancy checks, and gestation follow-ups',
+                'count' => $overdueActions,
+                'tone' => $overdueActions > 0 ? 'red' : 'green',
+            ],
+            [
+                'label' => 'Receivables over 60 days',
+                'detail' => 'Unpaid sales requiring finance follow-up',
+                'count' => (float) ($receivablesAging['60_plus']['amount'] ?? 0),
+                'money' => true,
+                'tone' => ($receivablesAging['60_plus']['amount'] ?? 0) > 0 ? 'red' : 'green',
+            ],
+        ];
+    }
+
+    private function getRiskMatrix(array $portfolioOverview): array
+    {
+        return collect($portfolioOverview)->take(6)->map(function ($workspace) {
+            return [
+                'name' => $workspace['name'],
+                'financial' => $this->riskLevel($workspace['unpaid'] > 0 ? 2 : 0),
+                'operational' => $this->riskLevel($workspace['alerts']),
+                'data_quality' => $this->riskLevel(100 - $workspace['data_quality']),
+                'stock' => $this->riskLevel($workspace['stock'] <= 0 ? 3 : 0),
+            ];
+        })->values()->all();
+    }
+
+    private function riskLevel(float|int $score): string
+    {
+        return match (true) {
+            $score >= 8 => 'high',
+            $score >= 3 => 'medium',
+            $score > 0 => 'low',
+            default => 'healthy',
+        };
     }
 
     private function getFinancialTrends(?Carbon $startDate, Carbon $endDate): array

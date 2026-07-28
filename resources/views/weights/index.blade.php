@@ -1,45 +1,374 @@
 <x-app-layout>
-    <main class="flex-1 pt-0 p-8">
-        <div class="max-w-7xl mx-auto">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-900">Weight Management</h2>
-                <div class="flex gap-2 flex-wrap">
-                    <a href="{{ route('weights.create') }}" class="px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition">
-                        <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                        </svg>
-                        Record Weight
-                    </a>
-                    <a href="{{ route('weights.reports') }}" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition">
-                        <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                        </svg>
-                        Weight Reports
-                    </a>
-                    <form method="GET" action="{{ route('weights.index.export-pdf') }}" class="inline">
-                        @foreach(request()->except('page') as $key => $value)
-                            <input type="hidden" name="{{ $key }}" value="{{ $value }}" />
-                        @endforeach
-                        <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition" title="Export all weights (filtered) as PDF">
-                            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+    <style>
+        .weights-page{
+            min-height: 100vh;
+            padding: 20px 0 40px;
+            background: #f6f8fb;
+        }
+
+        .weights-shell{
+            width: min(100% - 32px, 1480px);
+            margin: 0 auto;
+        }
+
+        .weights-hero{
+            position: relative;
+            overflow: visible;
+            border-radius: 22px;
+            padding: 20px;
+            margin-bottom: 18px;
+            background: #fff;
+            color: #0f172a;
+            border: 1px solid #dbe7f0;
+            box-shadow: 0 12px 28px rgba(15,23,42,.05);
+        }
+
+        .weights-hero::before{
+            content: none;
+        }
+
+        .weights-hero-inner{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+
+        .weights-title{
+            margin: 0;
+            font-size: 1.45rem;
+            line-height: 1.15;
+            font-weight: 900;
+            letter-spacing: 0;
+        }
+
+        .weights-subtitle{
+            margin: 6px 0 0;
+            max-width: 620px;
+            color: #64748b;
+            font-size: .88rem;
+            line-height: 1.55;
+        }
+
+        .weights-actions{
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            flex-wrap: wrap;
+            padding: 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 18px;
+            background: #f8fafc;
+        }
+
+        .weights-action{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 42px;
+            padding: 10px 14px;
+            border-radius: 14px;
+            border: 1px solid #dbe7f0;
+            background: #fff;
+            color: #334155;
+            font-size: .82rem;
+            font-weight: 800;
+            line-height: 1;
+            text-decoration: none;
+            transition: .18s ease;
+            box-shadow: none;
+            white-space: nowrap;
+        }
+
+        .weights-action:hover{
+            background: #f1f5f9;
+            transform: translateY(-1px);
+        }
+
+        .weights-action.primary{
+            background: #166534;
+            color: #fff;
+            border-color: #166534;
+        }
+
+        .weights-action.primary:hover{
+            background: #14532d;
+        }
+
+        .weights-action.danger{
+            background: #fff;
+            color: #b91c1c;
+            border-color: #fecaca;
+        }
+
+        .weights-action.danger:hover{
+            background: #fef2f2;
+        }
+
+        .weights-export-form{
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+        }
+
+        .weights-month-control{
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 5px 8px;
+            border-radius: 14px;
+            background: #fff;
+            border: 1px solid #dbe7f0;
+        }
+
+        .weights-month-control label{
+            font-size: .68rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            font-weight: 900;
+            color: #64748b;
+        }
+
+        .weights-month-control input{
+            width: 138px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 7px 8px;
+            color: #0f172a;
+            font-size: .8rem;
+            outline: none;
+            background: #f8fafc;
+        }
+
+        .weights-panel{
+            background: rgba(255,255,255,.98);
+            border: 1px solid #dbe7f0;
+            border-radius: 24px;
+            box-shadow: 0 14px 34px rgba(15,23,42,.05);
+        }
+
+        .weights-filter-panel{
+            padding: 20px;
+            margin-bottom: 18px;
+        }
+
+        .weights-filter-title{
+            margin: 0 0 14px;
+            font-size: .92rem;
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        .weights-filter-actions{
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .weights-filter-btn{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 42px;
+            padding: 10px 14px;
+            border-radius: 13px;
+            font-size: .82rem;
+            font-weight: 800;
+            text-decoration: none;
+            border: 1px solid transparent;
+            transition: .18s ease;
+            white-space: nowrap;
+        }
+
+        .weights-filter-btn.apply{
+            background: #166534;
+            color: #fff;
+            border-color: #166534;
+        }
+
+        .weights-filter-btn.apply:hover{
+            background: #14532d;
+        }
+
+        .weights-filter-btn.clear{
+            background: #f8fafc;
+            color: #475569;
+            border-color: #cbd5e1;
+        }
+
+        .weights-filter-btn.clear:hover{
+            background: #eef2f7;
+        }
+
+        .weights-table-card{
+            overflow: hidden;
+        }
+
+        .weights-table-head{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 18px 20px;
+            border-bottom: 1px solid #edf2f7;
+            background: linear-gradient(180deg, #fbfdff 0%, #fff 100%);
+        }
+
+        .weights-table-title{
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        .weights-table-sub{
+            margin-top: 4px;
+            font-size: .78rem;
+            color: #64748b;
+        }
+
+        .weights-records-table{
+            width: 100%;
+            min-width: 1180px;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        .weights-records-table thead th{
+            background: #f8fafc;
+            padding: 13px 18px;
+            font-size: .7rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #64748b;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+            white-space: nowrap;
+        }
+
+        .weights-records-table tbody td{
+            padding: 15px 18px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+            background: #fff;
+        }
+
+        .weights-records-table tbody tr:hover td{
+            background: #f8fffb;
+        }
+
+        .weights-row-actions{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: nowrap;
+        }
+
+        .weights-row-action{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 32px;
+            padding: 7px 10px;
+            border-radius: 11px;
+            font-size: .74rem;
+            font-weight: 800;
+            text-decoration: none;
+            border: 1px solid #dbeafe;
+            color: #1d4ed8;
+            background: #eff6ff;
+            white-space: nowrap;
+        }
+
+        .weights-row-action.edit{
+            color: #166534;
+            background: #ecfdf5;
+            border-color: #bbf7d0;
+        }
+
+        @media (max-width: 900px){
+            .weights-shell{
+                width: min(100% - 20px, 1480px);
+            }
+
+            .weights-hero{
+                padding: 18px;
+                border-radius: 20px;
+            }
+
+            .weights-actions,
+            .weights-export-form,
+            .weights-month-control{
+                width: 100%;
+            }
+
+            .weights-action,
+            .weights-month-control input{
+                flex: 1 1 auto;
+            }
+        }
+    </style>
+
+    <main class="weights-page">
+        <div class="weights-shell">
+            <div class="weights-hero">
+                <div class="weights-hero-inner">
+                    <div>
+                        <h2 class="weights-title">Weight Management</h2>
+                        <p class="weights-subtitle">
+                            Record animal weights, review latest measurements, export filtered reports, and keep growth tracking organized across the farm.
+                        </p>
+                    </div>
+
+                    <div class="weights-actions">
+                        <a href="{{ route('weights.create') }}" class="weights-action primary">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                             </svg>
-                            Export PDF
-                        </button>
-                    </form>
-                    <form method="GET" action="{{ route('weights.index.export-excel') }}" class="inline flex items-center gap-2">
-                        @foreach(request()->except(['page','month']) as $key => $value)
-                            <input type="hidden" name="{{ $key }}" value="{{ $value }}" />
-                        @endforeach
-                        <label class="text-xs text-gray-600">Month</label>
-                        <input type="month" name="month" value="{{ request('month') }}" class="border border-gray-300 rounded px-2 py-1 text-sm focus:ring-emerald-500 focus:border-emerald-500">
-                        <button type="submit" class="px-4 py-2 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition" title="Download weekly gain analysis (Excel/CSV)">
-                            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5h14a2 2 0 012 2v6a2 2 0 01-2 2h-4l-4 4v-4H5a2 2 0 01-2-2V7a2 2 0 012-2z"/>
+                            Record Weight
+                        </a>
+
+                        <a href="{{ route('weights.reports') }}" class="weights-action">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                             </svg>
-                            Export Excel
-                        </button>
-                    </form>
+                            Weight Reports
+                        </a>
+
+                        <form method="GET" action="{{ route('weights.index.export-pdf') }}" class="weights-export-form">
+                            @foreach(request()->except('page') as $key => $value)
+                                <input type="hidden" name="{{ $key }}" value="{{ $value }}" />
+                            @endforeach
+                            <button type="submit" class="weights-action danger" title="Export all weights (filtered) as PDF">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                Export PDF
+                            </button>
+                        </form>
+
+                        <form method="GET" action="{{ route('weights.index.export-excel') }}" class="weights-export-form">
+                            @foreach(request()->except(['page','month']) as $key => $value)
+                                <input type="hidden" name="{{ $key }}" value="{{ $value }}" />
+                            @endforeach
+                            <div class="weights-month-control">
+                                <label>Month</label>
+                                <input type="month" name="month" value="{{ request('month') }}">
+                            </div>
+                            <button type="submit" class="weights-action" title="Download weekly gain analysis (Excel/CSV)">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5h14a2 2 0 012 2v6a2 2 0 01-2 2h-4l-4 4v-4H5a2 2 0 01-2-2V7a2 2 0 012-2z"/>
+                                </svg>
+                                Export Excel
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
 
@@ -47,7 +376,8 @@
             <x-weight-alerts-summary />
 
             <!-- Filters -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <div class="weights-panel weights-filter-panel">
+                <h3 class="weights-filter-title">Filter Latest Weight Records</h3>
                 <form method="GET" id="weightsFilterForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Pig</label>
@@ -93,28 +423,31 @@
                         <input type="number" name="weight_to" value="{{ request('weight_to') }}" step="0.1" min="0" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-green-500 focus:border-green-500 auto-debounce">
                     </div>
 
-                    <div class="flex items-end gap-2">
-                        <button type="submit" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
-                            <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="weights-filter-actions">
+                        <button type="submit" class="weights-filter-btn apply">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z"/>
                             </svg>
                             Filter
                         </button>
-                        <a href="{{ route('weights.index') }}" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition">Clear</a>
+                        <a href="{{ route('weights.index') }}" class="weights-filter-btn clear">Clear</a>
                     </div>
                 </form>
             </div>
 
             <!-- Weight Records Table -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h3 class="text-lg font-semibold text-gray-900">Weight Records ({{ $weights->total() }})</h3>
+            <div class="weights-panel weights-table-card">
+                <div class="weights-table-head">
+                    <div>
+                        <h3 class="weights-table-title">Weight Records</h3>
+                        <div class="weights-table-sub">{{ $weights->total() }} latest record{{ $weights->total() === 1 ? '' : 's' }} in this view</div>
+                    </div>
                 </div>
 
                 @if($weights->count() > 0)
                     <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
+                        <table class="weights-records-table">
+                            <thead>
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pig</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
@@ -127,9 +460,9 @@
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
+                            <tbody>
                                 @foreach($weights as $weight)
-                                    <tr class="hover:bg-gray-50">
+                                    <tr>
                                         @php $pig = $weight->pig; @endphp
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center">
@@ -170,10 +503,10 @@
                                                     @php
                                                         $alert = $weight->weightAlerts->first();
                                                         $alertConfig = [
-                                                            'under_weight' => ['icon' => '⬇️', 'color' => 'text-blue-600', 'bg' => 'bg-blue-100', 'text' => 'Under Weight'],
-                                                            'over_weight' => ['icon' => '⬆️', 'color' => 'text-orange-600', 'bg' => 'bg-orange-100', 'text' => 'Over Weight'],
-                                                            'normal' => ['icon' => '✅', 'color' => 'text-green-600', 'bg' => 'bg-green-100', 'text' => 'Normal'],
-                                                            'no_standard' => ['icon' => '❓', 'color' => 'text-gray-600', 'bg' => 'bg-gray-100', 'text' => 'No Standard']
+                                                            'under_weight' => ['icon' => 'Under', 'color' => 'text-blue-600', 'bg' => 'bg-blue-100', 'text' => 'Under Weight'],
+                                                            'over_weight' => ['icon' => 'Over', 'color' => 'text-orange-600', 'bg' => 'bg-orange-100', 'text' => 'Over Weight'],
+                                                            'normal' => ['icon' => 'OK', 'color' => 'text-green-600', 'bg' => 'bg-green-100', 'text' => 'Normal'],
+                                                            'no_standard' => ['icon' => '?', 'color' => 'text-gray-600', 'bg' => 'bg-gray-100', 'text' => 'No Standard']
                                                         ];
                                                         $config = $alertConfig[$alert->alert_type] ?? $alertConfig['no_standard'];
                                                         $severityColor = $alert->severity == 'high' ? 'border-red-500' : ($alert->severity == 'medium' ? 'border-yellow-500' : 'border-gray-300');
@@ -235,15 +568,15 @@
                                             @if($weight->health_status)
                                                 @php
                                                     $healthConfig = [
-                                                        'excellent' => ['color' => 'text-green-600', 'icon' => '🟢'],
-                                                        'good' => ['color' => 'text-blue-600', 'icon' => '🔵'],
-                                                        'fair' => ['color' => 'text-yellow-600', 'icon' => '🟡'],
-                                                        'poor' => ['color' => 'text-red-600', 'icon' => '🔴']
+                                                        'excellent' => 'bg-green-100 text-green-700 border-green-200',
+                                                        'good' => 'bg-blue-100 text-blue-700 border-blue-200',
+                                                        'fair' => 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                                                        'poor' => 'bg-red-100 text-red-700 border-red-200',
                                                     ];
                                                     $config = $healthConfig[$weight->health_status] ?? $healthConfig['good'];
                                                 @endphp
-                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium {{ $config['color'] }}">
-                                                    {{ $config['icon'] }} {{ ucfirst($weight->health_status) }}
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border {{ $config }}">
+                                                    {{ ucfirst($weight->health_status) }}
                                                 </span>
                                             @else
                                                 <span class="text-gray-400">-</span>
@@ -261,10 +594,10 @@
                                             @endif
                                         </td> -->
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <div class="flex gap-2">
-                                                <a href="{{ route('weights.edit', $weight) }}" class="text-green-600 hover:text-green-900">Edit</a>
+                                            <div class="weights-row-actions">
+                                                <a href="{{ route('weights.edit', $weight) }}" class="weights-row-action edit">Edit</a>
                                                 @if($pig)
-                                                    <a href="{{ route('pigs.show', $pig->id) }}#weight" class="text-blue-600 hover:text-blue-900">View Pig</a>
+                                                    <a href="{{ route('pigs.show', $pig->id) }}#weight" class="weights-row-action">View Pig</a>
                                                 @endif
                                             </div>
                                         </td>

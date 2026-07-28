@@ -1,5 +1,4 @@
 <x-app-layout>
-    @php use App\Models\Storefront\StorefrontOrder; @endphp
     <div class="max-w-4xl mx-auto py-6 px-4">
         @if(session('success'))<div class="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm">{{ session('success') }}</div>@endif
         @if(session('error'))<div class="mb-4 rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ session('error') }}</div>@endif
@@ -39,7 +38,7 @@
                     </div>
                 </div>
 
-                @if($order->fulfilment_method === StorefrontOrder::FULFIL_DELIVERY)
+                @if($order->fulfilment_method === \App\Models\Storefront\StorefrontOrder::FULFIL_DELIVERY)
                     <div class="rounded-2xl bg-white border border-slate-200 p-5 text-sm">
                         <h2 class="font-semibold text-slate-700 mb-2">Delivery</h2>
                         <p class="text-slate-600">{{ $order->ship_to_name }} · {{ $order->ship_to_phone }}<br>{{ $order->ship_address_line_1 }} {{ $order->ship_address_line_2 }}<br>{{ $order->ship_city }} {{ $order->ship_region }} {{ $order->ship_ghana_post_gps }}</p>
@@ -92,7 +91,7 @@
                         @endcan
                     @endif
 
-                    @if($order->payment_method === 'paystack' && $order->payment_status === StorefrontOrder::PAY_PAYSTACK_PEND)
+                    @if($order->payment_method === 'paystack' && $order->payment_status === \App\Models\Storefront\StorefrontOrder::PAY_PAYSTACK_PEND)
                         @can('confirm_storefront_orders')
                             <form method="POST" action="{{ route('storefront.admin.orders.verify-payment', $order) }}" class="border-t border-slate-100 pt-3">@csrf
                                 <button class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm">Re-verify payment</button>
@@ -100,17 +99,17 @@
                         @endcan
                     @endif
 
-                    @if($order->status === StorefrontOrder::STATUS_CONFIRMED)
+                    @if($order->status === \App\Models\Storefront\StorefrontOrder::STATUS_CONFIRMED)
                         @can('manage_storefront_orders')
                             <form method="POST" action="{{ route('storefront.admin.orders.dispatch', $order) }}" class="border-t border-slate-100 pt-3">@csrf
                                 <button class="w-full px-3 py-2 rounded-xl bg-slate-700 text-white text-sm">
-                                    {{ $order->fulfilment_method === StorefrontOrder::FULFIL_DELIVERY ? 'Mark out for delivery' : 'Mark ready for pickup' }}
+                                    {{ $order->fulfilment_method === \App\Models\Storefront\StorefrontOrder::FULFIL_DELIVERY ? 'Mark out for delivery' : 'Mark ready for pickup' }}
                                 </button>
                             </form>
                         @endcan
                     @endif
 
-                    @if(in_array($order->status, [StorefrontOrder::STATUS_READY_FOR_PICKUP, StorefrontOrder::STATUS_OUT_FOR_DELIVERY], true))
+                    @if(in_array($order->status, [\App\Models\Storefront\StorefrontOrder::STATUS_READY_FOR_PICKUP, \App\Models\Storefront\StorefrontOrder::STATUS_OUT_FOR_DELIVERY], true))
                         @can('manage_storefront_orders')
                             <form method="POST" action="{{ route('storefront.admin.orders.complete', $order) }}" class="border-t border-slate-100 pt-3">@csrf
                                 <button class="w-full px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm">Complete order</button>
@@ -120,7 +119,7 @@
                     @endif
 
                     @can('refund_storefront_orders')
-                        @if(in_array($order->status, [StorefrontOrder::STATUS_CONFIRMED, StorefrontOrder::STATUS_READY_FOR_PICKUP, StorefrontOrder::STATUS_OUT_FOR_DELIVERY, StorefrontOrder::STATUS_COMPLETED], true))
+                        @if(in_array($order->status, [\App\Models\Storefront\StorefrontOrder::STATUS_CONFIRMED, \App\Models\Storefront\StorefrontOrder::STATUS_READY_FOR_PICKUP, \App\Models\Storefront\StorefrontOrder::STATUS_OUT_FOR_DELIVERY, \App\Models\Storefront\StorefrontOrder::STATUS_COMPLETED], true))
                             <form method="POST" action="{{ route('storefront.admin.orders.refund', $order) }}" class="border-t border-slate-100 pt-3" onsubmit="return confirm('Refund this order? This reverses customer-facing financial legs.');">@csrf
                                 <input name="reason" required maxlength="500" placeholder="Refund reason" class="w-full rounded-xl border-slate-300 text-sm mb-2">
                                 <button class="w-full px-3 py-2 rounded-xl bg-rose-600 text-white text-sm">Refund order</button>

@@ -164,6 +164,14 @@
             background: linear-gradient(180deg, rgba(248,250,252,.95) 0%, rgba(255,255,255,.98) 100%);
         }
 
+        .structure-card-head-row{
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
         .structure-card-title{
             margin: 0;
             font-size: 1.04rem;
@@ -246,6 +254,164 @@
 
         .structure-submit:hover{
             transform: translateY(-1px);
+        }
+
+        .structure-add-room-btn{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            min-height: 42px;
+            border: none;
+            border-radius: 14px;
+            padding: 0 16px;
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            color: #fff;
+            font-size: .84rem;
+            font-weight: 900;
+            box-shadow: 0 10px 24px rgba(22,163,74,.16);
+            cursor: pointer;
+        }
+
+        .structure-filter-grid{
+            display: grid;
+            grid-template-columns: minmax(220px, 1.35fr) repeat(3, minmax(150px, .8fr)) auto;
+            gap: 14px;
+            align-items: end;
+        }
+
+        .structure-filter-actions{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .structure-clear-btn{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 44px;
+            border: 1px solid #cbd5e1;
+            border-radius: 14px;
+            padding: 0 14px;
+            background: #fff;
+            color: #334155;
+            font-size: .82rem;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .structure-filter-count{
+            color: #64748b;
+            font-size: .82rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .structure-no-results{
+            display: none;
+            padding: 36px 18px;
+            text-align: center;
+            color: #64748b;
+            font-weight: 800;
+        }
+
+        .structure-modal-backdrop{
+            position: fixed;
+            inset: 0;
+            z-index: 60;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(15,23,42,.58);
+        }
+
+        .structure-modal-backdrop.open{
+            display: flex;
+        }
+
+        .structure-modal{
+            width: min(720px, 100%);
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            border-radius: 24px;
+            background: #fff;
+            box-shadow: 0 28px 80px rgba(15,23,42,.28);
+        }
+
+        .structure-modal-head{
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 22px 24px 16px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .structure-modal-title{
+            margin: 0;
+            color: #0f172a;
+            font-size: 1.12rem;
+            font-weight: 900;
+        }
+
+        .structure-modal-sub{
+            margin: 5px 0 0;
+            color: #64748b;
+            font-size: .86rem;
+            line-height: 1.6;
+        }
+
+        .structure-modal-close{
+            width: 38px;
+            height: 38px;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #fff;
+            color: #475569;
+            font-size: 1.35rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .structure-modal-body{
+            padding: 20px 24px 24px;
+        }
+
+        .structure-modal-grid{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .structure-modal-grid .wide{
+            grid-column: 1 / -1;
+        }
+
+        .structure-modal-actions{
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 18px;
+            padding-top: 18px;
+            border-top: 1px solid #edf2f7;
+        }
+
+        .structure-modal-cancel{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 42px;
+            border: 1px solid #cbd5e1;
+            border-radius: 14px;
+            padding: 0 16px;
+            background: #fff;
+            color: #334155;
+            font-size: .84rem;
+            font-weight: 900;
+            cursor: pointer;
         }
 
         .structure-table-wrap{
@@ -417,6 +583,10 @@
             .structure-form-grid{
                 grid-template-columns: repeat(2, minmax(0,1fr));
             }
+
+            .structure-filter-grid{
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
         }
 
         @media (max-width: 768px){
@@ -441,6 +611,24 @@
 
             .structure-form-grid{
                 grid-template-columns: 1fr;
+            }
+
+            .structure-filter-grid,
+            .structure-modal-grid{
+                grid-template-columns: 1fr;
+            }
+
+            .structure-filter-actions,
+            .structure-modal-actions{
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .structure-clear-btn,
+            .structure-submit,
+            .structure-modal-cancel,
+            .structure-add-room-btn{
+                width: 100%;
             }
 
             .structure-show-actions{
@@ -550,35 +738,30 @@
 
             <div class="structure-card">
                 <div class="structure-card-head">
-                    <h2 class="structure-card-title">Room Inventory</h2>
-                    <div class="structure-card-sub">Add rooms and manage existing room allocation inside this structure.</div>
+                    <div class="structure-card-head-row">
+                        <div>
+                            <h2 class="structure-card-title">Room Inventory</h2>
+                            <div class="structure-card-sub">Filter rooms and manage existing room allocation inside this structure.</div>
+                        </div>
+                        <button type="button" class="structure-add-room-btn" data-room-modal-open>
+                            Add Room
+                        </button>
+                    </div>
                 </div>
 
                 <div class="structure-card-body" style="border-bottom:1px solid #edf2f7;">
-                    <form method="POST" action="{{ route('structures.rooms.store', $structure) }}" class="structure-form-grid">
-                        @csrf
-
+                    <div class="structure-filter-grid" data-room-filters>
                         <div class="structure-field">
-                            <label for="name" class="structure-label">Name</label>
-                            <input type="text" id="name" name="name" placeholder="Farrowing Bay A" class="structure-input" required>
+                            <label for="roomSearch" class="structure-label">Search</label>
+                            <input type="search" id="roomSearch" class="structure-input" placeholder="Search by room name, code, or notes" data-room-search>
                         </div>
 
                         <div class="structure-field">
-                            <label for="code" class="structure-label">Code</label>
-                            <input type="text" id="code" name="code" placeholder="RMA-01" class="structure-input" required>
-                        </div>
-
-                        <div class="structure-field">
-                            <label for="capacity" class="structure-label">Capacity</label>
-                            <input type="number" id="capacity" name="capacity" min="0" placeholder="Max animals" class="structure-input">
-                        </div>
-
-                        <div class="structure-field">
-                            <label for="type" class="structure-label">Type</label>
-                            <select id="type" name="type" class="structure-select">
-                                <option value="" disabled selected>-- Select --</option>
+                            <label for="roomTypeFilter" class="structure-label">Type</label>
+                            <select id="roomTypeFilter" class="structure-select" data-room-type-filter>
+                                <option value="">All types</option>
                                 <option value="general">Breeding</option>
-                                <option value="maternity">Maternity</option>
+                                <option value="maternity">Growers</option>
                                 <option value="gestation">Gestation</option>
                                 <option value="weaning">Weaning</option>
                                 <option value="finisher">Finisher</option>
@@ -587,12 +770,29 @@
                         </div>
 
                         <div class="structure-field">
-                            <label for="notes" class="structure-label">Notes (Optional)</label>
-                            <textarea id="notes" name="notes" rows="1" placeholder="Special requirements or status" class="structure-textarea"></textarea>
+                            <label for="roomCapacityFilter" class="structure-label">Capacity</label>
+                            <select id="roomCapacityFilter" class="structure-select" data-room-capacity-filter>
+                                <option value="">All capacity states</option>
+                                <option value="available">Available</option>
+                                <option value="full">Full</option>
+                                <option value="unlimited">Unlimited</option>
+                            </select>
                         </div>
 
-                        <button type="submit" class="structure-submit">Add Room</button>
-                    </form>
+                        <div class="structure-field">
+                            <label for="roomOccupancyFilter" class="structure-label">Occupancy</label>
+                            <select id="roomOccupancyFilter" class="structure-select" data-room-occupancy-filter>
+                                <option value="">All rooms</option>
+                                <option value="occupied">Occupied</option>
+                                <option value="empty">Empty</option>
+                            </select>
+                        </div>
+
+                        <div class="structure-filter-actions">
+                            <button type="button" class="structure-clear-btn" data-room-clear-filters>Clear</button>
+                            <span class="structure-filter-count" data-room-filter-count>{{ $structure->rooms->count() }} rooms</span>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="structure-table-wrap">
@@ -610,7 +810,21 @@
                         </thead>
                         <tbody>
                             @forelse($structure->rooms as $room)
-                                <tr>
+                                @php
+                                    $roomPigCount = $room->pigs->count();
+                                    $roomCapacityStatus = $room->capacity
+                                        ? ($roomPigCount >= $room->capacity ? 'full' : 'available')
+                                        : 'unlimited';
+                                    $roomOccupancyStatus = $roomPigCount > 0 ? 'occupied' : 'empty';
+                                    $roomSearchText = strtolower(trim($room->name . ' ' . $room->code . ' ' . $room->type . ' ' . ($room->notes ?? '')));
+                                @endphp
+                                <tr
+                                    data-room-row
+                                    data-room-type="{{ $room->type }}"
+                                    data-room-capacity-status="{{ $roomCapacityStatus }}"
+                                    data-room-occupancy-status="{{ $roomOccupancyStatus }}"
+                                    data-room-search="{{ $roomSearchText }}"
+                                >
                                     <td>
                                         <div class="structure-room-name">
                                             <div class="structure-room-main">
@@ -704,10 +918,162 @@
                                     </td>
                                 </tr>
                             @endforelse
+                            <tr data-room-no-results style="display:none;">
+                                <td colspan="7">
+                                    <div class="structure-no-results">No rooms match the selected filters.</div>
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
     </div>
+
+    <div class="structure-modal-backdrop" data-room-modal aria-hidden="true">
+        <div class="structure-modal" role="dialog" aria-modal="true" aria-labelledby="roomModalTitle">
+            <div class="structure-modal-head">
+                <div>
+                    <h2 id="roomModalTitle" class="structure-modal-title">Add Room</h2>
+                    <p class="structure-modal-sub">Create a room inside {{ $structure->name }} and assign its capacity and purpose.</p>
+                </div>
+                <button type="button" class="structure-modal-close" data-room-modal-close aria-label="Close add room form">&times;</button>
+            </div>
+
+            <form method="POST" action="{{ route('structures.rooms.store', $structure) }}" class="structure-modal-body">
+                @csrf
+
+                <div class="structure-modal-grid">
+                    <div class="structure-field">
+                        <label for="modalRoomName" class="structure-label">Name</label>
+                        <input type="text" id="modalRoomName" name="name" value="{{ old('name') }}" placeholder="Farrowing Bay A" class="structure-input" required>
+                    </div>
+
+                    <div class="structure-field">
+                        <label for="modalRoomCode" class="structure-label">Code</label>
+                        <input type="text" id="modalRoomCode" name="code" value="{{ old('code') }}" placeholder="RMA-01" class="structure-input" required>
+                    </div>
+
+                    <div class="structure-field">
+                        <label for="modalRoomCapacity" class="structure-label">Capacity</label>
+                        <input type="number" id="modalRoomCapacity" name="capacity" value="{{ old('capacity') }}" min="0" placeholder="Max animals" class="structure-input">
+                    </div>
+
+                    <div class="structure-field">
+                        <label for="modalRoomType" class="structure-label">Type</label>
+                        <select id="modalRoomType" name="type" class="structure-select" required>
+                            <option value="" disabled @selected(! old('type'))>Select type</option>
+                            <option value="general" @selected(old('type') === 'general')>Breeding</option>
+                            <option value="maternity" @selected(old('type') === 'maternity')>Growers</option>
+                            <option value="gestation" @selected(old('type') === 'gestation')>Gestation</option>
+                            <option value="weaning" @selected(old('type') === 'weaning')>Weaning</option>
+                            <option value="finisher" @selected(old('type') === 'finisher')>Finisher</option>
+                            <option value="quarantine" @selected(old('type') === 'quarantine')>Quarantine</option>
+                        </select>
+                    </div>
+
+                    <div class="structure-field wide">
+                        <label for="modalRoomNotes" class="structure-label">Notes (Optional)</label>
+                        <textarea id="modalRoomNotes" name="notes" rows="3" placeholder="Special requirements or status" class="structure-textarea">{{ old('notes') }}</textarea>
+                    </div>
+                </div>
+
+                <div class="structure-modal-actions">
+                    <button type="button" class="structure-modal-cancel" data-room-modal-close>Cancel</button>
+                    <button type="submit" class="structure-submit">Add Room</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const modal = document.querySelector('[data-room-modal]');
+            const openButtons = document.querySelectorAll('[data-room-modal-open]');
+            const closeButtons = document.querySelectorAll('[data-room-modal-close]');
+            const firstModalInput = document.getElementById('modalRoomName');
+            const rows = Array.from(document.querySelectorAll('[data-room-row]'));
+            const noResultsRow = document.querySelector('[data-room-no-results]');
+            const noResultsContent = noResultsRow?.querySelector('.structure-no-results');
+            const searchInput = document.querySelector('[data-room-search]');
+            const typeFilter = document.querySelector('[data-room-type-filter]');
+            const capacityFilter = document.querySelector('[data-room-capacity-filter]');
+            const occupancyFilter = document.querySelector('[data-room-occupancy-filter]');
+            const clearButton = document.querySelector('[data-room-clear-filters]');
+            const countLabel = document.querySelector('[data-room-filter-count]');
+
+            const openModal = () => {
+                modal?.classList.add('open');
+                modal?.setAttribute('aria-hidden', 'false');
+                setTimeout(() => firstModalInput?.focus(), 50);
+            };
+
+            const closeModal = () => {
+                modal?.classList.remove('open');
+                modal?.setAttribute('aria-hidden', 'true');
+            };
+
+            const applyFilters = () => {
+                const query = (searchInput?.value || '').trim().toLowerCase();
+                const type = typeFilter?.value || '';
+                const capacity = capacityFilter?.value || '';
+                const occupancy = occupancyFilter?.value || '';
+                let visibleCount = 0;
+
+                rows.forEach((row) => {
+                    const matchesSearch = !query || (row.dataset.roomSearch || '').includes(query);
+                    const matchesType = !type || row.dataset.roomType === type;
+                    const matchesCapacity = !capacity || row.dataset.roomCapacityStatus === capacity;
+                    const matchesOccupancy = !occupancy || row.dataset.roomOccupancyStatus === occupancy;
+                    const visible = matchesSearch && matchesType && matchesCapacity && matchesOccupancy;
+
+                    row.style.display = visible ? '' : 'none';
+                    if (visible) {
+                        visibleCount += 1;
+                    }
+                });
+
+                if (countLabel) {
+                    countLabel.textContent = `${visibleCount} ${visibleCount === 1 ? 'room' : 'rooms'}`;
+                }
+
+                if (noResultsRow && noResultsContent) {
+                    noResultsRow.style.display = rows.length && visibleCount === 0 ? '' : 'none';
+                    noResultsContent.style.display = rows.length && visibleCount === 0 ? 'block' : 'none';
+                }
+            };
+
+            openButtons.forEach((button) => button.addEventListener('click', openModal));
+            closeButtons.forEach((button) => button.addEventListener('click', closeModal));
+            modal?.addEventListener('click', (event) => {
+                if (event.target === modal) {
+                    closeModal();
+                }
+            });
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    closeModal();
+                }
+            });
+
+            [searchInput, typeFilter, capacityFilter, occupancyFilter].forEach((control) => {
+                control?.addEventListener('input', applyFilters);
+                control?.addEventListener('change', applyFilters);
+            });
+
+            clearButton?.addEventListener('click', () => {
+                if (searchInput) searchInput.value = '';
+                if (typeFilter) typeFilter.value = '';
+                if (capacityFilter) capacityFilter.value = '';
+                if (occupancyFilter) occupancyFilter.value = '';
+                applyFilters();
+            });
+
+            applyFilters();
+
+            @if($errors->any() && (old('name') || old('code') || old('type') || old('capacity') || old('notes')))
+                openModal();
+            @endif
+        });
+    </script>
 </x-app-layout>

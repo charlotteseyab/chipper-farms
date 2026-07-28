@@ -94,9 +94,9 @@
 
         <p class="mt-4 text-xs {{ $statement['reconciled'] ? 'text-emerald-600' : 'text-red-600' }}">
             @if($statement['reconciled'])
-                ✓ Reconciled: derived net change equals the actual movement in cash &amp; bank accounts.
+                Reconciled: derived net change equals the actual movement in cash &amp; bank accounts.
             @else
-                ✗ Reconciliation variance of GHS {{ $fmt($statement['variance']) }} between the derived cash flow and the
+                No Reconciliation variance of GHS {{ $fmt($statement['variance']) }} between the derived cash flow and the
                 actual cash &amp; bank movement. Investigate before relying on these figures.
             @endif
         </p>

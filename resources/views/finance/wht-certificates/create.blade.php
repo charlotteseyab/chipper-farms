@@ -29,7 +29,7 @@
                         <option value="{{ $s->id }}"
                                 @selected(old('counterparty_id', $preselectId) == $s->id)>
                             {{ $s->code }} — {{ $s->name }}
-                            @if(! $s->tax_id) ⚠ no TIN @endif
+                            @if(! $s->tax_id) Warning no TIN @endif
                         </option>
                     @endforeach
                 </select>

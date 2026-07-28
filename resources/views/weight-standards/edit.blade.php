@@ -54,7 +54,7 @@
 
             <!-- Current Values Summary -->
             <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <h3 class="text-sm font-medium text-blue-800 mb-3">📊 Current Values</h3>
+                <h3 class="text-sm font-medium text-blue-800 mb-3">Analytics Current Values</h3>
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                         <label class="block text-xs font-medium text-blue-600 mb-1">Weight Range</label>

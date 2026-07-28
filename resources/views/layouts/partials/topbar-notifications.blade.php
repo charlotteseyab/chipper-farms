@@ -67,7 +67,9 @@
                 @foreach($allAlertItems->take(5) as $alert)
                     <div class="border-b border-slate-100 px-4 py-3 last:border-b-0">
                         <div class="flex items-start gap-3">
-                            <span class="mt-0.5 text-lg">{{ $alert['icon'] ?? '🔔' }}</span>
+                            <span class="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+                                <x-ui-icon :name="$alert['icon'] ?? 'notification'" class="h-4 w-4" />
+                            </span>
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-start justify-between gap-3">
                                     <p class="text-sm font-semibold text-slate-900">{{ $alert['title'] }}</p>

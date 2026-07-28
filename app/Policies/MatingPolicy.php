@@ -57,6 +57,12 @@ class MatingPolicy
             && ($user->isAdmin() || $user->isManager());
     }
 
+    public function cancel(User $user, Mating $mating): bool
+    {
+        return $this->sameOrganization($user, $mating)
+            && ($user->isAdmin() || $user->isManager());
+    }
+
     public function pregnancyCheck(User $user, Mating $mating): bool
     {
         return $this->sameOrganization($user, $mating)

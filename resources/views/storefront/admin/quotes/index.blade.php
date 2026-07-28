@@ -20,7 +20,7 @@
         <div class="rounded-2xl bg-white border border-slate-200 overflow-hidden">
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 text-slate-500 text-left">
-                    <tr><th class="px-5 py-2">Ref</th><th class="px-5 py-2">Contact</th><th class="px-5 py-2">Items</th><th class="px-5 py-2">Status</th><th class="px-5 py-2">Requested</th></tr>
+                    <tr><th class="px-5 py-2">Ref</th><th class="px-5 py-2">Contact</th><th class="px-5 py-2">Items</th><th class="px-5 py-2">Status</th><th class="px-5 py-2">Requested</th><th class="px-5 py-2 text-right">Actions</th></tr>
                 </thead>
                 <tbody>
                     @forelse($quotes as $q)
@@ -30,9 +30,52 @@
                             <td class="px-5 py-2">{{ $q->items_count }}</td>
                             <td class="px-5 py-2"><span class="px-2 py-0.5 rounded-full text-xs bg-slate-100 text-slate-600">{{ $q->status }}</span></td>
                             <td class="px-5 py-2 text-slate-500">{{ $q->created_at->format('Y-m-d') }}</td>
+                            <td class="px-5 py-2">
+                                <div class="flex flex-wrap items-center justify-end gap-2">
+                                    <a href="{{ route('storefront.admin.quotes.show', $q) }}" class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">View</a>
+
+                                    @can('manage_storefront_quotes')
+                                        @if($q->status === \App\Models\Storefront\StorefrontQuote::STATUS_REQUESTED)
+                                            <form method="POST" action="{{ route('storefront.admin.quotes.review', $q) }}">
+                                                @csrf
+                                                <button class="rounded-lg bg-slate-700 px-3 py-1.5 text-xs font-medium text-white">Review</button>
+                                            </form>
+                                        @endif
+
+                                        @if(in_array($q->status, [\App\Models\Storefront\StorefrontQuote::STATUS_REQUESTED, \App\Models\Storefront\StorefrontQuote::STATUS_REVIEWING], true))
+                                            <form method="POST" action="{{ route('storefront.admin.quotes.quote', $q) }}" class="flex items-center gap-2">
+                                                @csrf
+                                                <input type="number" step="0.01" min="0" name="quoted_total" required placeholder="Total" class="w-24 rounded-lg border-slate-300 px-2 py-1.5 text-xs">
+                                                <button class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white">Send</button>
+                                            </form>
+                                        @endif
+
+                                        @if($q->status === \App\Models\Storefront\StorefrontQuote::STATUS_QUOTED)
+                                            <form method="POST" action="{{ route('storefront.admin.quotes.accept', $q) }}">
+                                                @csrf
+                                                <button class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white">Accept</button>
+                                            </form>
+                                        @endif
+
+                                        @if($q->status === \App\Models\Storefront\StorefrontQuote::STATUS_ACCEPTED)
+                                            <form method="POST" action="{{ route('storefront.admin.quotes.convert', $q) }}">
+                                                @csrf
+                                                <button class="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-medium text-white">Convert</button>
+                                            </form>
+                                        @endif
+
+                                        @unless($q->isTerminal())
+                                            <form method="POST" action="{{ route('storefront.admin.quotes.decline', $q) }}" onsubmit="return confirm('Decline this quote?');">
+                                                @csrf
+                                                <button class="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600">Decline</button>
+                                            </form>
+                                        @endunless
+                                    @endcan
+                                </div>
+                            </td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="px-5 py-8 text-center text-slate-400">No quotes found.</td></tr>
+                        <tr><td colspan="6" class="px-5 py-8 text-center text-slate-400">No quotes found.</td></tr>
                     @endforelse
                 </tbody>
             </table>

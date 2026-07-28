@@ -185,7 +185,7 @@ class BackfillPigSaleInvoicesCommand extends Command
             $this->newLine();
             $this->error("Failures (" . count($failures) . "):");
             foreach (array_slice($failures, 0, 20) as $f) {
-                $this->line("  ✗ {$f}");
+                $this->line("  No {$f}");
             }
             if (count($failures) > 20) {
                 $this->line("  ... and " . (count($failures) - 20) . " more (see laravel.log)");

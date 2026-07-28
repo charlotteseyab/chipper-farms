@@ -165,7 +165,7 @@
                                         <td class="px-4 py-3 text-right text-xs">
                                             @if($line->counterparty->credit_limit)
                                                 {{ number_format((float) $line->counterparty->credit_limit, 0) }}
-                                                @if($line->exceedsCreditLimit())<span class="ml-1 text-red-600">⚠</span>@endif
+                                                @if($line->exceedsCreditLimit())<span class="ml-1 text-red-600">Warning</span>@endif
                                             @else
                                                 <span class="text-slate-300">—</span>
                                             @endif

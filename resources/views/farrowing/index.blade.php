@@ -97,6 +97,11 @@
             box-shadow: 0 10px 24px rgba(15,23,42,.04);
         }
 
+        .farrowing-stat.survival-stat{
+            padding: 0;
+            overflow: hidden;
+        }
+
         .farrowing-stat-row{
             display: flex;
             align-items: flex-start;
@@ -142,6 +147,99 @@
             font-size: .76rem;
             color: #64748b;
             line-height: 1.55;
+        }
+
+        .farrowing-survival-card{
+            display: grid;
+            gap: 14px;
+            padding: 16px;
+            min-height: 100%;
+        }
+
+        .farrowing-survival-head{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .farrowing-survival-heading{
+            min-width: 0;
+        }
+
+        .farrowing-survival-title{
+            font-size: .72rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+
+        .farrowing-survival-subtitle{
+            font-size: .72rem;
+            color: #94a3b8;
+            line-height: 1.35;
+        }
+
+        .farrowing-survival-grid{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .farrowing-survival-metric{
+            border: 1px solid #e5e7eb;
+            border-radius: 18px;
+            padding: 12px;
+            background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+            min-width: 0;
+        }
+
+        .farrowing-survival-metric.current{
+            background: linear-gradient(180deg, #ecfdf5 0%, #f7fef9 100%);
+            border-color: #bbf7d0;
+        }
+
+        .farrowing-survival-label{
+            font-size: .64rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #64748b;
+            margin-bottom: 6px;
+        }
+
+        .farrowing-survival-value{
+            font-size: 1.45rem;
+            line-height: 1;
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        .farrowing-survival-detail{
+            margin-top: 8px;
+            font-size: .72rem;
+            color: #64748b;
+            line-height: 1.45;
+        }
+
+        .farrowing-survival-foot{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 14px;
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            font-size: .74rem;
+            color: #64748b;
+            line-height: 1.45;
+        }
+
+        .farrowing-survival-foot strong{
+            color: #0f172a;
+            font-weight: 900;
         }
 
         .farrowing-mini-card{
@@ -231,14 +329,30 @@
 
         .farrowing-compact-table{
             width: 100%;
-            min-width: 1120px;
+            min-width: 1040px;
             border-collapse: separate;
             border-spacing: 0;
+            table-layout: fixed;
         }
+
+        .farrowing-compact-table th:nth-child(1),
+        .farrowing-compact-table td:nth-child(1){ width: 16%; }
+        .farrowing-compact-table th:nth-child(2),
+        .farrowing-compact-table td:nth-child(2){ width: 15%; }
+        .farrowing-compact-table th:nth-child(3),
+        .farrowing-compact-table td:nth-child(3){ width: 22%; }
+        .farrowing-compact-table th:nth-child(4),
+        .farrowing-compact-table td:nth-child(4){ width: 11%; }
+        .farrowing-compact-table th:nth-child(5),
+        .farrowing-compact-table td:nth-child(5){ width: 11%; }
+        .farrowing-compact-table th:nth-child(6),
+        .farrowing-compact-table td:nth-child(6){ width: 13%; }
+        .farrowing-compact-table th:nth-child(7),
+        .farrowing-compact-table td:nth-child(7){ width: 12%; }
 
         .farrowing-compact-table thead th{
             background: #f8fafc;
-            padding: 11px 14px;
+            padding: 13px 18px;
             font-size: .7rem;
             font-weight: 800;
             text-transform: uppercase;
@@ -250,12 +364,13 @@
         }
 
         .farrowing-compact-table tbody td{
-            padding: 12px 14px;
-            vertical-align: top;
+            padding: 16px 18px;
+            vertical-align: middle;
             border-bottom: 1px solid #f1f5f9;
             font-size: .84rem;
             color: #0f172a;
             background: #fff;
+            overflow-wrap: anywhere;
         }
 
         .farrowing-compact-table tbody tr:hover td{
@@ -272,14 +387,15 @@
             width: 34px;
             height: 34px;
             border-radius: 999px;
-            background: #fce7f3;
-            color: #be185d;
+            background: #ecfdf5;
+            color: #166534;
             display: flex;
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            font-size: .9rem;
+            font-size: .72rem;
             font-weight: 700;
+            border: 1px solid #bbf7d0;
         }
 
         .farrowing-sow-meta{
@@ -322,6 +438,7 @@
             flex-wrap: wrap;
             gap: 6px;
             align-items: center;
+            max-width: 260px;
         }
 
         .farrowing-mini-chip{
@@ -369,9 +486,10 @@
 
         .farrowing-actions{
             display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
+            flex-wrap: nowrap;
+            gap: 5px;
             align-items: center;
+            justify-content: flex-start;
         }
 
         .farrowing-action-link,
@@ -379,14 +497,16 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 6px 10px;
-            border-radius: 999px;
+            min-height: 32px;
+            padding: 7px 10px;
+            border-radius: 11px;
             font-size: .72rem;
             font-weight: 700;
             line-height: 1;
             text-decoration: none;
             border: 1px solid transparent;
             transition: .18s ease;
+            white-space: nowrap;
         }
 
         .farrowing-action-link.view{
@@ -605,23 +725,53 @@
                         </div>
                     </div>
 
-                    <div class="farrowing-stat">
-                        <div class="farrowing-stat-row">
+                    <div class="farrowing-stat survival-stat">
+                        <div class="farrowing-survival-card">
+                            <div class="farrowing-survival-head">
                             <div class="farrowing-stat-icon icon-indigo">
                                 <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
                                 </svg>
                             </div>
-                            <div>
-                                <div class="farrowing-stat-label">Survival Rate</div>
-                                <div class="farrowing-stat-value">
-                                    @if($stats['average_survival_rate'])
-                                        {{ number_format($stats['average_survival_rate'], 1) }}%
-                                    @else
-                                        N/A
-                                    @endif
+                                <div class="farrowing-survival-heading">
+                                    <div class="farrowing-survival-title">Survival Overview</div>
+                                    <div class="farrowing-survival-subtitle">Birth result and current litter position</div>
                                 </div>
-                                <div class="farrowing-stat-note">Average litter survival performance</div>
+                            </div>
+
+                            <div class="farrowing-survival-grid">
+                                <div class="farrowing-survival-metric">
+                                    <div class="farrowing-survival-label">Birth</div>
+                                    <div class="farrowing-survival-value">
+                                        @if(! is_null($stats['average_survival_rate']))
+                                            {{ number_format($stats['average_survival_rate'], 1) }}%
+                                        @else
+                                            N/A
+                                        @endif
+                                    </div>
+                                    <div class="farrowing-survival-detail">
+                                        {{ $stats['total_live_births'] }} live / {{ $stats['total_piglets_born'] }} born
+                                    </div>
+                                </div>
+
+                                <div class="farrowing-survival-metric current">
+                                    <div class="farrowing-survival-label">Current</div>
+                                    <div class="farrowing-survival-value">
+                                        @if(! is_null($stats['current_survival_rate']))
+                                            {{ number_format($stats['current_survival_rate'], 1) }}%
+                                        @else
+                                            N/A
+                                        @endif
+                                    </div>
+                                    <div class="farrowing-survival-detail">
+                                        {{ $stats['current_surviving_piglets'] }} alive now
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="farrowing-survival-foot">
+                                <span>Deaths after birth</span>
+                                <strong>{{ $stats['total_piglet_deaths'] }}</strong>
                             </div>
                         </div>
                     </div>
@@ -629,7 +779,7 @@
 
                 <div class="farrowing-stats-grid secondary">
                     <div class="farrowing-mini-card">
-                        <div class="farrowing-mini-title">📊 Farrowing Types</div>
+                        <div class="farrowing-mini-title">Analytics Farrowing Types</div>
                         <div class="farrowing-mini-list">
                             <div class="farrowing-mini-row">
                                 <span>Natural</span>
@@ -647,7 +797,7 @@
                     </div>
 
                     <div class="farrowing-mini-card">
-                        <div class="farrowing-mini-title">🏥 Sow Conditions</div>
+                        <div class="farrowing-mini-title">Health Sow Conditions</div>
                         <div class="farrowing-mini-list">
                             <div class="farrowing-mini-row">
                                 <span>Excellent</span>
@@ -705,7 +855,7 @@
                                         <tr>
                                             <td>
                                                 <div class="farrowing-sow">
-                                                    <div class="farrowing-sow-avatar">🐷</div>
+                                                    <!-- <div class="farrowing-sow-avatar">Sow</div> -->
                                                     <div class="farrowing-sow-meta">
                                                         <div class="farrowing-sow-tag">{{ $farrowing->sow->ear_tag_number }}</div>
                                                         <div class="farrowing-sow-code">{{ $farrowing->sow->code }}</div>
@@ -787,7 +937,7 @@
                                                         <div class="relative farrowing-death-modal">
                                                             <div class="farrowing-death-modal-head">
                                                                 <h3 class="farrowing-death-modal-title">Record Piglet Death</h3>
-                                                                <button type="button" class="text-gray-400 hover:text-gray-600" @click="open = false">✕</button>
+                                                                <button type="button" class="text-gray-400 hover:text-gray-600" @click="open = false">x</button>
                                                             </div>
 
                                                             <div class="farrowing-death-modal-body">

@@ -8,6 +8,7 @@ use App\Models\PigManagement;
 use App\Models\PigSale;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\Audit\AuditTrailService;
 use App\Services\DomainEvents\DispatchDomainEvent;
 use App\Support\CurrentOrganization;
 use Carbon\CarbonImmutable;
@@ -30,6 +31,7 @@ class RecordPigSaleService
     public function __construct(
         protected DispatchDomainEvent $dispatcher,
         protected CurrentOrganization $currentOrganization,
+        protected AuditTrailService $audit,
     ) {
     }
 
@@ -93,6 +95,15 @@ class RecordPigSaleService
             if (! $pig->trashed()) {
                 $pig->delete();
             }
+
+            $this->audit->log('sales', 'sold', [
+                'user' => $actor,
+                'auditable' => $sale,
+                'organization_id' => $organizationId,
+                'record_label' => $pig->ear_tag_number ?: $pig->code,
+                'description' => "Sale recorded for pig {$pig->code}.",
+                'new_values' => $sale->only(['sale_date', 'sale_weight', 'weight_type', 'price_per_kg', 'sale_price', 'buyer_name', 'payment_status']),
+            ]);
 
             // Phase 0.4: dispatch the domain event inside this same transaction.
             // If anything below this rolls back, so does the outbox row.

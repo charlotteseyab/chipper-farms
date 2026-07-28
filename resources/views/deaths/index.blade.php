@@ -23,7 +23,7 @@
                             Download PDF
                         </a>
                         <a href="{{ route('all-stocks.index') }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Record Death</a>
-                        <a href="{{ route('pigs.archived') }}" class="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black/80">
+                        <a href="{{ route('audit-trail.index', ['tab' => 'archived']) }}" class="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black/80">
                             Archived Records
                         </a>
                     </div>
@@ -54,175 +54,44 @@
                 </div>
             </div>
 
-            <!-- Adult Deaths Table -->
-            <div class="bg-white rounded-lg shadow border border-gray-200 mb-6">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h2 class="text-lg font-semibold text-gray-900">Adult Deaths (60+ days)</h2>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pig</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age at Death</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cause</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disposal</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            @forelse($deaths ?? [] as $death)
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm font-medium text-gray-900">{{ $death->pig->code ?? 'N/A' }}</div>
-                                        <div class="text-sm text-gray-500">{{ $death->pig->ear_tag_number ?? '' }}</div>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        @if($death->age_at_death)
-                                            {{ $death->age_at_death_display }}
-                                        @else
-                                            <span class="text-gray-400">N/A</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $death->death_date->format('M d, Y') }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $death->death_cause_display }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $death->disposal_method_display }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
-                                        <div class="flex items-center space-x-3">
-                                            <a href="{{ route('deaths.show', $death->id) }}" class="hover:text-blue-800">View</a>
-                                            @if(!$death->pig->sales()->exists())
-                                                <a href="{{ route('pigs.sale-form', $death->pig->id) }}" 
-                                                   class="text-green-600 hover:text-green-800 font-medium">Sell</a>
-                                            @else
-                                                <span class="text-gray-400">Sold</span>
-                                            @endif
-                                        </div>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="6" class="px-6 py-12 text-center text-gray-500">No adult death records found.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-
-                @if(isset($deaths) && $deaths->hasPages())
-                    <div class="px-6 py-4 border-t border-gray-200">
-                        {{ $deaths->links() }}
+            <div data-ajax-table>
+                <div class="bg-white rounded-lg shadow border border-gray-200 mb-6">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-900">Filter Death Records</h2>
+                        <p class="text-sm text-gray-500 mt-1">Applies to adult deaths and piglet death events.</p>
                     </div>
-                @endif
-            </div>
-
-            <!-- Piglet Mortality Table (Pig model) -->
-            <!-- <div class="bg-white rounded-lg shadow border border-gray-200">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h2 class="text-lg font-semibold text-gray-900">Piglet Mortality (Under 60 days)</h2>
-                    <p class="text-sm text-gray-600 mt-1">Deaths at birth, during weaning, and early life stages</p>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pig</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age at Death</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cause</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            @forelse($pigletDeaths ?? [] as $death)
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm font-medium text-gray-900">{{ $death->pig->code ?? 'N/A' }}</div>
-                                        <div class="text-sm text-gray-500">{{ $death->pig->ear_tag_number ?? '' }}</div>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        @if($death->age_at_death)
-                                            {{ $death->age_at_death_display }}
-                                        @else
-                                            <span class="text-gray-400">Unknown</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $death->death_date->format('M d, Y') }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $death->death_cause_display }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        @if($death->final_weight)
-                                            {{ number_format($death->final_weight, 2) }} kg
-                                        @else
-                                            <span class="text-gray-400">—</span>
-                                        @endif
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600">
-                                        <a href="{{ route('deaths.show', $death->id) }}" class="hover:text-blue-800">View</a>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="6" class="px-6 py-12 text-center text-gray-500">No piglet mortality records found.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                    <form method="GET" action="{{ route('deaths.index') }}" data-ajax-table-form class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Cause</label>
+                                <input type="text" name="death_cause" value="{{ request('death_cause') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Cause">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Date From</label>
+                                <input type="date" name="date_from" value="{{ request('date_from') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Date To</label>
+                                <input type="date" name="date_to" value="{{ request('date_to') }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+                            <div class="flex items-end gap-2">
+                                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Filter</button>
+                                <a href="{{ route('deaths.index') }}" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">Clear</a>
+                            </div>
+                        </div>
+                    </form>
                 </div>
 
-                @if(isset($pigletDeaths) && $pigletDeaths->hasPages())
-                    <div class="px-6 py-4 border-t border-gray-200">
-                        {{ $pigletDeaths->links() }}
-                    </div>
-                @endif
-            </div> -->
-
-            <!-- Piglet Death Events (Farrowing-based records) -->
-            <div class="bg-white rounded-lg shadow border border-gray-200 mt-6">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h2 class="text-lg font-semibold text-gray-900">Piglet Death Events (Litters)</h2>
-                    <p class="text-sm text-gray-600 mt-1">Events recorded against farrowings</p>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sow</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Count</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cause</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            @forelse($pigletDeathEvents ?? [] as $event)
-                                <tr>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm font-medium text-gray-900">{{ optional(optional($event->farrowing)->sow)->code ?? 'N/A' }}</div>
-                                        <div class="text-sm text-gray-500">{{ optional(optional($event->farrowing)->sow)->ear_tag_number ?? '' }}</div>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ \Carbon\Carbon::parse($event->death_date)->format('M d, Y') }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-semibold">{{ $event->count }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $event->cause ?? '—' }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $event->notes ?? '—' }}</td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="5" class="px-6 py-12 text-center text-gray-500">No piglet death events recorded.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                <div data-ajax-table-loading hidden class="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+                    Updating table...
                 </div>
 
-                @if(isset($pigletDeathEvents) && $pigletDeathEvents->hasPages())
-                    <div class="px-6 py-4 border-t border-gray-200">
-                        {{ $pigletDeathEvents->links() }}
-                    </div>
-                @endif
+                <div data-ajax-table-error hidden class="mb-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700"></div>
+
+                <div data-ajax-table-target>
+                    @include('deaths._tables', ['deaths' => $deaths, 'pigletDeaths' => $pigletDeaths, 'pigletDeathEvents' => $pigletDeathEvents])
+                </div>
             </div>
         </main>
     </div>
 </x-app-layout>
-
-

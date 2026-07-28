@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? StorefrontSettings::storeName() }}</title>
-    <link rel="icon" type="image/png" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐷</text></svg>">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -14,7 +14,8 @@
     <header class="bg-white border-b border-slate-200 sticky top-0 z-20">
         <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
             <a href="{{ route('storefront.home') }}" class="flex items-center gap-2 font-bold text-lg">
-                <span>🐷</span><span>{{ StorefrontSettings::storeName() }}</span>
+                <x-ui-icon name="pig" class="h-6 w-6 text-emerald-700" />
+                <span>{{ StorefrontSettings::storeName() }}</span>
             </a>
             <nav class="hidden md:flex items-center gap-5 text-sm font-medium text-slate-600">
                 <a href="{{ route('storefront.shop', ['kind' => 'live_pig']) }}" class="hover:text-slate-900">Live Pigs</a>

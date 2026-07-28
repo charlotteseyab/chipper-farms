@@ -102,13 +102,13 @@ class PigWeight extends Model
     public function getPurposeIconAttribute(): string
     {
         return match($this->purpose) {
-            'breeding_check' => '💕',
-            'health_check' => '🏥',
-            'routine' => '📊',
-            'sale_prep' => '💰',
-            'birth' => '🐷',
-            'weaning' => '🍼',
-            default => '⚖️'
+            'breeding_check' => 'Breeding',
+            'health_check' => 'Health',
+            'routine' => 'Analytics',
+            'sale_prep' => 'Money',
+            'birth' => 'Pig',
+            'weaning' => 'Weaning',
+            default => 'Weight'
         };
     }
 

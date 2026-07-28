@@ -14,9 +14,9 @@
         @php $r = $reconciliation; @endphp
         <div class="mb-4 rounded-xl px-4 py-3 text-sm {{ $r['reconciled'] ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-red-50 border border-red-200 text-red-700' }}">
             @if($r['reconciled'])
-                ✓ Reconciled: stage subledger ties to the GL stage accounts and to the group cost pools; clearing account 1230 is drained.
+                Reconciled: stage subledger ties to the GL stage accounts and to the group cost pools; clearing account 1230 is drained.
             @else
-                ⚠ Reconciliation differences detected:
+                Warning Reconciliation differences detected:
                 <ul class="mt-1 list-disc list-inside">
                     @foreach(['subledger_vs_gl','subledger_vs_pools','clearing_drained'] as $k)
                         @if(!$r[$k]['reconciled'])

@@ -27,7 +27,7 @@
             @forelse($categories as $category)
                 <a href="{{ route('storefront.shop', ['category' => $category->slug]) }}"
                    class="rounded-2xl border border-slate-200 bg-white p-5 text-center hover:border-slate-400 transition">
-                    <div class="text-3xl mb-2">🐖</div>
+                    <div class="text-3xl mb-2">Pig</div>
                     <p class="font-medium text-slate-700 text-sm">{{ $category->name }}</p>
                 </a>
             @empty

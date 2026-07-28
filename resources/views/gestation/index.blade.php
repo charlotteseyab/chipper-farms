@@ -757,10 +757,10 @@
                                         <td>
                                             <div class="pair-cell">
                                                 <div class="pair-inline">
-                                                    <span class="gestation-chip chip-blue">♂ Male</span>
+                                                    <span class="gestation-chip chip-blue">Male</span>
                                                     <strong>{{ $mating->male->ear_tag_number }}</strong>
                                                     <span class="text-slate-400">×</span>
-                                                    <span class="gestation-chip chip-yellow">♀ Female</span>
+                                                    <span class="gestation-chip chip-yellow">Female</span>
                                                     <strong>{{ $mating->female->ear_tag_number }}</strong>
                                                 </div>
                                             </div>
@@ -809,7 +809,7 @@
 
                                         <td>
                                             <span class="gestation-chip {{ $mating->farrowing_status_badge }}">
-                                                {{ $mating->pregnancy_status_icon }} {{ $mating->farrowing_status }}
+                                                {{ $mating->pregnancy_status_icon }} 
                                             </span>
                                         </td>
 
@@ -836,7 +836,7 @@
                                                                 <span class="gestation-chip chip-yellow">Pregnant</span>
                                                             @elseif($mating->pregnancy_status === 'farrowed')
                                                                 <div class="space-y-2">
-                                                                    <span class="gestation-chip chip-green">✓ Farrowed</span>
+                                                                    <span class="gestation-chip chip-green">Farrowed</span>
                                                                     @if($mating->actual_farrowing_date && $mating->expected_farrowing_date)
                                                                         @php
                                                                             $delta = $mating->expected_farrowing_date->diffInDays($mating->actual_farrowing_date, false);
@@ -974,7 +974,7 @@
                             </div>
 
                             <div class="gestation-note blue mt-4">
-                                💡 Live + Stillborn must equal Total Born
+                                Tip Live + Stillborn must equal Total Born
                             </div>
 
                             <div class="gestation-form-grid two-col mt-4" style="grid-template-columns: repeat(3,minmax(0,1fr));">
@@ -1098,9 +1098,9 @@
                             <label class="block text-sm font-medium text-gray-700 mb-2">New Status</label>
                             <select name="status" required class="gestation-select">
                                 <option value="" disabled selected>-- Select Status --</option>
-                                <option value="pregnant">🤰 Still Pregnant</option>
-                                <option value="lost_pregnancy">💔 Lost Pregnancy</option>
-                                <option value="aborted">🚫 Aborted</option>
+                                <option value="pregnant">Pregnant Still Pregnant</option>
+                                <option value="lost_pregnancy">Lost Lost Pregnancy</option>
+                                <option value="aborted">Blocked Aborted</option>
                             </select>
                         </div>
 

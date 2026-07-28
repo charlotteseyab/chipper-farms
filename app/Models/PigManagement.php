@@ -19,7 +19,7 @@ class PigManagement extends Model
         'code', 'age_in_days', 'father_id', 'mother_id', 'room_id', 'local_id',
         'group_id', 'current_weight_kg_cache', 'weight_cache_recorded_at',
         'acquisition_cost', 'acquisition_date', 'acquisition_source',
-        'acquisition_journal_batch_id',
+        'acquisition_journal_batch_id', 'purchase_stock_intake_id',
     ];
 
     // Provide sane defaults for legacy-not-null columns used by tests/seeders
@@ -213,10 +213,10 @@ class PigManagement extends Model
     {
         $status = $this->breeding_status;
         return match($status['status']) {
-            'ready' => '✅',
+            'ready' => 'OK',
             'immature' => '⏳',
-            'retired' => '🛑',
-            default => '❓'
+            'retired' => 'Too old',
+            default => '?'
         };
     }
 
@@ -278,7 +278,7 @@ class PigManagement extends Model
                     'available' => false,
                     'reason' => 'Too old for breeding',
                     'status' => 'retired',
-                    'icon' => '🛑'
+                    'icon' => 'Too old'
                 ];
             }
 
@@ -289,7 +289,7 @@ class PigManagement extends Model
                     'available' => true, // Allow selection
                     'reason' => $readiness['factors']['weight']['message'],
                     'status' => 'underweight_warning',
-                    'icon' => '⚠️',
+                    'icon' => 'Warning',
                     'warning' => true,
                     'warning_message' => 'Underweight for breeding - proceed with caution'
                 ];
@@ -303,7 +303,7 @@ class PigManagement extends Model
                 'available' => true,
                 'reason' => 'Available for breeding',
                 'status' => 'available',
-                'icon' => '✅'
+                'icon' => 'OK'
             ];
         }
 
@@ -313,7 +313,7 @@ class PigManagement extends Model
                 'available' => false,
                 'reason' => 'Mating planned for ' . $activeMating->planned_date->format('M d, Y'),
                 'status' => 'planned_mating',
-                'icon' => '📅',
+                'icon' => 'Date',
                 'mating' => $activeMating
             ];
         }
@@ -336,7 +336,7 @@ class PigManagement extends Model
                     'available' => false,
                     'reason' => 'Pregnant (due ' . $farrowingDate->format('M d, Y') . ')',
                     'status' => 'pregnant',
-                    'icon' => '🤰',
+                    'icon' => 'Pregnant',
                     'mating' => $activeMating
                 ];
             }
@@ -346,7 +346,7 @@ class PigManagement extends Model
                     'available' => false,
                     'reason' => 'Pregnancy uncertain - follow-up needed',
                     'status' => 'uncertain',
-                    'icon' => '❓',
+                    'icon' => '?',
                     'mating' => $activeMating
                 ];
             }
@@ -356,7 +356,7 @@ class PigManagement extends Model
             'available' => true,
             'reason' => 'Available for breeding',
             'status' => 'available',
-            'icon' => '✅'
+            'icon' => 'OK'
         ];
     }
 
@@ -438,6 +438,22 @@ class PigManagement extends Model
     public function latestWeight()
     {
         return $this->hasOne(PigWeight::class, 'pig_id')->latest('weigh_date');
+    }
+
+    public function purchaseStockIntake(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseStockIntake::class, 'purchase_stock_intake_id');
+    }
+
+    public function isPregnant(): bool
+    {
+        if ($this->gender !== 'F') {
+            return false;
+        }
+
+        return $this->femaleMatings()
+            ->where('pregnancy_status', 'pregnant')
+            ->exists();
     }
 
     // Sale relationship
@@ -754,7 +770,7 @@ class PigManagement extends Model
                 'sold' => false,
                 'status' => 'available',
                 'message' => 'Available for sale',
-                'icon' => '💰',
+                'icon' => 'Money',
                 'badge_class' => 'bg-green-100 text-green-800'
             ];
         }
@@ -768,7 +784,7 @@ class PigManagement extends Model
             'sale_price' => $sale->formatted_sale_price,
             'buyer' => $sale->buyer_name,
             'purpose' => $sale->sale_purpose,
-            'icon' => '✅',
+            'icon' => 'OK',
             'badge_class' => 'bg-blue-100 text-blue-800'
         ];
     }
@@ -780,7 +796,7 @@ class PigManagement extends Model
             return [
                 'eligible' => false,
                 'reason' => 'Pig has already been sold',
-                'icon' => '✅'
+                'icon' => 'OK'
             ];
         }
 
@@ -789,7 +805,7 @@ class PigManagement extends Model
             return [
                 'eligible' => false,
                 'reason' => 'Breeding stock - demote to standard stock first',
-                'icon' => '🚫'
+                'icon' => 'Blocked'
             ];
         }
 
@@ -801,7 +817,7 @@ class PigManagement extends Model
             return [
                 'eligible' => false,
                 'reason' => 'Pig has active mating records',
-                'icon' => '💕'
+                'icon' => 'Breeding'
             ];
         }
 
@@ -809,7 +825,7 @@ class PigManagement extends Model
         return [
             'eligible' => true,
             'reason' => 'Eligible for sale',
-            'icon' => '💰'
+            'icon' => 'Money'
         ];
     }
 
@@ -872,7 +888,7 @@ public function getWeighingStatus(
                 'status' => 'unknown',
                 'message' => 'No birth date or weight record',
                 'color' => 'gray',
-                'icon' => '❔',
+                'icon' => '?',
                 'days_since' => null,
                 'overdue_days' => null,
             ];
@@ -885,7 +901,7 @@ public function getWeighingStatus(
                 'status' => 'not_due_yet',
                 'message' => 'First weight not due yet',
                 'color' => 'blue',
-                'icon' => '📘',
+                'icon' => 'Guide',
                 'days_since' => null,
                 'overdue_days' => 0,
             ];
@@ -895,7 +911,7 @@ public function getWeighingStatus(
             'status' => 'first_weight_pending',
             'message' => 'First weight pending',
             'color' => 'yellow',
-            'icon' => '📝',
+            'icon' => 'Notes',
             'days_since' => null,
             'overdue_days' => abs($daysUntilFirstDue),
         ];
@@ -908,7 +924,7 @@ public function getWeighingStatus(
             'status' => 'current',
             'message' => 'Up to date',
             'color' => 'green',
-            'icon' => '✅',
+            'icon' => 'OK',
             'days_since' => $daysSince,
             'overdue_days' => 0,
         ];
@@ -919,7 +935,7 @@ public function getWeighingStatus(
             'status' => 'due_soon',
             'message' => 'Due soon',
             'color' => 'yellow',
-            'icon' => '⚠️',
+            'icon' => 'Warning',
             'days_since' => $daysSince,
             'overdue_days' => 0,
         ];
@@ -930,7 +946,7 @@ public function getWeighingStatus(
             'status' => 'overdue',
             'message' => 'Overdue',
             'color' => 'orange',
-            'icon' => '🔶',
+            'icon' => 'Orange',
             'days_since' => $daysSince,
             'overdue_days' => $daysSince - $weighingIntervalDays,
         ];
@@ -940,7 +956,7 @@ public function getWeighingStatus(
         'status' => 'critical',
         'message' => 'Critically overdue',
         'color' => 'red',
-        'icon' => '🚨',
+        'icon' => 'Alert',
         'days_since' => $daysSince,
         'overdue_days' => $daysSince - $weighingIntervalDays,
     ];

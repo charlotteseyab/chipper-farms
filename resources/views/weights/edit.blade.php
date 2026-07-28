@@ -758,7 +758,7 @@
                                     <div class="weight-card-body">
                                         <div class="weight-insight-grid">
                                             <div id="expected-weight-info" class="weight-insight green">
-                                                <h5>📊 Expected Weight</h5>
+                                                <h5>Expected Weight</h5>
                                                 <div id="expected-weight-display" class="weight-mini">
                                                     <div>Range: <strong id="expected-range">-</strong></div>
                                                     <div>Optimal: <strong id="expected-optimal">-</strong></div>
@@ -776,7 +776,7 @@
                                             </div>
 
                                             <div id="previous-weight-info" class="weight-insight yellow">
-                                                <h5>📈 Previous Weight</h5>
+                                                <h5>Trend up Previous Weight</h5>
                                                 <div id="previous-weight-display" class="weight-mini">
                                                     <div>Last: <strong id="previous-weight">-</strong></div>
                                                     <div>Date: <strong id="previous-date">-</strong></div>
@@ -977,11 +977,11 @@
                 const weekDiff = actualWeeks - targetWeek;
 
                 if (weekDiff === 0) {
-                    weekVariance.innerHTML = '<span class="text-green-600">✅ Perfect timing</span>';
+                    weekVariance.innerHTML = '<span class="text-green-600">Perfect timing</span>';
                 } else if (weekDiff > 0) {
-                    weekVariance.innerHTML = `<span class="text-orange-600">⚠️ ${weekDiff} week(s) late</span>`;
+                    weekVariance.innerHTML = `<span class="text-orange-600">Warning ${weekDiff} week(s) late</span>`;
                 } else {
-                    weekVariance.innerHTML = `<span class="text-blue-600">📅 ${Math.abs(weekDiff)} week(s) early</span>`;
+                    weekVariance.innerHTML = `<span class="text-blue-600">${Math.abs(weekDiff)} week(s) early</span>`;
                 }
             }
 
@@ -1003,19 +1003,19 @@
                     const standard = window.currentWeightStandard;
 
                     if (weight < standard.min_weight) {
-                        document.getElementById('weight-icon').textContent = '⬇️';
+                        document.getElementById('weight-icon').textContent = 'Under';
                         document.getElementById('weight-message').textContent = `Under expected weight for Week ${standard.week_number}`;
                         document.getElementById('weight-message').className = 'text-blue-600 font-medium';
                         const deviation = ((standard.min_weight - weight) / standard.min_weight * 100).toFixed(1);
                         document.getElementById('weight-comparison').textContent = `${deviation}% below minimum (${standard.min_weight} kg)`;
                     } else if (weight > standard.max_weight) {
-                        document.getElementById('weight-icon').textContent = '⬆️';
+                        document.getElementById('weight-icon').textContent = 'Over';
                         document.getElementById('weight-message').textContent = `Over expected weight for Week ${standard.week_number}`;
                         document.getElementById('weight-message').className = 'text-orange-600 font-medium';
                         const deviation = ((weight - standard.max_weight) / standard.max_weight * 100).toFixed(1);
                         document.getElementById('weight-comparison').textContent = `${deviation}% above maximum (${standard.max_weight} kg)`;
                     } else {
-                        document.getElementById('weight-icon').textContent = '✅';
+                        document.getElementById('weight-icon').textContent = 'OK';
                         document.getElementById('weight-message').textContent = `Good weight for Week ${standard.week_number}`;
                         document.getElementById('weight-message').className = 'text-green-600 font-medium';
                         document.getElementById('weight-comparison').textContent = `Within expected range (${standard.min_weight}-${standard.max_weight} kg)`;
@@ -1025,7 +1025,7 @@
                         document.getElementById('weight-comparison').textContent += ` - ${standard.note}`;
                     }
                 } else {
-                    document.getElementById('weight-icon').textContent = '❓';
+                    document.getElementById('weight-icon').textContent = '?';
                     document.getElementById('weight-message').textContent = 'No weight standard available';
                     document.getElementById('weight-message').className = 'text-gray-600 font-medium';
                     document.getElementById('weight-comparison').textContent = 'Weight standard not set for this pig type/age';
@@ -1038,11 +1038,11 @@
 
                     let changeText = '';
                     if (weightChange > 0) {
-                        changeText = `📈 +${weightChange.toFixed(1)} kg (+${changePercent}%) since last weigh`;
+                        changeText = `Trend up +${weightChange.toFixed(1)} kg (+${changePercent}%) since last weigh`;
                     } else if (weightChange < 0) {
-                        changeText = `📉 ${weightChange.toFixed(1)} kg (${changePercent}%) since last weigh`;
+                        changeText = `Trend down ${weightChange.toFixed(1)} kg (${changePercent}%) since last weigh`;
                     } else {
-                        changeText = `➡️ No change since last weigh`;
+                        changeText = `No change since last weigh`;
                     }
 
                     document.getElementById('weight-comparison').textContent += ` | ${changeText}`;

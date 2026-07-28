@@ -55,10 +55,10 @@ class PigletWeaningDueNotification extends Notification implements ShouldQueue
         };
 
         $icon = match ($this->dueType) {
-            'upcoming'  => '🐖',
-            'due_today' => '🐖',
-            'overdue'   => '🚨',
-            default     => '⚠️',
+            'upcoming'  => 'Pig',
+            'due_today' => 'Pig',
+            'overdue'   => 'Alert',
+            default     => 'Warning',
         };
 
         return [

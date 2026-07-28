@@ -108,7 +108,7 @@
                     {{ number_format((float) $rec->reconciliation_difference, 2) }}
                 </p>
                 @if (bccomp((string) $rec->reconciliation_difference, '0', 2) === 0)
-                    <p class="text-xs text-emerald-700 mt-1">✓ Balances agree. Ready to reconcile.</p>
+                    <p class="text-xs text-emerald-700 mt-1">Balances agree. Ready to reconcile.</p>
                 @else
                     <p class="text-xs text-red-700 mt-1">Match more lines, or close with a Flag if you have an unresolvable known cause.</p>
                 @endif

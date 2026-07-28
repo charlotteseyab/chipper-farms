@@ -110,7 +110,7 @@ class ReconcileInvoiceAggregatesCommand extends Command
         });
 
         if (empty($drift)) {
-            $this->info("✓ No drift detected — all invoices reconcile cleanly.");
+            $this->info("No drift detected — all invoices reconcile cleanly.");
             return self::SUCCESS;
         }
 

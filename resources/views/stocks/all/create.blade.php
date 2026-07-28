@@ -483,7 +483,7 @@
 
                     <div class="pig-card-body">
                         <div class="pig-section">
-                            <div class="pig-section-title">🐷 Stock Type</div>
+                            <div class="pig-section-title">Stock Type</div>
 
                             <div class="stock-type-grid">
                                 <label class="relative block cursor-pointer">
@@ -497,7 +497,7 @@
                                     >
                                     <div class="stock-type-option" data-type="standard">
                                         <span class="stock-type-badge">Selected</span>
-                                        <div class="stock-type-icon">🐖</div>
+                                        <!-- <div class="stock-type-icon">Pig</div> -->
                                         <div class="stock-type-name">Standard Stock</div>
                                         <div class="stock-type-text">For fattening and sale</div>
                                     </div>
@@ -514,7 +514,7 @@
                                     >
                                     <div class="stock-type-option" data-type="breeding">
                                         <span class="stock-type-badge">Selected</span>
-                                        <div class="stock-type-icon">👑</div>
+                                        <!-- <div class="stock-type-icon">Breeding</div> -->
                                         <div class="stock-type-name">Breeding Stock</div>
                                         <div class="stock-type-text">For reproduction and breeding plans</div>
                                     </div>
@@ -593,7 +593,7 @@
 
                     <div class="pig-card-body">
                         <div class="pig-section">
-                            <div class="pig-section-title">🏠 Housing Assignment</div>
+                            <div class="pig-section-title">Housing Housing Assignment</div>
 
                             <div class="pig-field" style="margin-bottom:14px;">
                                 <label class="pig-label">Structure</label>
@@ -622,7 +622,7 @@
                         </div>
 
                         <div class="pig-section">
-                            <div class="pig-section-title">👨‍👩‍👧‍👦 Parent Information</div>
+                            <div class="pig-section-title">Parents Parent Information</div>
 
                             <div class="pig-field" style="margin-bottom:14px;">
                                 <label class="pig-label">Father (optional)</label>
@@ -728,7 +728,7 @@
                 if (fatherId && motherId && fatherId === motherId) {
                     const warning = document.createElement('div');
                     warning.className = 'inbreeding-warning inline-warning';
-                    warning.innerHTML = '⚠️ The same pig cannot be selected as both father and mother.';
+                    warning.innerHTML = 'The same pig cannot be selected as both father and mother.';
                     motherSelect.parentNode.appendChild(warning);
                 }
 
@@ -748,7 +748,7 @@
 
                 const loading = document.createElement('div');
                 loading.className = 'ear-tag-warning inline-feedback info';
-                loading.innerHTML = '🔍 Checking ear tag availability...';
+                loading.innerHTML = 'Search Checking ear tag availability...';
                 earTagInput.parentNode.appendChild(loading);
 
                 fetch('/api/check-ear-tag', {
@@ -766,8 +766,8 @@
                     const feedback = document.createElement('div');
                     feedback.className = `ear-tag-warning inline-feedback ${data.exists ? 'error' : 'success'}`;
                     feedback.innerHTML = data.exists
-                        ? '❌ This ear tag number already exists. Please choose a different one.'
-                        : '✅ This ear tag number is available.';
+                        ? 'This ear tag number already exists. Please choose a different one.'
+                        : 'This ear tag number is available.';
 
                     earTagInput.parentNode.appendChild(feedback);
 

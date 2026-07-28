@@ -17,7 +17,7 @@
             $rows = $cert->lines_snapshot['allocations'] ?? [];
             $supplierTinDisplay = $cert->isIssued()
                 ? ($cert->supplier_tin_snapshot ?: '—')
-                : ($cert->counterparty->tax_id ?: '⚠ none on file');
+                : ($cert->counterparty->tax_id ?: 'Warning none on file');
         @endphp
 
         <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -49,7 +49,7 @@
             <div class="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
                 <h3 class="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">Issuer (Us)</h3>
                 <p class="font-semibold text-slate-800">{{ $cert->issuer_name_snapshot ?: config('finance.statements.company_name', config('app.name')) }}</p>
-                <p class="text-sm text-slate-600 mt-1">TIN: <span class="font-mono">{{ $cert->issuer_tin_snapshot ?: (config('finance.statements.company_tin') ?: '⚠ not configured') }}</span></p>
+                <p class="text-sm text-slate-600 mt-1">TIN: <span class="font-mono">{{ $cert->issuer_tin_snapshot ?: (config('finance.statements.company_tin') ?: 'Warning not configured') }}</span></p>
             </div>
         </div>
 

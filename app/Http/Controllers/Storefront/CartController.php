@@ -41,7 +41,7 @@ class CartController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return redirect()->route('storefront.cart.index')->with('success', 'Added to cart.');
+        return redirect()->route('storefront.account.cart.index')->with('success', 'Added to cart.');
     }
 
     public function update(Request $request, StorefrontCartItem $item): RedirectResponse

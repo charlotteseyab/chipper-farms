@@ -336,7 +336,7 @@
                                                                 <div class="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
                                                                     <div class="px-5 py-4 border-b flex items-center justify-between">
                                                                         <h3 class="text-sm font-semibold text-gray-900">Edit Piglet Death</h3>
-                                                                        <button type="button" class="text-gray-400 hover:text-gray-600" @click="editOpen = false">✕</button>
+                                                                        <button type="button" class="text-gray-400 hover:text-gray-600" @click="editOpen = false">x</button>
                                                                     </div>
                                                                     <div class="p-5">
                                                                         <form method="POST" action="{{ route('farrowing.piglet-deaths.update', $death) }}" class="space-y-4">

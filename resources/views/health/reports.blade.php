@@ -88,7 +88,11 @@
                      <tr class="hover:bg-indigo-50/50 transition duration-100">
                          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $hr->record_date->format('M d, Y') }}</td>
                          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                             <a href="{{ route('health.show', $hr->pig) }}" class="text-indigo-600 hover:text-indigo-800">{{ $hr->pig->code ?? $hr->pig->ear_tag_number }}</a>
+                             @if($hr->pig)
+                                 <a href="{{ route('health.show', $hr->pig) }}" class="text-indigo-600 hover:text-indigo-800">{{ $hr->pig->code ?? $hr->pig->ear_tag_number }}</a>
+                             @else
+                                 <span class="text-gray-400">Pig unavailable</span>
+                             @endif
                          </td>
                          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $hr->condition }}</td>
                          <td class="px-6 py-4 whitespace-nowrap text-sm">
@@ -140,7 +144,11 @@
                     <tr class="hover:bg-indigo-50/50 transition duration-100">
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $m->administration_date->format('M d, Y') }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                            <a href="{{ route('health.show', $m->pig) }}" class="text-indigo-600 hover:text-indigo-800">{{ $m->pig->code ?? $m->pig->ear_tag_number }}</a>
+                            @if($m->pig)
+                                <a href="{{ route('health.show', $m->pig) }}" class="text-indigo-600 hover:text-indigo-800">{{ $m->pig->code ?? $m->pig->ear_tag_number }}</a>
+                            @else
+                                <span class="text-gray-400">Pig unavailable</span>
+                            @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $m->medication_name }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $m->purpose ?? 'N/A' }}</td>

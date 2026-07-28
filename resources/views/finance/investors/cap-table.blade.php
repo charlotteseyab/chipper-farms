@@ -12,9 +12,9 @@
 
         <div class="mb-4 rounded-xl px-4 py-3 text-sm {{ $r['reconciled'] ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-red-50 border border-red-200 text-red-700' }}">
             @if($r['reconciled'])
-                ✓ Reconciled: investor capital subledger ties to the 3100/3110/3120 GL block.
+                Reconciled: investor capital subledger ties to the 3100/3110/3120 GL block.
             @else
-                ⚠ {{ $r['label'] }} — variance GHS {{ $fmt($r['variance']) }} (subledger {{ $fmt($r['subledger']) }} vs GL {{ $fmt($r['gl']) }}).
+                Warning {{ $r['label'] }} — variance GHS {{ $fmt($r['variance']) }} (subledger {{ $fmt($r['subledger']) }} vs GL {{ $fmt($r['gl']) }}).
             @endif
         </div>
 

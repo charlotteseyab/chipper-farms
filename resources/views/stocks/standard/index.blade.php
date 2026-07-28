@@ -89,6 +89,18 @@
             transform: translateY(-1px);
         }
 
+        .standard-top-btn-purchase{
+            background: #fff;
+            color: #14532d;
+            border-color: rgba(255,255,255,.85);
+            box-shadow: 0 10px 24px rgba(15,23,42,.18);
+        }
+
+        .standard-top-btn-purchase:hover{
+            background: #ecfdf5;
+            transform: translateY(-1px);
+        }
+
         .standard-card{
             background: rgba(255,255,255,.96);
             border: 1px solid #dbe7f0;
@@ -487,6 +499,13 @@
                             </svg>
                             Add New Stock
                         </a>
+                        <a href="{{ route('purchase-stock-intakes.create') }}" class="standard-top-btn standard-top-btn-purchase" style="background:#ffffff !important;color:#14532d !important;border:2px solid #ffffff !important;box-shadow:0 12px 28px rgba(15,23,42,.28) !important;">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h11v10H3V7Zm11 3h3l3 3v4h-6v-7Z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 19a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm10 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"/>
+                            </svg>
+                            Add Purchased Stock
+                        </a>
                     </div>
                 </div>
             </div>
@@ -627,24 +646,24 @@
                                     <td>
                                         <div class="standard-status-stack">
                                             @if($readiness['age_status'] === 'optimal')
-                                                <span class="standard-chip chip-green">✓ Optimal</span>
+                                                <span class="standard-chip chip-green">Optimal</span>
                                             @elseif($readiness['age_status'] === 'minimum_met')
-                                                <span class="standard-chip chip-yellow">⚠ Ready</span>
+                                                <span class="standard-chip chip-yellow">Warning Ready</span>
                                             @elseif($readiness['age_status'] === 'too_young')
                                                 <span class="standard-chip chip-blue">⏳ Too Young</span>
                                             @elseif($readiness['age_status'] === 'too_old')
-                                                <span class="standard-chip chip-gray">🛑 Too Old</span>
+                                                <span class="standard-chip chip-gray">Too old Too Old</span>
                                             @endif
 
                                             @if($readiness['factors']['weight']['status'] !== 'not_checked')
                                                 <div class="text-xs text-gray-500">
                                                     Weight:
                                                     @if($readiness['factors']['weight']['status'] === 'optimal')
-                                                        ✓
+                                                        OK
                                                     @elseif($readiness['factors']['weight']['status'] === 'minimum_met')
-                                                        ⚠
+                                                        Warning
                                                     @else
-                                                        ✗
+                                                        No
                                                     @endif
                                                     @if($pig->latestWeight)
                                                         {{ $pig->latestWeight->formatted_weight }}

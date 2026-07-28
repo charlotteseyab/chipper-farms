@@ -89,7 +89,7 @@
                                 </td>
                                 <td class="py-2 pl-2 text-right">
                                     <button type="button" @click="removeRow(idx)"
-                                            class="text-red-500 hover:text-red-700 text-sm" x-show="rows.length > 1">✕</button>
+                                            class="text-red-500 hover:text-red-700 text-sm" x-show="rows.length > 1">x</button>
                                 </td>
                             </tr>
                         </template>

@@ -93,6 +93,36 @@
             margin-bottom: 14px;
         }
 
+        .admin-topbar{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+
+        .admin-title{
+            margin: 0;
+            font-size: 1.9rem;
+            line-height: 1.1;
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        .admin-subtitle{
+            margin-top: 6px;
+            color: #64748b;
+            font-size: .9rem;
+        }
+
+        .admin-quick-actions{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
         .admin-input{
             width: 100%;
             border-radius: 14px;
@@ -290,6 +320,370 @@
             flex-shrink: 0;
         }
 
+        .admin-command-grid{
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0,1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .admin-command-card{
+            background: #fff;
+            border: 1px solid #dbe3ea;
+            border-radius: 18px;
+            box-shadow: 0 14px 34px rgba(15,23,42,.08);
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            min-height: 250px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .admin-command-card::after{
+            content: "";
+            position: absolute;
+            right: -42px;
+            top: -42px;
+            width: 150px;
+            height: 150px;
+            border-radius: 999px;
+            background: rgba(255,255,255,.12);
+            pointer-events: none;
+        }
+
+        .admin-command-head{
+            padding: 20px 20px 16px;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 14px;
+        }
+
+        .admin-command-title-wrap{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .admin-command-icon{
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .admin-command-icon svg{
+            width: 22px;
+            height: 22px;
+        }
+
+        .admin-command-currency{
+            font-size: 1.45rem;
+            line-height: 1;
+            font-weight: 900;
+            font-family: Georgia, "Times New Roman", serif;
+        }
+
+        .admin-command-title{
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 900;
+            color: inherit;
+        }
+
+        .admin-command-kicker{
+            margin-top: 3px;
+            color: rgba(255,255,255,.78);
+            font-size: .76rem;
+            font-weight: 700;
+        }
+
+        .admin-command-main{
+            padding: 0 20px 18px;
+        }
+
+        .admin-command-value{
+            font-size: 2rem;
+            line-height: 1;
+            font-weight: 900;
+            color: inherit;
+        }
+
+        .admin-command-note{
+            margin-top: 8px;
+            color: rgba(255,255,255,.78);
+            font-size: .8rem;
+        }
+
+        .admin-gender-strip{
+            margin: 0 20px 18px;
+            padding: 12px;
+            border-radius: 14px;
+            background: rgba(255,255,255,.10);
+            border: 1px solid rgba(255,255,255,.16);
+        }
+
+        .admin-gender-head{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 9px;
+            color: rgba(255,255,255,.78);
+            font-size: .7rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+
+        .admin-gender-track{
+            height: 8px;
+            display: flex;
+            overflow: hidden;
+            border-radius: 999px;
+            background: rgba(255,255,255,.16);
+        }
+
+        .admin-gender-male{
+            background: #60a5fa;
+        }
+
+        .admin-gender-female{
+            background: #fb7185;
+        }
+
+        .admin-gender-legend{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 9px;
+            color: rgba(255,255,255,.88);
+            font-size: .76rem;
+            font-weight: 800;
+        }
+
+        .admin-gender-item{
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .admin-gender-dot{
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            flex-shrink: 0;
+        }
+
+        .admin-command-metrics{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0,1fr));
+            margin-top: auto;
+            border-top: 1px solid rgba(255,255,255,.18);
+            background: rgba(255,255,255,.08);
+        }
+
+        .admin-command-metric{
+            padding: 14px 16px;
+            border-right: 1px solid rgba(255,255,255,.18);
+            border-bottom: 1px solid rgba(255,255,255,.18);
+            min-width: 0;
+        }
+
+        .admin-command-metric:nth-child(2n){
+            border-right: 0;
+        }
+
+        .admin-command-metric:nth-last-child(-n+2){
+            border-bottom: 0;
+        }
+
+        .admin-command-metric-label{
+            color: rgba(255,255,255,.72);
+            font-size: .7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .admin-command-metric-value{
+            margin-top: 5px;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 900;
+        }
+
+        .admin-command-green{
+            color: #fff;
+            border-color: #15803d;
+            background: linear-gradient(135deg, #16a34a 0%, #15803d 55%, #166534 100%);
+        }
+
+        .admin-command-blue{
+            color: #fff;
+            border-color: #0e7490;
+            background: linear-gradient(135deg, #0891b2 0%, #0e7490 55%, #155e75 100%);
+        }
+
+        .admin-command-amber{
+            color: #fff;
+            border-color: #c2410c;
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 55%, #c2410c 100%);
+        }
+
+        .admin-command-green .admin-command-icon,
+        .admin-command-blue .admin-command-icon,
+        .admin-command-amber .admin-command-icon{
+            background: rgba(255,255,255,.18);
+            color: #fff;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,.18);
+        }
+
+        .admin-command-link{
+            display: inline-flex;
+            color: rgba(255,255,255,.88);
+            font-size: .78rem;
+            font-weight: 800;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .admin-dashboard-grid{
+            display: grid;
+            grid-template-columns: minmax(0, 1.45fr) minmax(360px, .85fr);
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .admin-attention-table{
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .admin-attention-table th,
+        .admin-attention-table td{
+            padding: 12px 16px;
+            text-align: left;
+            border-top: 1px solid #eef2f7;
+            font-size: .8rem;
+            vertical-align: middle;
+        }
+
+        .admin-attention-table th{
+            color: #64748b;
+            font-size: .68rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            background: #f8fafc;
+        }
+
+        .admin-attention-table td{
+            color: #334155;
+            font-weight: 650;
+        }
+
+        .admin-attention-link{
+            color: #0f766e;
+            font-weight: 900;
+            text-decoration: none;
+        }
+
+        .admin-attention-link:hover{
+            color: #14532d;
+            text-decoration: underline;
+        }
+
+        .admin-status-pill{
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 5px 9px;
+            font-size: .68rem;
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .admin-status-high{ background: #fee2e2; color: #b91c1c; }
+        .admin-status-medium{ background: #fef3c7; color: #b45309; }
+        .admin-status-low{ background: #dcfce7; color: #15803d; }
+
+        .admin-ops-grid{
+            display: grid;
+            grid-template-columns: repeat(7, minmax(150px, 1fr));
+            gap: 12px;
+        }
+
+        .admin-ops-card{
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 16px;
+            text-decoration: none;
+            color: inherit;
+            min-height: 178px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 8px 18px rgba(15,23,42,.04);
+            transition: .2s ease;
+        }
+
+        .admin-ops-card:hover{
+            transform: translateY(-2px);
+            border-color: #bbf7d0;
+            box-shadow: 0 14px 28px rgba(15,23,42,.07);
+        }
+
+        .admin-ops-label{
+            color: #166534;
+            font-size: .78rem;
+            font-weight: 900;
+        }
+
+        .admin-ops-value{
+            margin-top: 16px;
+            color: #0f172a;
+            font-size: 1.55rem;
+            line-height: 1;
+            font-weight: 900;
+        }
+
+        .admin-ops-sub{
+            margin-top: 5px;
+            color: #64748b;
+            font-size: .76rem;
+            line-height: 1.45;
+        }
+
+        .admin-ops-lines{
+            display: grid;
+            gap: 7px;
+            margin-top: 14px;
+        }
+
+        .admin-ops-line{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            border-radius: 10px;
+            background: #f8fafc;
+            padding: 7px 8px;
+            color: #475569;
+            font-size: .7rem;
+            font-weight: 700;
+        }
+
+        .admin-ops-line strong{
+            color: #0f172a;
+        }
+
         .admin-stat-grid{
             display: grid;
             grid-template-columns: repeat(4, minmax(0,1fr));
@@ -345,6 +739,23 @@
         .admin-stat-sub{
             margin-top: 8px;
             font-size: .74rem;
+            color: rgba(255,255,255,.82);
+        }
+
+        .admin-stat-split{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0,1fr));
+            gap: 12px;
+        }
+
+        .admin-stat-split-item{
+            min-width: 0;
+        }
+
+        .admin-stat-split-label{
+            margin-top: 8px;
+            font-size: .74rem;
+            font-weight: 700;
             color: rgba(255,255,255,.82);
         }
 
@@ -469,14 +880,20 @@
 
         @media (max-width: 1280px){
             .admin-stat-grid,
-            .admin-mini-grid{
+            .admin-mini-grid,
+            .admin-command-grid{
                 grid-template-columns: repeat(2, minmax(0,1fr));
+            }
+
+            .admin-ops-grid{
+                grid-template-columns: repeat(3, minmax(0,1fr));
             }
         }
 
         @media (max-width: 1024px){
             .admin-small-top,
-            .admin-two-col{
+            .admin-two-col,
+            .admin-dashboard-grid{
                 grid-template-columns: 1fr;
             }
         }
@@ -487,7 +904,9 @@
             }
 
             .admin-stat-grid,
-            .admin-mini-grid{
+            .admin-mini-grid,
+            .admin-command-grid,
+            .admin-ops-grid{
                 grid-template-columns: 1fr;
             }
 
@@ -509,546 +928,424 @@
     <div class="admin-page">
         <div class="admin-wrap">
 
-            <div class="admin-filter">
-                <div class="admin-filter-title">Dashboard Filters</div>
-                <form method="GET" action="{{ route('admin.dashboard') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                    <div>
-                        <label for="date_from" class="block text-sm font-medium text-slate-700 mb-2">From Date</label>
-                        <input type="date" id="date_from" name="date_from" value="{{ $dateFrom }}" class="admin-input">
-                    </div>
+            <div class="admin-topbar">
+                <div>
+                    <h1 class="admin-title">Dashboard</h1>
+                    <div class="admin-subtitle">Revenue, farm value, stock position, and the work that needs attention.</div>
+                </div>
 
-                    <div>
-                        <label for="date_to" class="block text-sm font-medium text-slate-700 mb-2">To Date</label>
-                        <input type="date" id="date_to" name="date_to" value="{{ $dateTo }}" class="admin-input">
-                    </div>
-
-                    <div class="flex gap-2 md:col-span-2">
-                        <button type="submit" class="admin-btn admin-btn-green">Apply Filter</button>
-                        <a href="{{ route('admin.dashboard') }}" class="admin-btn admin-btn-gray">Reset</a>
-                    </div>
+                <form method="GET" action="{{ route('admin.dashboard') }}" class="admin-quick-actions">
+                    <input type="date" id="date_from" name="date_from" value="{{ $dateFrom }}" class="admin-input" style="width: 160px;">
+                    <input type="date" id="date_to" name="date_to" value="{{ $dateTo }}" class="admin-input" style="width: 160px;">
+                    <button type="submit" class="admin-btn admin-btn-green">Apply</button>
+                    <a href="{{ route('admin.dashboard') }}" class="admin-btn admin-btn-gray">Reset</a>
                 </form>
             </div>
 
-            <section class="admin-section">
-                <div class="admin-section-head">
-                    <div>
-                        <h2>Stock Overview</h2>
-                        <p>Current inventory and stock distribution</p>
-                    </div>
-                    <a href="{{ route('all-stocks.index') }}" class="admin-link">View All →</a>
-                </div>
-
-                <div class="admin-stat-grid">
-                    <a href="{{ route('all-stocks.index') }}" class="admin-stat admin-stat-green">
-                        <div class="admin-stat-label">Total Pigs</div>
-                        <p class="admin-stat-value">{{ number_format($totalPigs) }}</p>
-                        <div class="admin-stat-sub">{{ number_format($weanedPigs) }} weaned • {{ number_format($pigletsCount) }} piglets</div>
-                    </a>
-
-                    <a href="{{ route('all-stocks.index') }}" class="admin-stat admin-stat-blue">
-                        <div class="admin-stat-label">Active Pigs</div>
-                        <p class="admin-stat-value">{{ number_format($activePigs) }}</p>
-                        <div class="admin-stat-sub">{{ number_format($activeMaleCount) }} males • {{ number_format($activeFemaleCount) }} females</div>
-                    </a>
-
-                    <a href="{{ route('all-stocks.index') }}" class="admin-stat admin-stat-purple">
-                        <div class="admin-stat-label">Breeding Stock</div>
-                        <p class="admin-stat-value">{{ number_format($breedingStock) }}</p>
-                        <div class="admin-stat-sub">{{ number_format($standardStock) }} standard stock</div>
-                    </a>
-
-                    <a href="{{ route('deaths.index') }}" class="admin-stat admin-stat-red">
-                        <div class="admin-stat-label">Mortality Rate</div>
-                        <p class="admin-stat-value">{{ number_format($mortalityRate, 1) }}%</p>
-                        <div class="admin-stat-sub">{{ number_format($deceasedPigs) }} deceased • {{ number_format($soldPigs) }} sold</div>
-                    </a>
-                </div>
-
-                <div class="admin-two-col">
-                    <div class="admin-card">
-                        <div class="admin-card-head">
+            <div class="admin-command-grid">
+                <a href="{{ route('sales.index') }}" class="admin-command-card admin-command-green">
+                    <div class="admin-command-head">
+                        <div class="admin-command-title-wrap">
+                            <div class="admin-command-icon">
+                                <span class="admin-command-currency">₵</span>
+                            </div>
                             <div>
-                                <h3 class="admin-card-title">Breed Distribution</h3>
-                                <div class="admin-card-sub">Current breakdown by main breed groups</div>
+                                <h2 class="admin-command-title">Revenue</h2>
+                                <div class="admin-command-kicker">Sales performance</div>
                             </div>
                         </div>
-
-                        <div class="admin-list">
-                            <div class="admin-list-row">
-                                <span>LW (Large White)</span>
-                                <span>{{ number_format($breedCounts['LW'] ?? 0) }}</span>
-                            </div>
-                            <div class="admin-list-row">
-                                <span>DR (Duroc)</span>
-                                <span>{{ number_format($breedCounts['DR'] ?? 0) }}</span>
-                            </div>
-                            <div class="admin-list-row">
-                                <span>LWDR (Large White Duroc)</span>
-                                <span>{{ number_format($breedCounts['LWDR'] ?? 0) }}</span>
-                            </div>
+                        <span class="admin-command-link">View Sales</span>
+                    </div>
+                    <div class="admin-command-main">
+                        <div class="admin-command-value">GHS {{ number_format($totalRevenue, 2) }}</div>
+                        <div class="admin-command-note">{{ number_format($salesThisMonth) }} sales this month</div>
+                    </div>
+                    <div class="admin-command-metrics">
+                        <div class="admin-command-metric">
+                            <div class="admin-command-metric-label">Total Sales</div>
+                            <div class="admin-command-metric-value">{{ number_format($totalSales) }}</div>
+                        </div>
+                        <div class="admin-command-metric">
+                            <div class="admin-command-metric-label">Avg Sale</div>
+                            <div class="admin-command-metric-value">GHS {{ number_format($avgSalePrice ?? 0, 0) }}</div>
+                        </div>
+                        <div class="admin-command-metric">
+                            <div class="admin-command-metric-label">Male Sales</div>
+                            <div class="admin-command-metric-value">{{ number_format($maleSales) }}</div>
+                        </div>
+                        <div class="admin-command-metric">
+                            <div class="admin-command-metric-label">Female Sales</div>
+                            <div class="admin-command-metric-value">{{ number_format($femaleSales) }}</div>
                         </div>
                     </div>
+                </a>
 
-                    <div class="admin-card">
-                        <div class="admin-card-head">
+                <a href="{{ route('weights.index') }}" class="admin-command-card admin-command-blue">
+                    <div class="admin-command-head">
+                        <div class="admin-command-title-wrap">
+                            <div class="admin-command-icon">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21h18M6 21V9l6-4 6 4v12M9 21v-6h6v6" />
+                                </svg>
+                            </div>
                             <div>
-                                <h3 class="admin-card-title">Stock Trends</h3>
-                                <div class="admin-card-sub">Active, sold, and deceased over 6 months</div>
+                                <h2 class="admin-command-title">Overall Farm Value</h2>
+                                <div class="admin-command-kicker">Live weight valuation</div>
                             </div>
                         </div>
-
-                        <div class="admin-chart-wrap">
-                            <div class="admin-chart">
-                                <canvas id="stockTrendsChart"></canvas>
-                            </div>
+                        <span class="admin-command-link">View Weights</span>
+                    </div>
+                    <div class="admin-command-main">
+                        <div class="admin-command-value">GHS {{ number_format($totalFarmValue, 2) }}</div>
+                        <div class="admin-command-note">{{ number_format($totalWeight, 1) }}kg live weight at GHS {{ number_format($liveWeightPrice, 2) }}/kg</div>
+                    </div>
+                    <div class="admin-command-metrics">
+                        <div class="admin-command-metric">
+                            <div class="admin-command-metric-label">Avg Weight</div>
+                            <div class="admin-command-metric-value">{{ number_format($avgWeight ?? 0, 1) }} kg</div>
+                        </div>
+                        <div class="admin-command-metric">
+                            <div class="admin-command-metric-label">Weight Records</div>
+                            <div class="admin-command-metric-value">{{ number_format($totalWeights) }}</div>
+                        </div>
+                        <div class="admin-command-metric">
+                            <div class="admin-command-metric-label">This Week</div>
+                            <div class="admin-command-metric-value">{{ number_format($weightsThisWeek) }}</div>
+                        </div>
+                        <div class="admin-command-metric">
+                            <div class="admin-command-metric-label">Due Soon</div>
+                            <div class="admin-command-metric-value">{{ number_format($dueForWeighing) }}</div>
                         </div>
                     </div>
-                </div>
-            </section>
+                </a>
 
-            <div class="admin-small-top">
+                <a href="{{ route('all-stocks.index') }}" class="admin-command-card admin-command-amber">
+                    <div class="admin-command-head">
+                        <div class="admin-command-title-wrap">
+                            <div class="admin-command-icon">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7.5 12 3 4 7.5m16 0-8 4.5m8-4.5v9L12 21m0-9L4 7.5m8 4.5v9M4 7.5v9L12 21" />
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 class="admin-command-title">Stock Details</h2>
+                                <div class="admin-command-kicker">Live inventory position</div>
+                            </div>
+                        </div>
+                        <span class="admin-command-link">View Stock</span>
+                    </div>
+                    <div class="admin-command-main">
+                        <div class="admin-command-value">{{ number_format($activePigs) }}</div>
+                        <div class="admin-command-note">
+                            {{ number_format($totalPigs) }} total records,
+                            {{ number_format($bornPigletsCount) }} born piglets,
+                            {{ number_format($purchasedPigletsCount) }} purchased piglets
+                        </div>
+                    </div>
+                    @php
+                        $genderTotal = max(1, (int) $activeMaleCount + (int) $activeFemaleCount);
+                        $malePercent = round(((int) $activeMaleCount / $genderTotal) * 100, 1);
+                        $femalePercent = max(0, 100 - $malePercent);
+                    @endphp
+                    <div class="admin-gender-strip">
+                        <div class="admin-gender-head">
+                            <span>Gender Distribution</span>
+                            <span>{{ number_format($activeMaleCount + $activeFemaleCount) }} active</span>
+                        </div>
+                        <div class="admin-gender-track" aria-label="Gender distribution">
+                            <div class="admin-gender-male" style="width: {{ $malePercent }}%;"></div>
+                            <div class="admin-gender-female" style="width: {{ $femalePercent }}%;"></div>
+                        </div>
+                        <div class="admin-gender-legend">
+                            <span class="admin-gender-item">
+                                <span class="admin-gender-dot admin-gender-male"></span>
+                                Male {{ number_format($activeMaleCount) }}
+                            </span>
+                            <span class="admin-gender-item">
+                                <span class="admin-gender-dot admin-gender-female"></span>
+                                Female {{ number_format($activeFemaleCount) }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="admin-command-metrics">
+                        <div class="admin-command-metric">
+                            <div class="admin-command-metric-label">Breeding</div>
+                            <div class="admin-command-metric-value">{{ number_format($breedingStock) }}</div>
+                        </div>
+                        <div class="admin-command-metric">
+                            <div class="admin-command-metric-label">Standard</div>
+                            <div class="admin-command-metric-value">{{ number_format($standardStock) }}</div>
+                        </div>
+                        <div class="admin-command-metric">
+                            <div class="admin-command-metric-label">Purchased</div>
+                            <div class="admin-command-metric-value">{{ number_format($purchasedStockMetrics['added_quantity'] ?? 0) }}</div>
+                        </div>
+                        <div class="admin-command-metric">
+                            <div class="admin-command-metric-label">Pending Intake</div>
+                            <div class="admin-command-metric-value">{{ number_format($purchasedStockMetrics['pending_intakes'] ?? 0) }}</div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <div class="admin-dashboard-grid">
                 <div class="admin-card">
                     <div class="admin-card-head">
                         <div>
-                            <h3 class="admin-card-title">Farm Value</h3>
-                            <div class="admin-card-sub">Current estimated live value of the farm</div>
+                            <h3 class="admin-card-title">Farm Value & Stock Trend</h3>
+                            <div class="admin-card-sub">Estimated value trend based on recent average weight and live price</div>
                         </div>
-                        <div class="admin-badge">Live snapshot</div>
+                        <div class="admin-badge">Last 6 months</div>
                     </div>
-
-                    <div class="admin-small-card-body">
-                        <div class="admin-small-value">
-                            <div class="admin-value-icon">
-                                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </div>
-
-                            <div>
-                                <div class="admin-value-number">GHS {{ number_format($totalFarmValue, 2) }}</div>
-                                <div class="admin-value-note">
-                                    {{ number_format($totalWeight, 1) }}kg total live weight @ GHS {{ number_format($liveWeightPrice, 2) }}/kg
-                                </div>
-                            </div>
+                    <div class="admin-chart-wrap">
+                        <div class="admin-chart">
+                            <canvas id="farmValueTrendChart"></canvas>
                         </div>
                     </div>
                 </div>
 
-                <div onclick="toggleWeighingAlertsModal()" class="admin-alert-card cursor-pointer hover:-translate-y-1 transition-all duration-300">
+                <div class="admin-card">
                     <div class="admin-card-head">
                         <div>
-                            <h3 class="admin-card-title">Weighing Alerts</h3>
-                            <div class="admin-card-sub">Click to view overdue routine weighing and first-weight pending pigs</div>
+                            <h3 class="admin-card-title">Attention Needed</h3>
+                            <div class="admin-card-sub">The items most likely to need action now</div>
                         </div>
-                        <div class="admin-badge">Attention needed</div>
+                        <a href="{{ route('weight-alerts.index') }}" class="admin-command-link">View Alerts</a>
                     </div>
-
-                    <div class="admin-small-card-body">
-                        <div class="admin-small-value">
-                            <div class="admin-value-icon" style="background: linear-gradient(135deg, #fee2e2, #fecaca); color: #dc2626;">
-                                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-7.938 4h15.876c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                                </svg>
-                            </div>
-
-                            <div>
-                                <div class="admin-value-number">
-                                    {{ number_format(($allOverduePigsData->count() ?? 0) + ($allFirstWeightPendingData->count() ?? 0)) }}
-                                </div>
-                                <div class="admin-value-note">
-                                    {{ number_format($allOverduePigsData->count() ?? 0) }} overdue •
-                                    {{ number_format($allFirstWeightPendingData->count() ?? 0) }} first weight pending
-                                </div>
-                            </div>
-                        </div>
+                    <div class="overflow-x-auto">
+                        <table class="admin-attention-table">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Item</th>
+                                    <th>Severity</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if($overdueForWeighing > 0)
+                                    <tr>
+                                        <td>Weight</td>
+                                        <td>
+                                            <a href="{{ route('weights.index') }}" class="admin-attention-link">
+                                                {{ number_format($overdueForWeighing) }} overdue
+                                            </a>
+                                        </td>
+                                        <td><span class="admin-status-pill admin-status-high">High</span></td>
+                                    </tr>
+                                @endif
+                                @if($firstWeightPending > 0)
+                                    <tr>
+                                        <td>Weight</td>
+                                        <td>
+                                            <a href="{{ route('weights.index') }}" class="admin-attention-link">
+                                                {{ number_format($firstWeightPending) }} first weight pending
+                                            </a>
+                                        </td>
+                                        <td><span class="admin-status-pill admin-status-medium">Medium</span></td>
+                                    </tr>
+                                @endif
+                                @if($pregnancyChecksOverdue > 0)
+                                    <tr>
+                                        <td>Breeding</td>
+                                        <td>
+                                            <a href="{{ route('mating.manage') }}" class="admin-attention-link">
+                                                {{ number_format($pregnancyChecksOverdue) }} pregnancy checks overdue
+                                            </a>
+                                        </td>
+                                        <td><span class="admin-status-pill admin-status-high">High</span></td>
+                                    </tr>
+                                @endif
+                                @if($pregnancyFollowUpsOverdue > 0)
+                                    <tr>
+                                        <td>Breeding</td>
+                                        <td>
+                                            <a href="{{ route('mating.manage') }}" class="admin-attention-link">
+                                                {{ number_format($pregnancyFollowUpsOverdue) }} uncertain pregnancy follow-ups overdue
+                                            </a>
+                                        </td>
+                                        <td><span class="admin-status-pill admin-status-high">High</span></td>
+                                    </tr>
+                                @endif
+                                @if($overdueGestation > 0)
+                                    <tr>
+                                        <td>Gestation</td>
+                                        <td>
+                                            <a href="{{ route('gestation.index') }}" class="admin-attention-link">
+                                                {{ number_format($overdueGestation) }} overdue farrowing preparations
+                                            </a>
+                                        </td>
+                                        <td><span class="admin-status-pill admin-status-high">High</span></td>
+                                    </tr>
+                                @endif
+                                @if($overdueWeaning > 0)
+                                    <tr>
+                                        <td>Weaning</td>
+                                        <td>
+                                            <a href="{{ route('weaning.dashboard') }}" class="admin-attention-link">
+                                                {{ number_format($overdueWeaning) }} litters overdue
+                                            </a>
+                                        </td>
+                                        <td><span class="admin-status-pill admin-status-medium">Medium</span></td>
+                                    </tr>
+                                @endif
+                                @if($criticalAlerts > 0)
+                                    <tr>
+                                        <td>Weight Alert</td>
+                                        <td>
+                                            <a href="{{ route('weight-alerts.index', ['severity' => 'high', 'acknowledged' => 0]) }}" class="admin-attention-link">
+                                                {{ number_format($criticalAlerts) }} critical alerts
+                                            </a>
+                                        </td>
+                                        <td><span class="admin-status-pill admin-status-high">High</span></td>
+                                    </tr>
+                                @endif
+                                @if($overdueForWeighing === 0 && $firstWeightPending === 0 && $pregnancyChecksOverdue === 0 && $pregnancyFollowUpsOverdue === 0 && $overdueGestation === 0 && $overdueWeaning === 0 && $criticalAlerts === 0)
+                                    <tr>
+                                        <td colspan="3">No urgent dashboard alerts for the selected period.</td>
+                                    </tr>
+                                @endif
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
 
-            <div class="admin-card mb-4">
-                <div class="admin-card-head">
+            <section class="admin-section">
+                <div class="admin-section-head">
                     <div>
-                        <h3 class="admin-card-title">Farm Value Trend</h3>
-                        <div class="admin-card-sub">Trend based on average weight and live price over recent months</div>
+                        <h2>Operations Timeline</h2>
+                        <p>Compact summaries for the farm workflows that feed the full module pages</p>
                     </div>
-                    <div class="admin-badge">Last 6 months</div>
+                    <a href="{{ route('all-stocks.index') }}" class="admin-link">Open Stock</a>
                 </div>
 
-                <div class="admin-chart-wrap">
-                    <div class="admin-chart">
-                        <canvas id="farmValueTrendChart"></canvas>
+                <div class="admin-ops-grid">
+                    <a href="{{ route('mating.manage') }}" class="admin-ops-card">
+                        <div>
+                            <div class="admin-ops-label">Breeding</div>
+                            <div class="admin-ops-value">{{ number_format($totalMatings) }}</div>
+                            <div class="admin-ops-sub">Total matings</div>
+                        </div>
+                        <div class="admin-ops-lines">
+                            <div class="admin-ops-line"><span>Pregnant</span><strong>{{ number_format($pregnantMatings) }}</strong></div>
+                            <div class="admin-ops-line"><span>Checks due</span><strong>{{ number_format($pregnancyChecksDue) }}</strong></div>
+                            <div class="admin-ops-line"><span>Follow-ups</span><strong>{{ number_format($pregnancyFollowUpsDue) }}</strong></div>
+                            <div class="admin-ops-line"><span>Uncertain</span><strong>{{ number_format($uncertainPregnancies) }}</strong></div>
+                        </div>
+                    </a>
+
+                    <a href="{{ route('gestation.index') }}" class="admin-ops-card">
+                        <div>
+                            <div class="admin-ops-label">Gestation</div>
+                            <div class="admin-ops-value">{{ number_format($totalPregnant) }}</div>
+                            <div class="admin-ops-sub">Tracked pregnancies</div>
+                        </div>
+                        <div class="admin-ops-lines">
+                            <div class="admin-ops-line"><span>Due week</span><strong>{{ number_format($dueThisWeek) }}</strong></div>
+                            <div class="admin-ops-line"><span>Overdue</span><strong>{{ number_format($overdueGestation) }}</strong></div>
+                        </div>
+                    </a>
+
+                    <a href="{{ route('farrowing.index') }}" class="admin-ops-card">
+                        <div>
+                            <div class="admin-ops-label">Farrowing</div>
+                            <div class="admin-ops-value">{{ number_format($totalFarrowings) }}</div>
+                            <div class="admin-ops-sub">{{ number_format($totalBorn) }} piglets born</div>
+                        </div>
+                        <div class="admin-ops-lines">
+                            <div class="admin-ops-line"><span>This month</span><strong>{{ number_format($farrowingsThisMonth) }}</strong></div>
+                            <div class="admin-ops-line"><span>Survival</span><strong>{{ number_format($survivalRate, 1) }}%</strong></div>
+                        </div>
+                    </a>
+
+                    <a href="{{ route('weaning.dashboard') }}" class="admin-ops-card">
+                        <div>
+                            <div class="admin-ops-label">Weaning</div>
+                            <div class="admin-ops-value">{{ number_format($totalWeaned) }}</div>
+                            <div class="admin-ops-sub">{{ number_format($weaningPercentage, 1) }}% weaning rate</div>
+                        </div>
+                        <div class="admin-ops-lines">
+                            <div class="admin-ops-line"><span>Ready</span><strong>{{ number_format($readyToWean) }}</strong></div>
+                            <div class="admin-ops-line"><span>Overdue</span><strong>{{ number_format($overdueWeaning) }}</strong></div>
+                        </div>
+                    </a>
+
+                    <a href="{{ route('weights.index') }}" class="admin-ops-card">
+                        <div>
+                            <div class="admin-ops-label">Weight</div>
+                            <div class="admin-ops-value">{{ number_format($avgWeight ?? 0, 1) }}</div>
+                            <div class="admin-ops-sub">Average kg</div>
+                        </div>
+                        <div class="admin-ops-lines">
+                            <div class="admin-ops-line"><span>Records</span><strong>{{ number_format($totalWeights) }}</strong></div>
+                            <div class="admin-ops-line"><span>Overdue</span><strong>{{ number_format($overdueForWeighing) }}</strong></div>
+                        </div>
+                    </a>
+
+                    <a href="{{ route('health.index') }}" class="admin-ops-card">
+                        <div>
+                            <div class="admin-ops-label">Health</div>
+                            <div class="admin-ops-value">{{ number_format($totalHealthRecords) }}</div>
+                            <div class="admin-ops-sub">Health records</div>
+                        </div>
+                        <div class="admin-ops-lines">
+                            <div class="admin-ops-line"><span>Medication</span><strong>{{ number_format($totalMedications) }}</strong></div>
+                            <div class="admin-ops-line"><span>Alerts</span><strong>{{ number_format($criticalAlerts) }}</strong></div>
+                        </div>
+                    </a>
+
+                    <a href="{{ route('sales.index') }}" class="admin-ops-card">
+                        <div>
+                            <div class="admin-ops-label">Sales</div>
+                            <div class="admin-ops-value">{{ number_format($totalSales) }}</div>
+                            <div class="admin-ops-sub">Completed sales</div>
+                        </div>
+                        <div class="admin-ops-lines">
+                            <div class="admin-ops-line"><span>Revenue</span><strong>GHS {{ number_format($totalRevenue, 0) }}</strong></div>
+                            <div class="admin-ops-line"><span>This month</span><strong>{{ number_format($salesThisMonth) }}</strong></div>
+                        </div>
+                    </a>
+                </div>
+            </section>
+
+            <div class="admin-two-col">
+                <div class="admin-card">
+                    <div class="admin-card-head">
+                        <div>
+                            <h3 class="admin-card-title">Breed Distribution</h3>
+                            <div class="admin-card-sub">Current breakdown by main breed groups</div>
+                        </div>
+                    </div>
+                    <div class="admin-list">
+                        <div class="admin-list-row">
+                            <span>LW (Large White)</span>
+                            <span>{{ number_format($breedCounts['LW'] ?? 0) }}</span>
+                        </div>
+                        <div class="admin-list-row">
+                            <span>DR (Duroc)</span>
+                            <span>{{ number_format($breedCounts['DR'] ?? 0) }}</span>
+                        </div>
+                        <div class="admin-list-row">
+                            <span>LWDR (Large White Duroc)</span>
+                            <span>{{ number_format($breedCounts['LWDR'] ?? 0) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="admin-card">
+                    <div class="admin-card-head">
+                        <div>
+                            <h3 class="admin-card-title">Health Activity</h3>
+                            <div class="admin-card-sub">Health and medication activity over 6 months</div>
+                        </div>
+                    </div>
+                    <div class="admin-chart-wrap">
+                        <div class="admin-chart">
+                            <canvas id="healthTrendsChart"></canvas>
+                        </div>
                     </div>
                 </div>
             </div>
-
-            <div class="admin-divider"></div>
-
-            <section class="admin-section">
-                <div class="admin-section-head">
-                    <div>
-                        <h2>Mating Management</h2>
-                        <p>Breeding activities and pregnancy tracking</p>
-                    </div>
-                    <a href="{{ route('mating.manage') }}" class="admin-link">View All →</a>
-                </div>
-
-                <div class="admin-mini-grid">
-                    <a href="{{ route('mating.manage') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Total Matings</div>
-                        <div class="admin-mini-value">{{ number_format($totalMatings) }}</div>
-                        <div class="admin-mini-sub">{{ number_format($plannedMatings) }} planned • {{ number_format($completedMatings) }} completed</div>
-                    </a>
-
-                    <a href="{{ route('mating.manage') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Pregnant</div>
-                        <div class="admin-mini-value">{{ number_format($pregnantMatings) }}</div>
-                        <div class="admin-mini-sub">{{ number_format($pregnancyRate, 1) }}% pregnancy rate</div>
-                    </a>
-
-                    <a href="{{ route('mating.manage') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Checks Due</div>
-                        <div class="admin-mini-value">{{ number_format($pregnancyChecksDue) }}</div>
-                        <div class="admin-mini-sub">{{ number_format($pregnancyChecksOverdue) }} overdue</div>
-                    </a>
-
-                    <a href="{{ route('mating.manage') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Fertility Rate</div>
-                        <div class="admin-mini-value">{{ number_format($fertilityRate, 1) }}%</div>
-                        <div class="admin-mini-sub">{{ number_format($upcomingMatings) }} upcoming</div>
-                    </a>
-                </div>
-
-                <div class="admin-card">
-                    <div class="admin-card-head">
-                        <div>
-                            <h3 class="admin-card-title">Mating Activity</h3>
-                            <div class="admin-card-sub">Six-month breeding activity chart</div>
-                        </div>
-                    </div>
-
-                    <div class="admin-chart-wrap">
-                        <div class="admin-chart">
-                            <canvas id="matingTrendsChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <div class="admin-divider"></div>
-
-            <section class="admin-section">
-                <div class="admin-section-head">
-                    <div>
-                        <h2>Gestation Tracking</h2>
-                        <p>Pregnancy monitoring and farrowing preparation</p>
-                    </div>
-                    <a href="{{ route('gestation.index') }}" class="admin-link">View All →</a>
-                </div>
-
-                <div class="admin-mini-grid">
-                    <a href="{{ route('gestation.index') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Pregnant</div>
-                        <div class="admin-mini-value">{{ number_format($totalPregnant) }}</div>
-                        <div class="admin-mini-sub">{{ number_format($avgGestationDays, 1) }} avg days</div>
-                    </a>
-
-                    <a href="{{ route('gestation.index') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Due This Week</div>
-                        <div class="admin-mini-value">{{ number_format($dueThisWeek) }}</div>
-                        <div class="admin-mini-sub">{{ number_format($dueNextWeek) }} due next week</div>
-                    </a>
-
-                    <a href="{{ route('gestation.index') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Overdue</div>
-                        <div class="admin-mini-value">{{ number_format($overdueGestation) }}</div>
-                        <div class="admin-mini-sub">Requires attention</div>
-                    </a>
-
-                    <a href="{{ route('farrowing.index') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Farrowed This Month</div>
-                        <div class="admin-mini-value">{{ number_format($farrowedThisMonth) }}</div>
-                        <div class="admin-mini-sub">{{ number_format($totalFarrowed) }} total</div>
-                    </a>
-                </div>
-
-                <div class="admin-card">
-                    <div class="admin-card-head">
-                        <div>
-                            <h3 class="admin-card-title">Gestation Status Distribution</h3>
-                            <div class="admin-card-sub">Distribution across tracked gestation states</div>
-                        </div>
-                    </div>
-
-                    <div class="admin-chart-wrap">
-                        <div class="admin-chart">
-                            <canvas id="gestationStatusChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <div class="admin-divider"></div>
-
-            <section class="admin-section">
-                <div class="admin-section-head">
-                    <div>
-                        <h2>Farrowing Records</h2>
-                        <p>Birth records and piglet statistics</p>
-                    </div>
-                    <a href="{{ route('farrowing.index') }}" class="admin-link">View All →</a>
-                </div>
-
-                <div class="admin-mini-grid">
-                    <a href="{{ route('farrowing.index') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Total Farrowings</div>
-                        <div class="admin-mini-value">{{ number_format($totalFarrowings) }}</div>
-                        <div class="admin-mini-sub">{{ number_format($farrowingsThisMonth) }} this month</div>
-                    </a>
-
-                    <a href="{{ route('farrowing.index') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Total Born</div>
-                        <div class="admin-mini-value">{{ number_format($totalBorn) }}</div>
-                        <div class="admin-mini-sub">{{ number_format($avgLitterSize, 1) }} avg litter size</div>
-                    </a>
-
-                    <a href="{{ route('farrowing.index') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Survival Rate</div>
-                        <div class="admin-mini-value">{{ number_format($survivalRate, 1) }}%</div>
-                        <div class="admin-mini-sub">{{ number_format($avgStillborns, 1) }} avg stillborns</div>
-                    </a>
-
-                    <a href="{{ route('farrowing.index') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Avg Birth Weight</div>
-                        <div class="admin-mini-value">{{ number_format($avgBirthWeight ?? 0, 2) }} kg</div>
-                        <div class="admin-mini-sub">{{ number_format($farrowingsThisYear) }} this year</div>
-                    </a>
-                </div>
-
-                <div class="admin-two-col">
-                    <div class="admin-card">
-                        <div class="admin-card-head">
-                            <div>
-                                <h3 class="admin-card-title">Farrowing Trends</h3>
-                                <div class="admin-card-sub">Six-month farrowing activity</div>
-                            </div>
-                        </div>
-                        <div class="admin-chart-wrap">
-                            <div class="admin-chart">
-                                <canvas id="farrowingTrendsChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="admin-card">
-                        <div class="admin-card-head">
-                            <div>
-                                <h3 class="admin-card-title">Piglets Born</h3>
-                                <div class="admin-card-sub">Six-month piglet birth totals</div>
-                            </div>
-                        </div>
-                        <div class="admin-chart-wrap">
-                            <div class="admin-chart">
-                                <canvas id="pigletsBornChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <div class="admin-divider"></div>
-
-            <section class="admin-section">
-                <div class="admin-section-head">
-                    <div>
-                        <h2>Weaning Management</h2>
-                        <p>Piglet weaning and maturity tracking</p>
-                    </div>
-                    <a href="{{ route('weaning.dashboard') }}" class="admin-link">View All →</a>
-                </div>
-
-                <div class="admin-mini-grid">
-                    <a href="{{ route('weaning.dashboard') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Total Weaned</div>
-                        <div class="admin-mini-value">{{ number_format($totalWeaned) }}</div>
-                        <div class="admin-mini-sub">{{ number_format($weaningPercentage, 1) }}% weaning rate</div>
-                    </a>
-
-                    <a href="{{ route('weaning.dashboard') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Ready to Wean</div>
-                        <div class="admin-mini-value">{{ number_format($readyToWean) }}</div>
-                        <div class="admin-mini-sub">{{ number_format($dueSoonWeaning) }} due soon</div>
-                    </a>
-
-                    <a href="{{ route('weaning.dashboard') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Overdue</div>
-                        <div class="admin-mini-value">{{ number_format($overdueWeaning) }}</div>
-                        <div class="admin-mini-sub">Past {{ $weaningAge + 7 }} days</div>
-                    </a>
-
-                    <a href="{{ route('weaning.dashboard') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Avg Weaning</div>
-                        <div class="admin-mini-value">{{ number_format($avgWeaningAge ?? 0, 0) }} days</div>
-                        <div class="admin-mini-sub">{{ number_format($avgWeaningWeight ?? 0, 2) }} kg avg weight</div>
-                    </a>
-                </div>
-
-                <div class="admin-card">
-                    <div class="admin-card-head">
-                        <div>
-                            <h3 class="admin-card-title">Weaning Activity</h3>
-                            <div class="admin-card-sub">Six-month weaning trend</div>
-                        </div>
-                    </div>
-                    <div class="admin-chart-wrap">
-                        <div class="admin-chart">
-                            <canvas id="weaningTrendsChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <div class="admin-divider"></div>
-
-            <section class="admin-section">
-                <div class="admin-section-head">
-                    <div>
-                        <h2>Weight Management</h2>
-                        <p>Weight tracking, growth monitoring, and farm value</p>
-                    </div>
-                    <a href="{{ route('weights.index') }}" class="admin-link">View All →</a>
-                </div>
-
-                <div class="admin-mini-grid">
-                    <a href="{{ route('weights.index') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Total Records</div>
-                        <div class="admin-mini-value">{{ number_format($totalWeights) }}</div>
-                        <div class="admin-mini-sub">{{ number_format($weightsThisWeek) }} this week</div>
-                    </a>
-
-                    <a href="{{ route('weights.index') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Overdue</div>
-                        <div class="admin-mini-value">{{ number_format($overdueForWeighing) }}</div>
-                        <div class="admin-mini-sub">{{ number_format($dueForWeighing) }} due soon</div>
-                    </a>
-
-                    <a href="{{ route('weights.index') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Avg Weight</div>
-                        <div class="admin-mini-value">{{ number_format($avgWeight ?? 0, 1) }} kg</div>
-                        <div class="admin-mini-sub">{{ number_format($totalWeight ?? 0, 1) }} kg total</div>
-                    </a>
-
-                    <a href="{{ route('weights.index') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Farm Value</div>
-                        <div class="admin-mini-value">₵{{ number_format($totalFarmValue ?? 0, 0) }}</div>
-                        <div class="admin-mini-sub">₵{{ number_format($liveWeightPrice, 2) }}/kg</div>
-                    </a>
-                </div>
-
-                <div class="admin-two-col mb-6">
-                    <div class="admin-card">
-                        <div class="admin-card-head">
-                            <div>
-                                <h3 class="admin-card-title">Weight Trends</h3>
-                                <div class="admin-card-sub">Last 30 days average weight movement</div>
-                            </div>
-                        </div>
-                        <div class="admin-chart-wrap">
-                            <div class="admin-chart">
-                                <canvas id="weightTrendsChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="admin-card">
-                        <div class="admin-card-head">
-                            <div>
-                                <h3 class="admin-card-title">Average Weight</h3>
-                                <div class="admin-card-sub">Six-month average weight trend</div>
-                            </div>
-                        </div>
-                        <div class="admin-chart-wrap">
-                            <div class="admin-chart">
-                                <canvas id="weightMonthlyChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <div class="admin-divider"></div>
-
-            <section class="admin-section">
-                <div class="admin-section-head">
-                    <div>
-                        <h2>Health & Performance</h2>
-                        <p>Health records and medication administration</p>
-                    </div>
-                    <a href="{{ route('health.index') }}" class="admin-link">View All →</a>
-                </div>
-
-                <div class="admin-mini-grid">
-                    <a href="{{ route('health.index') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Health Records</div>
-                        <div class="admin-mini-value">{{ number_format($totalHealthRecords) }}</div>
-                        <div class="admin-mini-sub">{{ number_format($healthRecordsThisMonth) }} this month</div>
-                    </a>
-
-                    <a href="{{ route('medications.index') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Medications</div>
-                        <div class="admin-mini-value">{{ number_format($totalMedications) }}</div>
-                        <div class="admin-mini-sub">{{ number_format($medicationsThisMonth) }} this month</div>
-                    </a>
-
-                    <a href="{{ route('health.index') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Critical Alerts</div>
-                        <div class="admin-mini-value">{{ number_format($criticalAlerts) }}</div>
-                        <div class="admin-mini-sub">{{ number_format($totalAlerts) }} total alerts</div>
-                    </a>
-
-                    <a href="{{ route('sales.index') }}" class="admin-mini-card">
-                        <div class="admin-mini-label">Total Sales</div>
-                        <div class="admin-mini-value">{{ number_format($totalSales) }}</div>
-                        <div class="admin-mini-sub">₵{{ number_format($totalRevenue, 0) }} revenue</div>
-                    </a>
-                </div>
-
-                <div class="admin-two-col">
-                    <div class="admin-card">
-                        <div class="admin-card-head">
-                            <div>
-                                <h3 class="admin-card-title">Top Health Conditions</h3>
-                                <div class="admin-card-sub">Most frequent recorded conditions</div>
-                            </div>
-                        </div>
-
-                        <div class="admin-list">
-                            @forelse($topConditions as $condition)
-                                <div class="admin-list-row">
-                                    <span>{{ $condition->condition }}</span>
-                                    <span>{{ $condition->count }} cases</span>
-                                </div>
-                            @empty
-                                <div class="text-sm text-rose-600">No health records yet</div>
-                            @endforelse
-                        </div>
-                    </div>
-
-                    <div class="admin-card">
-                        <div class="admin-card-head">
-                            <div>
-                                <h3 class="admin-card-title">Health Activity</h3>
-                                <div class="admin-card-sub">Health and medication activity over 6 months</div>
-                            </div>
-                        </div>
-
-                        <div class="admin-chart-wrap">
-                            <div class="admin-chart">
-                                <canvas id="healthTrendsChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
 
         </div>
     </div>
@@ -1121,9 +1418,9 @@
                                 <div class="flex-1">
                                     <div class="flex items-center mb-2">
                                         <span class="text-2xl mr-3">
-                                            @if($isCritical) 🚨
+                                            @if($isCritical) Alert
                                             @elseif($isOverdue) ⏰
-                                            @else ⚠️
+                                            @else Warning
                                             @endif
                                         </span>
                                         <div>
@@ -1222,7 +1519,7 @@
                             <div class="flex items-start justify-between">
                                 <div class="flex-1">
                                     <div class="flex items-center mb-2">
-                                        <span class="text-2xl mr-3">📝</span>
+                                        <span class="text-2xl mr-3">Notes</span>
                                         <div>
                                             <h3 class="text-lg font-semibold text-gray-900">{{ $pig->ear_tag_number ?? 'N/A' }}</h3>
                                             <p class="text-sm text-gray-600">
@@ -1315,7 +1612,16 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        new Chart(document.getElementById('stockTrendsChart'), {
+        function mountDashboardChart(id, config) {
+            const canvas = document.getElementById(id);
+            if (! canvas) {
+                return;
+            }
+
+            new Chart(canvas, config);
+        }
+
+        mountDashboardChart('stockTrendsChart', {
             type: 'line',
             data: {
                 labels: @json($stockTrendsLabels),
@@ -1352,7 +1658,7 @@
             }
         });
 
-        new Chart(document.getElementById('matingTrendsChart'), {
+        mountDashboardChart('matingTrendsChart', {
             type: 'bar',
             data: {
                 labels: @json($matingTrendsLabels),
@@ -1381,7 +1687,7 @@
             }
         });
 
-        new Chart(document.getElementById('gestationStatusChart'), {
+        mountDashboardChart('gestationStatusChart', {
             type: 'doughnut',
             data: {
                 labels: Object.keys(@json($gestationStatusData)),
@@ -1415,7 +1721,7 @@
             }
         });
 
-        new Chart(document.getElementById('farrowingTrendsChart'), {
+        mountDashboardChart('farrowingTrendsChart', {
             type: 'line',
             data: {
                 labels: @json($farrowingTrendsLabels),
@@ -1436,7 +1742,7 @@
             }
         });
 
-        new Chart(document.getElementById('pigletsBornChart'), {
+        mountDashboardChart('pigletsBornChart', {
             type: 'bar',
             data: {
                 labels: @json($farrowingTrendsLabels),
@@ -1457,7 +1763,7 @@
             }
         });
 
-        new Chart(document.getElementById('weaningTrendsChart'), {
+        mountDashboardChart('weaningTrendsChart', {
             type: 'line',
             data: {
                 labels: @json($weaningTrendsLabels),
@@ -1491,7 +1797,7 @@
             }
         });
 
-        new Chart(document.getElementById('weightTrendsChart'), {
+        mountDashboardChart('weightTrendsChart', {
             type: 'line',
             data: {
                 labels: @json($weightLabels),
@@ -1512,7 +1818,7 @@
             }
         });
 
-        new Chart(document.getElementById('weightMonthlyChart'), {
+        mountDashboardChart('weightMonthlyChart', {
             type: 'bar',
             data: {
                 labels: @json($weightMonthlyLabels),
@@ -1533,7 +1839,7 @@
             }
         });
 
-        new Chart(document.getElementById('healthTrendsChart'), {
+        mountDashboardChart('healthTrendsChart', {
             type: 'line',
             data: {
                 labels: @json($healthTrendsLabels),
@@ -1564,7 +1870,12 @@
         });
 
         document.addEventListener('DOMContentLoaded', function() {
-            const ctx = document.getElementById('farmValueTrendChart').getContext('2d');
+            const farmValueCanvas = document.getElementById('farmValueTrendChart');
+            if (! farmValueCanvas) {
+                return;
+            }
+
+            const ctx = farmValueCanvas.getContext('2d');
             const labels = @json($weightMonthlyLabels);
             const avgWeights = @json($weightMonthlyAvg);
             const pricePerKg = {{ $liveWeightPrice }};

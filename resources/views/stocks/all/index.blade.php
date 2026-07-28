@@ -89,6 +89,18 @@
             transform: translateY(-1px);
         }
 
+        .allstock-top-btn-purchase{
+            background: #fff;
+            color: #14532d;
+            border-color: rgba(255,255,255,.85);
+            box-shadow: 0 10px 24px rgba(15,23,42,.18);
+        }
+
+        .allstock-top-btn-purchase:hover{
+            background: #ecfdf5;
+            transform: translateY(-1px);
+        }
+
         .allstock-card{
             background: rgba(255,255,255,.96);
             border: 1px solid #dbe7f0;
@@ -489,6 +501,13 @@
                             </svg>
                             Add New Stock
                         </a>
+                        <a href="{{ route('purchase-stock-intakes.create') }}" class="allstock-top-btn allstock-top-btn-purchase" style="background:#ffffff !important;color:#14532d !important;border:2px solid #ffffff !important;box-shadow:0 12px 28px rgba(15,23,42,.28) !important;">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h11v10H3V7Zm11 3h3l3 3v4h-6v-7Z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 19a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm10 0a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"/>
+                            </svg>
+                            Add Purchased Stock
+                        </a>
                     </div>
                 </div>
             </div>
@@ -568,11 +587,23 @@
                     </div>
 
                     <div class="allstock-export-actions">
-                        <a href="{{ route('all-stocks.export.csv', request()->query()) }}" class="allstock-btn allstock-btn-green">
+                        <a href="{{ route('all-stocks.import.sample') }}" class="allstock-btn allstock-btn-gray">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/>
+                            </svg>
+                            Download Sample
+                        </a>
+                        <a href="{{ route('all-stocks.import.create') }}" class="allstock-btn allstock-btn-green">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 21V9m0 0 4 4m-4-4-4 4M5 3h14"/>
+                            </svg>
+                            Import Stock
+                        </a>
+                        <a href="{{ route('all-stocks.export.excel', request()->query()) }}" class="allstock-btn allstock-btn-green">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                             </svg>
-                            Export CSV
+                            Export Stock
                         </a>
                         <a href="{{ route('all-stocks.export.pdf', request()->query()) }}" class="allstock-btn allstock-btn-red">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -623,9 +654,9 @@
 
                                     <td>
                                         @if($pig->gender === 'M')
-                                            <span class="allstock-chip chip-male">♂ Male</span>
+                                            <span class="allstock-chip chip-male">Male</span>
                                         @else
-                                            <span class="allstock-chip chip-female">♀ Female</span>
+                                            <span class="allstock-chip chip-female">Female</span>
                                         @endif
                                     </td>
 
@@ -649,10 +680,10 @@
                                             @php
                                                 $alert = $pig->recentWeightAlerts->first();
                                                 $alertConfig = [
-                                                    'under_weight' => ['icon' => '⬇️', 'color' => 'text-blue-700', 'bg' => 'bg-blue-100', 'text' => 'Under'],
-                                                    'over_weight' => ['icon' => '⬆️', 'color' => 'text-orange-700', 'bg' => 'bg-orange-100', 'text' => 'Over'],
-                                                    'normal' => ['icon' => '✅', 'color' => 'text-green-700', 'bg' => 'bg-green-100', 'text' => 'Normal'],
-                                                    'no_standard' => ['icon' => '➖', 'color' => 'text-gray-700', 'bg' => 'bg-gray-100', 'text' => 'No Std'],
+                                                    'under_weight' => ['icon' => 'Under', 'color' => 'text-blue-700', 'bg' => 'bg-blue-100', 'text' => 'Under'],
+                                                    'over_weight' => ['icon' => 'Over', 'color' => 'text-orange-700', 'bg' => 'bg-orange-100', 'text' => 'Over'],
+                                                    'normal' => ['icon' => 'OK', 'color' => 'text-green-700', 'bg' => 'bg-green-100', 'text' => 'Normal'],
+                                                    'no_standard' => ['icon' => 'None', 'color' => 'text-gray-700', 'bg' => 'bg-gray-100', 'text' => 'No Std'],
                                                 ];
                                                 $config = $alertConfig[$alert->alert_type] ?? $alertConfig['no_standard'];
                                             @endphp
@@ -665,7 +696,7 @@
                                             </span>
                                         @else
                                             <span class="allstock-weight-badge bg-gray-50 text-gray-500 border border-gray-200">
-                                                ➖ No Data
+                                                No Data
                                             </span>
                                         @endif
                                     </td>

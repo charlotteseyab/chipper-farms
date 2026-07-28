@@ -26,6 +26,7 @@ class Mating extends Model
         'pregnancy_check_date',
         'pregnancy_status',
         'pregnancy_check_method',
+        'pregnancy_check_notes',
         'pregnancy_confidence',
         'checked_by',
         'actual_farrowing_date',
@@ -35,6 +36,12 @@ class Mating extends Model
         'farrowing_notes',
         'pregnancy_status_date',
         'pregnancy_status_notes',
+        'pregnancy_follow_up_date',
+        'pregnancy_follow_up_status',
+        'pregnancy_follow_up_notes',
+        'last_uncertain_check_at',
+        'pregnancy_follow_up_completed_at',
+        'pregnancy_follow_up_completed_by',
         'expected_weaning_date',
     ];
 
@@ -45,6 +52,9 @@ class Mating extends Model
         'actual_farrowing_date' => 'date',
         'pregnancy_check_date' => 'date',
         'pregnancy_status_date' => 'date',
+        'pregnancy_follow_up_date' => 'date',
+        'last_uncertain_check_at' => 'datetime',
+        'pregnancy_follow_up_completed_at' => 'datetime',
         'expected_weaning_date' => 'date',
         'successful' => 'boolean',
         'expected_piglets' => 'integer',
@@ -79,6 +89,11 @@ class Mating extends Model
         return $this->belongsTo(User::class, 'checked_by');
     }
 
+    public function pregnancyFollowUpCompletedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'pregnancy_follow_up_completed_by');
+    }
+
     // Accessors and Mutators
     public function getStatusBadgeAttribute(): string
     {
@@ -94,10 +109,10 @@ class Mating extends Model
     public function getStatusIconAttribute(): string
     {
         return match($this->status) {
-            'planned' => '📅',
-            'completed' => '✅',
-            'cancelled' => '❌',
-            'failed' => '⚠️',
+            'planned' => 'Date',
+            'completed' => 'OK',
+            'cancelled' => 'No',
+            'failed' => 'Warning',
             default => ''
         };
     }
@@ -127,6 +142,30 @@ class Mating extends Model
         return now()->gte($overdueDate) && $this->pregnancy_status === 'pending';
     }
 
+    public function isPregnancyUncertain(): bool
+    {
+        return $this->status === 'completed' && $this->pregnancy_status === 'uncertain';
+    }
+
+    public function needsPregnancyFollowUp(): bool
+    {
+        return $this->isPregnancyUncertain() && $this->pregnancy_follow_up_completed_at === null;
+    }
+
+    public function pregnancyFollowUpDue(): bool
+    {
+        return $this->needsPregnancyFollowUp()
+            && $this->pregnancy_follow_up_date
+            && now()->startOfDay()->gte($this->pregnancy_follow_up_date->copy()->startOfDay());
+    }
+
+    public function pregnancyFollowUpOverdue(): bool
+    {
+        return $this->needsPregnancyFollowUp()
+            && $this->pregnancy_follow_up_date
+            && now()->startOfDay()->gt($this->pregnancy_follow_up_date->copy()->startOfDay());
+    }
+
     public function getDaysSinceMatingAttribute(): int
     {
         if (!$this->actual_date) return 0;
@@ -147,13 +186,13 @@ class Mating extends Model
     public function getPregnancyStatusIconAttribute(): string
     {
         return match($this->pregnancy_status) {
-            'pregnant' => '🤰',
-            'not_pregnant' => '❌',
-            'uncertain' => '❓',
+            'pregnant' => 'Pregnant',
+            'not_pregnant' => 'No',
+            'uncertain' => '?',
             'pending' => '⏳',
-            'farrowed' => '🐷',
-            'lost_pregnancy' => '💔',
-            'aborted' => '🚫',
+            'farrowed' => 'Pig',
+            'lost_pregnancy' => 'Lost',
+            'aborted' => 'Blocked',
             default => ''
         };
     }
@@ -270,6 +309,28 @@ class Mating extends Model
         return $query->where('pregnancy_status', 'not_pregnant');
     }
 
+    public function scopeUncertainPregnancy($query)
+    {
+        return $query->where('status', 'completed')
+            ->where('pregnancy_status', 'uncertain');
+    }
+
+    public function scopePregnancyFollowUpDue($query)
+    {
+        return $query->uncertainPregnancy()
+            ->whereNotNull('pregnancy_follow_up_date')
+            ->whereDate('pregnancy_follow_up_date', '<=', now()->toDateString())
+            ->whereNull('pregnancy_follow_up_completed_at');
+    }
+
+    public function scopePregnancyFollowUpOverdue($query)
+    {
+        return $query->uncertainPregnancy()
+            ->whereNotNull('pregnancy_follow_up_date')
+            ->whereDate('pregnancy_follow_up_date', '<', now()->toDateString())
+            ->whereNull('pregnancy_follow_up_completed_at');
+    }
+
     // Breeding cycle calculations
     public function getPregnancyCheckDateAttribute(): Carbon
     {
@@ -341,8 +402,10 @@ class Mating extends Model
         ]);
     }
 
-    public function recordPregnancyCheck($status, $method = null, $confidence = null, $notes = null, $checkDate = null, $userId = null): bool
+    public function recordPregnancyCheck($status, $method = null, $confidence = null, $notes = null, $checkDate = null, $userId = null, ?string $followUpDate = null): bool
     {
+        $wasUncertain = $this->pregnancy_status === 'uncertain';
+
         $data = [
             'pregnancy_status' => $status,
             'pregnancy_check_date' => $checkDate ?? now()->toDateString(),
@@ -356,13 +419,29 @@ class Mating extends Model
         // If pregnant, update successful flag and ensure farrowing date is set
         if ($status === 'pregnant') {
             $data['successful'] = true;
+            $data['pregnancy_follow_up_date'] = null;
+            $data['pregnancy_follow_up_status'] = $wasUncertain ? 'resolved_pregnant' : null;
+            $data['pregnancy_follow_up_completed_at'] = $wasUncertain ? now() : null;
+            $data['pregnancy_follow_up_completed_by'] = $wasUncertain ? ($userId ?? auth()->id()) : null;
             if (!$this->expected_farrowing_date) {
                 $data['expected_farrowing_date'] = BreedingCalculator::calculateFarrowingDate($this->actual_date);
             }
         } elseif ($status === 'not_pregnant') {
             $data['successful'] = false;
+            $data['pregnancy_follow_up_date'] = null;
+            $data['pregnancy_follow_up_status'] = $wasUncertain ? 'resolved_not_pregnant' : null;
+            $data['pregnancy_follow_up_completed_at'] = $wasUncertain ? now() : null;
+            $data['pregnancy_follow_up_completed_by'] = $wasUncertain ? ($userId ?? auth()->id()) : null;
             // When not pregnant, the breeding process ends and both pigs become available again
             // This is handled automatically by the availability logic in PigManagement model
+        } elseif ($status === 'uncertain') {
+            $data['successful'] = null;
+            $data['pregnancy_follow_up_date'] = $followUpDate;
+            $data['pregnancy_follow_up_status'] = $wasUncertain ? 'still_uncertain' : 'scheduled';
+            $data['pregnancy_follow_up_notes'] = $notes;
+            $data['last_uncertain_check_at'] = now();
+            $data['pregnancy_follow_up_completed_at'] = null;
+            $data['pregnancy_follow_up_completed_by'] = null;
         }
 
         return $this->update($data);

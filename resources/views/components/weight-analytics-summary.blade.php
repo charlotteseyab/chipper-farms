@@ -10,7 +10,7 @@
 <!-- Weight Analytics Summary -->
 <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
     <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold text-gray-900">📊 Weight Management Overview</h2>
+        <h2 class="text-lg font-semibold text-gray-900">Analytics Weight Management Overview</h2>
         <a href="{{ route('weights.reports') }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">View Full Analytics →</a>
     </div>
     

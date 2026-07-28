@@ -7,7 +7,7 @@
 
         @if($favourites->isEmpty())
             <div class="rounded-2xl border border-dashed border-slate-300 p-12 text-center text-slate-400">
-                You haven't saved anything yet. Tap <span class="font-medium">☆ Save</span> on a listing to keep it here.
+                You haven't saved anything yet. Tap <span class="font-medium">Save</span> on a listing to keep it here.
             </div>
         @else
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">

@@ -7,6 +7,7 @@
             'pending' => 'bg-blue-100 text-blue-800',
             default => 'bg-yellow-100 text-yellow-800',
         };
+        $hasRawMaterialItems = $purchaseRequest->items->contains(fn ($item) => filled($item->raw_material_id));
     @endphp
 
     <div class="max-w-6xl mx-auto py-6 px-4">
@@ -128,6 +129,22 @@
                 </div>
 
                 <div>
+                    <p class="text-sm text-gray-500 mb-1">Supplier</p>
+                    @if($purchaseRequest->supplier)
+                        <p class="text-base font-semibold text-gray-800">{{ $purchaseRequest->supplier->name }}</p>
+                    @else
+                        <p class="text-base font-semibold {{ $hasRawMaterialItems ? 'text-amber-700' : 'text-gray-500' }}">
+                            Not assigned
+                        </p>
+                        @if($hasRawMaterialItems)
+                            <p class="mt-1 text-xs font-medium text-amber-700">
+                                Required before approval because this request includes raw-material-linked items.
+                            </p>
+                        @endif
+                    @endif
+                </div>
+
+                <div>
                     <p class="text-sm text-gray-500 mb-1">Requested By</p>
                     <p class="text-base font-semibold text-gray-800">
                         {{ trim(($purchaseRequest->requester->first_name ?? '') . ' ' . ($purchaseRequest->requester->last_name ?? '')) ?: ($purchaseRequest->requester->name ?? 'N/A') }}
@@ -155,10 +172,10 @@
                     </p>
                 </div>
 
-                <!-- <div class="md:col-span-2">
+                <div class="md:col-span-2">
                     <p class="text-sm text-gray-500 mb-1">Purpose</p>
                     <p class="text-base text-gray-800">{{ $purchaseRequest->purpose ?: '—' }}</p>
-                </div> -->
+                </div>
 
                 <div class="md:col-span-2">
                     <p class="text-sm text-gray-500 mb-1">Reason for Request</p>
@@ -214,7 +231,9 @@
                     <thead class="bg-gray-50">
                         <tr>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Item Name</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Raw Material</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Description</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Unit</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Quantity</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Unit Price</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Total Price</th>
@@ -223,15 +242,25 @@
                     <tbody class="divide-y divide-gray-200 bg-white">
                         @forelse($purchaseRequest->items as $item)
                             <tr>
-                                <td class="px-4 py-3">{{ $item->item_name }}</td>
+                                <td class="px-4 py-3 font-semibold text-gray-800">{{ $item->item_name }}</td>
+                                <td class="px-4 py-3">
+                                    @if($item->rawMaterial)
+                                        <span class="inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700 ring-1 ring-green-100">
+                                            {{ $item->rawMaterial->name }}
+                                        </span>
+                                    @else
+                                        <span class="text-gray-500">Free text</span>
+                                    @endif
+                                </td>
                                 <td class="px-4 py-3">{{ $item->description ?: '—' }}</td>
-                                <td class="px-4 py-3">{{ number_format($item->quantity, 2) }}</td>
-                                <td class="px-4 py-3">{{ number_format($item->unit_price, 2) }}</td>
+                                <td class="px-4 py-3">{{ $item->unit ?: '—' }}</td>
+                                <td class="px-4 py-3 font-mono text-sm">{{ number_format($item->quantity, 2) }}</td>
+                                <td class="px-4 py-3 font-mono text-sm">{{ number_format($item->unit_price, 2) }}</td>
                                 <td class="px-4 py-3 font-semibold">{{ number_format($item->total_price, 2) }}</td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="px-4 py-6 text-center text-gray-500">
+                                <td colspan="7" class="px-4 py-6 text-center text-gray-500">
                                     No items found for this purchase request.
                                 </td>
                             </tr>

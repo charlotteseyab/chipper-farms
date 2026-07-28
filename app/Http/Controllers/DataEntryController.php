@@ -9,7 +9,9 @@ use App\Models\PigDeath;
 use App\Models\PigManagement;
 use App\Models\PigSale;
 use App\Models\PigWeight;
+use App\Models\PurchaseStockIntake;
 use App\Models\WeightAlert;
+use App\Services\Stock\PurchasedStockDashboardMetrics;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 
@@ -36,6 +38,8 @@ class DataEntryController extends Controller
 
         $totalPigs = $weanedPigs + $pigletsCount;
         $todayWeights = PigWeight::whereDate('created_at', today())->count();
+        $todayPigs = PigManagement::whereDate('created_at', today())->count();
+        $weekWeights = PigWeight::where('created_at', '>=', now()->startOfWeek())->count();
 
         $pendingWeighing = PigManagement::active()
             ->whereDoesntHave('weights', function ($query) {
@@ -46,6 +50,37 @@ class DataEntryController extends Controller
 
         $activeAlerts = WeightAlert::where('acknowledged', false)->count();
         $overdueForWeighing = PigManagement::countOverdueForWeighing();
+        $dueForWeighing = PigManagement::countDueForWeighing();
+        $missingFirstWeight = PigManagement::active()->whereDoesntHave('weights')->count();
+        $incompletePigRecords = PigManagement::active()
+            ->where(function ($query) {
+                $query->whereNull('breed')
+                    ->orWhere('breed', '')
+                    ->orWhereNull('gender')
+                    ->orWhere('gender', '')
+                    ->orWhereNull('date_of_birth')
+                    ->orWhereNull('stock_type')
+                    ->orWhere('stock_type', '');
+            })
+            ->count();
+        $missingRoomAssignments = PigManagement::active()->whereNull('room_id')->count();
+        $pendingPurchaseIntakes = PurchaseStockIntake::whereIn('status', [
+            PurchaseStockIntake::STATUS_PENDING_RECEIVE,
+            PurchaseStockIntake::STATUS_RECEIVED,
+            PurchaseStockIntake::STATUS_QUARANTINED,
+            PurchaseStockIntake::STATUS_APPROVED,
+        ])->count();
+        $purchasedStockMetrics = app(PurchasedStockDashboardMetrics::class)->summary();
+        $recentImports = PurchaseStockIntake::whereDate('created_at', '>=', now()->subDays(7)->toDateString())->count();
+        $pregnancyFollowUpsDue = Mating::query()->pregnancyFollowUpDue()->count();
+        $pregnancyFollowUpsOverdue = Mating::query()->pregnancyFollowUpOverdue()->count();
+        $uncertainPregnancies = Mating::uncertainPregnancy()->count();
+        $validationIssues = $incompletePigRecords + $missingRoomAssignments + $pendingPurchaseIntakes + $pregnancyFollowUpsDue;
+        $entriesToday = $todayWeights + $todayPigs
+            + PigSale::whereDate('created_at', today())->count()
+            + PigDeath::whereDate('created_at', today())->count()
+            + Mating::whereDate('created_at', today())->count()
+            + PurchaseStockIntake::whereDate('created_at', today())->count();
 
         // Chart data: last 7 days
         $dailyWeightsData = [];
@@ -153,6 +188,179 @@ class DataEntryController extends Controller
             ->take(5)
             ->values();
 
+        $entryMetrics = [
+            [
+                'label' => 'Entries Today',
+                'value' => $entriesToday,
+                'sub' => $todayWeights . ' weights • ' . $todayPigs . ' pigs',
+                'route' => route('weights.index'),
+                'color' => 'metric-green',
+            ],
+            [
+                'label' => 'Weights Recorded',
+                'value' => $todayWeights,
+                'sub' => 'Entries recorded today',
+                'route' => route('weights.create'),
+                'color' => 'metric-blue',
+            ],
+            [
+                'label' => 'Pending Weighing',
+                'value' => $pendingWeighing,
+                'sub' => $dueForWeighing . ' due for weighing',
+                'route' => route('weights.index'),
+                'color' => 'metric-yellow',
+            ],
+            [
+                'label' => 'Validation Issues',
+                'value' => $validationIssues,
+                'sub' => 'Missing or pending data',
+                'route' => route('all-stocks.index'),
+                'color' => 'metric-red',
+            ],
+            [
+                'label' => 'Purchased Intake',
+                'value' => $purchasedStockMetrics['pending_intakes'],
+                'sub' => $purchasedStockMetrics['recent_intakes'] . ' new this week • ' . $purchasedStockMetrics['approved_waiting_stock'] . ' ready for stock',
+                'route' => route('purchase-stock-intakes.index'),
+                'color' => 'metric-slate',
+            ],
+        ];
+
+        $needsDataEntry = collect([
+            [
+                'priority' => 'high',
+                'item' => 'Overdue weights',
+                'details' => 'Pigs past their weighing schedule',
+                'count' => $overdueForWeighing,
+                'route' => route('weights.index'),
+            ],
+            [
+                'priority' => 'high',
+                'item' => 'Missing first weight',
+                'details' => 'Active pigs without an initial weight',
+                'count' => $missingFirstWeight,
+                'route' => route('weights.create'),
+            ],
+            [
+                'priority' => 'medium',
+                'item' => 'Incomplete pig records',
+                'details' => 'Missing breed, gender, stock type, or birth date',
+                'count' => $incompletePigRecords,
+                'route' => route('all-stocks.index'),
+            ],
+            [
+                'priority' => 'medium',
+                'item' => 'Pending purchase intake',
+                'details' => 'Purchased stock not fully added to stock',
+                'count' => $pendingPurchaseIntakes,
+                'route' => route('purchase-stock-intakes.index'),
+            ],
+            [
+                'priority' => $pregnancyFollowUpsOverdue > 0 ? 'high' : 'medium',
+                'item' => 'Pregnancy follow-ups',
+                'details' => 'Uncertain pregnancies needing another check',
+                'count' => $pregnancyFollowUpsDue,
+                'route' => route('mating.manage'),
+            ],
+            [
+                'priority' => 'low',
+                'item' => 'Missing room assignment',
+                'details' => 'Active pigs not assigned to housing',
+                'count' => $missingRoomAssignments,
+                'route' => route('all-stocks.index'),
+            ],
+        ])->filter(fn ($item) => $item['count'] > 0)->values();
+
+        $completionBase = max(1, PigManagement::active()->count());
+        $completePigRecords = max(0, $completionBase - $incompletePigRecords);
+        $missingBreed = PigManagement::active()
+            ->where(function ($query) {
+                $query->whereNull('breed')->orWhere('breed', '');
+            })
+            ->count();
+        $missingGender = PigManagement::active()
+            ->where(function ($query) {
+                $query->whereNull('gender')->orWhere('gender', '');
+            })
+            ->count();
+        $missingDateOfBirth = PigManagement::active()->whereNull('date_of_birth')->count();
+        $missingStockType = PigManagement::active()
+            ->where(function ($query) {
+                $query->whereNull('stock_type')->orWhere('stock_type', '');
+            })
+            ->count();
+        $duplicateEarTags = PigManagement::select('ear_tag_number')
+            ->whereNotNull('ear_tag_number')
+            ->groupBy('ear_tag_number')
+            ->havingRaw('COUNT(*) > 1')
+            ->count();
+
+        $dataQuality = [
+            'completeness' => round(($completePigRecords / $completionBase) * 100),
+            'duplicates' => $duplicateEarTags,
+            'missing_fields' => $incompletePigRecords + $missingRoomAssignments,
+            'failed_imports' => 0,
+        ];
+
+        $dataQualityDetails = collect([
+            [
+                'label' => 'Missing breed',
+                'count' => $missingBreed,
+                'where' => 'All Stock > Edit pig details',
+                'route' => route('all-stocks.index'),
+                'severity' => 'medium',
+            ],
+            [
+                'label' => 'Missing gender',
+                'count' => $missingGender,
+                'where' => 'All Stock > Edit pig details',
+                'route' => route('all-stocks.index'),
+                'severity' => 'medium',
+            ],
+            [
+                'label' => 'Missing date of birth',
+                'count' => $missingDateOfBirth,
+                'where' => 'All Stock > Edit pig details',
+                'route' => route('all-stocks.index'),
+                'severity' => 'medium',
+            ],
+            [
+                'label' => 'Missing stock type',
+                'count' => $missingStockType,
+                'where' => 'All Stock > Edit pig details',
+                'route' => route('all-stocks.index'),
+                'severity' => 'medium',
+            ],
+            [
+                'label' => 'Missing room assignment',
+                'count' => $missingRoomAssignments,
+                'where' => 'All Stock > Edit pig housing',
+                'route' => route('all-stocks.index'),
+                'severity' => 'low',
+            ],
+            [
+                'label' => 'Missing first weight',
+                'count' => $missingFirstWeight,
+                'where' => 'Record Weight',
+                'route' => route('weights.create'),
+                'severity' => 'high',
+            ],
+            [
+                'label' => 'Pending purchased stock intake',
+                'count' => $pendingPurchaseIntakes,
+                'where' => 'Purchased Stock Intake',
+                'route' => route('purchase-stock-intakes.index'),
+                'severity' => 'medium',
+            ],
+            [
+                'label' => 'Duplicate ear tags',
+                'count' => $duplicateEarTags,
+                'where' => 'All Stock > Resolve ear tags',
+                'route' => route('all-stocks.index'),
+                'severity' => 'high',
+            ],
+        ])->filter(fn ($detail) => $detail['count'] > 0)->values();
+
         // Overdue pigs preview + modal data (computed, no Blade PHP needed)
         $overduePigsPreview = PigManagement::getOverdueForWeighing(30)->take(5)->map(function ($pig) {
             return [
@@ -187,19 +395,32 @@ class DataEntryController extends Controller
             'pigletsCount',
             'totalPigs',
             'todayWeights',
+            'todayPigs',
+            'weekWeights',
             'pendingWeighing',
             'activeAlerts',
             'overdueForWeighing',
+            'dueForWeighing',
             'dailyWeightsData',
             'pregnancyRate',
             'farrowingRate',
             'weaningPercentage',
+            'uncertainPregnancies',
+            'pregnancyFollowUpsDue',
+            'pregnancyFollowUpsOverdue',
             'avgStillborns',
             'avgBirthWeight',
             'recentActivities',
+            'entryMetrics',
+            'needsDataEntry',
+            'dataQuality',
+            'dataQualityDetails',
+            'validationIssues',
+            'recentImports',
             'overduePigsPreview',
             'allOverduePigs',
             'allOverduePigsDetails',
+            'purchasedStockMetrics',
         ));
     }
 

@@ -11,8 +11,16 @@ class ActivityLog extends Model
 
     protected $fillable = [
         'user_id',
+        'organization_id',
         'name',
         'action',
+        'module',
+        'auditable_type',
+        'auditable_id',
+        'record_label',
+        'description',
+        'old_values',
+        'new_values',
         'ip_address',
         'user_agent',
         'metadata',
@@ -20,12 +28,18 @@ class ActivityLog extends Model
 
     protected $casts = [
         'metadata' => 'array',
+        'old_values' => 'array',
+        'new_values' => 'array',
     ];
 
     public function user()
     {
         return $this->belongsTo(User::class);
     }
-}
 
+    public function auditable()
+    {
+        return $this->morphTo();
+    }
+}
 

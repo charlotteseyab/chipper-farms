@@ -80,9 +80,10 @@ class NavigationHelper
                 'title' => 'Pig Operations',
                 'items' => array_values(array_filter([
                     self::link('All Stock', 'all-stocks.index', 'all-stocks*', 'fa-solid fa-list', $allRoles),
+                    self::link('Purchased Stock Intake', 'purchase-stock-intakes.index', 'purchase-stock-intakes*', 'fa-solid fa-truck-ramp-box', $managementRoles),
                     self::link('Breeding Stock', 'breeding-stocks.index', 'breeding-stocks*', 'fa-solid fa-venus-mars', $allRoles),
                     self::link('Standard Stock', 'standard-stocks.index', 'standard-stocks*', 'fa-solid fa-paw', $allRoles),
-                    self::link('Pig Details Archive', 'pigs.archived', 'pigs/archived*', 'fa-solid fa-box-archive', $managementRoles),
+                    self::link('Audit Trail', 'audit-trail.index', ['audit-trail*', 'pigs/archived*'], 'fa-solid fa-clock-rotate-left', $managementRoles),
                     self::link('Structures & Rooms', 'structures.index', ['structures*', 'rooms*'], 'fa-solid fa-warehouse', $managementRoles),
                 ])),
             ],

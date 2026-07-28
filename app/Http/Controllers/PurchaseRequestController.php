@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PurchaseRequest;
 use App\Models\RawMaterial;
 use App\Models\Counterparty;
+use App\Models\Setting;
 use App\Services\Procurement\PurchaseRequestLifecycleService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
@@ -272,6 +273,7 @@ class PurchaseRequestController extends Controller
 
         return view('feeds.purchase-requests.edit', [
             'purchaseRequest' => $purchaseRequest,
+            'feedItems'       => Setting::purchaseFeedItems(),
             'rawMaterials'    => RawMaterial::orderBy('name')->get(['id', 'name', 'unit', 'category']),
             'suppliers'       => Counterparty::query()
                 ->suppliers()

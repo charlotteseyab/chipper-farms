@@ -8,7 +8,7 @@
         @if($primary && $primary->url())
             <img src="{{ $primary->url() }}" alt="{{ $primary->alt_text ?? $listing->title }}" class="w-full h-full object-cover">
         @else
-            <span class="text-4xl">🐷</span>
+            <x-ui-icon name="pig" class="h-12 w-12 text-slate-400" />
         @endif
     </div>
     <div class="p-4 flex-1 flex flex-col">

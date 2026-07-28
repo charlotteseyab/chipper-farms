@@ -7,6 +7,7 @@ use App\Domain\Events\Support\SourceReference;
 use App\Models\PigDeath;
 use App\Models\PigManagement;
 use App\Models\User;
+use App\Services\Audit\AuditTrailService;
 use App\Services\DomainEvents\DispatchDomainEvent;
 use App\Support\CurrentOrganization;
 use Carbon\CarbonImmutable;
@@ -34,6 +35,7 @@ class RecordPigDeathService
     public function __construct(
         protected DispatchDomainEvent $dispatcher,
         protected CurrentOrganization $currentOrganization,
+        protected AuditTrailService $audit,
     ) {
     }
 
@@ -77,6 +79,15 @@ class RecordPigDeathService
             if (! $pig->trashed()) {
                 $pig->delete();
             }
+
+            $this->audit->log('mortality', 'death_recorded', [
+                'user' => $actor,
+                'auditable' => $death,
+                'organization_id' => $organizationId,
+                'record_label' => $pig->ear_tag_number ?: $pig->code,
+                'description' => "Death recorded for pig {$pig->code}.",
+                'new_values' => $death->only(['death_date', 'death_cause', 'final_weight', 'death_location', 'disposal_method', 'disposal_date']),
+            ]);
 
             $ageAtDeathDays = null;
             if ($pig->date_of_birth) {

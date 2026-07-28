@@ -23,7 +23,7 @@
             </div>
         @endif
 
-        <form action="{{ route('purchase-requests.update', $purchaseRequest) }}" method="POST" enctype="multipart/form-data" x-data="purchaseRequestEditForm(@js($feedItems), @js(old('purchase_type', $purchaseRequest->purchase_type ?: 'other')))" >
+        <form action="{{ route('purchase-requests.update', $purchaseRequest) }}" method="POST" enctype="multipart/form-data" x-data="purchaseRequestEditForm(@js($feedItems), @js($rawMaterials->values()), @js(old('purchase_type', $purchaseRequest->purchase_type ?: 'other')))" >
             @csrf
             @method('PUT')
             <input type="hidden" name="purchase_type" x-model="purchaseType">
@@ -65,6 +65,19 @@
                                name="request_date"
                                value="{{ old('request_date', optional($purchaseRequest->request_date)->format('Y-m-d')) }}"
                                class="w-full rounded-lg border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Supplier</label>
+                        <select name="supplier_id" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+                            <option value="">Optional until approval</option>
+                            @foreach($suppliers as $supplier)
+                                <option value="{{ $supplier->id }}" @selected((string) old('supplier_id', $purchaseRequest->supplier_id) === (string) $supplier->id)>
+                                    {{ $supplier->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                        <p class="mt-2 text-xs text-gray-500">Required before approval if any item links to a raw material.</p>
                     </div>
 
                     <div>
@@ -131,17 +144,31 @@
                     <table class="min-w-full border border-gray-200 rounded-lg overflow-hidden">
                         <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">Description</th>
-                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">Quantity</th>
-                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">Unit Price</th>
-                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">Total</th>
-                                <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">Action</th>
+                                <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600">Raw material</th>
+                                <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600">Description</th>
+                                <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600">Unit</th>
+                                <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600">Qty</th>
+                                <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600">Unit Price</th>
+                                <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600">Total</th>
+                                <th class="px-3 py-3 text-left text-xs font-semibold text-gray-600">Action</th>
                             </tr>
                         </thead>
                         <tbody>
                             <template x-for="(item, index) in items" :key="index">
                                 <tr class="border-t border-gray-200 align-top">
-                                    <td class="px-4 py-3 min-w-[280px]">
+                                    <td class="px-3 py-3 min-w-[220px]">
+                                        <select :name="`items[${index}][raw_material_id]`"
+                                                x-model="item.raw_material_id"
+                                                @change="onMaterialChange(index)"
+                                                class="w-full rounded-lg border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+                                            <option value="">Free text item</option>
+                                            <template x-for="material in rawMaterials" :key="material.id">
+                                                <option :value="material.id" x-text="material.name"></option>
+                                            </template>
+                                        </select>
+                                    </td>
+
+                                    <td class="px-3 py-3 min-w-[260px]">
                                         <template x-if="purchaseType === 'feed'">
                                             <select :name="`items[${index}][description]`"
                                                     x-model="item.description"
@@ -160,26 +187,38 @@
                                                    class="w-full rounded-lg border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
                                         </template>
                                     </td>
-                                    <td class="px-4 py-3">
+
+                                    <td class="px-3 py-3">
+                                        <input type="text"
+                                               maxlength="20"
+                                               :name="`items[${index}][unit]`"
+                                               x-model="item.unit"
+                                               class="w-24 rounded-lg border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+                                    </td>
+
+                                    <td class="px-3 py-3">
                                         <input type="number"
                                                step="0.01"
                                                min="0.01"
                                                :name="`items[${index}][quantity]`"
                                                x-model="item.quantity"
-                                               class="w-full rounded-lg border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+                                               class="w-24 rounded-lg border-gray-300 shadow-sm text-right font-mono focus:border-green-500 focus:ring-green-500">
                                     </td>
-                                    <td class="px-4 py-3">
+
+                                    <td class="px-3 py-3">
                                         <input type="number"
                                                step="0.01"
                                                min="0"
                                                :name="`items[${index}][unit_price]`"
                                                x-model="item.unit_price"
-                                               class="w-full rounded-lg border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+                                               class="w-28 rounded-lg border-gray-300 shadow-sm text-right font-mono focus:border-green-500 focus:ring-green-500">
                                     </td>
-                                    <td class="px-4 py-3 text-sm font-semibold text-gray-700 whitespace-nowrap">
+
+                                    <td class="px-3 py-3 text-sm font-semibold text-gray-700 whitespace-nowrap">
                                         <span x-text="formatMoney((parseFloat(item.quantity || 0) * parseFloat(item.unit_price || 0)))"></span>
                                     </td>
-                                    <td class="px-4 py-3">
+
+                                    <td class="px-3 py-3">
                                         <button type="button"
                                                 @click="removeItem(index)"
                                                 class="text-red-600 hover:text-red-800 text-sm font-medium">
@@ -217,18 +256,34 @@
     </div>
 
     <script>
-        function purchaseRequestEditForm(feedItems, selectedType) {
+        function purchaseRequestEditForm(feedItems, rawMaterials, selectedType) {
             return {
                 feedItems: Array.isArray(feedItems) ? feedItems : [],
+                rawMaterials: Array.isArray(rawMaterials) ? rawMaterials : [],
                 purchaseType: selectedType === 'feed' ? 'feed' : 'other',
                 items: @js(old('items', $purchaseRequest->items->map(fn($item) => [
+                    'raw_material_id' => $item->raw_material_id ? (string) $item->raw_material_id : '',
                     'description' => $item->description,
+                    'unit' => $item->unit,
                     'quantity' => (float) $item->quantity,
                     'unit_price' => (float) $item->unit_price,
                 ])->values()->all())),
 
+                onMaterialChange(index) {
+                    const id = this.items[index].raw_material_id;
+                    if (! id) {
+                        return;
+                    }
+
+                    const material = this.rawMaterials.find((item) => String(item.id) === String(id));
+                    if (material) {
+                        this.items[index].description = this.items[index].description || material.name;
+                        this.items[index].unit = material.unit || this.items[index].unit;
+                    }
+                },
+
                 addItem() {
-                    this.items.push({ description: '', quantity: 1, unit_price: 0 });
+                    this.items.push({ raw_material_id: '', description: '', unit: '', quantity: 1, unit_price: 0 });
                 },
 
                 removeItem(index) {

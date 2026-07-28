@@ -4,6 +4,7 @@ namespace Tests\Feature\Storefront;
 
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontOrder;
+use App\Models\Storefront\StorefrontOrderItem;
 use App\Models\Storefront\StorefrontOrderPayment;
 use App\Storefront\Payments\PaystackClient;
 use App\Storefront\Services\CartService;
@@ -35,6 +36,23 @@ class OrderHttpTest extends StorefrontTestCase
         $this->get(route('storefront.account.cart.index'))->assertRedirect(route('login'));
         $this->post(route('storefront.account.cart.add', $listing))->assertRedirect(route('login'));
         $this->get(route('storefront.account.checkout.show'))->assertRedirect(route('login'));
+    }
+
+    public function test_customer_can_add_listing_to_cart(): void
+    {
+        $this->seedStorefrontPermissions();
+
+        $listing = $this->makePublishedListing([
+            'kind' => StorefrontListing::KIND_FEED,
+            'pricing_basis' => StorefrontListing::BASIS_FIXED,
+            'fixed_price' => '250.00',
+            'quantity_available' => '5',
+        ]);
+
+        $this->actingAs($this->makeUser('customer'))
+            ->post(route('storefront.account.cart.add', $listing), ['quantity' => '1'])
+            ->assertRedirect(route('storefront.account.cart.index'))
+            ->assertSessionHas('success', 'Added to cart.');
     }
 
     public function test_customer_cannot_view_another_customers_order(): void
@@ -74,6 +92,43 @@ class OrderHttpTest extends StorefrontTestCase
         $this->actingAs($this->makeUser('salesperson'))
             ->get(route('storefront.admin.orders.index'))
             ->assertOk();
+    }
+
+    public function test_salesperson_can_view_admin_order_detail(): void
+    {
+        $this->seedStorefrontPermissions();
+        $this->seedStorefrontOrderPermissions();
+
+        $order = StorefrontOrder::create([
+            'organization_id' => $this->org->id,
+            'reference' => 'SO-000123',
+            'status' => StorefrontOrder::STATUS_PENDING_CONFIRMATION,
+            'payment_status' => StorefrontOrder::PAY_COD,
+            'payment_method' => StorefrontOrder::METHOD_COD,
+            'fulfilment_method' => StorefrontOrder::FULFIL_PICKUP,
+            'subtotal' => '250.00',
+            'total' => '250.00',
+            'currency_code' => 'GHS',
+            'placed_at' => now(),
+        ]);
+
+        StorefrontOrderItem::create([
+            'organization_id' => $this->org->id,
+            'order_id' => $order->id,
+            'kind' => StorefrontListing::KIND_FEED,
+            'description' => 'Feed bag',
+            'quantity' => '1',
+            'quantity_unit' => 'bag',
+            'price_basis' => StorefrontListing::BASIS_FIXED,
+            'unit_price' => '250.00',
+            'line_total' => '250.00',
+        ]);
+
+        $this->actingAs($this->makeUser('salesperson'))
+            ->get(route('storefront.admin.orders.show', $order))
+            ->assertOk()
+            ->assertSee('SO-000123')
+            ->assertSee('Feed bag');
     }
 
     public function test_webhook_rejects_invalid_signature(): void

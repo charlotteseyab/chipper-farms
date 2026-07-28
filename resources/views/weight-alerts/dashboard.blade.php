@@ -6,10 +6,10 @@
             </h2>
             <div class="flex space-x-2">
                 <a href="{{ route('weight-alerts.index') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                    📋 All Alerts
+                    List All Alerts
                 </a>
                 <a href="{{ route('weights.index') }}" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                    ⚖️ Weight Records
+                    Weight Weight Records
                 </a>
             </div>
         </div>
@@ -41,7 +41,7 @@
                         <div class="flex items-center">
                             <div class="flex-shrink-0">
                                 <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                                    <span class="text-red-600 font-bold text-sm">🚨</span>
+                                    <span class="text-red-600 font-bold text-sm">Alert</span>
                                 </div>
                             </div>
                             <div class="ml-4">
@@ -57,7 +57,7 @@
                         <div class="flex items-center">
                             <div class="flex-shrink-0">
                                 <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <span class="text-blue-600 font-bold text-sm">⬇️</span>
+                                    <span class="text-blue-600 font-bold text-sm">Under</span>
                                 </div>
                             </div>
                             <div class="ml-4">
@@ -73,7 +73,7 @@
                         <div class="flex items-center">
                             <div class="flex-shrink-0">
                                 <div class="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                                    <span class="text-orange-600 font-bold text-sm">⬆️</span>
+                                    <span class="text-orange-600 font-bold text-sm">Over</span>
                                 </div>
                             </div>
                             <div class="ml-4">
@@ -151,11 +151,11 @@
                             @empty
                                 <tr>
                                     <td colspan="7" class="px-6 py-12 text-center text-gray-500">
-                                        <div class="text-lg">🎉 No unacknowledged weight alerts!</div>
+                                        <div class="text-lg">No unacknowledged weight alerts!</div>
                                         <p class="mt-2">All pig weights are within expected ranges or have been acknowledged.</p>
                                         <div class="mt-4">
                                             <a href="{{ route('weights.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium">
-                                                ⚖️ Record New Weight
+                                                Weight Record New Weight
                                             </a>
                                         </div>
                                     </td>
@@ -179,7 +179,7 @@
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                            <span class="text-green-600 font-bold text-sm">✅</span>
+                            <span class="text-green-600 font-bold text-sm">OK</span>
                         </div>
                     </div>
                     <div class="ml-4">

@@ -14,6 +14,7 @@ use App\Helpers\FlashHelper;
 use App\Http\Requests\Sales\RecordPigSaleRequest;
 use App\Http\Requests\Sales\UpdatePaymentStatusRequest;
 use App\Services\Sales\RecordPigSaleService;
+use App\Services\Sales\SalesExportService;
 use App\Services\Sales\UpdatePigSalePaymentStatusService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -321,9 +322,9 @@ class PigManagementController extends Controller {
     }
 
     // Sales Management
-    public function salesIndex(Request $request)
+    public function salesIndex(Request $request, SalesExportService $exportService)
     {
-        return app(PigSaleController::class)->index($request);
+        return app(PigSaleController::class)->index($request, $exportService);
     }
 
     public function saleShow($id)
@@ -337,14 +338,14 @@ class PigManagementController extends Controller {
     }
 
     // Sales Export Methods
-    public function salesExportCsv(Request $request)
+    public function salesExportCsv(Request $request, SalesExportService $service)
     {
-        return app(PigSaleController::class)->exportCsv($request);
+        return app(PigSaleController::class)->exportCsv($request, $service);
     }
 
-    public function salesExportPdf(Request $request)
+    public function salesExportPdf(Request $request, SalesExportService $service)
     {   
-        return app(PigSaleController::class)->exportPdf($request);
+        return app(PigSaleController::class)->exportPdf($request, $service);
     }
 
     // Death Management Methods
@@ -399,4 +400,3 @@ class PigManagementController extends Controller {
         return app(PigStockController::class)->checkEarTag($request);
     }
 }
-

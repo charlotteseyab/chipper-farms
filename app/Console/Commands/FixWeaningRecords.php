@@ -52,7 +52,7 @@ class FixWeaningRecords extends Command
 
         $this->info("Pigs now showing in In Progress: {$inProgressCount}");
 
-        $this->info('✅ Weaning records fixed successfully!');
+        $this->info('Weaning records fixed successfully!');
 
         return 0;
     }

@@ -19,7 +19,7 @@
 
         @unless($statement['balanced'])
             <div class="mb-4 rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
-                ⚠ Balance sheet does not balance. Variance: GHS {{ $fmt($statement['variance']) }}.
+                Warning Balance sheet does not balance. Variance: GHS {{ $fmt($statement['variance']) }}.
                 This indicates a GL integrity problem — investigate before relying on these figures.
             </div>
         @endunless
@@ -98,7 +98,7 @@
         </div>
 
         <p class="mt-4 text-xs {{ $statement['balanced'] ? 'text-emerald-600' : 'text-red-600' }}">
-            {{ $statement['balanced'] ? '✓ Assets = Liabilities + Equity. The balance sheet balances.' : '✗ Out of balance — see warning above.' }}
+            {{ $statement['balanced'] ? 'Assets = Liabilities + Equity. The balance sheet balances.' : 'Out of balance — see warning above.' }}
         </p>
     </div>
 </x-app-layout>

@@ -121,6 +121,224 @@
             margin-bottom: 16px;
         }
 
+        .fm2-command-grid{
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0,1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .fm2-command-card{
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 18px;
+            padding: 20px;
+            box-shadow: 0 8px 24px rgba(15,23,42,.06);
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            min-height: 142px;
+        }
+
+        .fm2-command-label{
+            font-size: .82rem;
+            font-weight: 900;
+            color: #334155;
+        }
+
+        .fm2-command-value{
+            margin-top: 10px;
+            font-size: 2rem;
+            line-height: 1;
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        .fm2-command-sub{
+            margin-top: 8px;
+            font-size: .76rem;
+            color: #64748b;
+        }
+
+        .fm2-command-icon{
+            width: 58px;
+            height: 58px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .fm2-command-icon svg{
+            width: 28px;
+            height: 28px;
+        }
+
+        .fm2-command-green{ border-color:#bbf7d0; background: linear-gradient(180deg,#fff,#f0fdf4); }
+        .fm2-command-blue{ border-color:#bfdbfe; background: linear-gradient(180deg,#fff,#eff6ff); }
+        .fm2-command-red{ border-color:#fecaca; background: linear-gradient(180deg,#fff,#fef2f2); }
+        .fm2-command-amber{ border-color:#fed7aa; background: linear-gradient(180deg,#fff,#fffbeb); }
+        .fm2-command-green .fm2-command-icon{ background:#16a34a; color:#fff; }
+        .fm2-command-blue .fm2-command-icon{ background:#2563eb; color:#fff; }
+        .fm2-command-red .fm2-command-icon{ background:#dc2626; color:#fff; }
+        .fm2-command-amber .fm2-command-icon{ background:#d97706; color:#fff; }
+
+        .fm2-main-grid{
+            display: grid;
+            grid-template-columns: minmax(0, 2fr) minmax(300px, .95fr);
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .fm2-work-table{
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .fm2-work-table th,
+        .fm2-work-table td{
+            padding: 12px 14px;
+            border-top: 1px solid #eef2f7;
+            text-align: left;
+            font-size: .82rem;
+            vertical-align: middle;
+        }
+
+        .fm2-work-table th{
+            background: #f8fafc;
+            color: #64748b;
+            font-size: .68rem;
+            text-transform: uppercase;
+            font-weight: 900;
+        }
+
+        .fm2-work-title{
+            color: #0f172a;
+            font-weight: 900;
+        }
+
+        .fm2-work-sub{
+            margin-top: 2px;
+            color: #64748b;
+            font-size: .72rem;
+        }
+
+        .fm2-priority{
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 5px 9px;
+            font-size: .66rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .fm2-priority-high{ background:#fee2e2; color:#b91c1c; }
+        .fm2-priority-medium{ background:#fef3c7; color:#b45309; }
+        .fm2-priority-low{ background:#dcfce7; color:#15803d; }
+
+        .fm2-view-link{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+            background: #f0fdf4;
+            border-radius: 10px;
+            padding: 6px 10px;
+            font-size: .72rem;
+            font-weight: 900;
+            text-decoration: none;
+        }
+
+        .fm2-action-list{
+            padding: 0 22px 22px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .fm2-action-wide{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            border-radius: 12px;
+            padding: 14px 16px;
+            min-height: 48px;
+            color: #fff;
+            text-decoration: none;
+            font-size: .86rem;
+            font-weight: 900;
+            box-shadow: 0 8px 18px rgba(15,23,42,.08);
+        }
+
+        .fm2-action-wide svg{
+            width: 18px;
+            height: 18px;
+        }
+
+        .fm2-action-green{ background: linear-gradient(135deg,#16a34a,#15803d); }
+        .fm2-action-blue{ background: linear-gradient(135deg,#2563eb,#1d4ed8); }
+        .fm2-action-red{ background: linear-gradient(135deg,#ef4444,#dc2626); }
+        .fm2-action-slate{ background: linear-gradient(135deg,#475569,#334155); }
+
+        .fm2-insight-grid{
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0,1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .fm2-activity-list{
+            padding: 0 22px 22px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .fm2-activity-item{
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            padding: 10px 0;
+            border-top: 1px solid #eef2f7;
+        }
+
+        .fm2-activity-dot{
+            width: 8px;
+            height: 8px;
+            border-radius: 999px;
+            margin-top: 6px;
+            flex-shrink: 0;
+        }
+
+        .fm2-activity-high{ background:#dc2626; }
+        .fm2-activity-medium{ background:#d97706; }
+        .fm2-activity-low{ background:#16a34a; }
+
+        .fm2-activity-title{
+            font-size: .82rem;
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        .fm2-activity-sub{
+            margin-top: 2px;
+            font-size: .74rem;
+            color: #64748b;
+        }
+
+        .fm2-activity-time{
+            margin-left: auto;
+            color: #94a3b8;
+            font-size: .7rem;
+            white-space: nowrap;
+        }
+
         .fm2-stat{
             background: #fff;
             border: 1px solid #e5e7eb;
@@ -490,7 +708,9 @@
         }
 
         @media (max-width: 1280px){
-            .fm2-kpi-grid{
+            .fm2-kpi-grid,
+            .fm2-command-grid,
+            .fm2-insight-grid{
                 grid-template-columns: repeat(2, minmax(0,1fr));
             }
         }
@@ -498,7 +718,8 @@
         @media (max-width: 1024px){
             .fm2-panel-grid,
             .fm2-wide-grid,
-            .fm2-bottom-grid{
+            .fm2-bottom-grid,
+            .fm2-main-grid{
                 grid-template-columns: 1fr;
             }
         }
@@ -509,7 +730,9 @@
             }
 
             .fm2-kpi-grid,
+            .fm2-command-grid,
             .fm2-stat-grid,
+            .fm2-insight-grid,
             .fm2-inline-metrics,
             .fm2-actions-body{
                 grid-template-columns: 1fr;
@@ -536,214 +759,110 @@
             <header class="fm2-header">
                 <div>
                     <h1>Farm Manager Dashboard</h1>
-                    <p>Visual farm overview, alerts, performance trends, and management actions.</p>
+                    <p>Daily operations, priority work, stock condition, and manager actions.</p>
                 </div>
 
                 <div class="fm2-top-pills">
-                    <div class="fm2-pill">Live analytics</div>
+                    <div class="fm2-pill">Operational view</div>
                     <div class="fm2-pill">Manager view</div>
                 </div>
             </header>
 
-            <div class="fm2-kpi-grid">
-                <div class="fm2-kpi fm2-kpi-blue">
-                    <div class="fm2-kpi-label">Total Animals</div>
-                    <p class="fm2-kpi-value">{{ number_format($totalStockActive) }}</p>
-                    <div class="fm2-kpi-sub">Weaned pigs + active piglets</div>
-                </div>
-
-                <div class="fm2-kpi fm2-kpi-green">
-                    <div class="fm2-kpi-label">Breeding Stock</div>
-                    <p class="fm2-kpi-value">{{ number_format($breedingStockActive) }}</p>
-                    <div class="fm2-kpi-sub">Active breeding pigs</div>
-                </div>
-
-                <div class="fm2-kpi fm2-kpi-red">
-                    <div class="fm2-kpi-label">Critical Alerts</div>
-                    <p class="fm2-kpi-value">{{ number_format($criticalAlerts) }}</p>
-                    <div class="fm2-kpi-sub">Need urgent action</div>
-                </div>
-
-                <div onclick="toggleWeighingAlertsModal()" class="fm2-kpi fm2-kpi-amber cursor-pointer hover:-translate-y-1 transition-all duration-300">
-                    <div class="fm2-kpi-label">Overdue Weighing</div>
-                    <p class="fm2-kpi-value">{{ number_format($overdueForWeighing) }}</p>
-                    <div class="fm2-kpi-sub flex items-center gap-2">
-                        <span>Click to view overdue pigs</span>
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            <div class="fm2-command-grid">
+                <a href="{{ route('all-stocks.index') }}" class="fm2-command-card fm2-command-green">
+                    <div>
+                        <div class="fm2-command-label">Live Stock</div>
+                        <div class="fm2-command-value">{{ number_format($totalStockActive) }}</div>
+                        <div class="fm2-command-sub">{{ number_format($weanedActive) }} weaned • {{ number_format($activePigletsAdjusted) }} piglets</div>
+                    </div>
+                    <div class="fm2-command-icon">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 11h14M7 11V8h10v3m-9 0v6m8-6v6M6 17h12" />
                         </svg>
                     </div>
-                </div>
-            </div>
+                </a>
 
-            <div class="fm2-stat-grid">
-                <div class="fm2-stat">
-                    <div class="fm2-stat-row">
-                        <div>
-                            <div class="fm2-stat-label">Fertility Rate</div>
-                            <div class="fm2-stat-value">{{ number_format($fertilityRate, 1) }}%</div>
-                        </div>
-                        <div class="fm2-stat-icon" style="background:#fef3c7; color:#d97706;">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8c0-1.657-1.79-3-4-3S8 6.343 8 8c0 1.306 1.12 2.417 2.688 2.83L12 17l1.312-6.17C14.88 10.417 16 9.306 16 8z"/>
-                            </svg>
-                        </div>
-                    </div>
-                    <div class="fm2-stat-note">Breeding performance indicator</div>
-                </div>
-
-                <div class="fm2-stat">
-                    <div class="fm2-stat-row">
-                        <div>
-                            <div class="fm2-stat-label">Data Accuracy</div>
-                            <div class="fm2-stat-value">{{ $breedingStats['data_completeness'] }}%</div>
-                        </div>
-                        <div class="fm2-stat-icon" style="background:#dcfce7; color:#16a34a;">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4"/>
-                            </svg>
-                        </div>
-                    </div>
-                    <div class="fm2-stat-note">Recorded data completeness</div>
-                </div>
-
-                <div class="fm2-stat">
-                    <div class="fm2-stat-row">
-                        <div>
-                            <div class="fm2-stat-label">Mortality Rate</div>
-                            <div class="fm2-stat-value" style="color:#dc2626;">{{ number_format($mortalityRate, 1) }}%</div>
-                        </div>
-                        <div class="fm2-stat-icon" style="background:#fee2e2; color:#dc2626;">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-7.938 4h15.876c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.268 16.5c-.77.833.192 2.5 1.732 2.5z"/>
-                            </svg>
-                        </div>
-                    </div>
-                    <div class="fm2-stat-note">Current loss percentage</div>
-                </div>
-            </div>
-
-            <div class="fm2-wide-grid">
-                <div class="fm2-wide">
-                    <h3>Breed Totals</h3>
-                    <div class="fm2-wide-sub">Current count by main breed group</div>
-                    <div class="fm2-inline-metrics">
-                        <div class="fm2-inline-metric">
-                            <div class="fm2-inline-bar" style="background:#3b82f6;"></div>
-                            <div>
-                                <div class="fm2-inline-label">LW</div>
-                                <div class="fm2-inline-value">{{ $breedCounts['lw'] }}</div>
-                            </div>
-                        </div>
-                        <div class="fm2-inline-metric">
-                            <div class="fm2-inline-bar" style="background:#22c55e;"></div>
-                            <div>
-                                <div class="fm2-inline-label">Duroc</div>
-                                <div class="fm2-inline-value">{{ $breedCounts['dr'] }}</div>
-                            </div>
-                        </div>
-                        <div class="fm2-inline-metric">
-                            <div class="fm2-inline-bar" style="background:#a855f7;"></div>
-                            <div>
-                                <div class="fm2-inline-label">LWDR</div>
-                                <div class="fm2-inline-value">{{ $breedCounts['lwdr'] }}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="fm2-wide">
-                    <h3>Stock & Alert Summary</h3>
-                    <div class="fm2-wide-sub">Quick glance at core system totals</div>
-                    <div class="fm2-inline-metrics">
-                        <div class="fm2-inline-metric">
-                            <div class="fm2-inline-bar" style="background:#10b981;"></div>
-                            <div>
-                                <div class="fm2-inline-label">Breeding</div>
-                                <div class="fm2-inline-value">{{ $stockDistributionTotals['breeding'] }}</div>
-                            </div>
-                        </div>
-                        <div class="fm2-inline-metric">
-                            <div class="fm2-inline-bar" style="background:#3b82f6;"></div>
-                            <div>
-                                <div class="fm2-inline-label">Standard</div>
-                                <div class="fm2-inline-value">{{ $stockDistributionTotals['standard'] }}</div>
-                            </div>
-                        </div>
-                        <div class="fm2-inline-metric">
-                            <div class="fm2-inline-bar" style="background:#a855f7;"></div>
-                            <div>
-                                <div class="fm2-inline-label">Piglets</div>
-                                <div class="fm2-inline-value">{{ $stockDistributionTotals['piglets'] }}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="fm2-panel-grid">
-                <div class="fm2-panel">
-                    <div class="fm2-panel-head">
-                        <div>
-                            <h3 class="fm2-panel-title">Stock Composition</h3>
-                            <div class="fm2-panel-sub">Breeding vs standard animals</div>
-                        </div>
-                    </div>
-                    <div class="fm2-panel-body">
-                        <div class="fm2-chart">
-                            <canvas id="stockDistributionChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="fm2-panel">
-                    <div class="fm2-panel-head">
-                        <div>
-                            <h3 class="fm2-panel-title">Breed Distribution</h3>
-                            <div class="fm2-panel-sub">LW, Duroc and LWDR mix</div>
-                        </div>
-                    </div>
-                    <div class="fm2-panel-body">
-                        <div class="fm2-chart">
-                            <canvas id="breedDistributionChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="fm2-big">
-                <div class="fm2-big-head">
+                <a href="{{ route('mating.manage') }}" class="fm2-command-card fm2-command-blue">
                     <div>
-                        <h3 class="fm2-panel-title">Monthly Weight Trends</h3>
-                        <div class="fm2-panel-sub">Average pig weight trend over time</div>
+                        <div class="fm2-command-label">Breeding Stock</div>
+                        <div class="fm2-command-value">{{ number_format($breedingStockActive) }}</div>
+                        <div class="fm2-command-sub">{{ number_format($breedingFemales) }} females • {{ number_format($breedingMales) }} males</div>
                     </div>
+                    <div class="fm2-command-icon">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m5-11a5 5 0 1 1-10 0 5 5 0 0 1 10 0Z" />
+                        </svg>
+                    </div>
+                </a>
 
-                    <div class="fm2-toolbar">
-                        <input type="date" id="startDate">
-                        <input type="date" id="endDate">
-                        <button type="button" onclick="updateChart()">Update Chart</button>
+                <a href="{{ route('weight-alerts.index') }}" class="fm2-command-card fm2-command-red">
+                    <div>
+                        <div class="fm2-command-label">Critical Alerts</div>
+                        <div class="fm2-command-value">{{ number_format($criticalAlerts) }}</div>
+                        <div class="fm2-command-sub">{{ number_format($highAlerts) }} high • {{ number_format($mediumAlerts) }} medium</div>
                     </div>
-                </div>
+                    <div class="fm2-command-icon">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3Z" />
+                        </svg>
+                    </div>
+                </a>
 
-                <div class="fm2-big-body">
-                    <div class="fm2-chart-lg">
-                        <canvas id="weightTrendsChart"></canvas>
+                <button type="button" onclick="toggleWeighingAlertsModal()" class="fm2-command-card fm2-command-amber text-left cursor-pointer">
+                    <div>
+                        <div class="fm2-command-label">Overdue Weighing</div>
+                        <div class="fm2-command-value">{{ number_format($overdueForWeighing) }}</div>
+                        <div class="fm2-command-sub">Click to view animals</div>
                     </div>
-                </div>
+                    <div class="fm2-command-icon">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M7 6l-3 8a3 3 0 0 0 6 0L7 6Zm10 0-3 8a3 3 0 0 0 6 0l-3-8ZM12 3v18" />
+                        </svg>
+                    </div>
+                </button>
             </div>
 
-            <div class="fm2-bottom-grid">
+            <div class="fm2-main-grid">
                 <div class="fm2-panel">
                     <div class="fm2-panel-head">
                         <div>
-                            <h3 class="fm2-panel-title">Weight Alert Levels</h3>
-                            <div class="fm2-panel-sub">High, medium, and low alert load</div>
+                            <h3 class="fm2-panel-title">Today's Work Queue</h3>
+                            <div class="fm2-panel-sub">Priority work for weighing, breeding, health, and stock review</div>
                         </div>
+                        <a href="{{ route('weight-alerts.index') }}" class="fm2-view-link">See all tasks</a>
                     </div>
-                    <div class="fm2-panel-body">
-                        <div class="fm2-chart-lg">
-                            <canvas id="weightAlertsChart"></canvas>
-                        </div>
+                    <div class="overflow-x-auto">
+                        <table class="fm2-work-table">
+                            <thead>
+                                <tr>
+                                    <th>Priority</th>
+                                    <th>Task Type</th>
+                                    <th>Details</th>
+                                    <th>Count</th>
+                                    <th>Due</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($managerWorkQueue as $task)
+                                    <tr>
+                                        <td><span class="fm2-priority fm2-priority-{{ $task['severity'] }}">{{ $task['severity'] }}</span></td>
+                                        <td>
+                                            <div class="fm2-work-title">{{ $task['item'] }}</div>
+                                            <div class="fm2-work-sub">{{ $task['type'] }}</div>
+                                        </td>
+                                        <td>{{ $task['details'] }}</td>
+                                        <td>{{ number_format($task['count']) }}</td>
+                                        <td>{{ $task['due'] }}</td>
+                                        <td><a href="{{ $task['route'] }}" class="fm2-view-link">View</a></td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6" class="text-center text-slate-500">No urgent manager tasks for today.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -751,21 +870,24 @@
                     <div class="fm2-actions-card">
                         <div class="fm2-side-head">
                             <h3 class="fm2-side-title">Quick Actions</h3>
-                            <div class="fm2-side-sub">Fast manager shortcuts</div>
+                            <div class="fm2-side-sub">Common manager actions</div>
                         </div>
-                        <div class="fm2-actions-body">
-                            <a href="{{ route('all-stocks.index') }}" class="fm2-action">
-                                <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                                </svg>
-                                <span>Add Stock</span>
+                        <div class="fm2-action-list">
+                            <a href="{{ route('weights.create') }}" class="fm2-action-wide fm2-action-green">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M7 6l-3 8a3 3 0 0 0 6 0L7 6Zm10 0-3 8a3 3 0 0 0 6 0l-3-8ZM12 3v18" /></svg>
+                                Record Weight
                             </a>
-
-                            <a href="{{ route('weight-alerts.dashboard') }}" class="fm2-action">
-                                <svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                                </svg>
-                                <span>View Alerts</span>
+                            <a href="{{ route('all-stocks.create') }}" class="fm2-action-wide fm2-action-green">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m7-7H5" /></svg>
+                                Add Stock
+                            </a>
+                            <a href="{{ route('weight-alerts.index') }}" class="fm2-action-wide fm2-action-red">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 0 1-6 0" /></svg>
+                                View Alerts
+                            </a>
+                            <a href="{{ route('health.create') }}" class="fm2-action-wide fm2-action-blue">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v8m4-4H8m13 0A9 9 0 1 1 3 12a9 9 0 0 1 18 0Z" /></svg>
+                                Start Health Check
                             </a>
                         </div>
                     </div>
@@ -785,6 +907,153 @@
                                 <div class="fm2-empty">No upcoming tasks found.</div>
                             @endforelse
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fm2-insight-grid">
+                <div class="fm2-panel">
+                    <div class="fm2-panel-head">
+                        <div>
+                            <h3 class="fm2-panel-title">Stock Composition</h3>
+                            <div class="fm2-panel-sub">Breeding, standard, and active piglets</div>
+                        </div>
+                    </div>
+                    <div class="fm2-panel-body">
+                        <div class="fm2-chart">
+                            <canvas id="stockDistributionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="fm2-panel">
+                    <div class="fm2-panel-head">
+                        <div>
+                            <h3 class="fm2-panel-title">Weight Trend</h3>
+                            <div class="fm2-panel-sub">Real average weights recorded over the last 7 days</div>
+                        </div>
+                    </div>
+                    <div class="fm2-panel-body">
+                        <div class="fm2-chart">
+                            <canvas id="weightTrendsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="fm2-panel">
+                    <div class="fm2-panel-head">
+                        <div>
+                            <h3 class="fm2-panel-title">Breeding Readiness</h3>
+                            <div class="fm2-panel-sub">Ready, near-ready, and not-ready breeding stock</div>
+                        </div>
+                    </div>
+                    <div class="fm2-panel-body">
+                        <div class="fm2-chart">
+                            <canvas id="breedingReadinessChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fm2-bottom-grid">
+                <div class="fm2-panel">
+                    <div class="fm2-panel-head">
+                        <div>
+                            <h3 class="fm2-panel-title">Stock Snapshot</h3>
+                            <div class="fm2-panel-sub">Breed totals and core stock ratios</div>
+                        </div>
+                    </div>
+                    <div class="fm2-panel-body">
+                        <div class="fm2-inline-metrics">
+                            <div class="fm2-inline-metric">
+                                <div class="fm2-inline-bar" style="background:#3b82f6;"></div>
+                                <div>
+                                    <div class="fm2-inline-label">LW</div>
+                                    <div class="fm2-inline-value">{{ $breedCounts['lw'] }}</div>
+                                </div>
+                            </div>
+                            <div class="fm2-inline-metric">
+                                <div class="fm2-inline-bar" style="background:#22c55e;"></div>
+                                <div>
+                                    <div class="fm2-inline-label">Duroc</div>
+                                    <div class="fm2-inline-value">{{ $breedCounts['dr'] }}</div>
+                                </div>
+                            </div>
+                            <div class="fm2-inline-metric">
+                                <div class="fm2-inline-bar" style="background:#a855f7;"></div>
+                                <div>
+                                    <div class="fm2-inline-label">LWDR</div>
+                                    <div class="fm2-inline-value">{{ $breedCounts['lwdr'] }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="fm2-inline-metrics mt-6">
+                            <div class="fm2-inline-metric">
+                                <div class="fm2-inline-bar" style="background:#10b981;"></div>
+                                <div>
+                                    <div class="fm2-inline-label">Fertility</div>
+                                    <div class="fm2-inline-value">{{ number_format($fertilityRate, 1) }}%</div>
+                                </div>
+                            </div>
+                            <div class="fm2-inline-metric">
+                                <div class="fm2-inline-bar" style="background:#f59e0b;"></div>
+                                <div>
+                                    <div class="fm2-inline-label">Data Accuracy</div>
+                                    <div class="fm2-inline-value">{{ $breedingStats['data_completeness'] }}%</div>
+                                </div>
+                            </div>
+                            <div class="fm2-inline-metric">
+                                <div class="fm2-inline-bar" style="background:#ef4444;"></div>
+                                <div>
+                                    <div class="fm2-inline-label">Mortality</div>
+                                    <div class="fm2-inline-value">{{ number_format($mortalityRate, 1) }}%</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="fm2-inline-metrics mt-6">
+                            <div class="fm2-inline-metric">
+                                <div class="fm2-inline-bar" style="background:#0ea5e9;"></div>
+                                <div>
+                                    <div class="fm2-inline-label">Purchased Added</div>
+                                    <div class="fm2-inline-value">{{ number_format($purchasedStockMetrics['added_quantity'] ?? 0) }}</div>
+                                </div>
+                            </div>
+                            <div class="fm2-inline-metric">
+                                <div class="fm2-inline-bar" style="background:#f59e0b;"></div>
+                                <div>
+                                    <div class="fm2-inline-label">Pending Intake</div>
+                                    <div class="fm2-inline-value">{{ number_format($purchasedStockMetrics['pending_intakes'] ?? 0) }}</div>
+                                </div>
+                            </div>
+                            <div class="fm2-inline-metric">
+                                <div class="fm2-inline-bar" style="background:#14b8a6;"></div>
+                                <div>
+                                    <div class="fm2-inline-label">Quarantined</div>
+                                    <div class="fm2-inline-value">{{ number_format($purchasedStockMetrics['quarantined'] ?? 0) }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="fm2-panel">
+                    <div class="fm2-panel-head">
+                        <div>
+                            <h3 class="fm2-panel-title">Recent Activity</h3>
+                            <div class="fm2-panel-sub">Recent operational signals</div>
+                        </div>
+                    </div>
+                    <div class="fm2-activity-list">
+                        @foreach($recentActivity as $activity)
+                            <div class="fm2-activity-item">
+                                <span class="fm2-activity-dot fm2-activity-{{ $activity['severity'] }}"></span>
+                                <div>
+                                    <div class="fm2-activity-title">{{ $activity['label'] }}</div>
+                                    <div class="fm2-activity-sub">{{ $activity['description'] }}</div>
+                                </div>
+                                <div class="fm2-activity-time">{{ $activity['when'] }}</div>
+                            </div>
+                        @endforeach
                     </div>
                 </div>
             </div>
@@ -930,8 +1199,6 @@
     });
 </script>
     <script>
-        let weightTrendsChart;
-
         document.addEventListener('DOMContentLoaded', function () {
             Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
             Chart.defaults.color = '#6b7280';
@@ -941,17 +1208,16 @@
                 drawBorder: false
             };
 
-            const endDateInput = document.getElementById('endDate');
-            const startDateInput = document.getElementById('startDate');
+            function mountChart(id, config) {
+                const canvas = document.getElementById(id);
+                if (! canvas) {
+                    return;
+                }
 
-            const endDate = new Date();
-            const startDate = new Date();
-            startDate.setDate(startDate.getDate() - 30);
+                new Chart(canvas, config);
+            }
 
-            endDateInput.value = endDate.toISOString().split('T')[0];
-            startDateInput.value = startDate.toISOString().split('T')[0];
-
-            new Chart(document.getElementById('stockDistributionChart'), {
+            mountChart('stockDistributionChart', {
                 type: 'doughnut',
                 data: {
                     labels: ['Breeding', 'Standard', 'Piglets'],
@@ -961,7 +1227,7 @@
                             {{ $stockDistributionTotals['standard'] }},
                             {{ $stockDistributionTotals['piglets'] }}
                         ],
-                        backgroundColor: ['#22c55e', '#3b82f6', '#a855f7'],
+                        backgroundColor: ['#16a34a', '#2563eb', '#a855f7'],
                         borderWidth: 0
                     }]
                 },
@@ -971,111 +1237,26 @@
                     cutout: '68%',
                     plugins: {
                         legend: {
-                            position: 'top',
-                            labels: {
-                                usePointStyle: true,
-                                pointStyle: 'circle',
-                                boxWidth: 8
-                            }
+                            position: 'bottom',
+                            labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8 }
                         }
                     }
                 }
             });
 
-            new Chart(document.getElementById('breedDistributionChart'), {
-                type: 'doughnut',
-                data: {
-                    labels: ['LW', 'Duroc', 'LWDR'],
-                    datasets: [{
-                        data: [{{ $breedCounts['lw'] }}, {{ $breedCounts['dr'] }}, {{ $breedCounts['lwdr'] }}],
-                        backgroundColor: ['#3b82f6', '#22c55e', '#a855f7'],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '68%',
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: {
-                                usePointStyle: true,
-                                pointStyle: 'circle',
-                                boxWidth: 8
-                            }
-                        }
-                    }
-                }
-            });
-
-            const trendCtx = document.getElementById('weightTrendsChart').getContext('2d');
-            const trendGradient = trendCtx.createLinearGradient(0, 0, 0, 320);
-            trendGradient.addColorStop(0, 'rgba(59,130,246,0.55)');
-            trendGradient.addColorStop(1, 'rgba(59,130,246,0.12)');
-
-            const labels = Array.from({length: 30}, (_, i) => {
-                const d = new Date();
-                d.setDate(d.getDate() - (29 - i));
-                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            });
-
-            const data = Array.from({length: 30}, () => Math.floor(Math.random() * 60) + 20);
-
-            weightTrendsChart = new Chart(trendCtx, {
-                type: 'bar',
-                data: {
-                    labels,
-                    datasets: [{
-                        label: 'Average Weight (kg)',
-                        data,
-                        backgroundColor: 'rgba(96, 165, 250, 0.75)',
-                        borderColor: '#3b82f6',
-                        borderWidth: 1.5,
-                        borderRadius: 10,
-                        borderSkipped: false,
-                        barThickness: 18
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            align: 'end',
-                            labels: {
-                                usePointStyle: true,
-                                pointStyle: 'circle',
-                                boxWidth: 8
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: gridOptions
-                        },
-                        x: {
-                            grid: { display: false }
-                        }
-                    }
-                }
-            });
-
-            new Chart(document.getElementById('weightAlertsChart'), {
+            mountChart('weightTrendsChart', {
                 type: 'line',
                 data: {
-                    labels: ['High', 'Medium', 'Low'],
+                    labels: @json($weightTrendLabels),
                     datasets: [{
-                        label: 'Alert Count',
-                        data: [{{ $highAlerts }}, {{ $mediumAlerts }}, {{ $lowAlerts }}],
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59,130,246,0.16)',
+                        label: 'Average Weight (kg)',
+                        data: @json($weightTrendValues),
+                        borderColor: '#2563eb',
+                        backgroundColor: 'rgba(37,99,235,.12)',
                         fill: true,
-                        tension: 0.42,
+                        tension: .36,
                         pointRadius: 4,
-                        pointBackgroundColor: '#3b82f6',
+                        pointBackgroundColor: '#2563eb',
                         pointBorderColor: '#ffffff',
                         pointBorderWidth: 2
                     }]
@@ -1087,40 +1268,42 @@
                         legend: {
                             position: 'top',
                             align: 'end',
-                            labels: {
-                                usePointStyle: true,
-                                pointStyle: 'circle',
-                                boxWidth: 8
-                            }
+                            labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8 }
                         }
                     },
                     scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: gridOptions
-                        },
-                        x: {
-                            grid: { display: false }
+                        y: { beginAtZero: true, grid: gridOptions },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+
+            mountChart('breedingReadinessChart', {
+                type: 'doughnut',
+                data: {
+                    labels: ['Ready', 'Due Soon', 'Not Ready'],
+                    datasets: [{
+                        data: [
+                            {{ $breedingReadiness['ready'] }},
+                            {{ $breedingReadiness['due_soon'] }},
+                            {{ $breedingReadiness['not_ready'] }}
+                        ],
+                        backgroundColor: ['#16a34a', '#f59e0b', '#dc2626'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '68%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8 }
                         }
                     }
                 }
             });
         });
-
-        function updateChart() {
-            if (!weightTrendsChart) return;
-
-            const labels = Array.from({length: 30}, (_, i) => {
-                const d = new Date();
-                d.setDate(d.getDate() - (29 - i));
-                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            });
-
-            const data = Array.from({length: 30}, () => Math.floor(Math.random() * 60) + 20);
-
-            weightTrendsChart.data.labels = labels;
-            weightTrendsChart.data.datasets[0].data = data;
-            weightTrendsChart.update();
-        }
     </script>
 </x-app-layout>

@@ -355,11 +355,11 @@ class PigSale extends Model
     public function getSalePurposeIconAttribute(): string
     {
         return match($this->sale_purpose) {
-            'market'    => '🏪',
-            'breeding'  => '💕',
-            'slaughter' => '🥩',
-            'export'    => '🚢',
-            default     => '💰'
+            'market'    => 'Market',
+            'breeding'  => 'Breeding',
+            'slaughter' => 'Slaughter',
+            'export'    => 'Export',
+            default     => 'Money'
         };
     }
 

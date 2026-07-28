@@ -7,7 +7,7 @@
         @if($customer->on_credit_hold)
             <div class="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                    <p class="text-sm font-semibold text-red-800">⚠ Credit hold active</p>
+                    <p class="text-sm font-semibold text-red-800">Warning Credit hold active</p>
                     @if($customer->credit_hold_reason)
                         <p class="text-xs text-red-700 mt-1">{{ $customer->credit_hold_reason }}</p>
                     @endif
@@ -268,9 +268,9 @@
                                     <p class="text-xs text-slate-500">{{ $c->role }}</p>
                                 @endif
                                 <div class="text-xs text-slate-600 mt-1 flex flex-wrap gap-3">
-                                    @if($c->phone)<span>📞 {{ $c->phone }}</span>@endif
-                                    @if($c->email)<span>✉ {{ $c->email }}</span>@endif
-                                    @if($c->whatsapp)<span>💬 {{ $c->whatsapp }}</span>@endif
+                                    @if($c->phone)<span>Phone {{ $c->phone }}</span>@endif
+                                    @if($c->email)<span>Email {{ $c->email }}</span>@endif
+                                    @if($c->whatsapp)<span>Chat {{ $c->whatsapp }}</span>@endif
                                 </div>
                             </div>
                             @if(auth()->user()?->hasPermission('manage_customers'))

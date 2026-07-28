@@ -68,7 +68,7 @@
                             Cancel
                         </a>
                         <button type="submit" class="px-5 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                            💾 Save Changes
+                            Save Changes
                         </button>
                     </div>
                 </form>

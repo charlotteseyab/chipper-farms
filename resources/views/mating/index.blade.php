@@ -468,11 +468,11 @@
                         <h3 class="mating-pair-title">Selected Breeding Pair</h3>
                         <div class="mating-pair-grid">
                             <div id="male-info" class="mating-animal-box male">
-                                <h4>♂ Male</h4>
+                                <h4>Male</h4>
                                 <div id="male-details" class="text-sm text-blue-700"></div>
                             </div>
                             <div id="female-info" class="mating-animal-box female">
-                                <h4>♀ Female</h4>
+                                <h4>Female</h4>
                                 <div id="female-details" class="text-sm text-pink-700"></div>
                             </div>
                         </div>
@@ -486,7 +486,7 @@
                         <div class="mating-card-body">
                             <div class="mating-side-list">
                                 <div class="mating-guide-row">
-                                    <span class="text-green-500 font-bold">✓</span>
+                                    <span class="text-green-500 font-bold">OK</span>
                                     <span><strong>Safe:</strong> No close relationships - promotes genetic diversity</span>
                                 </div>
                                 <div class="mating-guide-row">
@@ -494,11 +494,11 @@
                                     <span><strong>Caution:</strong> Distant relatives - acceptable with monitoring</span>
                                 </div>
                                 <div class="mating-guide-row">
-                                    <span class="text-yellow-500 font-bold">⚠</span>
+                                    <span class="text-yellow-500 font-bold">Warning</span>
                                     <span><strong>Warning:</strong> Close relatives - requires careful consideration</span>
                                 </div>
                                 <div class="mating-guide-row">
-                                    <span class="text-red-500 font-bold">🚫</span>
+                                    <span class="text-red-500 font-bold">Blocked</span>
                                     <span><strong>Critical:</strong> Direct relatives - not recommended</span>
                                 </div>
                             </div>
@@ -617,22 +617,22 @@
                 switch(status) {
                     case 'optimal':
                         badgeClass = 'bg-green-100 text-green-800';
-                        icon = '✓';
+                        icon = 'OK';
                         text = 'Optimal';
                         break;
                     case 'minimum_met':
                         badgeClass = 'bg-yellow-100 text-yellow-800';
-                        icon = '⚠';
+                        icon = 'Warning';
                         text = 'Ready';
                         break;
                     case 'too_young':
                         badgeClass = 'bg-red-100 text-red-800';
-                        icon = '✗';
+                        icon = 'No';
                         text = 'Too Young';
                         break;
                     case 'too_old':
                         badgeClass = 'bg-gray-100 text-gray-800';
-                        icon = '⚠';
+                        icon = 'Warning';
                         text = 'Too Old';
                         break;
                     default:
@@ -665,7 +665,7 @@
 
                     const maleWeightWarning = selectedMale.breeding_readiness.factors?.weight?.status === 'too_light'
                         ? `<div class="mt-2 p-2 bg-orange-100 border border-orange-200 rounded text-xs text-orange-700">
-                            ⚠️ Weight Warning: ${selectedMale.breeding_readiness.factors.weight.message}
+                            Weight warning: ${selectedMale.breeding_readiness.factors.weight.message}
                         </div>` : '';
 
                     maleDetails.innerHTML = `
@@ -682,7 +682,7 @@
 
                     const femaleWeightWarning = selectedFemale.breeding_readiness.factors?.weight?.status === 'too_light'
                         ? `<div class="mt-2 p-2 bg-orange-100 border border-orange-200 rounded text-xs text-orange-700">
-                            ⚠️ Weight Warning: ${selectedFemale.breeding_readiness.factors.weight.message}
+                            Weight warning: ${selectedFemale.breeding_readiness.factors.weight.message}
                         </div>` : '';
 
                     femaleDetails.innerHTML = `

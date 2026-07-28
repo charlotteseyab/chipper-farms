@@ -24,7 +24,7 @@ class PigSaleController extends Controller
 
     public function form($id)
     {
-        $pig = PigManagement::findOrFail($id);
+        $pig = PigManagement::withTrashed()->findOrFail($id);
 
         // Recording a sale = creating a PigSale.
         $this->authorize('create', PigSale::class);
@@ -45,7 +45,7 @@ class PigSaleController extends Controller
 
     public function record(RecordPigSaleRequest $request, RecordPigSaleService $service, $id)
     {
-        $pig = PigManagement::findOrFail($id);
+        $pig = PigManagement::withTrashed()->findOrFail($id);
 
         $this->authorize('create', PigSale::class);
 
@@ -83,6 +83,13 @@ class PigSaleController extends Controller
             'average_price'    => PigSale::avg('sale_price'),
             'average_weight'   => PigSale::whereNotNull('sale_weight')->avg('sale_weight'),
         ];
+
+        if ($request->ajax()) {
+            return response()->json([
+                'html' => view('sales._table', compact('sales'))->render(),
+                'url' => $request->fullUrl(),
+            ]);
+        }
 
         return view('sales.index', compact('sales', 'stats'));
     }

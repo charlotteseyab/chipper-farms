@@ -136,9 +136,9 @@
                                 </td>
                                 <td class="px-4 py-3">
                                     @if($inv->match_status === 'matched_clean')
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">✓ clean</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700">clean</span>
                                     @elseif($inv->match_status === 'matched_variance')
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">⚠ variance</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700">Warning variance</span>
                                     @elseif($inv->match_status === 'pending')
                                         <span class="text-xs text-slate-400">pending</span>
                                     @else

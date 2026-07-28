@@ -15,7 +15,7 @@
                         <form method="POST" action="{{ route('weight-alerts.acknowledge', $weightAlert) }}" class="inline">
                             @csrf
                             <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
-                                ✓ Acknowledge Alert
+                                Acknowledge Alert
                             </button>
                         </form>
                     @endif
@@ -27,7 +27,7 @@
                 <!-- Alert Status Card -->
                 <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
                     <h3 class="text-base font-semibold text-gray-900 mb-4 flex items-center">
-                        <span class="text-lg mr-2">🚨</span>
+                        <span class="text-lg mr-2">Alert</span>
                         Alert Status
                     </h3>
                     
@@ -37,10 +37,10 @@
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Alert Type</label>
                             @php
                                 $alertConfig = [
-                                    'under_weight' => ['icon' => '⬇️', 'color' => 'text-blue-600', 'bg' => 'bg-blue-100', 'text' => 'Under Weight'],
-                                    'over_weight' => ['icon' => '⬆️', 'color' => 'text-orange-600', 'bg' => 'bg-orange-100', 'text' => 'Over Weight'],
-                                    'normal' => ['icon' => '✅', 'color' => 'text-green-600', 'bg' => 'bg-green-100', 'text' => 'Normal'],
-                                    'no_standard' => ['icon' => '❓', 'color' => 'text-gray-600', 'bg' => 'bg-gray-100', 'text' => 'No Standard']
+                                    'under_weight' => ['icon' => 'Under', 'color' => 'text-blue-600', 'bg' => 'bg-blue-100', 'text' => 'Under Weight'],
+                                    'over_weight' => ['icon' => 'Over', 'color' => 'text-orange-600', 'bg' => 'bg-orange-100', 'text' => 'Over Weight'],
+                                    'normal' => ['icon' => 'OK', 'color' => 'text-green-600', 'bg' => 'bg-green-100', 'text' => 'Normal'],
+                                    'no_standard' => ['icon' => '?', 'color' => 'text-gray-600', 'bg' => 'bg-gray-100', 'text' => 'No Standard']
                                 ];
                                 $config = $alertConfig[$weightAlert->alert_type] ?? $alertConfig['no_standard'];
                             @endphp
@@ -70,7 +70,7 @@
                             <label class="block text-sm font-semibold text-gray-700 mb-2">Status</label>
                             @if($weightAlert->acknowledged)
                                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-600">
-                                    ✓ Acknowledged
+                                    Acknowledged
                                 </span>
                                 @if($weightAlert->acknowledgedBy)
                                     <div class="text-sm text-gray-600 mt-1">
@@ -82,7 +82,7 @@
                                 @endif
                             @else
                                 <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-600">
-                                    ⚠️ Unacknowledged
+                                    Warning Unacknowledged
                                 </span>
                             @endif
                         </div>
@@ -103,7 +103,7 @@
                 <!-- Pig Info Card -->
                 <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
                     <h3 class="text-base font-semibold text-gray-900 mb-4 flex items-center">
-                        <span class="text-lg mr-2">🐷</span>
+                        <span class="text-lg mr-2">Pig</span>
                         Pig Details
                     </h3>
                     
@@ -190,7 +190,7 @@
                 <!-- Weight Summary Card -->
                 <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
                     <h3 class="text-base font-semibold text-gray-900 mb-4 flex items-center">
-                        <span class="text-lg mr-2">⚖️</span>
+                        <span class="text-lg mr-2">Weight</span>
                         Weight Information
                     </h3>
                     
@@ -274,7 +274,7 @@
                 <!-- Alert Message -->
                 <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
                     <h3 class="text-base font-semibold text-gray-900 mb-4 flex items-center">
-                        <span class="text-lg mr-2">📝</span>
+                        <span class="text-lg mr-2">Notes</span>
                         Alert Message
                     </h3>
                     <div class="text-sm text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-lg">
@@ -296,7 +296,7 @@
                 <!-- Recommended Actions -->
                 <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
                     <h3 class="text-base font-semibold text-gray-900 mb-4 flex items-center">
-                        <span class="text-lg mr-2">🎯</span>
+                        <span class="text-lg mr-2">Target</span>
                         Recommended Actions
                     </h3>
                     
@@ -379,7 +379,7 @@
 
             @if($weightAlert->acknowledgment_notes)
                 <div class="mt-6 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h2 class="text-lg font-semibold text-gray-900 mb-4">📝 Acknowledgment Notes</h2>
+                    <h2 class="text-lg font-semibold text-gray-900 mb-4">Notes Acknowledgment Notes</h2>
                     <div class="text-sm text-gray-700">{{ $weightAlert->acknowledgment_notes }}</div>
                 </div>
             @endif

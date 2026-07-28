@@ -3,22 +3,28 @@
         .mating-manage-page{
             min-height: 100vh;
             padding: 18px 0 40px;
+            background:
+                linear-gradient(180deg, #fff7fb 0%, #f8fafc 42%, #eef2f7 100%);
+            overflow-x: hidden;
         }
 
         .mating-manage-shell{
-            max-width: 1520px;
+            width: min(100% - 32px, 1440px);
+            max-width: 1440px;
             margin: 0 auto;
-            padding: 0 16px;
+            padding: 0;
+            min-width: 0;
         }
 
         .mating-manage-hero{
             position: relative;
             overflow: hidden;
-            border-radius: 28px;
+            border-radius: 24px;
             padding: 26px 28px;
-            background: linear-gradient(135deg, #be185d 100%);
+            background: linear-gradient(135deg, #831843 0%, #be185d 48%, #e11d48 100%);
             color: #fff;
             margin-bottom: 18px;
+            box-shadow: 0 22px 48px rgba(131,24,67,.18);
         }
 
         .mating-manage-hero::before{
@@ -92,9 +98,10 @@
         .mating-card{
             background: rgba(255,255,255,.97);
             border: 1px solid #ecd7e5;
-            border-radius: 28px;
-            box-shadow: 0 14px 34px rgba(15,23,42,.06);
-            overflow: hidden;
+            border-radius: 20px;
+            box-shadow: 0 16px 36px rgba(15,23,42,.07);
+            overflow: visible;
+            min-width: 0;
         }
 
         .mating-card-head{
@@ -133,9 +140,10 @@
         .mating-stat{
             background: rgba(255,255,255,.96);
             border: 1px solid #eadbe5;
-            border-radius: 22px;
+            border-radius: 18px;
             padding: 16px;
             box-shadow: 0 10px 24px rgba(15,23,42,.04);
+            min-width: 0;
         }
 
         .mating-stat-row{
@@ -227,14 +235,21 @@
         }
 
         .mating-table-wrap{
+            width: 100%;
+            max-width: 100%;
             overflow-x: auto;
+            overflow-y: visible;
+            padding-bottom: 96px;
+            margin-bottom: -96px;
+            overscroll-behavior-x: contain;
         }
 
         .mating-table{
             width: 100%;
-            min-width: 1320px;
+            min-width: 960px;
             border-collapse: separate;
             border-spacing: 0;
+            table-layout: fixed;
         }
 
         .mating-table thead th{
@@ -256,6 +271,28 @@
             font-size: .88rem;
             color: #0f172a;
             background: rgba(255,255,255,.98);
+            overflow-wrap: anywhere;
+        }
+
+        .mating-table th:nth-child(1),
+        .mating-table td:nth-child(1){ width: 30%; }
+        .mating-table th:nth-child(2),
+        .mating-table td:nth-child(2){ width: 15%; }
+        .mating-table th:nth-child(3),
+        .mating-table td:nth-child(3){ width: 12%; }
+        .mating-table th:nth-child(4),
+        .mating-table td:nth-child(4){ width: 15%; }
+        .mating-table th:nth-child(5),
+        .mating-table td:nth-child(5){ width: auto; }
+        .mating-table th:nth-child(6),
+        .mating-table td:nth-child(6){
+            width: 176px;
+            min-width: 176px;
+            max-width: 176px;
+            padding-left: 18px;
+            padding-right: 34px;
+            text-align: right;
+            overflow: visible;
         }
 
         .mating-table tbody tr:hover td{
@@ -274,11 +311,13 @@
         .mating-pair-tags{
             font-size: .8rem;
             color: #64748b;
+            overflow-wrap: anywhere;
         }
 
         .mating-pair-codes{
             font-weight: 900;
             color: #0f172a;
+            overflow-wrap: anywhere;
         }
 
         .mating-note{
@@ -358,6 +397,113 @@
             padding: 6px 0;
         }
 
+        .mating-action-menu{
+            position: relative;
+            display: inline-block;
+            width: 118px;
+            max-width: 118px;
+            text-align: left;
+        }
+
+        .mating-action-menu summary{
+            list-style: none;
+            display: inline-flex;
+            width: 100%;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 9px 10px;
+            border-radius: 14px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            color: #0f172a;
+            font-size: .82rem;
+            font-weight: 900;
+            white-space: nowrap;
+            cursor: pointer;
+            box-shadow: 0 8px 18px rgba(15,23,42,.05);
+        }
+
+        .mating-action-menu summary::-webkit-details-marker{
+            display: none;
+        }
+
+        .mating-action-menu summary::after{
+            content: "";
+            width: 7px;
+            height: 7px;
+            border-right: 2px solid #64748b;
+            border-bottom: 2px solid #64748b;
+            transform: rotate(45deg) translateY(-2px);
+            transition: .18s ease;
+        }
+
+        .mating-action-menu[open] summary{
+            border-color: #f9a8d4;
+            box-shadow: 0 0 0 4px rgba(219,39,119,.10);
+        }
+
+        .mating-action-menu[open] summary::after{
+            transform: rotate(225deg) translate(-2px, -1px);
+        }
+
+        .mating-action-panel{
+            position: absolute;
+            right: 0;
+            top: calc(100% + 8px);
+            z-index: 40;
+            width: 200px;
+            padding: 8px;
+            border-radius: 16px;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            box-shadow: 0 20px 45px rgba(15,23,42,.18);
+        }
+
+        .mating-action-panel form{
+            margin: 0;
+        }
+
+        .mating-menu-item{
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            border: 0;
+            background: transparent;
+            border-radius: 12px;
+            padding: 10px 11px;
+            color: #334155;
+            font-size: .82rem;
+            font-weight: 800;
+            text-align: left;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .mating-menu-item:hover{
+            background: #f8fafc;
+        }
+
+        .mating-menu-item.primary{
+            color: #1d4ed8;
+        }
+
+        .mating-menu-item.success{
+            color: #166534;
+        }
+
+        .mating-menu-item.danger{
+            color: #b91c1c;
+        }
+
+        .mating-menu-note{
+            padding: 10px 11px;
+            color: #94a3b8;
+            font-size: .78rem;
+            font-weight: 700;
+        }
+
         .mating-empty{
             padding: 56px 18px;
             text-align: center;
@@ -416,6 +562,8 @@
             border-radius: 20px;
             background: #fff;
             padding: 16px;
+            min-width: 0;
+            overflow-wrap: anywhere;
         }
 
         .mating-feature-icon{
@@ -752,6 +900,27 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="mating-stat">
+                        <div class="mating-stat-row">
+                            <div class="mating-stat-icon icon-yellow">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2m6-2a10 10 0 11-20 0 10 10 0 0120 0z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="mating-stat-label">Pregnancy Follow-ups</div>
+                                <div class="mating-stat-value">{{ $stats['follow_ups_due'] }}</div>
+                                <div class="mating-stat-note">
+                                    @if($stats['follow_ups_overdue'] > 0)
+                                        {{ $stats['follow_ups_overdue'] }} overdue
+                                    @else
+                                        {{ $stats['uncertain'] }} uncertain
+                                    @endif
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="mating-card">
@@ -808,16 +977,16 @@
 
                                                     @if($mating->status === 'completed')
                                                         @if($mating->pregnancy_status === 'not_pregnant')
-                                                            <div class="text-xs text-green-600 mt-1">✅ Both pigs now available for breeding</div>
+                                                            <div class="text-xs text-green-600 mt-1">Both pigs now available for breeding</div>
                                                         @elseif($mating->pregnancy_status === 'pending')
-                                                            <div class="text-xs text-orange-600 mt-1">♂️ Male available, ♀️ Female awaiting pregnancy check</div>
+                                                            <div class="text-xs text-orange-600 mt-1">Male available, female awaiting pregnancy check</div>
                                                         @elseif($mating->pregnancy_status === 'pregnant')
-                                                            <div class="text-xs text-orange-600 mt-1">♂️ Male available, ♀️ Female pregnant</div>
+                                                            <div class="text-xs text-orange-600 mt-1">Male available, female pregnant</div>
                                                         @elseif($mating->pregnancy_status === 'uncertain')
-                                                            <div class="text-xs text-orange-600 mt-1">♂️ Male available, ♀️ Female pregnancy uncertain</div>
+                                                            <div class="text-xs text-orange-600 mt-1">Male available, female pregnancy uncertain</div>
                                                         @endif
                                                     @elseif($mating->status === 'planned')
-                                                        <div class="text-xs text-blue-600 mt-1">🔒 Both pigs reserved for planned mating</div>
+                                                        <div class="text-xs text-blue-600 mt-1">Both pigs reserved for planned mating</div>
                                                     @endif
                                                 </div>
                                             </td>
@@ -840,19 +1009,30 @@
 
                                             <td>
                                                 <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {{ $mating->status_badge }}">
-                                                    {{ $mating->status_icon }} {{ ucfirst($mating->status) }}
+                                                    {{ ucfirst($mating->status) }}
                                                 </span>
                                             </td>
 
                                             <td>
                                                 @if($mating->status === 'completed')
                                                     <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {{ $mating->pregnancy_status_badge }}">
-                                                        {{ $mating->pregnancy_status_icon }} {{ ucfirst(str_replace('_', ' ', $mating->pregnancy_status)) }}
+                                                        {{ ucfirst(str_replace('_', ' ', $mating->pregnancy_status)) }}
                                                     </span>
                                                     @if($mating->pregnancy_check_due)
                                                         <div class="text-xs text-orange-600 mt-1">Check due</div>
                                                     @elseif($mating->pregnancy_check_overdue)
                                                         <div class="text-xs text-red-600 mt-1">Check overdue!</div>
+                                                    @endif
+                                                    @if($mating->needsPregnancyFollowUp())
+                                                        @if($mating->pregnancyFollowUpOverdue())
+                                                            <div class="text-xs text-red-600 mt-1">Follow-up overdue</div>
+                                                        @elseif($mating->pregnancyFollowUpDue())
+                                                            <div class="text-xs text-orange-600 mt-1">Follow-up due</div>
+                                                        @elseif($mating->pregnancy_follow_up_date)
+                                                            <div class="text-xs text-slate-500 mt-1">
+                                                                Follow-up {{ $mating->pregnancy_follow_up_date->format('M d, Y') }}
+                                                            </div>
+                                                        @endif
                                                     @endif
                                                 @else
                                                     <span class="text-xs text-gray-400">N/A</span>
@@ -866,47 +1046,57 @@
                                             </td>
 
                                             <td>
-                                                <div class="mating-action-stack">
-                                                    @if($mating->status === 'planned')
-                                                        <button
-                                                            onclick="openCompleteMatingModal({{ $mating->id }}, '{{ $mating->male->ear_tag_number }}', '{{ $mating->female->ear_tag_number }}', '{{ $mating->planned_date->format('Y-m-d') }}')"
-                                                            class="mating-action-btn complete"
-                                                            type="button">
-                                                            Complete
-                                                        </button>
-
-                                                        <form action="{{ route('mating.cancel', $mating->id) }}" method="POST">
-                                                            @csrf
+                                                <details class="mating-action-menu">
+                                                    <summary>Actions</summary>
+                                                    <div class="mating-action-panel">
+                                                        @if($mating->status === 'planned')
                                                             <button
-                                                                type="submit"
-                                                                onclick="return confirm('Are you sure you want to cancel this planned mating? This action cannot be undone.')"
-                                                                class="mating-action-btn cancel">
-                                                                Cancel
+                                                                onclick="openCompleteMatingModal({{ $mating->id }}, '{{ $mating->male->ear_tag_number }}', '{{ $mating->female->ear_tag_number }}', '{{ $mating->planned_date->format('Y-m-d') }}'); this.closest('details').removeAttribute('open');"
+                                                                class="mating-menu-item success"
+                                                                type="button">
+                                                                Complete mating
+                                                            </button>
+
+                                                            <form action="{{ route('mating.cancel', $mating->id) }}" method="POST">
+                                                                @csrf
+                                                                <button
+                                                                    type="submit"
+                                                                    onclick="return confirm('Are you sure you want to cancel this planned mating? This action cannot be undone.')"
+                                                                    class="mating-menu-item danger">
+                                                                    Cancel mating
+                                                                </button>
+                                                            </form>
+                                                        @elseif($mating->status === 'completed' && $mating->pregnancy_status === 'pending')
+                                                            <button
+                                                                onclick="openPregnancyCheckModal({{ $mating->id }}, '{{ $mating->male->ear_tag_number }}', '{{ $mating->female->ear_tag_number }}', '{{ $mating->actual_date->format('M d, Y') }}', {{ $mating->days_since_mating }}); this.closest('details').removeAttribute('open');"
+                                                                class="mating-menu-item primary"
+                                                                type="button">
+                                                                Record pregnancy check
+                                                            </button>
+                                                        @elseif($mating->needsPregnancyFollowUp())
+                                                            <button
+                                                                onclick="openPregnancyCheckModal({{ $mating->id }}, '{{ $mating->male->ear_tag_number }}', '{{ $mating->female->ear_tag_number }}', '{{ $mating->actual_date->format('M d, Y') }}', {{ $mating->days_since_mating }}, '{{ optional($mating->pregnancy_follow_up_date)->format('Y-m-d') }}'); this.closest('details').removeAttribute('open');"
+                                                                class="mating-menu-item primary"
+                                                                type="button">
+                                                                Record follow-up check
+                                                            </button>
+                                                        @elseif($mating->status === 'cancelled')
+                                                            <div class="mating-menu-note">Cancelled</div>
+                                                        @elseif($mating->pregnancy_status !== 'pending')
+                                                            <div class="mating-menu-note">Check completed</div>
+                                                        @else
+                                                            <div class="mating-menu-note">No workflow actions</div>
+                                                        @endif
+
+                                                        <form method="POST" action="{{ route('mating.destroy', $mating->id) }}" onsubmit="return confirm('Are you sure you want to delete this mating?');">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <button type="submit" class="mating-menu-item danger">
+                                                                Delete mating
                                                             </button>
                                                         </form>
-                                                    @elseif($mating->status === 'completed' && $mating->pregnancy_status === 'pending')
-                                                        <button
-                                                            onclick="openPregnancyCheckModal({{ $mating->id }}, '{{ $mating->male->ear_tag_number }}', '{{ $mating->female->ear_tag_number }}', '{{ $mating->actual_date->format('M d, Y') }}', {{ $mating->days_since_mating }})"
-                                                            class="mating-action-btn check"
-                                                            type="button">
-                                                            Record Check
-                                                        </button>
-                                                    @elseif($mating->status === 'cancelled')
-                                                        <div class="mating-action-muted">Cancelled</div>
-                                                    @elseif($mating->pregnancy_status !== 'pending')
-                                                        <div class="mating-action-muted">Check completed</div>
-                                                    @else
-                                                        <div class="mating-action-muted">No actions</div>
-                                                    @endif
-
-                                                    <form method="POST" action="{{ route('mating.destroy', $mating->id) }}" onsubmit="return confirm('Are you sure you want to delete this mating?');">
-                                                        @csrf
-                                                        @method('DELETE')
-                                                        <button type="submit" class="mating-action-btn cancel">
-                                                            Delete Mating
-                                                        </button>
-                                                    </form>
-                                                </div>
+                                                    </div>
+                                                </details>
                                             </td>
                                         </tr>
                                     @endforeach
@@ -971,7 +1161,7 @@
                                 <div>
                                     <h4 class="font-semibold text-gray-800 mb-2">Compatibility Checking</h4>
                                     <p class="text-gray-600 text-sm mb-3">Advanced inbreeding detection analyzes relationships and provides breeding recommendations before pairings are confirmed.</p>
-                                    <span class="text-green-600 font-medium text-sm">✓ Already Available</span>
+                                    <span class="text-green-600 font-medium text-sm">Already Available</span>
                                 </div>
                             </div>
                         </div>
@@ -1069,10 +1259,21 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">Result</label>
                         <select name="pregnancy_status" required class="mating-select w-full">
                             <option value="">-- Select Result --</option>
-                            <option value="pregnant">🤰 Pregnant</option>
-                            <option value="not_pregnant">❌ Not Pregnant</option>
-                            <option value="uncertain">❓ Uncertain</option>
+                            <option value="pregnant">Pregnant</option>
+                            <option value="not_pregnant">Not Pregnant</option>
+                            <option value="uncertain">Uncertain</option>
                         </select>
+                    </div>
+
+                    <div id="pregnancyFollowUpDateWrap" style="display:none;">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Next Follow-up Date</label>
+                        <input
+                            type="date"
+                            name="pregnancy_follow_up_date"
+                            min="{{ now()->toDateString() }}"
+                            class="mating-select w-full"
+                        >
+                        <p class="mt-1 text-xs text-orange-600">Required when the result is uncertain.</p>
                     </div>
 
                     <div>
@@ -1121,8 +1322,23 @@
             document.getElementById('completeMatingModal').classList.remove('show');
         }
 
-        function openPregnancyCheckModal(matingId, maleEarTag, femaleEarTag, matingDate, daysSinceMating) {
-            document.getElementById('pregnancyCheckForm').action = `/mating/${matingId}/pregnancy-check`;
+        function openPregnancyCheckModal(matingId, maleEarTag, femaleEarTag, matingDate, daysSinceMating, followUpDate = '') {
+            const form = document.getElementById('pregnancyCheckForm');
+            form.action = `/mating/${matingId}/pregnancy-check`;
+            form.reset();
+
+            const checkDateInput = form.querySelector('input[name="pregnancy_check_date"]');
+            if (checkDateInput) {
+                checkDateInput.value = new Date().toISOString().split('T')[0];
+            }
+
+            const followUpInput = form.querySelector('input[name="pregnancy_follow_up_date"]');
+            if (followUpInput) {
+                followUpInput.value = followUpDate || '';
+            }
+
+            togglePregnancyFollowUpField();
+
             document.getElementById('matingInfo').innerHTML = `
                 <div class="text-sm">
                     <div class="font-medium text-gray-900 mb-2">Breeding Pair: ${maleEarTag} × ${femaleEarTag}</div>
@@ -1137,7 +1353,48 @@
             document.getElementById('pregnancyCheckModal').classList.remove('show');
         }
 
+        function togglePregnancyFollowUpField() {
+            const form = document.getElementById('pregnancyCheckForm');
+            const status = form.querySelector('select[name="pregnancy_status"]');
+            const wrap = document.getElementById('pregnancyFollowUpDateWrap');
+            const input = form.querySelector('input[name="pregnancy_follow_up_date"]');
+
+            if (!status || !wrap || !input) return;
+
+            const needsFollowUp = status.value === 'uncertain';
+            wrap.style.display = needsFollowUp ? 'block' : 'none';
+            input.required = needsFollowUp;
+            if (!needsFollowUp) {
+                input.value = '';
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.mating-action-menu').forEach(menu => {
+                menu.addEventListener('toggle', function () {
+                    if (!this.open) return;
+
+                    document.querySelectorAll('.mating-action-menu[open]').forEach(other => {
+                        if (other !== this) {
+                            other.removeAttribute('open');
+                        }
+                    });
+                });
+            });
+
+            document.addEventListener('click', function (event) {
+                if (event.target.closest('.mating-action-menu')) return;
+
+                document.querySelectorAll('.mating-action-menu[open]').forEach(menu => {
+                    menu.removeAttribute('open');
+                });
+            });
+
+            const pregnancyStatus = document.querySelector('#pregnancyCheckForm select[name="pregnancy_status"]');
+            if (pregnancyStatus) {
+                pregnancyStatus.addEventListener('change', togglePregnancyFollowUpField);
+            }
+
             const statusFilter = document.getElementById('status-filter');
             if (statusFilter) {
                 statusFilter.addEventListener('change', function () {

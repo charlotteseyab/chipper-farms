@@ -11,7 +11,7 @@
             </div>
             <div class="ml-3 flex-1">
                 <h3 class="text-sm font-medium text-red-800">
-                    🚫 Breeding Not Allowed
+                    Blocked Breeding Not Allowed
                 </h3>
                 <div class="mt-2 text-sm text-red-700">
                     <p id="{{ $id }}-critical-message"></p>
@@ -31,7 +31,7 @@
             </div>
             <div class="ml-3 flex-1">
                 <h3 class="text-sm font-medium text-yellow-800">
-                    ⚠️ High Inbreeding Risk
+                    Warning High Inbreeding Risk
                 </h3>
                 <div class="mt-2 text-sm text-yellow-700">
                     <p id="{{ $id }}-warning-message"></p>
@@ -78,7 +78,7 @@
             </div>
             <div class="ml-3 flex-1">
                 <h3 class="text-sm font-medium text-green-800">
-                    ✅ Safe Breeding Pair
+                    Safe Breeding Pair
                 </h3>
                 <div class="mt-2 text-sm text-green-700">
                     <p>No close relationships detected. This is a genetically diverse pairing.</p>

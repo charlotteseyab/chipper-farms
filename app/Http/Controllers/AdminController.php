@@ -16,6 +16,8 @@ use App\Models\User;
 use App\Models\Setting;
 use App\Models\HealthRecord;
 use App\Models\MedicationAdministration;
+use App\Services\Stock\StockSummaryService;
+use App\Services\Stock\PurchasedStockDashboardMetrics;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -36,17 +38,14 @@ class AdminController extends Controller
         $dateToCarbon = Carbon::parse($dateTo)->endOfDay();
 
         // ========== STOCK SECTION ==========
-        $recentFarrowings = Farrowing::with('pigletDeaths')
-            ->where('farrowing_date', '>=', now()->subDays($weaningAge))
-            ->where('status', 'active')
-            ->get();
-        $pigletsCount = 0;
-        foreach ($recentFarrowings as $f) {
-            $pigletsCount += max(0, (int)($f->live_births ?? 0) - (int)$f->pigletDeaths->sum('count'));
-        }
-        $weanedPigs = PigManagement::active()->count();
-        $totalPigs = $weanedPigs + $pigletsCount;
-        $activePigs = PigManagement::active()->count();
+        $stockSummary = app(StockSummaryService::class)->forDashboard($weaningAge);
+        $purchasedStockMetrics = app(PurchasedStockDashboardMetrics::class)->summary();
+        $bornPigletsCount = $stockSummary['born_piglets'];
+        $purchasedPigletsCount = $stockSummary['purchased_piglets'];
+        $pigletsCount = $stockSummary['total_piglets'];
+        $weanedPigs = $stockSummary['active_weaned_pigs'];
+        $totalPigs = $stockSummary['total_pigs'];
+        $activePigs = $stockSummary['active_pigs'];
         $deceasedPigs = PigManagement::deceased()->count();
         $soldPigs = PigManagement::sold()->count();
         $activeMaleCount = PigManagement::active()->where('gender', 'M')->count();
@@ -86,6 +85,9 @@ class AdminController extends Controller
         $notPregnantMatings = Mating::notPregnant()->count();
         $pregnancyChecksDue = Mating::pregnancyCheckDue()->count();
         $pregnancyChecksOverdue = Mating::pregnancyCheckOverdue()->count();
+        $uncertainPregnancies = Mating::uncertainPregnancy()->count();
+        $pregnancyFollowUpsDue = Mating::query()->pregnancyFollowUpDue()->count();
+        $pregnancyFollowUpsOverdue = Mating::query()->pregnancyFollowUpOverdue()->count();
         $pregNum = Mating::where('pregnancy_status', 'pregnant')->count();
         $pregDenom = Mating::whereNotNull('female_id')->count();
         $pregnancyRate = $pregDenom > 0 ? round($pregNum / $pregDenom * 100, 1) : 0;
@@ -339,12 +341,13 @@ class AdminController extends Controller
             // Filter
             'dateFrom', 'dateTo',
             // Stock
-            'weanedPigs', 'pigletsCount', 'totalPigs', 'activePigs', 'deceasedPigs', 'soldPigs',
+            'weanedPigs', 'pigletsCount', 'bornPigletsCount', 'purchasedPigletsCount', 'purchasedStockMetrics', 'totalPigs', 'activePigs', 'deceasedPigs', 'soldPigs',
             'activeMaleCount', 'activeFemaleCount', 'breedingStock', 'standardStock', 'breedCounts',
             'mortalityRate', 'stockTrendsLabels', 'stockTrendsActive', 'stockTrendsSold', 'stockTrendsDeceased',
             // Mating
             'totalMatings', 'plannedMatings', 'completedMatings', 'overdueMatings', 'upcomingMatings',
             'pregnantMatings', 'notPregnantMatings', 'pregnancyChecksDue', 'pregnancyChecksOverdue',
+            'uncertainPregnancies', 'pregnancyFollowUpsDue', 'pregnancyFollowUpsOverdue',
             'pregnancyRate', 'fertilityRate', 'matingTrendsLabels', 'matingTrendsData',
             // Gestation
             'totalPregnant', 'totalFarrowed', 'dueThisWeek', 'dueNextWeek', 'overdueGestation',

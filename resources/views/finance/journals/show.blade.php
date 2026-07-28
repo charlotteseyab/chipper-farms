@@ -69,7 +69,7 @@
                     @endif
                     @if($batch->reversedBy)
                         <p class="mt-2 text-sm text-amber-700">
-                            ⚠ Reversed by: <a href="{{ route('finance.journals.show', $batch->reversedBy) }}" class="hover:underline font-mono">{{ $batch->reversedBy->batch_number }}</a>
+                            Warning Reversed by: <a href="{{ route('finance.journals.show', $batch->reversedBy) }}" class="hover:underline font-mono">{{ $batch->reversedBy->batch_number }}</a>
                             @if($batch->reversal_reason)
                                 <span class="block text-xs text-slate-500">Reason: {{ $batch->reversal_reason }}</span>
                             @endif

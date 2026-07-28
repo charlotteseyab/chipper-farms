@@ -646,7 +646,7 @@
                                             </p>
                                         </div>
                                         <div class="text-2xl">
-                                            {{ $breedingReadiness['ready'] ? '✅' : '❌' }}
+                                            {{ $breedingReadiness['ready'] ? 'OK' : 'No' }}
                                         </div>
                                     </div>
 
@@ -655,13 +655,13 @@
                                             <h4 class="font-medium text-gray-900">Age Requirements</h4>
                                             <span class="pigshow-badge {{ $breedingReadiness['age_status'] === 'optimal' ? 'badge-green' : ($breedingReadiness['age_status'] === 'minimum_met' ? 'badge-yellow' : ($breedingReadiness['age_status'] === 'too_young' ? 'badge-blue' : 'badge-gray')) }}">
                                                 @if($breedingReadiness['age_status'] === 'optimal')
-                                                    ✓ Optimal
+                                                    Optimal
                                                 @elseif($breedingReadiness['age_status'] === 'minimum_met')
-                                                    ⚠ Ready
+                                                    Warning Ready
                                                 @elseif($breedingReadiness['age_status'] === 'too_young')
                                                     ⏳ Too Young
                                                 @else
-                                                    🛑 Too Old
+                                                    Too old Too Old
                                                 @endif
                                             </span>
                                         </div>
@@ -679,11 +679,11 @@
                                             <h4 class="font-medium text-gray-900">Weight Requirements</h4>
                                             <span class="pigshow-badge {{ $breedingReadiness['factors']['weight']['status'] === 'optimal' ? 'badge-green' : ($breedingReadiness['factors']['weight']['status'] === 'minimum_met' ? 'badge-yellow' : ($breedingReadiness['factors']['weight']['status'] === 'too_light' ? 'badge-red' : 'badge-gray')) }}">
                                                 @if($breedingReadiness['factors']['weight']['status'] === 'optimal')
-                                                    ✓ Optimal
+                                                    Optimal
                                                 @elseif($breedingReadiness['factors']['weight']['status'] === 'minimum_met')
-                                                    ⚠ Adequate
+                                                    Warning Adequate
                                                 @elseif($breedingReadiness['factors']['weight']['status'] === 'too_light')
-                                                    ✗ Too Light
+                                                    No Too Light
                                                 @else
                                                     ? No Data
                                                 @endif
@@ -821,10 +821,10 @@
                                                 @if($weight->health_status)
                                                     @php
                                                         $healthConfig = [
-                                                            'excellent' => ['class' => 'badge-green', 'icon' => '🟢'],
-                                                            'good' => ['class' => 'badge-blue', 'icon' => '🔵'],
-                                                            'fair' => ['class' => 'badge-yellow', 'icon' => '🟡'],
-                                                            'poor' => ['class' => 'badge-red', 'icon' => '🔴']
+                                                            'excellent' => ['class' => 'badge-green', 'icon' => 'Green'],
+                                                            'good' => ['class' => 'badge-blue', 'icon' => 'Blue'],
+                                                            'fair' => ['class' => 'badge-yellow', 'icon' => 'Yellow'],
+                                                            'poor' => ['class' => 'badge-red', 'icon' => 'Red']
                                                         ];
                                                         $config = $healthConfig[$weight->health_status] ?? $healthConfig['good'];
                                                     @endphp

@@ -173,6 +173,16 @@
             box-shadow: 0 0 0 3px rgba(16,185,129,.12);
         }
 
+        .su-select option{
+            background: #ffffff;
+            color: #0f172a;
+        }
+
+        .su-select option:checked{
+            background: #d1fae5;
+            color: #064e3b;
+        }
+
         .su-btn{
             display: inline-flex;
             align-items: center;
@@ -407,6 +417,294 @@
             overflow: hidden;
         }
 
+        .su-command-grid{
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .su-command-card{
+            background: #fff;
+            border: 1px solid #dbeafe;
+            border-top: 5px solid #10b981;
+            border-radius: 18px;
+            box-shadow: 0 12px 30px rgba(15,23,42,.06);
+            overflow: hidden;
+        }
+
+        .su-command-card.blue{
+            border-color: #bfdbfe;
+            border-top-color: #0ea5e9;
+        }
+
+        .su-command-card.amber{
+            border-color: #fed7aa;
+            border-top-color: #f59e0b;
+        }
+
+        .su-command-head{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 18px 18px 12px;
+        }
+
+        .su-command-icon{
+            width: 46px;
+            height: 46px;
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #047857;
+            background: #d1fae5;
+            flex: 0 0 auto;
+        }
+
+        .su-command-card.blue .su-command-icon{
+            color: #0369a1;
+            background: #e0f2fe;
+        }
+
+        .su-command-card.amber .su-command-icon{
+            color: #b45309;
+            background: #ffedd5;
+        }
+
+        .su-command-title{
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 900;
+            color: #0f172a;
+        }
+
+        .su-command-sub{
+            margin-top: 3px;
+            font-size: .76rem;
+            color: #64748b;
+        }
+
+        .su-command-metrics{
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            border-top: 1px solid #eef2f7;
+        }
+
+        .su-command-metric{
+            padding: 14px 16px;
+            border-right: 1px solid #eef2f7;
+            border-bottom: 1px solid #eef2f7;
+        }
+
+        .su-command-metric:nth-child(2n){
+            border-right: 0;
+        }
+
+        .su-command-metric:nth-last-child(-n+2){
+            border-bottom: 0;
+        }
+
+        .su-command-metric span{
+            display: block;
+            font-size: .68rem;
+            font-weight: 800;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: #94a3b8;
+            margin-bottom: 7px;
+        }
+
+        .su-command-metric strong{
+            display: block;
+            font-size: 1.15rem;
+            font-weight: 900;
+            color: #0f172a;
+            line-height: 1;
+        }
+
+        .su-main-grid{
+            display: grid;
+            grid-template-columns: minmax(0, 1.8fr) minmax(320px, .9fr);
+            gap: 16px;
+            margin-bottom: 18px;
+        }
+
+        .su-table-wrap{
+            overflow-x: auto;
+        }
+
+        .su-data-table{
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 760px;
+        }
+
+        .su-data-table th{
+            text-align: left;
+            padding: 12px 16px;
+            font-size: .68rem;
+            font-weight: 900;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: #64748b;
+            background: #f8fafc;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .su-data-table td{
+            padding: 13px 16px;
+            font-size: .84rem;
+            color: #334155;
+            border-bottom: 1px solid #eef2f7;
+            vertical-align: middle;
+        }
+
+        .su-data-table tr:last-child td{
+            border-bottom: 0;
+        }
+
+        .su-status{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 76px;
+            padding: 5px 9px;
+            border-radius: 999px;
+            font-size: .7rem;
+            font-weight: 800;
+        }
+
+        .su-status.healthy{
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .su-status.at-risk{
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .su-status.critical{
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .su-progress{
+            height: 7px;
+            width: 92px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: #e5e7eb;
+        }
+
+        .su-progress span{
+            display: block;
+            height: 100%;
+            border-radius: inherit;
+            background: #22c55e;
+        }
+
+        .su-progress.medium span{
+            background: #f59e0b;
+        }
+
+        .su-progress.low span{
+            background: #ef4444;
+        }
+
+        .su-queue-list{
+            display: grid;
+            gap: 10px;
+        }
+
+        .su-queue-item{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 13px 14px;
+            border-radius: 14px;
+            background: #f8fafc;
+            border: 1px solid #eef2f7;
+        }
+
+        .su-queue-item h4{
+            margin: 0;
+            font-size: .86rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .su-queue-item p{
+            margin: 3px 0 0;
+            font-size: .72rem;
+            color: #64748b;
+            line-height: 1.35;
+        }
+
+        .su-queue-count{
+            min-width: 48px;
+            text-align: center;
+            border-radius: 12px;
+            padding: 8px 10px;
+            font-size: .92rem;
+            font-weight: 900;
+            color: #0f172a;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+        }
+
+        .su-queue-count.red{
+            color: #991b1b;
+            background: #fee2e2;
+            border-color: #fecaca;
+        }
+
+        .su-queue-count.amber{
+            color: #92400e;
+            background: #fef3c7;
+            border-color: #fde68a;
+        }
+
+        .su-queue-count.green{
+            color: #166534;
+            background: #dcfce7;
+            border-color: #bbf7d0;
+        }
+
+        .su-risk-grid{
+            display: grid;
+            gap: 8px;
+        }
+
+        .su-risk-row{
+            display: grid;
+            grid-template-columns: 130px repeat(4, minmax(0, 1fr));
+            gap: 8px;
+            align-items: center;
+        }
+
+        .su-risk-label{
+            font-size: .78rem;
+            font-weight: 800;
+            color: #475569;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .su-risk-cell{
+            height: 28px;
+            border-radius: 8px;
+            border: 1px solid rgba(15,23,42,.05);
+        }
+
+        .su-risk-cell.healthy{ background: #86efac; }
+        .su-risk-cell.low{ background: #fde68a; }
+        .su-risk-cell.medium{ background: #fdba74; }
+        .su-risk-cell.high{ background: #f87171; }
+
         .su-user-hero{
             background: linear-gradient(135deg, #059669 0%, #10b981 100%);
             color: #fff;
@@ -500,12 +798,17 @@
             .su-user-kpi-grid{
                 grid-template-columns: repeat(3, minmax(0,1fr));
             }
+
+            .su-command-grid{
+                grid-template-columns: 1fr;
+            }
         }
 
         @media (max-width: 1024px){
             .su-three-grid,
             .su-chart-grid,
-            .su-detail-grid{
+            .su-detail-grid,
+            .su-main-grid{
                 grid-template-columns: 1fr;
             }
         }
@@ -524,6 +827,10 @@
             .su-user-hero{
                 padding: 20px;
             }
+
+            .su-risk-row{
+                grid-template-columns: 1fr repeat(4, minmax(46px, 1fr));
+            }
         }
 
         @media (max-width: 560px){
@@ -536,7 +843,7 @@
 
     <div class="su-page">
         <div class="su-wrap">
-            <div class="su-hero">
+            <!-- <div class="su-hero">
                 <div class="su-hero-inner">
                     <div>
                         <p class="su-badge">Superuser Command Center</p>
@@ -552,7 +859,7 @@
                         <div class="su-hero-pill">User-level drilldown</div>
                     </div>
                 </div>
-            </div>
+            </div> -->
 
             <div class="su-panel su-filter">
                 <div class="su-filter-title">Dashboard Filters</div>
@@ -593,8 +900,12 @@
                             >
                                 <option value="">All users</option>
                                 @foreach($dashboardUsers as $u)
+                                    @php
+                                        $userLabel = trim(($u->first_name ?? '') . ' ' . ($u->last_name ?? ''));
+                                        $userLabel = $userLabel !== '' ? $userLabel : ($u->name ?: $u->email);
+                                    @endphp
                                     <option value="{{ $u->id }}" @selected((int)($selectedUserId ?? 0) === $u->id)>
-                                        {{ $u->first_name }} {{ $u->last_name }}
+                                        {{ $userLabel }}
                                     </option>
                                 @endforeach
                             </select>
@@ -642,7 +953,8 @@
                 <div class="su-panel su-export">
                     <div class="su-export-wrap">
                         <div>
-                            <h3 class="text-sm font-semibold text-gray-900">Export Dashboard</h3>
+                            <h3 class="text-sm font-semibold text-gray-900">System Snapshot</h3>
+                            <p class="text-xs text-gray-500 mt-1">Export the current superuser view using the selected filters.</p>
                         </div>
                         <div class="flex gap-2 flex-wrap">
                             <a href="{{ route('superuser.dashboard.export.pdf', request()->query()) }}"
@@ -663,39 +975,266 @@
                     </div>
                 </div>
 
-                <div class="su-card-grid su-kpi-grid">
-                    <div class="su-kpi">
-                        <p class="su-kpi-label">Total Pigs</p>
-                        <p class="su-kpi-value">{{ number_format($globalKpis['total_pigs'] ?? 0) }}</p>
+                <div class="su-command-grid">
+                    <div class="su-command-card">
+                        <div class="su-command-head">
+                            <div class="su-command-icon">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="su-command-title">Platform Health</h3>
+                                <p class="su-command-sub">Access status and active risk signals.</p>
+                            </div>
+                        </div>
+                        <div class="su-command-metrics">
+                            <div class="su-command-metric">
+                                <span>Active Users</span>
+                                <strong>{{ number_format($platformCards['health']['active_users'] ?? 0) }}</strong>
+                            </div>
+                            <div class="su-command-metric">
+                                <span>Inactive Users</span>
+                                <strong>{{ number_format($platformCards['health']['inactive_users'] ?? 0) }}</strong>
+                            </div>
+                            <div class="su-command-metric">
+                                <span>Open Alerts</span>
+                                <strong>{{ number_format($platformCards['health']['open_alerts'] ?? 0) }}</strong>
+                            </div>
+                            <div class="su-command-metric">
+                                <span>Critical Alerts</span>
+                                <strong class="text-rose-700">{{ number_format($platformCards['health']['critical_alerts'] ?? 0) }}</strong>
+                            </div>
+                        </div>
                     </div>
-                    <div class="su-kpi">
-                        <p class="su-kpi-label">Farrowings</p>
-                        <p class="su-kpi-value">{{ number_format($globalKpis['total_farrowings'] ?? 0) }}</p>
+
+                    <div class="su-command-card blue">
+                        <div class="su-command-head">
+                            <div class="su-command-icon">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10.5L12 4l9 6.5M5 10v9h14v-9M9 19v-5h6v5"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="su-command-title">Farm Portfolio</h3>
+                                <p class="su-command-sub">Stock, breeding base, and estimated value.</p>
+                            </div>
+                        </div>
+                        <div class="su-command-metrics">
+                            <div class="su-command-metric">
+                                <span>Total Pigs</span>
+                                <strong>{{ number_format($platformCards['portfolio']['total_pigs'] ?? 0) }}</strong>
+                            </div>
+                            <div class="su-command-metric">
+                                <span>Live Stock</span>
+                                <strong>{{ number_format($platformCards['portfolio']['live_stock'] ?? 0) }}</strong>
+                            </div>
+                            <div class="su-command-metric">
+                                <span>Breeding Stock</span>
+                                <strong>{{ number_format($platformCards['portfolio']['breeding_stock'] ?? 0) }}</strong>
+                            </div>
+                            <div class="su-command-metric">
+                                <span>Farm Value</span>
+                                <strong>₵{{ number_format($platformCards['portfolio']['farm_value'] ?? 0, 0) }}</strong>
+                            </div>
+                        </div>
                     </div>
-                    <div class="su-kpi">
-                        <p class="su-kpi-label">Total Weaned</p>
-                        <p class="su-kpi-value">{{ number_format($globalKpis['total_weaned'] ?? 0) }}</p>
-                    </div>
-                    <div class="su-kpi">
-                        <p class="su-kpi-label">Sales Count</p>
-                        <p class="su-kpi-value">{{ number_format($globalKpis['total_sales'] ?? 0) }}</p>
-                    </div>
-                    <div class="su-kpi">
-                        <p class="su-kpi-label">Revenue</p>
-                        <p class="su-kpi-value">₵{{ number_format($globalKpis['total_revenue'] ?? 0, 0) }}</p>
-                    </div>
-                    <div class="su-kpi accent-rose">
-                        <p class="su-kpi-label">Critical Alerts</p>
-                        <p class="su-kpi-value">{{ number_format($globalKpis['critical_alerts'] ?? 0) }}</p>
+
+                    <div class="su-command-card amber">
+                        <div class="su-command-head">
+                            <div class="su-command-icon">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V6m0 10v2M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="su-command-title">Financial Exposure</h3>
+                                <p class="su-command-sub">Revenue, unpaid sales, and aged risk.</p>
+                            </div>
+                        </div>
+                        <div class="su-command-metrics">
+                            <div class="su-command-metric">
+                                <span>Revenue</span>
+                                <strong>₵{{ number_format($platformCards['finance']['revenue'] ?? 0, 0) }}</strong>
+                            </div>
+                            <div class="su-command-metric">
+                                <span>Unpaid Sales</span>
+                                <strong>₵{{ number_format($platformCards['finance']['unpaid_sales'] ?? 0, 0) }}</strong>
+                            </div>
+                            <div class="su-command-metric">
+                                <span>60+ Days</span>
+                                <strong class="text-rose-700">₵{{ number_format($platformCards['finance']['aged_receivables'] ?? 0, 0) }}</strong>
+                            </div>
+                            <div class="su-command-metric">
+                                <span>Net Position</span>
+                                <strong>₵{{ number_format($platformCards['finance']['net_position'] ?? 0, 0) }}</strong>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div class="su-three-grid">
+                <div class="su-main-grid">
+                    <div class="su-table-card">
+                        <div class="su-info-head">
+                            <div>
+                                <h3 class="su-info-title">Portfolio Overview</h3>
+                                <div class="su-info-sub">Workspace comparison by stock, revenue, data quality, alerts, and status</div>
+                            </div>
+                        </div>
+                        <div class="su-table-wrap">
+                            <table class="su-data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Workspace</th>
+                                        <th>Manager</th>
+                                        <th>Stock</th>
+                                        <th>Revenue</th>
+                                        <th>Data Quality</th>
+                                        <th>Alerts</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($portfolioOverview as $workspace)
+                                        @php
+                                            $qualityTone = $workspace['data_quality'] >= 85 ? 'good' : ($workspace['data_quality'] >= 70 ? 'medium' : 'low');
+                                            $statusClass = str($workspace['status'])->lower()->replace(' ', '-');
+                                        @endphp
+                                        <tr>
+                                            <td>
+                                                <div class="font-semibold text-gray-900">{{ $workspace['name'] }}</div>
+                                                <div class="text-xs text-gray-500">{{ $workspace['active'] ? 'Active workspace' : 'Inactive workspace' }}</div>
+                                            </td>
+                                            <td>{{ $workspace['manager'] }}</td>
+                                            <td>{{ number_format($workspace['stock']) }}</td>
+                                            <td>₵{{ number_format($workspace['revenue'], 0) }}</td>
+                                            <td>
+                                                <div class="flex items-center gap-2">
+                                                    <div class="su-progress {{ $qualityTone === 'good' ? '' : $qualityTone }}">
+                                                        <span style="width: {{ $workspace['data_quality'] }}%"></span>
+                                                    </div>
+                                                    <span class="text-xs font-semibold text-gray-600">{{ $workspace['data_quality'] }}%</span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <span class="{{ $workspace['alerts'] > 0 ? 'text-rose-700 font-bold' : 'text-gray-700 font-semibold' }}">
+                                                    {{ number_format($workspace['alerts']) }}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span class="su-status {{ $statusClass }}">{{ $workspace['status'] }}</span>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="7" class="text-center text-gray-500 py-8">No workspace data available.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="su-info-card">
+                        <div class="su-info-head">
+                            <div>
+                                <h3 class="su-info-title">Governance Queue</h3>
+                                <div class="su-info-sub">Items needing superuser attention</div>
+                            </div>
+                        </div>
+                        <div class="su-info-body">
+                            <div class="su-queue-list">
+                                @foreach($governanceQueue as $item)
+                                    <div class="su-queue-item">
+                                        <div>
+                                            <h4>{{ $item['label'] }}</h4>
+                                            <p>{{ $item['detail'] }}</p>
+                                        </div>
+                                        <div class="su-queue-count {{ $item['tone'] }}">
+                                            @if($item['money'] ?? false)
+                                                ₵{{ number_format($item['count'], 0) }}
+                                            @else
+                                                {{ number_format($item['count']) }}
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                @if(!empty($financialTrends) && !empty($workspaceRevenueComparison))
+                    <div class="su-chart-grid">
+                        <div class="su-chart-card">
+                            <div class="su-chart-head">
+                                <h3 class="su-chart-title">Cross-Farm Performance</h3>
+                                <div class="su-chart-sub">Monthly revenue trend for the selected period</div>
+                            </div>
+                            <div class="su-chart-body">
+                                <div class="su-chart-shell">
+                                    <canvas id="revenueTrendChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="su-chart-card">
+                            <div class="su-chart-head">
+                                <h3 class="su-chart-title">Revenue by Workspace</h3>
+                                <div class="su-chart-sub">Portfolio comparison across farms</div>
+                            </div>
+                            <div class="su-chart-body">
+                                <div class="su-chart-shell">
+                                    <canvas id="workspaceRevenueChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
+                <div class="su-chart-grid">
+                    <div class="su-info-card">
+                        <div class="su-info-head">
+                            <div>
+                                <h3 class="su-info-title">Risk Heatmap</h3>
+                                <div class="su-info-sub">Financial, operational, data quality, and stock risk by workspace</div>
+                            </div>
+                        </div>
+                        <div class="su-info-body">
+                            <div class="su-risk-grid">
+                                <div class="su-risk-row">
+                                    <span></span>
+                                    <span class="text-[11px] font-bold text-gray-500">Finance</span>
+                                    <span class="text-[11px] font-bold text-gray-500">Ops</span>
+                                    <span class="text-[11px] font-bold text-gray-500">Data</span>
+                                    <span class="text-[11px] font-bold text-gray-500">Stock</span>
+                                </div>
+                                @forelse($riskMatrix as $risk)
+                                    <div class="su-risk-row">
+                                        <div class="su-risk-label" title="{{ $risk['name'] }}">{{ $risk['name'] }}</div>
+                                        <div class="su-risk-cell {{ $risk['financial'] }}"></div>
+                                        <div class="su-risk-cell {{ $risk['operational'] }}"></div>
+                                        <div class="su-risk-cell {{ $risk['data_quality'] }}"></div>
+                                        <div class="su-risk-cell {{ $risk['stock'] }}"></div>
+                                    </div>
+                                @empty
+                                    <p class="text-sm text-gray-500">No risk data available.</p>
+                                @endforelse
+                                <div class="flex items-center gap-3 pt-2 text-xs text-gray-500 flex-wrap">
+                                    <span class="inline-flex items-center gap-1"><span class="su-risk-cell healthy w-4 h-4"></span> Healthy</span>
+                                    <span class="inline-flex items-center gap-1"><span class="su-risk-cell low w-4 h-4"></span> Low</span>
+                                    <span class="inline-flex items-center gap-1"><span class="su-risk-cell medium w-4 h-4"></span> Medium</span>
+                                    <span class="inline-flex items-center gap-1"><span class="su-risk-cell high w-4 h-4"></span> High</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="su-info-card">
                         <div class="su-info-head">
                             <div>
                                 <h3 class="su-info-title">Data Quality</h3>
-                                <div class="su-info-sub">Completeness and freshness</div>
+                                <div class="su-info-sub">Core record completeness issues</div>
                             </div>
                         </div>
                         <div class="su-info-body">
@@ -727,12 +1266,113 @@
                             </div>
                         </div>
                     </div>
+                </div>
+
+                <div class="su-three-grid">
+                    <div class="su-info-card">
+                        <div class="su-info-head">
+                            <div>
+                                <h3 class="su-info-title">Purchased Stock</h3>
+                                <div class="su-info-sub">External stock intake and stock-entry progress</div>
+                            </div>
+                        </div>
+                        <div class="su-info-body">
+                            <div class="su-stat-list">
+                                <div class="su-stat-row">
+                                    <span>Pending Intake</span>
+                                    <span class="text-amber-700">{{ number_format($purchasedStockMetrics['pending_intakes'] ?? 0) }}</span>
+                                </div>
+                                <div class="su-stat-row">
+                                    <span>Quarantined</span>
+                                    <span>{{ number_format($purchasedStockMetrics['quarantined'] ?? 0) }}</span>
+                                </div>
+                                <div class="su-stat-row">
+                                    <span>Ready for Stock</span>
+                                    <span>{{ number_format($purchasedStockMetrics['approved_waiting_stock'] ?? 0) }}</span>
+                                </div>
+                                <div class="su-stat-row">
+                                    <span>Added Quantity</span>
+                                    <span>{{ number_format($purchasedStockMetrics['added_quantity'] ?? 0) }}</span>
+                                </div>
+                                <div class="su-stat-row">
+                                    <span>Investment Added</span>
+                                    <span>₵{{ number_format($purchasedStockMetrics['total_investment'] ?? 0, 2) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="su-info-card">
                         <div class="su-info-head">
                             <div>
-                                <h3 class="su-info-title">Overdue & Upcoming</h3>
-                                <div class="su-info-sub">Operations queue</div>
+                                <h3 class="su-info-title">Receivables Aging</h3>
+                                <div class="su-info-sub">Unpaid sales grouped by age</div>
+                            </div>
+                        </div>
+                        <div class="su-info-body">
+                            <div class="su-stat-list">
+                                <div class="su-stat-row">
+                                    <span>0-7 days</span>
+                                    <span>₵{{ number_format(($receivablesAging['0_7']['amount'] ?? 0), 2) }}</span>
+                                </div>
+                                <div class="su-stat-row">
+                                    <span>8-30 days</span>
+                                    <span>₵{{ number_format(($receivablesAging['8_30']['amount'] ?? 0), 2) }}</span>
+                                </div>
+                                <div class="su-stat-row">
+                                    <span>31-60 days</span>
+                                    <span>₵{{ number_format(($receivablesAging['31_60']['amount'] ?? 0), 2) }}</span>
+                                </div>
+                                <div class="su-stat-row">
+                                    <span>60+ days</span>
+                                    <span class="text-rose-700">₵{{ number_format(($receivablesAging['60_plus']['amount'] ?? 0), 2) }}</span>
+                                </div>
+                                <div class="su-stat-row">
+                                    <span class="font-semibold text-gray-700">Total Unpaid</span>
+                                    <span class="font-bold">₵{{ number_format(($receivablesAging['total']['amount'] ?? 0), 2) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="su-info-card">
+                        <div class="su-info-head">
+                            <div>
+                                <h3 class="su-info-title">Audit Trail</h3>
+                                <div class="su-info-sub">Recent system activity and record changes</div>
+                            </div>
+                        </div>
+                        <div class="su-info-body">
+                            @if($auditTrail->isEmpty())
+                                <p class="text-sm text-gray-500">No recent activity logged.</p>
+                            @else
+                                <ul class="divide-y divide-gray-100">
+                                    @foreach($auditTrail as $log)
+                                        <li class="py-2 text-sm">
+                                            <p class="text-gray-900">
+                                                <span class="font-semibold">
+                                                    {{ trim((optional($log->user)->first_name ?? '') . ' ' . (optional($log->user)->last_name ?? '')) ?: 'System' }}
+                                                </span>
+                                                <span class="text-gray-600">
+                                                    - {{ $log->action ?? 'activity' }}
+                                                </span>
+                                            </p>
+                                            <p class="text-xs text-gray-500">{{ $log->record_label ?? $log->name ?? $log->description ?? 'System activity' }}</p>
+                                            <p class="text-[11px] text-gray-500">
+                                                {{ optional($log->created_at)->diffForHumans() }}
+                                            </p>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="su-info-card">
+                        <div class="su-info-head">
+                            <div>
+                                <h3 class="su-info-title">Operations Snapshot</h3>
+                                <div class="su-info-sub">Overdue and upcoming work across the system</div>
                             </div>
                         </div>
                         <div class="su-info-body">
@@ -750,10 +1390,6 @@
                                     <span class="text-rose-700">{{ number_format($opsSnapshot['overdue_weaning'] ?? 0) }}</span>
                                 </div>
                                 <div class="su-stat-row">
-                                    <span>Due Soon Weaning</span>
-                                    <span>{{ number_format($opsSnapshot['due_soon_weaning'] ?? 0) }}</span>
-                                </div>
-                                <div class="su-stat-row">
                                     <span>Pregnancy Checks Overdue</span>
                                     <span class="text-rose-700">{{ number_format($opsSnapshot['preg_checks_overdue'] ?? 0) }}</span>
                                 </div>
@@ -762,182 +1398,6 @@
                                     <span class="text-rose-700">{{ number_format($opsSnapshot['overdue_gestation'] ?? 0) }}</span>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-
-                    <div class="su-info-card">
-                        <div class="su-info-head">
-                            <div>
-                                <h3 class="su-info-title">Receivables</h3>
-                                <div class="su-info-sub">Unpaid sales aging</div>
-                            </div>
-                        </div>
-                        <div class="su-info-body">
-                            <div class="su-stat-list">
-                                <div class="su-stat-row">
-                                    <span>0–7 days</span>
-                                    <span>₵{{ number_format(($receivablesAging['0_7']['amount'] ?? 0), 2) }}</span>
-                                </div>
-                                <div class="su-stat-row">
-                                    <span>8–30 days</span>
-                                    <span>₵{{ number_format(($receivablesAging['8_30']['amount'] ?? 0), 2) }}</span>
-                                </div>
-                                <div class="su-stat-row">
-                                    <span>31–60 days</span>
-                                    <span>₵{{ number_format(($receivablesAging['31_60']['amount'] ?? 0), 2) }}</span>
-                                </div>
-                                <div class="su-stat-row">
-                                    <span>60+ days</span>
-                                    <span class="text-rose-700">₵{{ number_format(($receivablesAging['60_plus']['amount'] ?? 0), 2) }}</span>
-                                </div>
-                                <div class="su-stat-row">
-                                    <span class="font-semibold text-gray-700">Total Unpaid</span>
-                                    <span class="font-bold">₵{{ number_format(($receivablesAging['total']['amount'] ?? 0), 2) }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                @if(!empty($financialTrends) && !empty($workspaceRevenueComparison))
-                    <div class="su-chart-grid">
-                        <div class="su-chart-card">
-                            <div class="su-chart-head">
-                                <h3 class="su-chart-title">Revenue Trend</h3>
-                                <div class="su-chart-sub">Monthly revenue over time</div>
-                            </div>
-                            <div class="su-chart-body">
-                                <div class="su-chart-shell">
-                                    <canvas id="revenueTrendChart"></canvas>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="su-chart-card">
-                            <div class="su-chart-head">
-                                <h3 class="su-chart-title">Revenue by Workspace</h3>
-                                <div class="su-chart-sub">Comparison across all farms</div>
-                            </div>
-                            <div class="su-chart-body">
-                                <div class="su-chart-shell">
-                                    <canvas id="workspaceRevenueChart"></canvas>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="su-card-grid su-kpi-grid">
-                        <div class="su-kpi">
-                            <p class="su-kpi-label">Unpaid Sales</p>
-                            <p class="su-kpi-value text-amber-600">₵{{ number_format($financialTrends['unpaid_sales_amount'] ?? 0, 0) }}</p>
-                            <p class="su-kpi-sub">{{ number_format($financialTrends['unpaid_sales_count'] ?? 0) }} transactions</p>
-                        </div>
-                        <div class="su-kpi">
-                            <p class="su-kpi-label">Avg Sale Price</p>
-                            <p class="su-kpi-value">₵{{ number_format(($financialTrends['avg_price_by_month']->avg('avg_price') ?? 0), 0) }}</p>
-                            <p class="su-kpi-sub">Per transaction</p>
-                        </div>
-                        <div class="su-kpi">
-                            <p class="su-kpi-label">Operating Costs</p>
-                            <p class="su-kpi-value text-orange-600">₵0</p>
-                            <p class="su-kpi-sub">Approved purchases</p>
-                        </div>
-                        <div class="su-kpi">
-                            @php
-                                $totalRevenue = $financialTrends['revenue_by_month']->sum('revenue') ?? 0;
-                                $totalCosts = 0;
-                                $netProfit = $totalRevenue - $totalCosts;
-                            @endphp
-                            <p class="su-kpi-label">Net Profit</p>
-                            <p class="su-kpi-value {{ $netProfit >= 0 ? 'text-emerald-600' : 'text-red-600' }}">₵{{ number_format($netProfit, 0) }}</p>
-                            <p class="su-kpi-sub">Revenue - costs</p>
-                        </div>
-                    </div>
-                @endif
-
-                <div class="su-three-grid">
-                    <div class="su-info-card">
-                        <div class="su-info-head">
-                            <div>
-                                <h3 class="su-info-title">Alert & Risk Overview</h3>
-                                <div class="su-info-sub">Priority attention areas</div>
-                            </div>
-                        </div>
-                        <div class="su-info-body">
-                            <div class="su-stat-list">
-                                <div class="su-stat-row">
-                                    <span>High weight alerts</span>
-                                    <span class="text-rose-700">{{ number_format($alertOverview['high_weight_alerts'] ?? 0) }}</span>
-                                </div>
-                                <div class="su-stat-row">
-                                    <span>Open alerts</span>
-                                    <span class="text-amber-700">{{ number_format($alertOverview['open_alerts'] ?? 0) }}</span>
-                                </div>
-                                <div class="su-stat-row">
-                                    <span>Health records (this month)</span>
-                                    <span class="text-indigo-700">{{ number_format($alertOverview['health_records_this_month'] ?? 0) }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="su-info-card">
-                        <div class="su-info-head">
-                            <div>
-                                <h3 class="su-info-title">Recent Admin Activity</h3>
-                                <div class="su-info-sub">Latest recorded actions</div>
-                            </div>
-                        </div>
-                        <div class="su-info-body">
-                            @if($activityLog->isEmpty())
-                                <p class="text-sm text-gray-500">No recent activity logged.</p>
-                            @else
-                                <ul class="divide-y divide-gray-100">
-                                    @foreach($activityLog as $log)
-                                        <li class="py-2 text-sm">
-                                            <p class="text-gray-900">
-                                                <span class="font-semibold">
-                                                    {{ optional($log->user)->first_name ?? 'System' }}
-                                                </span>
-                                                <span class="text-gray-600">
-                                                    – {{ $log->action ?? 'activity' }}
-                                                </span>
-                                            </p>
-                                            <p class="text-[11px] text-gray-500">
-                                                {{ optional($log->created_at)->diffForHumans() }}
-                                            </p>
-                                        </li>
-                                    @endforeach
-                                </ul>
-                            @endif
-                        </div>
-                    </div>
-
-                    <div class="su-info-card">
-                        <div class="su-info-head">
-                            <div>
-                                <h3 class="su-info-title">User & Login Health</h3>
-                                <div class="su-info-sub">Access status overview</div>
-                            </div>
-                        </div>
-                        <div class="su-info-body">
-                            <div class="su-stat-list">
-                                <div class="su-stat-row">
-                                    <span>Total users</span>
-                                    <span>{{ number_format($userHealth['total'] ?? 0) }}</span>
-                                </div>
-                                <div class="su-stat-row">
-                                    <span>Active</span>
-                                    <span class="text-emerald-700">{{ number_format($userHealth['active'] ?? 0) }}</span>
-                                </div>
-                                <div class="su-stat-row">
-                                    <span>Inactive</span>
-                                    <span class="text-amber-700">{{ number_format($userHealth['inactive'] ?? 0) }}</span>
-                                </div>
-                            </div>
-                            <p class="mt-3 text-[11px] text-gray-500">
-                                Only active accounts can log in. Use the Users tab in Settings to manage access.
-                            </p>
                         </div>
                     </div>
                 </div>

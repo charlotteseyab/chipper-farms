@@ -31,7 +31,7 @@ class ReprocessWeightAlerts extends Command
      */
     public function handle()
     {
-        $this->info('🔄 Weight Alert Reprocessing Tool');
+        $this->info('Refresh Weight Alert Reprocessing Tool');
         $this->info('================================');
 
         if ($this->option('dry-run')) {
@@ -70,7 +70,7 @@ class ReprocessWeightAlerts extends Command
             $this->showDryRunInfo($breed, $gender, $stockType);
         } else {
             $processedCount = PigWeight::reprocessAlertsForPigType($breed, $gender, $stockType);
-            $this->info("✅ Reprocessed {$processedCount} weight record(s) for {$breed} {$gender} {$stockType}");
+            $this->info("Reprocessed {$processedCount} weight record(s) for {$breed} {$gender} {$stockType}");
         }
     }
 
@@ -102,7 +102,7 @@ class ReprocessWeightAlerts extends Command
 
             $progressBar->finish();
             $this->newLine(2);
-            $this->info("✅ Total reprocessed: {$totalProcessed} weight record(s)");
+            $this->info("Total reprocessed: {$totalProcessed} weight record(s)");
         }
     }
 
@@ -123,7 +123,7 @@ class ReprocessWeightAlerts extends Command
             ->where('is_active', true)
             ->count();
 
-        $this->info("📊 Dry Run Summary for {$breed} {$gender} {$stockType}:");
+        $this->info("Analytics Dry Run Summary for {$breed} {$gender} {$stockType}:");
         $this->info("   • Weight records to process: {$weightCount}");
         $this->info("   • Active weight standards: {$standardCount}");
     }
@@ -137,7 +137,7 @@ class ReprocessWeightAlerts extends Command
         $totalWeightRecords = PigWeight::count();
         $totalStandards = ExpectedWeightStandard::where('is_active', true)->count();
 
-        $this->info("📊 Dry Run Summary:");
+        $this->info("Analytics Dry Run Summary:");
         $this->info("   • Total weight records: {$totalWeightRecords}");
         $this->info("   • Total active standards: {$totalStandards}");
         $this->info("   • Pig types to process: " . count($pigTypes));

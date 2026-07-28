@@ -67,7 +67,7 @@
                     <div class="text-slate-500">Total Assets</div><div class="text-right">{{ $fmt($balance['assets']['total'] ?? 0) }}</div>
                     <div class="text-slate-500">Total Liabilities</div><div class="text-right">{{ $fmt($balance['liabilities']['total'] ?? 0) }}</div>
                     <div class="text-slate-500">Total Equity</div><div class="text-right">{{ $fmt($balance['equity']['total'] ?? 0) }}</div>
-                    <div class="text-slate-800 font-bold">Balanced?</div><div class="text-right font-bold">{{ ($balance['balanced'] ?? false) ? '✓ Yes' : '✗ No' }}</div>
+                    <div class="text-slate-800 font-bold">Balanced?</div><div class="text-right font-bold">{{ ($balance['balanced'] ?? false) ? 'Yes' : 'No' }}</div>
                 </div>
             </div>
         @endif

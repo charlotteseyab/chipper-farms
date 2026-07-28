@@ -1,6 +1,6 @@
 <x-storefront.layout :title="'Quote requested'">
     <div class="max-w-xl mx-auto px-4 py-16 text-center">
-        <div class="text-5xl mb-4">✅</div>
+        <div class="text-5xl mb-4">OK</div>
         <h1 class="text-2xl font-bold text-slate-800">Thank you!</h1>
         <p class="text-slate-500 mt-2">Your quote request <span class="font-mono font-semibold">{{ $reference }}</span> has been received. Our team will review it and respond shortly.</p>
         <div class="mt-8 flex justify-center gap-3">

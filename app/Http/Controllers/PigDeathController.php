@@ -61,7 +61,7 @@ class PigDeathController extends Controller
 
         foreach ([$adultQuery, $pigletQuery] as $q) {
             if ($request->filled('death_cause')) {
-                $q->where('death_cause', $request->death_cause);
+                $q->where('death_cause', 'like', '%' . $request->death_cause . '%');
             }
             if ($request->filled('date_from')) {
                 $q->where('death_date', '>=', $request->date_from);
@@ -78,6 +78,9 @@ class PigDeathController extends Controller
         $pigletDeaths->appends($request->query());
 
         $pigletDeathEventsQuery = PigletDeath::with(['farrowing.sow']);
+        if ($request->filled('death_cause')) {
+            $pigletDeathEventsQuery->where('cause', 'like', '%' . $request->death_cause . '%');
+        }
         if ($request->filled('date_from')) {
             $pigletDeathEventsQuery->where('death_date', '>=', $request->date_from);
         }
@@ -95,6 +98,13 @@ class PigDeathController extends Controller
             'total_adult_deaths' => PigDeath::whereHas('pig', fn ($q) => $q->whereRaw('DATEDIFF(death_date, date_of_birth) >= 60'))->count(),
             'recent_adult_deaths' => PigDeath::recent(30)->whereHas('pig', fn ($q) => $q->whereRaw('DATEDIFF(death_date, date_of_birth) >= 60'))->count(),
         ];
+
+        if ($request->ajax()) {
+            return response()->json([
+                'html' => view('deaths._tables', compact('deaths', 'pigletDeaths', 'pigletDeathEvents'))->render(),
+                'url' => $request->fullUrl(),
+            ]);
+        }
 
         return view('deaths.index', compact('deaths', 'pigletDeaths', 'pigletDeathEvents', 'stats'));
     }

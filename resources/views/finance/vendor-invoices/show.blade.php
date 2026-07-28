@@ -26,7 +26,7 @@
 
         @if($invoice->hasMatchVariance())
             <div class="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4">
-                <h4 class="text-sm font-semibold text-amber-900 mb-2">⚠ Three-way matching variance</h4>
+                <h4 class="text-sm font-semibold text-amber-900 mb-2">Warning Three-way matching variance</h4>
                 <p class="text-xs text-amber-800 mb-2">The invoice deviates from the purchase request or goods receipt beyond tolerance. Soft-block: the invoice can still be approved, but the variance is recorded in the journal description.</p>
                 <ul class="text-xs space-y-1 ml-4 list-disc text-amber-900">
                     @foreach($invoice->match_variances ?? [] as $v)

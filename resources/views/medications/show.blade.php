@@ -63,7 +63,7 @@
                         Back to List
                     </a>
                     <a href="{{ route('medications.edit', $medication) }}" class="px-5 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md transition hover:bg-indigo-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">
-                        ✏️ Edit Record
+                        Edit Edit Record
                     </a>
                 </div>
             </div>
