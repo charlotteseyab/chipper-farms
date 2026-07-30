@@ -39,6 +39,28 @@ use App\Http\Controllers\Audit\AuditTrailController;
 
 
 
+/*
+|--------------------------------------------------------------------------
+| Health and readiness (CF-P1-022)
+|--------------------------------------------------------------------------
+|
+| Deliberately unauthenticated and outside every middleware group: a readiness
+| probe must answer while sessions, the database or the cache are broken, which
+| is exactly when auth middleware cannot run.
+|
+| Laravel's own /up (bootstrap/app.php) stays as the LIVENESS probe — "did PHP
+| boot". These answer readiness — "can this instance serve traffic" — and return
+| 503 when it cannot, so an orchestrator stops routing to it.
+|
+| Detailed output requires HEALTH_CHECK_TOKEN; without it the response carries
+| only pass/fail per named check and never an exception message, which would
+| leak host, port, database and username.
+*/
+Route::get('/health/ready', [\App\Http\Controllers\HealthController::class, 'ready'])
+    ->name('health.ready');
+Route::get('/health/metrics', [\App\Http\Controllers\HealthController::class, 'metrics'])
+    ->name('health.metrics');
+
 Route::get('/', function () {
     return view('welcome');
 });

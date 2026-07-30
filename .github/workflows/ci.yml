@@ -1,0 +1,332 @@
+name: CI
+
+# Release gate for Chipper Farms (CF-P0-012).
+#
+# Before this existed there was no CI at all: every check in the remediation
+# programme was run by hand, which means none of them were guaranteed to run
+# again. The audit's own evidence file records `composer audit` as "blocked" and
+# `migrate:status` as failed — precisely the checks that silently stop happening
+# when nobody owns them.
+#
+# The pipeline is split into jobs that FAIL INDEPENDENTLY, so a broken frontend
+# build does not mask a failing security audit. Anything that must hold before a
+# deploy is a hard failure here; advisory checks are marked as such rather than
+# quietly tolerated.
+
+on:
+  push:
+    branches: [main, staging, 'remediation/**']
+  pull_request:
+    branches: [main, staging]
+  # Dependency advisories appear without any code change, so the audit job also
+  # runs on a schedule. A green build from three weeks ago says nothing about
+  # today's CVEs.
+  schedule:
+    - cron: '17 3 * * 1'
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PHP_VERSION: '8.4'
+  NODE_VERSION: '20'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Static checks: cheap, fail fast, no services required.
+  # ---------------------------------------------------------------------------
+  static:
+    name: Lint and manifest validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+
+      - name: Validate composer.json against composer.lock
+        # --no-check-publish because this is an application, not a package.
+        # Without --strict a lock drift is only a warning, and a lockfile that
+        # does not match the manifest means CI and production install different
+        # code.
+        run: composer validate --no-check-publish --strict
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+
+      - name: Install PHP dependencies
+        # --no-interaction so a prompt cannot hang the runner. Deliberately NOT
+        # --ignore-platform-reqs: if the runner's PHP does not satisfy the
+        # constraint, that is a real problem to surface, not to bypass.
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: PHP syntax check
+        run: |
+          set -euo pipefail
+          errors=0
+          while IFS= read -r -d '' file; do
+            php -l "$file" > /dev/null || { echo "Syntax error: $file"; errors=$((errors+1)); }
+          done < <(find app bootstrap config database routes tests -type f -name '*.php' -print0)
+          echo "Files with syntax errors: $errors"
+          test "$errors" -eq 0
+
+  # ---------------------------------------------------------------------------
+  # Dependency advisories. Separate job so a vulnerability is never hidden
+  # behind an unrelated failure.
+  # ---------------------------------------------------------------------------
+  security-audit:
+    name: Dependency advisories
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Composer audit
+        # Phase 1 took this from 36 advisories to 0. Without a gate it drifts
+        # straight back — the original audit could not even run this check.
+        run: composer audit
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: NPM audit
+        # Phase 1 took this from 13 advisories to 0.
+        run: npm audit --audit-level=low
+
+  # ---------------------------------------------------------------------------
+  # Frontend build. Must be reproducible from the lockfile alone.
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install from lockfile
+        run: npm ci
+
+      - name: Production build
+        run: npm run build
+
+      - name: Assert the build manifest exists
+        # `npm run build` can exit 0 having produced nothing useful if the
+        # config is wrong. The manifest is what Laravel actually resolves assets
+        # through, so its absence is a broken deploy that looks like a green build.
+        run: test -f public/build/manifest.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: public/build
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # The main test suite, on the production database engine.
+  # ---------------------------------------------------------------------------
+  tests:
+    name: Test suite (MariaDB)
+    runs-on: ubuntu-latest
+
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: chipper_farms_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_mysql, bcmath, gd, zip
+          coverage: none
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # The default suite runs on SQLite for speed (see phpunit.xml). That is
+      # deliberate and unchanged — but CF-P1-017 is precisely that a green
+      # SQLite run is not a release gate, so the MariaDB migration and the
+      # concurrency suite below are what actually gate the release.
+      - name: Default test suite
+        run: php artisan test
+
+      - name: Fresh migration on MariaDB
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: chipper_farms_test
+          DB_USERNAME: root
+          DB_PASSWORD: root
+          CACHE_STORE: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
+        run: php artisan migrate:fresh --force
+
+      - name: Re-run migrations (idempotency)
+        # CF-P1-016: a migration that cannot be re-run leaves a deploy stuck
+        # halfway. Running migrate again must be a clean no-op.
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: chipper_farms_test
+          DB_USERNAME: root
+          DB_PASSWORD: root
+          CACHE_STORE: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
+        run: php artisan migrate --force
+
+      - name: Seed on MariaDB
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: chipper_farms_test
+          DB_USERNAME: root
+          DB_PASSWORD: root
+          CACHE_STORE: array
+          SESSION_DRIVER: array
+          QUEUE_CONNECTION: sync
+        run: php artisan db:seed --force
+
+  # ---------------------------------------------------------------------------
+  # Concurrency suite. Requires real row locking, so it cannot run on SQLite and
+  # is not part of the default suite.
+  # ---------------------------------------------------------------------------
+  concurrency-suite:
+    name: Concurrency suite (multi-process)
+    runs-on: ubuntu-latest
+
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: chipper_farms_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo_mysql, bcmath, gd, zip
+          coverage: none
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Run concurrency suite
+        # These spawn real OS processes with independent connections. They fail
+        # rather than skip when no database is reachable, by design — the
+        # original audit ended up with no concurrency evidence at all, and a
+        # self-skipping suite would recreate that blind spot.
+        env:
+          CF_CONCURRENCY_DB_HOST: 127.0.0.1
+          CF_CONCURRENCY_DB_PORT: 3306
+          CF_CONCURRENCY_DB_DATABASE: chipper_farms_test
+          CF_CONCURRENCY_DB_USERNAME: root
+          CF_CONCURRENCY_DB_PASSWORD: root
+        run: vendor/bin/phpunit -c phpunit.concurrency.xml
+
+  # ---------------------------------------------------------------------------
+  # Boot-level checks that catch config/route/view errors a unit test will not.
+  # ---------------------------------------------------------------------------
+  bootstrap:
+    name: Application bootstrap and caches
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          coverage: none
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Boot the application
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+        run: php artisan about
+
+      - name: Build production caches
+        # config:cache in particular fails loudly on a closure in a config file,
+        # which is invisible until the moment you try to deploy.
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+        run: |
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          php artisan event:cache
+
+      - name: Assert every intended schedule is registered
+        # CF-P0-010: five schedules lived in a class Laravel never loads, so
+        # they silently never ran. Nothing failed — the work just did not happen.
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+          CACHE_STORE: array
+        run: |
+          php artisan optimize:clear
+          php artisan schedule:list

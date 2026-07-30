@@ -69,6 +69,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Health check token (CF-P1-022)
+    |--------------------------------------------------------------------------
+    |
+    | Shared secret guarding the DETAILED health and metrics output. When unset,
+    | detail is refused entirely rather than defaulting to open — an unset secret
+    | must never mean "no authentication required".
+    |
+    */
+    'health_check_token' => env('HEALTH_CHECK_TOKEN'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

@@ -1,0 +1,55 @@
+# Chipper Farms scheduler (CF-P0-010, CF-P1-022).
+#
+# WHY THIS FILE EXISTS
+# --------------------
+# Seven scheduled tasks now drive time-sensitive work: weight and gestation
+# notifications, notification dispatch, invoice reconciliation, monthly loan
+# interest accrual, the finance outbox drain and storefront availability sync.
+#
+# Every one of them depends on something invoking `schedule:run` every minute. If
+# nothing does, NOTHING FAILS — the work simply never happens, which is precisely
+# how five of those schedules sat inert in a class Laravel never loaded until
+# CF-P0-010 was found. A missing cron entry reproduces that same silent failure
+# with correct application code, so the scheduler needs a supervised, declared
+# process rather than a line someone remembered to add to crontab.
+#
+# systemd is used rather than cron for three reasons: failures are visible in
+# `systemctl status`, restarts are automatic, and the unit is version-controlled
+# alongside the code it runs.
+#
+# INSTALLATION
+#   sudo cp deploy/systemd/chipper-farms-scheduler.* /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now chipper-farms-scheduler.timer
+#   systemctl list-timers chipper-farms-scheduler.timer
+#
+# VERIFY the schedule is actually populated after deploy — an empty schedule is
+# the failure mode this is guarding against:
+#   php artisan schedule:list
+
+[Unit]
+Description=Chipper Farms scheduled tasks
+After=network.target mariadb.service
+Wants=mariadb.service
+
+[Service]
+Type=oneshot
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/chipper-farms
+
+# schedule:run exits immediately after dispatching whatever is due, so oneshot
+# is correct: the timer supplies the every-minute cadence.
+ExecStart=/usr/bin/php /var/www/chipper-farms/artisan schedule:run
+
+# A scheduled task that hangs must not block the next minute's run indefinitely.
+TimeoutStartSec=300
+
+StandardOutput=append:/var/log/chipper-farms/scheduler.log
+StandardError=append:/var/log/chipper-farms/scheduler-error.log
+
+# Hardening: the scheduler needs the app directory and nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true

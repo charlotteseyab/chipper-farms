@@ -1,0 +1,25 @@
+# Every-minute trigger for the Chipper Farms scheduler (CF-P0-010).
+#
+# Laravel's scheduler expects `schedule:run` once a minute; it decides internally
+# which tasks are actually due. Running it less often silently skips
+# everyMinute() tasks — weight and gestation notifications among them.
+
+[Unit]
+Description=Run Chipper Farms scheduled tasks every minute
+Requires=chipper-farms-scheduler.service
+
+[Timer]
+# Start a minute after boot so the database and filesystem are up first.
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=1s
+
+# Do NOT set Persistent=true. On a machine that was down for hours, a persistent
+# timer fires a single catch-up run — which for a monthly interest accrual or a
+# nightly reconciliation is an unexpected posting at an unexpected moment.
+# Missed windows should be handled deliberately by an operator, not replayed
+# automatically by the timer.
+Persistent=false
+
+[Install]
+WantedBy=timers.target
