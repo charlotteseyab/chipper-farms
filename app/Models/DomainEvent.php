@@ -31,7 +31,25 @@ class DomainEvent extends Model
     use BelongsToOrganization;
 
     public const STATUS_PENDING   = 'pending';
+    /**
+     * Claimed by a worker and in flight (CF-P1-015).
+     *
+     * Before this existed there was no way to express "someone is working on
+     * this", so the claim query could not exclude in-flight rows and a crashed
+     * worker left no trace to recover from.
+     */
+    public const STATUS_PROCESSING = 'processing';
     public const STATUS_PROCESSED = 'processed';
+    /**
+     * Dead-lettered: retried up to OutboxClaimer::MAX_ATTEMPTS and still
+     * failing. Requires operator attention — it will NOT be retried
+     * automatically.
+     *
+     * Note this is a narrowing of meaning. Previously ANY failure landed here
+     * permanently, including transient ones, so the status could not be used to
+     * decide whether anything was actually wrong. Transient failures now return
+     * to 'pending' with next_retry_at set, and 'failed' means "give up".
+     */
     public const STATUS_FAILED    = 'failed';
     public const STATUS_SKIPPED   = 'skipped';
 
@@ -50,6 +68,11 @@ class DomainEvent extends Model
         'processing_error',
         'processing_attempts',
         'dispatched_by_user_id',
+        // Outbox claiming and retry (CF-P1-015).
+        'claimed_at',
+        'claimed_by',
+        'next_retry_at',
+        'last_error_at',
     ];
 
     protected function casts(): array
@@ -59,6 +82,9 @@ class DomainEvent extends Model
             'occurred_at'         => 'datetime',
             'processed_at'        => 'datetime',
             'processing_attempts' => 'integer',
+            'claimed_at'          => 'datetime',
+            'next_retry_at'       => 'datetime',
+            'last_error_at'       => 'datetime',
         ];
     }
 

@@ -131,13 +131,25 @@ abstract class Subscriber implements ShouldQueue
         // Default no-op.
     }
 
+    /**
+     * Record the outcome of handling an event.
+     *
+     * processing_attempts is deliberately NOT incremented here (CF-P1-015).
+     * OutboxClaimer increments it at CLAIM time, which is the only point that
+     * counts an attempt correctly: a worker killed mid-flight never reaches this
+     * method, so incrementing here would let a crash-looping event retry forever
+     * without ever approaching the dead-letter ceiling. Incrementing in both
+     * places would double-count and halve the effective retry budget.
+     *
+     * DomainEvent::markFailed() still maintains its own counter for callers that
+     * bypass the outbox worker entirely; that path is unaffected.
+     */
     protected function markEvent(DomainEvent $event, string $status, ?string $error = null): void
     {
         $event->update([
-            'status'               => $status,
-            'processed_at'         => now(),
-            'processing_error'     => $error,
-            'processing_attempts'  => ($event->processing_attempts ?? 0) + 1,
+            'status'           => $status,
+            'processed_at'     => now(),
+            'processing_error' => $error,
         ]);
     }
 }

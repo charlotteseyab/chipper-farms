@@ -63,6 +63,25 @@ class NumberingService
     ): string {
         $year ??= (int) date('Y');
 
+        // DEADLOCK RETRY (found by the multi-process concurrency suite)
+        //
+        // Under sustained contention the SELECT ... FOR UPDATE below can deadlock:
+        //
+        //   SQLSTATE[40001]: Serialization failure: 1213 Deadlock found when
+        //   trying to get lock; try restarting transaction
+        //
+        // That is not a bug to be designed away — concurrent transactions taking
+        // row locks through a secondary index can always be ordered such that
+        // InnoDB must break a cycle, and InnoDB's documented contract is that the
+        // victim retries. A single-process test can never surface it, and source
+        // inspection cannot either; it took N real processes hammering one
+        // sequence to reproduce.
+        //
+        // Laravel's second argument retries the whole closure on deadlock or
+        // serialization failure. 5 attempts is generous: each retry re-reads the
+        // sequence, so a retried allocation is still correct, never a duplicate.
+        // Without this, a burst of concurrent invoicing surfaces a raw 500 to
+        // whichever user lost the lock cycle.
         return DB::transaction(function () use ($sequenceType, $prefix, $year, $organizationId, $padding, $formatTemplate, $initialNumber) {
             $sequence = $this->lockSequence($sequenceType, $year, $organizationId);
 
@@ -106,7 +125,7 @@ class NumberingService
             $sequence->increment('next_number');
 
             return $rendered;
-        });
+        }, attempts: 5);
     }
 
     /**
