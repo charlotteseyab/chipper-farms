@@ -651,7 +651,7 @@ class SettingsController extends Controller
     /**
      * Store a new user
      */
-    public function storeUser(Request $request)
+    public function storeUser(Request $request, \App\Services\Users\UserProvisioningService $provisioning)
     {
         // Restrict to superuser only
         abort_unless(auth()->check() && auth()->user()->isSuperuser(), 403);
@@ -664,19 +664,16 @@ class SettingsController extends Controller
             'role' => ['required', 'string', 'in:' . implode(',', User::allowedRoleNames())],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'active_status' => ['sometimes', 'boolean'],
+            'organization_id' => ['sometimes', 'nullable', 'integer', 'exists:organizations,id'],
         ]);
 
-        $user = new User([
-            'first_name' => $validated['first_name'],
-            'last_name' => $validated['last_name'],
-            'name' => $validated['first_name'] . ' ' . $validated['last_name'],
-            'email' => $validated['email'],
-            'phone' => $validated['phone'] ?? null,
-            'password' => Hash::make($validated['password']),
-            'active_status' => $request->has('active_status') ? (bool)$request->input('active_status') : false,
-        ]);
-        $user->syncRoleFields($validated['role']);
-        $user->save();
+        // CF-P0-001: this method used to build the User inline, never setting
+        // organization_id and defaulting active_status to false — producing an
+        // account that EnsureOrganizationContext and EnsureUserIsActive both
+        // reject on the first request. All creation now goes through the single
+        // provisioning service, which establishes organisation and role
+        // transactionally and refuses to return an unusable account.
+        $provisioning->provision($validated, $request->user());
 
         return redirect()->route('settings.users')->with('success', 'User created successfully.');
     }

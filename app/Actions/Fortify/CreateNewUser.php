@@ -2,9 +2,8 @@
 
 namespace App\Actions\Fortify;
 
-use App\Models\Organization;
 use App\Models\User;
-use Illuminate\Support\Facades\Hash;
+use App\Services\Users\UserProvisioningService;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
@@ -48,42 +47,11 @@ class CreateNewUser implements CreatesNewUsers
             'terms' => Jetstream::hasTermsAndPrivacyPolicyFeature() ? ['accepted', 'required'] : '',
         ])->validate();
 
-        // Resolve the organization for the new user.
-        //
-        // Precedence:
-        //  1. The acting superuser's own organization_id (normal case).
-        //  2. The single active organization if the system has exactly one
-        //     (covers edge cases where a seed superuser somehow lost org link).
-        //
-        // If neither is resolvable we refuse — rather than guessing or creating
-        // orphaned users. Operators will see the explicit error in logs.
-        $organizationId = $actor->organization_id;
-
-        if ($organizationId === null) {
-            $activeOrgs = Organization::active()->limit(2)->get();
-            if ($activeOrgs->count() === 1) {
-                $organizationId = $activeOrgs->first()->id;
-            } else {
-                throw ValidationException::withMessages([
-                    'authorization' => 'Cannot resolve an organization for the new user. Contact a system administrator.',
-                ]);
-            }
-        }
-
-        $user = new User([
-            'first_name' => $input['first_name'],
-            'last_name' => $input['last_name'],
-            'name' => trim(($input['first_name'] ?? '') . ' ' . ($input['last_name'] ?? '')),
-            'email' => $input['email'],
-            'phone' => $input['phone'] ?? null,
-            'active_status' => $input['active_status'] ?? true,
-            'password' => Hash::make($input['password']),
-            'organization_id' => $organizationId,
-        ]);
-
-        $user->syncRoleFields($input['role']);
-        $user->save();
-
-        return $user;
+        // Organisation resolution, role assignment, active status, email
+        // verification and the duplicate-email guard all live in
+        // UserProvisioningService — the single authoritative creation path
+        // (CF-P0-001). This action keeps only what is specific to Fortify:
+        // the superuser check above and Jetstream's terms validation.
+        return app(UserProvisioningService::class)->provision($input, $actor);
     }
 }

@@ -359,17 +359,28 @@ Route::middleware($protectedMiddleware)->group(function () {
 
         /*
     |---------------------------------------------------------------------
-    | Finance routes (Phase 1d)
+    | Finance routes (Phase 1d; outer boundary added in remediation Phase 2)
     |
     | Two layers of authorisation:
-    |  1. Outer: role middleware restricts to admin/superuser/accountant.
-    |  2. Inner: permission middleware enforces specific actions.
+    |  1. Outer: `finance.access` requires the user to hold at least one
+    |     finance-module permission. A user with none cannot reach any
+    |     /finance URL. This is NOT `permission:view_finance` on purpose —
+    |     farmmanager and mill_operator legitimately hold narrow finance
+    |     permissions (vendor invoices, financial reports, inventory value,
+    |     loans, treasury) without holding view_finance, and a blanket gate
+    |     would either lock them out or require granting them the whole
+    |     module. See EnsureFinanceAccess for the seeded role evidence.
+    |  2. Inner: `permission:` middleware enforces the specific action on
+    |     every route. Reads that expose balances, ledgers, statements,
+    |     suppliers, payments and refunds require `view_finance`.
     |
-    | Manager and dataentry get view-only access via `view_finance` only —
-    | they reach the dashboard and trial balance, nothing more.
+    | CF-P0-003 / CF-P0-004: before remediation this group had NO outer
+    | middleware and 69 of 207 finance routes had no permission gate at all,
+    | including state-changing bank-account, reconciliation, credit-hold and
+    | WHT-certificate operations. Both layers above now exist; keep them.
     |---------------------------------------------------------------------
     */
-    Route::prefix('finance')->name('finance.')->group(function () {
+    Route::prefix('finance')->name('finance.')->middleware('finance.access')->group(function () {
 
         // Dashboard + trial balance — view_finance gate.
         Route::middleware('permission:view_finance')->group(function () {
@@ -551,6 +562,7 @@ Route::middleware($protectedMiddleware)->group(function () {
             /* Receipts (Phase 2c) */
         Route::prefix('receipts')->name('receipts.')->group(function () {
             Route::get('/',                [\App\Http\Controllers\Finance\ReceiptController::class, 'index'])
+                ->middleware('permission:view_finance')
                 ->name('index');
             Route::get('/create',          [\App\Http\Controllers\Finance\ReceiptController::class, 'create'])
                 ->middleware('permission:create_receipt')
@@ -560,6 +572,7 @@ Route::middleware($protectedMiddleware)->group(function () {
                 ->name('store');
             Route::get('/{receipt}',       [\App\Http\Controllers\Finance\ReceiptController::class, 'show'])
                 ->whereNumber('receipt')
+                ->middleware('permission:view_finance')
                 ->name('show');
             Route::post('/{receipt}/allocations',
                                         [\App\Http\Controllers\Finance\ReceiptController::class, 'storeAllocation'])
@@ -578,27 +591,36 @@ Route::middleware($protectedMiddleware)->group(function () {
                 ->name('reverse');
         });
 
-        /* Customer ledger (Phase 2c) */
+        /* Customer ledger (Phase 2c) — discloses the full AR transaction
+           history for one customer. */
         Route::get('/customers/{customer}/ledger',
                                         [\App\Http\Controllers\Finance\CustomerController::class, 'ledger'])
             ->whereNumber('customer')
+            ->middleware('permission:view_finance')
             ->name('customers.ledger');
 
+        /* Credit hold governs whether a customer can transact on credit —
+           placing or clearing a hold is a credit-control decision. */
         Route::get('/customers/{customer}/credit-hold',
                               [\App\Http\Controllers\Finance\CustomerController::class, 'editCreditHold'])
             ->whereNumber('customer')
+            ->middleware('permission:manage_customers')
             ->name('customers.credit-hold.edit');
         Route::post('/customers/{customer}/credit-hold',
                               [\App\Http\Controllers\Finance\CustomerController::class, 'updateCreditHold'])
             ->whereNumber('customer')
+            ->middleware('permission:manage_customers')
             ->name('customers.credit-hold.update');
 
 
             /* AR Ageing (Phase 2d) */
             Route::prefix('ageing')->name('ageing.')->group(function () {
-                // AR (existing — back-compat aliases)
-                Route::get('/',        [\App\Http\Controllers\Finance\AgeingController::class, 'index'])->name('index');
-                Route::get('/ar',      [\App\Http\Controllers\Finance\AgeingController::class, 'ar'])->name('ar');
+                // AR (existing — back-compat aliases). These expose customer
+                // receivable balances and were previously ungated.
+                Route::get('/',        [\App\Http\Controllers\Finance\AgeingController::class, 'index'])
+                    ->middleware('permission:view_finance')->name('index');
+                Route::get('/ar',      [\App\Http\Controllers\Finance\AgeingController::class, 'ar'])
+                    ->middleware('permission:view_finance')->name('ar');
                 Route::get('/export',  [\App\Http\Controllers\Finance\AgeingController::class, 'exportAr'])
                     ->middleware('permission:export_finance')->name('export');
     
@@ -609,19 +631,23 @@ Route::middleware($protectedMiddleware)->group(function () {
                     ->middleware('permission:view_ap_ageing')->name('export-ap');
             });
 
-        /* Customer Statements (Phase 2d) */
+        /* Customer Statements (Phase 2d) — the PDF is the same disclosure as
+           the HTML view, so both carry the same gate. */
         Route::get('/customers/{customer}/statement',
                                         [\App\Http\Controllers\Finance\StatementController::class, 'show'])
             ->whereNumber('customer')
+            ->middleware('permission:view_finance')
             ->name('statements.show');
         Route::get('/customers/{customer}/statement/pdf',
                                         [\App\Http\Controllers\Finance\StatementController::class, 'download'])
             ->whereNumber('customer')
+            ->middleware('permission:view_finance')
             ->name('statements.download');
 
         /* Refunds (Phase 2d) */
         Route::prefix('refunds')->name('refunds.')->group(function () {
             Route::get('/',                [\App\Http\Controllers\Finance\RefundController::class, 'index'])
+                ->middleware('permission:view_finance')
                 ->name('index');
             Route::get('/create',          [\App\Http\Controllers\Finance\RefundController::class, 'create'])
                 ->middleware('permission:create_refund')
@@ -631,6 +657,7 @@ Route::middleware($protectedMiddleware)->group(function () {
                 ->name('store');
             Route::get('/{refund}',        [\App\Http\Controllers\Finance\RefundController::class, 'show'])
                 ->whereNumber('refund')
+                ->middleware('permission:view_finance')
                 ->name('show');
             Route::post('/{refund}/post',  [\App\Http\Controllers\Finance\RefundController::class, 'post'])
                 ->whereNumber('refund')
@@ -649,8 +676,16 @@ Route::middleware($protectedMiddleware)->group(function () {
 
         /* Finance Attachments (Phase 2d) */
         Route::prefix('attachments')->name('attachments.')->group(function () {
+            // The {type} constraint is derived from AttachmentController::PARENT_MAP
+            // so the route, the resolver and the permission map cannot drift
+            // apart again (CF-P1-019). Authorisation for all three actions is
+            // parent-aware and lives in the controller, not in route middleware,
+            // because the required permission depends on the parent record.
             Route::post('/{type}/{id}',    [\App\Http\Controllers\Finance\AttachmentController::class, 'store'])
-                ->where(['type' => 'receipts|invoices|refunds', 'id' => '[0-9]+'])
+                ->where([
+                    'type' => \App\Http\Controllers\Finance\AttachmentController::supportedTypePattern(),
+                    'id'   => '[0-9]+',
+                ])
                 ->name('store');
             Route::get('/{attachment}/download',
                                         [\App\Http\Controllers\Finance\AttachmentController::class, 'download'])
@@ -665,6 +700,7 @@ Route::middleware($protectedMiddleware)->group(function () {
             /* Suppliers (Phase 3a) */
         Route::prefix('suppliers')->name('suppliers.')->group(function () {
             Route::get('/',                  [\App\Http\Controllers\Finance\SupplierController::class, 'index'])
+                ->middleware('permission:view_finance')
                 ->name('index');
             Route::get('/create',            [\App\Http\Controllers\Finance\SupplierController::class, 'create'])
                 ->middleware('permission:manage_suppliers')
@@ -674,6 +710,7 @@ Route::middleware($protectedMiddleware)->group(function () {
                 ->name('store');
             Route::get('/{supplier}',        [\App\Http\Controllers\Finance\SupplierController::class, 'show'])
                 ->whereNumber('supplier')
+                ->middleware('permission:view_finance')
                 ->name('show');
             Route::get('/{supplier}/edit',   [\App\Http\Controllers\Finance\SupplierController::class, 'edit'])
                 ->whereNumber('supplier')
@@ -692,11 +729,21 @@ Route::middleware($protectedMiddleware)->group(function () {
 
                 /* Supplier Statements (Phase 3d) */
                 Route::prefix('supplier-statements')->name('supplier-statements.')->group(function () {
-                    Route::get('/',                                 [\App\Http\Controllers\Finance\SupplierStatementController::class, 'index'])->name('index');
+                    // Reads: supplier balances and statement detail. OR'd with
+                    // manage_supplier_statements because the roles that
+                    // administer statements must be able to read them, and
+                    // view_finance already admits the suppliers index.
+                    Route::middleware('permission:manage_supplier_statements,view_finance')->group(function () {
+                        Route::get('/',                             [\App\Http\Controllers\Finance\SupplierStatementController::class, 'index'])->name('index');
+                        Route::get('/{statement}',                  [\App\Http\Controllers\Finance\SupplierStatementController::class, 'show'])->whereNumber('statement')->name('show');
+                    });
+
+                    // Writes: creating statements and mutating their lines or
+                    // reconciliation state.
+                    Route::middleware('permission:manage_supplier_statements')->group(function () {
                     Route::get('/create',                           [\App\Http\Controllers\Finance\SupplierStatementController::class, 'create'])->name('create');
                     Route::post('/',                                [\App\Http\Controllers\Finance\SupplierStatementController::class, 'store'])->name('store');
-                    Route::get('/{statement}',                      [\App\Http\Controllers\Finance\SupplierStatementController::class, 'show'])->name('show');
-        
+
                     Route::post('/{statement}/lines',               [\App\Http\Controllers\Finance\SupplierStatementController::class, 'storeLine'])->name('lines.store');
                     Route::post('/{statement}/lines/csv',           [\App\Http\Controllers\Finance\SupplierStatementController::class, 'uploadCsv'])->name('lines.csv');
                     Route::delete('/{statement}/lines/{line}',      [\App\Http\Controllers\Finance\SupplierStatementController::class, 'destroyLine'])->name('lines.destroy');
@@ -706,11 +753,13 @@ Route::middleware($protectedMiddleware)->group(function () {
                     Route::post('/{statement}/flag',                [\App\Http\Controllers\Finance\SupplierStatementController::class, 'markFlagged'])->name('flag');
                     Route::post('/{statement}/reconciled',          [\App\Http\Controllers\Finance\SupplierStatementController::class, 'markReconciled'])->name('reconciled');
                     Route::post('/{statement}/archive',             [\App\Http\Controllers\Finance\SupplierStatementController::class, 'archive'])->name('archive');
+                    });
                 });
 
            /* Vendor Invoices (Phase 3b) */
         Route::prefix('vendor-invoices')->name('vendor-invoices.')->group(function () {
             Route::get('/',                          [\App\Http\Controllers\Finance\VendorInvoiceController::class, 'index'])
+                ->middleware('permission:view_finance,create_purchase_request_vendor_invoice')
                 ->name('index');
             Route::get('/create',                    [\App\Http\Controllers\Finance\VendorInvoiceController::class, 'create'])
                 ->middleware('permission:create_vendor_invoice,create_purchase_request_vendor_invoice')
@@ -720,6 +769,7 @@ Route::middleware($protectedMiddleware)->group(function () {
                 ->name('store');
             Route::get('/{invoice}',                 [\App\Http\Controllers\Finance\VendorInvoiceController::class, 'show'])
                 ->whereNumber('invoice')
+                ->middleware('permission:view_finance,create_purchase_request_vendor_invoice')
                 ->name('show');
             Route::post('/{invoice}/submit',         [\App\Http\Controllers\Finance\VendorInvoiceController::class, 'submitForApproval'])
                 ->whereNumber('invoice')
@@ -742,6 +792,7 @@ Route::middleware($protectedMiddleware)->group(function () {
             /* Payments (Phase 3c) */
         Route::prefix('payments')->name('payments.')->group(function () {
             Route::get('/',                          [\App\Http\Controllers\Finance\PaymentController::class, 'index'])
+                ->middleware('permission:view_finance')
                 ->name('index');
             Route::get('/create',                    [\App\Http\Controllers\Finance\PaymentController::class, 'create'])
                 ->middleware('permission:create_payment')
@@ -751,6 +802,7 @@ Route::middleware($protectedMiddleware)->group(function () {
                 ->name('store');
             Route::get('/{payment}',                 [\App\Http\Controllers\Finance\PaymentController::class, 'show'])
                 ->whereNumber('payment')
+                ->middleware('permission:view_finance')
                 ->name('show');
             Route::post('/{payment}/allocate',       [\App\Http\Controllers\Finance\PaymentController::class, 'allocate'])
                 ->whereNumber('payment')
@@ -781,6 +833,7 @@ Route::middleware($protectedMiddleware)->group(function () {
         /* Payment Runs (Phase 3c) */
         Route::prefix('payment-runs')->name('payment-runs.')->group(function () {
             Route::get('/',                          [\App\Http\Controllers\Finance\PaymentRunController::class, 'index'])
+                ->middleware('permission:view_finance')
                 ->name('index');
             Route::get('/create',                    [\App\Http\Controllers\Finance\PaymentRunController::class, 'create'])
                 ->middleware('permission:create_payment')
@@ -790,6 +843,7 @@ Route::middleware($protectedMiddleware)->group(function () {
                 ->name('store');
             Route::get('/{run}',                     [\App\Http\Controllers\Finance\PaymentRunController::class, 'show'])
                 ->whereNumber('run')
+                ->middleware('permission:view_finance')
                 ->name('show');
             Route::post('/{run}/lines',              [\App\Http\Controllers\Finance\PaymentRunController::class, 'addLine'])
                 ->whereNumber('run')
@@ -814,61 +868,113 @@ Route::middleware($protectedMiddleware)->group(function () {
         });
 
         Route::prefix('wht-certificates')->name('wht-certificates.')->group(function () {
-            Route::get('/',                  [\App\Http\Controllers\Finance\WhtCertificateController::class, 'index'])->name('index');
-            Route::get('/create',            [\App\Http\Controllers\Finance\WhtCertificateController::class, 'create'])->name('create');
-            Route::post('/',                 [\App\Http\Controllers\Finance\WhtCertificateController::class, 'store'])->name('store');
-            Route::get('/{cert}',            [\App\Http\Controllers\Finance\WhtCertificateController::class, 'show'])->name('show');
-            Route::post('/{cert}/refresh',   [\App\Http\Controllers\Finance\WhtCertificateController::class, 'refresh'])->name('refresh');
-            Route::post('/{cert}/issue',     [\App\Http\Controllers\Finance\WhtCertificateController::class, 'issue'])->name('issue');
-            Route::post('/{cert}/void',      [\App\Http\Controllers\Finance\WhtCertificateController::class, 'voidCertificate'])->name('void');
-            Route::get('/{cert}/pdf',        [\App\Http\Controllers\Finance\WhtCertificateController::class, 'downloadPdf'])->name('pdf');
+            // Reads: tax certificates disclose supplier and withholding detail.
+            // Phase3dPermissionsSeeder defines manage_wht_certificates as
+            // covering "draft, refresh, view, void, download", and does not
+            // grant view_finance to the roles that manage certificates — so
+            // either permission admits a read. Gating on view_finance alone
+            // would lock accountants out of certificates they administer.
+            Route::middleware('permission:manage_wht_certificates,view_finance')->group(function () {
+                Route::get('/',                  [\App\Http\Controllers\Finance\WhtCertificateController::class, 'index'])->name('index');
+                Route::get('/{cert}',            [\App\Http\Controllers\Finance\WhtCertificateController::class, 'show'])->whereNumber('cert')->name('show');
+                Route::get('/{cert}/pdf',        [\App\Http\Controllers\Finance\WhtCertificateController::class, 'downloadPdf'])->name('pdf');
+            });
+
+            // Writes: creating/refreshing/voiding a certificate.
+            Route::middleware('permission:manage_wht_certificates')->group(function () {
+                Route::get('/create',            [\App\Http\Controllers\Finance\WhtCertificateController::class, 'create'])->name('create');
+                Route::post('/',                 [\App\Http\Controllers\Finance\WhtCertificateController::class, 'store'])->name('store');
+                Route::post('/{cert}/refresh',   [\App\Http\Controllers\Finance\WhtCertificateController::class, 'refresh'])->name('refresh');
+                Route::post('/{cert}/void',      [\App\Http\Controllers\Finance\WhtCertificateController::class, 'voidCertificate'])->name('void');
+            });
+
+            // Issuance is the statutory act and has its own permission.
+            Route::middleware('permission:issue_wht_certificate')
+                ->post('/{cert}/issue',          [\App\Http\Controllers\Finance\WhtCertificateController::class, 'issue'])->name('issue');
         });
 
                 // ============================================================
         // Bank Accounts (Phase 3e)
         // ============================================================
         Route::prefix('bank-accounts')->name('bank-accounts.')->group(function () {
-            Route::get('/',              [\App\Http\Controllers\Finance\BankAccountController::class, 'index'])->name('index');
-            Route::get('/create',        [\App\Http\Controllers\Finance\BankAccountController::class, 'create'])->name('create');
-            Route::post('/',             [\App\Http\Controllers\Finance\BankAccountController::class, 'store'])->name('store');
-            Route::get('/{bankAccount}', [\App\Http\Controllers\Finance\BankAccountController::class, 'show'])->name('show');
-            Route::get('/{bankAccount}/edit',   [\App\Http\Controllers\Finance\BankAccountController::class, 'edit'])->name('edit');
-            Route::patch('/{bankAccount}',      [\App\Http\Controllers\Finance\BankAccountController::class, 'update'])->name('update');
-            Route::post('/{bankAccount}/activate',   [\App\Http\Controllers\Finance\BankAccountController::class, 'activate'])->name('activate');
-            Route::post('/{bankAccount}/deactivate', [\App\Http\Controllers\Finance\BankAccountController::class, 'deactivate'])->name('deactivate');
+            // Reads: account numbers, SWIFT codes and opening balances.
+            // Deliberately NOT OR'd with view_finance: Phase3ePermissionsSeeder
+            // separates view_bank_accounts from view_finance precisely because
+            // account configuration is more sensitive than general finance data
+            // ("Default is narrower; sites that want it broad can grant
+            // explicitly"). Adding view_finance here would widen access against
+            // that documented intent.
+            Route::middleware('permission:view_bank_accounts')->group(function () {
+                Route::get('/',              [\App\Http\Controllers\Finance\BankAccountController::class, 'index'])->name('index');
+                Route::get('/{bankAccount}', [\App\Http\Controllers\Finance\BankAccountController::class, 'show'])->whereNumber('bankAccount')->name('show');
+            });
+
+            // Writes: creating or altering a bank account is a treasury-grade
+            // action — it determines where money is paid out to.
+            Route::middleware('permission:manage_bank_accounts')->group(function () {
+                Route::get('/create',        [\App\Http\Controllers\Finance\BankAccountController::class, 'create'])->name('create');
+                Route::post('/',             [\App\Http\Controllers\Finance\BankAccountController::class, 'store'])->name('store');
+                Route::get('/{bankAccount}/edit',   [\App\Http\Controllers\Finance\BankAccountController::class, 'edit'])->name('edit');
+                Route::patch('/{bankAccount}',      [\App\Http\Controllers\Finance\BankAccountController::class, 'update'])->name('update');
+                Route::post('/{bankAccount}/activate',   [\App\Http\Controllers\Finance\BankAccountController::class, 'activate'])->name('activate');
+                Route::post('/{bankAccount}/deactivate', [\App\Http\Controllers\Finance\BankAccountController::class, 'deactivate'])->name('deactivate');
+            });
         });
 
                 // ============================================================
         // Bank Statements (Phase 3e)
         // ============================================================
         Route::prefix('bank-statements')->name('bank-statements.')->group(function () {
-            Route::get('/',                [\App\Http\Controllers\Finance\BankStatementController::class, 'index'])->name('index');
-            Route::get('/create',          [\App\Http\Controllers\Finance\BankStatementController::class, 'create'])->name('create');
-            Route::post('/',               [\App\Http\Controllers\Finance\BankStatementController::class, 'store'])->name('store');
-            Route::get('/{bankStatement}', [\App\Http\Controllers\Finance\BankStatementController::class, 'show'])->name('show');
-            Route::get('/{bankStatement}/file',  [\App\Http\Controllers\Finance\BankStatementController::class, 'downloadFile'])->name('download');
-            Route::post('/{bankStatement}/match', [\App\Http\Controllers\Finance\BankStatementController::class, 'runMatch'])->name('match');
-            Route::post('/{bankStatement}/void',  [\App\Http\Controllers\Finance\BankStatementController::class, 'voidStatement'])->name('void');
+            // Reads: statement lines are raw bank transaction data, and the
+            // file download is the same disclosure. Gated on the bank-handling
+            // permissions rather than view_finance, consistent with Phase 3e
+            // treating bank data as narrower than general finance visibility —
+            // this keeps manager/dataentry (who hold view_finance) out.
+            Route::middleware('permission:import_bank_statement,reconcile_bank_statement')->group(function () {
+                Route::get('/',                [\App\Http\Controllers\Finance\BankStatementController::class, 'index'])->name('index');
+                Route::get('/{bankStatement}', [\App\Http\Controllers\Finance\BankStatementController::class, 'show'])->whereNumber('bankStatement')->name('show');
+                Route::get('/{bankStatement}/file',  [\App\Http\Controllers\Finance\BankStatementController::class, 'downloadFile'])->name('download');
+            });
 
-            // Per-line actions.
-            Route::post('/lines/{bankStatementLine}/match',   [\App\Http\Controllers\Finance\BankStatementController::class, 'manualMatch'])->name('lines.match');
-            Route::post('/lines/{bankStatementLine}/unmatch', [\App\Http\Controllers\Finance\BankStatementController::class, 'unmatch'])->name('lines.unmatch');
-            Route::post('/lines/{bankStatementLine}/resolve', [\App\Http\Controllers\Finance\BankStatementController::class, 'markResolve'])->name('lines.resolve');
+            // Import.
+            Route::middleware('permission:import_bank_statement')->group(function () {
+                Route::get('/create',          [\App\Http\Controllers\Finance\BankStatementController::class, 'create'])->name('create');
+                Route::post('/',               [\App\Http\Controllers\Finance\BankStatementController::class, 'store'])->name('store');
+            });
+
+            // Matching and voiding change reconciliation state.
+            Route::middleware('permission:reconcile_bank_statement')->group(function () {
+                Route::post('/{bankStatement}/match', [\App\Http\Controllers\Finance\BankStatementController::class, 'runMatch'])->name('match');
+                Route::post('/{bankStatement}/void',  [\App\Http\Controllers\Finance\BankStatementController::class, 'voidStatement'])->name('void');
+
+                // Per-line actions.
+                Route::post('/lines/{bankStatementLine}/match',   [\App\Http\Controllers\Finance\BankStatementController::class, 'manualMatch'])->name('lines.match');
+                Route::post('/lines/{bankStatementLine}/unmatch', [\App\Http\Controllers\Finance\BankStatementController::class, 'unmatch'])->name('lines.unmatch');
+                Route::post('/lines/{bankStatementLine}/resolve', [\App\Http\Controllers\Finance\BankStatementController::class, 'markResolve'])->name('lines.resolve');
+            });
         });
 
                 // ============================================================
         // Bank Reconciliation (Phase 3e)
         // ============================================================
         Route::prefix('bank-reconciliation')->name('bank-reconciliation.')->group(function () {
-            Route::get('/',         [\App\Http\Controllers\Finance\BankReconciliationController::class, 'index'])->name('index');
-            Route::get('/create',   [\App\Http\Controllers\Finance\BankReconciliationController::class, 'create'])->name('create');
-            Route::post('/',        [\App\Http\Controllers\Finance\BankReconciliationController::class, 'store'])->name('store');
-            Route::get('/{bankReconciliation}',          [\App\Http\Controllers\Finance\BankReconciliationController::class, 'show'])->name('show');
-            Route::post('/{bankReconciliation}/refresh', [\App\Http\Controllers\Finance\BankReconciliationController::class, 'refresh'])->name('refresh');
-            Route::post('/{bankReconciliation}/reconcile', [\App\Http\Controllers\Finance\BankReconciliationController::class, 'reconcile'])->name('reconcile');
-            Route::post('/{bankReconciliation}/flag',    [\App\Http\Controllers\Finance\BankReconciliationController::class, 'flag'])->name('flag');
-            Route::post('/{bankReconciliation}/reopen',  [\App\Http\Controllers\Finance\BankReconciliationController::class, 'reopen'])->name('reopen');
-            Route::post('/{bankReconciliation}/archive', [\App\Http\Controllers\Finance\BankReconciliationController::class, 'archive'])->name('archive');
+            // Reads — same narrower bank-data boundary as bank statements.
+            Route::middleware('permission:import_bank_statement,reconcile_bank_statement')->group(function () {
+                Route::get('/',         [\App\Http\Controllers\Finance\BankReconciliationController::class, 'index'])->name('index');
+                Route::get('/{bankReconciliation}',          [\App\Http\Controllers\Finance\BankReconciliationController::class, 'show'])->whereNumber('bankReconciliation')->name('show');
+            });
+
+            // Every write here moves reconciliation state, including reopen
+            // and archive, which can unwind a closed reconciliation.
+            Route::middleware('permission:reconcile_bank_statement')->group(function () {
+                Route::get('/create',   [\App\Http\Controllers\Finance\BankReconciliationController::class, 'create'])->name('create');
+                Route::post('/',        [\App\Http\Controllers\Finance\BankReconciliationController::class, 'store'])->name('store');
+                Route::post('/{bankReconciliation}/refresh', [\App\Http\Controllers\Finance\BankReconciliationController::class, 'refresh'])->name('refresh');
+                Route::post('/{bankReconciliation}/reconcile', [\App\Http\Controllers\Finance\BankReconciliationController::class, 'reconcile'])->name('reconcile');
+                Route::post('/{bankReconciliation}/flag',    [\App\Http\Controllers\Finance\BankReconciliationController::class, 'flag'])->name('flag');
+                Route::post('/{bankReconciliation}/reopen',  [\App\Http\Controllers\Finance\BankReconciliationController::class, 'reopen'])->name('reopen');
+                Route::post('/{bankReconciliation}/archive', [\App\Http\Controllers\Finance\BankReconciliationController::class, 'archive'])->name('archive');
+            });
         });
 
 

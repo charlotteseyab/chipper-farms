@@ -56,6 +56,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'active' => \App\Http\Middleware\EnsureUserIsActive::class,
             'org' => \App\Http\Middleware\EnsureOrganizationContext::class,
             'permission' => \App\Http\Middleware\PermissionMiddleware::class,
+            // Outer confidentiality boundary for /finance (CF-P0-003). Admits
+            // any user holding at least one finance-module permission; the
+            // per-route 'permission' gates enforce the specific action.
+            'finance.access' => \App\Http\Middleware\EnsureFinanceAccess::class,
         ]);
 
         // Paystack posts server-to-server webhooks with no CSRF token; the
