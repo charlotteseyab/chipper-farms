@@ -259,14 +259,22 @@ class PigManagementController extends Controller {
         return app(PigArchiveController::class)->index($request);
     }
 
-    public function restorePigletDeath($id)
+    public function restorePigletDeath(Request $request, $id)
     {
-        return app(PigArchiveController::class)->restorePigletDeath($id);
+        return app(PigArchiveController::class)->restorePigletDeath(
+            $request,
+            app(\App\Services\Archive\RestoreArchivedRecordService::class),
+            $id,
+        );
     }
 
-    public function restorePig($id)
+    public function restorePig(Request $request, $id)
     {
-        return app(PigArchiveController::class)->restorePig($id);
+        return app(PigArchiveController::class)->restorePig(
+            $request,
+            app(\App\Services\Archive\RestoreArchivedRecordService::class),
+            $id,
+        );
     }
 
     public function recordWeaning(Request $request, $id)
@@ -285,15 +293,23 @@ class PigManagementController extends Controller {
     }
 
     // Promote pig from standard to breeding stock
-    public function promoteToBreeding($id)
+    public function promoteToBreeding(Request $request, $id)
     {
-        return app(PIgLifecycleController::class)->promote($id);
+        return app(PigLifecycleController::class)->promote(
+            $request,
+            app(\App\Services\Lifecycle\PromotePigService::class),
+            $id,
+        );
     }
 
     // Demote pig from breeding to standard stock
-    public function demoteToStandard($id)
+    public function demoteToStandard(Request $request, $id)
     {
-        return app(PigLifecycleController::class)->demote($id);
+        return app(PigLifecycleController::class)->demote(
+            $request,
+            app(\App\Services\Lifecycle\DemotePigService::class),
+            $id,
+        );
     }
 
     // Show detailed pig information
@@ -378,12 +394,18 @@ class PigManagementController extends Controller {
     // Death Export Methods
     public function deathsExportCsv(Request $request)
     {
-        return app(PigDeathController::class)->exportCsv($request);
+        return app(PigDeathController::class)->exportCsv(
+            $request,
+            app(\App\Services\Deaths\DeathsExportService::class),
+        );
     }
 
     public function deathsExportPdf(Request $request)
     {   
-        return app(PigDeathController::class)->exportPdf($request);
+        return app(PigDeathController::class)->exportPdf(
+            $request,
+            app(\App\Services\Deaths\DeathsExportService::class),
+        );
     }
 
 
