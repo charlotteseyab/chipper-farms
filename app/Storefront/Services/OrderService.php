@@ -9,6 +9,7 @@ use App\Models\Storefront\StorefrontOrder;
 use App\Models\Storefront\StorefrontOrderEvent;
 use App\Models\User;
 use App\Services\DomainEvents\DispatchDomainEvent;
+use App\Storefront\Services\Exceptions\InventoryConflictException;
 use App\Storefront\Services\Exceptions\InvalidOrderTransitionException;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -78,32 +79,79 @@ class OrderService
     /**
      * Explicit staff confirmation — the only path to `confirmed`. Reserves /
      * decrements inventory exactly once.
+     *
+     * CONCURRENCY AND IDEMPOTENCY (CF-P0-006)
+     * ---------------------------------------
+     * Three defects were fixed here, and only one of them needed concurrency to
+     * trigger:
+     *
+     *  1. DOUBLE SUBMIT. assertTransitionAllowed() returns early WITHOUT
+     *     throwing when the order is already at the target status. It used to be
+     *     called before the transaction, so a second confirm() on an
+     *     already-confirmed order sailed past it and ran applyInventoryEffect()
+     *     again — decrementing stock twice for one order. A double-clicked
+     *     button was enough; no race required. Re-confirmation is now an
+     *     explicit, inventory-neutral no-op.
+     *
+     *  2. STALE READ. The status check ran against the in-memory $order OUTSIDE
+     *     the transaction, so two concurrent confirmations both saw 'pending'
+     *     and both proceeded. The order row is now reloaded under
+     *     lockForUpdate() inside the transaction, and validated there.
+     *
+     *  3. UNLOCKED LISTINGS. applyInventoryEffect() read listings with a plain
+     *     find(), so two confirmations read the same quantity_available. Listing
+     *     rows are now locked too — see that method.
+     *
+     * Returning the order unchanged on re-confirmation (rather than throwing) is
+     * deliberate: staff double-clicks and retried requests are routine, and the
+     * caller's intent is already satisfied. What must never happen is a second
+     * inventory effect.
      */
     public function confirm(StorefrontOrder $order, User $actor): StorefrontOrder
     {
-        $this->assertTransitionAllowed($order, StorefrontOrder::STATUS_CONFIRMED);
-
         return DB::transaction(function () use ($order, $actor) {
-            $from = $order->status;
+            // Reload under lock. Everything after this point reads committed
+            // state that no other transaction can change until we commit.
+            $locked = StorefrontOrder::query()
+                ->whereKey($order->getKey())
+                ->lockForUpdate()
+                ->first();
 
-            $this->applyInventoryEffect($order, reserve: true, actor: $actor);
+            if ($locked === null) {
+                throw new InvalidOrderTransitionException(
+                    "Order #{$order->getKey()} no longer exists and cannot be confirmed."
+                );
+            }
 
-            $order->forceFill([
+            // Idempotent short-circuit: already confirmed, so the inventory
+            // effect has already been applied exactly once. Do NOT re-apply.
+            if ($locked->status === StorefrontOrder::STATUS_CONFIRMED) {
+                return $locked;
+            }
+
+            // Validated under the lock, against freshly-read state.
+            $this->assertTransitionAllowed($locked, StorefrontOrder::STATUS_CONFIRMED);
+
+            $from = $locked->status;
+
+            $this->applyInventoryEffect($locked, reserve: true, actor: $actor);
+
+            $locked->forceFill([
                 'status'               => StorefrontOrder::STATUS_CONFIRMED,
                 'confirmed_by_user_id' => $actor->id,
                 'confirmed_at'         => now(),
             ])->save();
 
-            $this->recordEvent($order, 'status_change', $from, StorefrontOrder::STATUS_CONFIRMED,
+            $this->recordEvent($locked, 'status_change', $from, StorefrontOrder::STATUS_CONFIRMED,
                 'Order confirmed by staff.', $actor->id);
 
             // Finance trigger (Phase 4): dispatch INSIDE this transaction so the
             // outbox row rolls back with the confirmation if anything fails. The
             // StorefrontOrderConfirmedSubscriber routes lines into the existing
             // sale spine; the storefront never posts to the GL directly.
-            $this->dispatchConfirmedEvent($order, $actor);
+            $this->dispatchConfirmedEvent($locked, $actor);
 
-            return $order->refresh();
+            return $locked->refresh();
         });
     }
 
@@ -372,34 +420,110 @@ class OrderService
      * Apply (reserve=true) or reverse (reserve=false) the inventory effect for
      * every line in the order.
      */
+    /**
+     * Apply (reserve=true) or reverse (reserve=false) the inventory effect for
+     * every line in the order.
+     *
+     * Listings are locked with lockForUpdate() and processed in ASCENDING
+     * LISTING ID order (CF-P0-006).
+     *
+     * The lock is what makes the quantity read-modify-write safe: a plain find()
+     * let two confirmations read the same quantity_available and each subtract
+     * from the same starting value, losing one decrement entirely.
+     *
+     * The ORDER matters independently of the lock. Two orders containing the
+     * same two listings in opposite sequence would each hold the lock the other
+     * needs, and InnoDB would resolve it by killing one with a deadlock error
+     * surfaced to a member of staff. Acquiring locks in a globally consistent
+     * order makes that cycle impossible rather than merely retryable — worth
+     * doing here because Phase 3 already demonstrated this codebase can deadlock
+     * under real contention.
+     */
     protected function applyInventoryEffect(StorefrontOrder $order, bool $reserve, User $actor): void
     {
         $order->loadMissing('items');
+
+        // Aggregate per listing before touching anything: an order may legitimately
+        // contain two lines for the same listing, and locking it twice while
+        // applying each line separately would double-apply against a single lock.
+        $quantitiesByListing = [];
 
         foreach ($order->items as $item) {
             if ($item->listing_id === null) {
                 continue;
             }
 
-            $listing = StorefrontListing::find($item->listing_id);
+            $listingId = (int) $item->listing_id;
+            $quantitiesByListing[$listingId] = bcadd(
+                $quantitiesByListing[$listingId] ?? '0',
+                (string) $item->quantity,
+                4,
+            );
+        }
+
+        if ($quantitiesByListing === []) {
+            return;
+        }
+
+        ksort($quantitiesByListing, SORT_NUMERIC);
+
+        foreach ($quantitiesByListing as $listingId => $quantity) {
+            $listing = StorefrontListing::query()
+                ->whereKey($listingId)
+                ->lockForUpdate()
+                ->first();
+
             if ($listing === null) {
+                // The listing was deleted after checkout. Reserving against it is
+                // impossible, so refuse rather than confirming a line that can
+                // never be fulfilled. Releasing is a no-op — there is nothing to
+                // give back to.
+                if ($reserve) {
+                    throw new InventoryConflictException(
+                        "Listing #{$listingId} no longer exists; order #{$order->getKey()} cannot be confirmed."
+                    );
+                }
+
                 continue;
             }
 
             if ($this->isPigBacked($listing)) {
                 $this->reservePigListing($listing, $reserve, $actor);
             } else {
-                $this->adjustProductQuantity($listing, (string) $item->quantity, $reserve, $actor);
+                $this->adjustProductQuantity($listing, $quantity, $reserve, $actor);
             }
         }
     }
 
+    /**
+     * Reserve or release a pig-backed listing.
+     *
+     * A pig is a single physical animal, so the listing status IS the
+     * reservation: published means available, reserved means promised to an
+     * order.
+     *
+     * CF-P0-006: the reserve branch previously did nothing at all when the
+     * listing was not published — a bare `if` with no else. So when a second
+     * order was confirmed for a pig another order had already reserved, this
+     * method returned silently, confirm() carried on, and BOTH orders reached
+     * 'confirmed' for one animal. Two customers were told they had bought the
+     * same pig, and nothing anywhere recorded a problem. Called under
+     * lockForUpdate(), so the status read here cannot be stale.
+     */
     protected function reservePigListing(StorefrontListing $listing, bool $reserve, User $actor): void
     {
         if ($reserve) {
-            if ($listing->status === StorefrontListing::STATUS_PUBLISHED) {
-                $this->listingService->transitionTo($listing, StorefrontListing::STATUS_RESERVED, $actor);
+            if ($listing->status !== StorefrontListing::STATUS_PUBLISHED) {
+                throw new InventoryConflictException(sprintf(
+                    'Listing #%d is no longer available (status: %s). This animal has most '
+                    . 'likely been reserved or sold by another order.',
+                    $listing->getKey(),
+                    $listing->status,
+                ));
             }
+
+            $this->listingService->transitionTo($listing, StorefrontListing::STATUS_RESERVED, $actor);
+
             return;
         }
 
@@ -409,27 +533,77 @@ class OrderService
         }
     }
 
+    /**
+     * Decrement or restore a quantity-backed listing.
+     *
+     * CF-P0-006: the reserve branch previously clamped a negative result to
+     * zero. That is the definition of silent overselling — the order confirmed,
+     * the customer was promised goods that do not exist, and the only trace was
+     * a listing sitting at exactly zero. It also technically satisfied the
+     * "stock cannot become negative" invariant while violating its intent, which
+     * is why the invariant alone is not a sufficient test.
+     *
+     * Insufficient stock now raises InventoryConflictException, which rolls the
+     * whole confirmation back: the order stays unconfirmed and the quantity is
+     * untouched. Called under lockForUpdate(), so this read-modify-write cannot
+     * interleave with another confirmation.
+     */
     protected function adjustProductQuantity(StorefrontListing $listing, string $quantity, bool $reserve, User $actor): void
     {
         if ($reserve) {
-            $newQty = bcsub((string) $listing->quantity_available, $quantity, 4);
+            $available = (string) $listing->quantity_available;
+            $newQty    = bcsub($available, $quantity, 4);
+
             if (bccomp($newQty, '0', 4) < 0) {
-                $newQty = '0';
+                throw new InventoryConflictException(sprintf(
+                    'Listing #%d has %s available but %s was requested. Stock was consumed '
+                    . 'after this order was placed.',
+                    $listing->getKey(),
+                    rtrim(rtrim($available, '0'), '.') ?: '0',
+                    rtrim(rtrim($quantity, '0'), '.') ?: '0',
+                ));
             }
+
             $listing->forceFill(['quantity_available' => $newQty])->save();
 
             if (bccomp($newQty, '0', 4) <= 0 && $listing->status === StorefrontListing::STATUS_PUBLISHED) {
                 $this->listingService->transitionTo($listing, StorefrontListing::STATUS_SOLD_OUT, $actor);
             }
+
             return;
         }
 
-        // Release: restore quantity; if it had been sold_out, re-publish.
+        // Release: restore quantity and return sold-out stock to sale.
+        //
+        // CF-P2-023: this transitioned to UNPUBLISHED while its own comment said
+        // "re-publish". Stock came back but became invisible to customers until a
+        // staff member noticed and republished it by hand, so a routine
+        // cancellation quietly withdrew sellable inventory from the shop.
+        //
+        // The original code was not simply careless: ListingService's state
+        // machine does NOT permit sold_out -> published. UNPUBLISHED was the only
+        // legal destination, and the comment was aspirational.
+        //
+        // Resolved by stepping through both LEGAL transitions —
+        // sold_out -> unpublished -> published — rather than widening the state
+        // machine. Two reasons for that choice:
+        //
+        //  - The transition table is a deliberate constraint used elsewhere; a
+        //    new sold_out -> published edge would relax it for every caller, not
+        //    just this one.
+        //  - Each hop goes through transitionTo(), so both are audited. The
+        //    intermediate state is also honest: for an instant the listing really
+        //    has stock but is not yet live.
+        //
+        // Stock that was sellable before the order is sellable again after it is
+        // cancelled; requiring a manual republish after every cancellation is an
+        // operational trap, which is what the finding is really about.
         $newQty = bcadd((string) $listing->quantity_available, $quantity, 4);
         $listing->forceFill(['quantity_available' => $newQty])->save();
 
         if ($listing->status === StorefrontListing::STATUS_SOLD_OUT && bccomp($newQty, '0', 4) > 0) {
             $this->listingService->transitionTo($listing, StorefrontListing::STATUS_UNPUBLISHED, $actor);
+            $this->listingService->transitionTo($listing, StorefrontListing::STATUS_PUBLISHED, $actor);
         }
     }
 

@@ -93,9 +93,13 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::get('/export/health.csv', [PigHealthController::class, 'exportHealthCsv'])->middleware('permission:view_health_records')->name('health.export');
     Route::get('/export/medications.csv', [PigHealthController::class, 'exportMedicationsCsv'])->middleware('permission:view_health_records')->name('medications.export');
 
-    Route::get('/dashboard', function () {
-        return view('dashboard');
-    })->name('dashboard');
+    // NOTE: the duplicate GET /dashboard that used to sit here has been removed
+    // (CF-P2-024). It was byte-identical to the definition further down, which
+    // wins registration anyway — Laravel keys its route lookup on method+URI, so
+    // the later declaration silently replaced this one. Two identical routes
+    // with the same name are a maintenance trap: editing the first has no effect
+    // whatsoever, with no error to say so. The surviving definition is the one
+    // carrying the explanatory comment about role-based dispatch.
 
     // Each dashboard requires its own role. Superuser bypass is built into
     // the `role` middleware (App\Http\Middleware\RoleMiddleware), so the
