@@ -43,6 +43,19 @@ class JournalPosting extends Model
     public const PURPOSE_CASH_PAYMENT         = 'cash_payment';
     public const PURPOSE_PAYMENT_ALLOCATION   = 'payment_allocation';
 
+    /*
+     * Sales returns (CF-P0-008).
+     *
+     * Distinct purposes rather than reusing PURPOSE_COGS/PURPOSE_REVENUE: the
+     * idempotency key is built from (event_type, source_type, source_id,
+     * purpose), and a return must be able to coexist with the original sale's
+     * postings without either being mistaken for a duplicate of the other.
+     * Separate purposes also make "how much did we reverse this period" a
+     * single query rather than an inference.
+     */
+    public const PURPOSE_SALES_RETURN_COGS    = 'sales_return_cogs';
+    public const PURPOSE_SALES_RETURN_REVENUE = 'sales_return_revenue';
+
     protected $fillable = [
         'organization_id',
         'idempotency_key',

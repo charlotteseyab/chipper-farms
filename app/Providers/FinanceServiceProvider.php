@@ -260,6 +260,14 @@ class FinanceServiceProvider extends ServiceProvider
             \App\Finance\Subscribers\Sales\FeedSaleCogsSubscriber::class,
         );
 
+        // Sales returns (CF-P0-008). One event type, subscribers keyed off
+        // returnable_type — the feed subscriber skips pig returns and vice
+        // versa, so both can be registered against the same event.
+        $registry->register(
+            \App\Domain\Events\Sales\SalesReturnRecorded::TYPE,
+            \App\Finance\Subscribers\Sales\FeedSaleReturnCogsSubscriber::class,
+        );
+
         // Phase 5 — feed sale payment settlement (the feed analogue of the pig
         // payment-received path; closes the gap for pending feed AR).
         $registry->register(
