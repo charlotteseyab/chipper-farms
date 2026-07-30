@@ -267,6 +267,10 @@ class FinanceServiceProvider extends ServiceProvider
             \App\Domain\Events\Sales\SalesReturnRecorded::TYPE,
             \App\Finance\Subscribers\Sales\FeedSaleReturnCogsSubscriber::class,
         );
+        $registry->register(
+            \App\Domain\Events\Sales\SalesReturnRecorded::TYPE,
+            \App\Finance\Subscribers\Sales\PigSaleReturnCogsSubscriber::class,
+        );
 
         // Phase 5 — feed sale payment settlement (the feed analogue of the pig
         // payment-received path; closes the gap for pending feed AR).

@@ -29,6 +29,14 @@ class GroupCostMovement extends Model
     public const EVENT_ADJUSTMENT_DEDUCT  = 'adjustment_deduct';
     public const EVENT_ADJUSTMENT_REVALUE = 'adjustment_revalue';
 
+    /**
+     * Cost returning to the pool because a sale was reversed. Distinct from
+     * EVENT_TRANSFER_IN and EVENT_ACQUISITION: neither of those is a
+     * reversal, and reporting that asks 'what did this group cost to build'
+     * must be able to tell a genuine inflow from an undone outflow.
+     */
+    public const EVENT_SALES_RETURN       = 'sales_return';
+
     public const ALLOWED_EVENTS = [
         self::EVENT_FEED_ISSUE,
         self::EVENT_SALE_COGS,
@@ -65,6 +73,13 @@ class GroupCostMovement extends Model
     public const SOURCE_GROUP_OPENING_IMPORT   = 'group_opening_import';
     public const SOURCE_PIG_ACQUISITION        = 'pig_acquisition';
     public const SOURCE_MANUAL_ADJUSTMENT      = 'manual_adjustment';
+
+    /**
+     * A sold pig returned to the group (CF-P0-008). Keyed on the
+     * SalesReturn id, so a return has its own row rather than mutating the
+     * sale's — the pool must show both the outflow and its reversal.
+     */
+    public const SOURCE_SALES_RETURN           = 'sales_return';
 
     protected $fillable = [
         'organization_id',

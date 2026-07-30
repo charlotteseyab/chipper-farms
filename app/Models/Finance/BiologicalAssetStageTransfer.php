@@ -24,6 +24,17 @@ class BiologicalAssetStageTransfer extends Model
     public const REASON_SALE_COGS          = 'sale_cogs';
     public const REASON_MORTALITY          = 'mortality';
 
+    /**
+     * A sold animal came back and re-entered the herd (CF-P0-008).
+     *
+     * A distinct reason rather than reusing REASON_ACQUISITION: an acquisition
+     * is a purchase that ADDS cost to the business, whereas a return REVERSES
+     * cost that was previously charged to COGS. Conflating them would make
+     * "what did we spend acquiring animals this period" wrong, and would hide
+     * returns from any report that looks at disposals versus acquisitions.
+     */
+    public const REASON_SALES_RETURN       = 'sales_return';
+
     protected $fillable = [
         'organization_id',
         'group_id',

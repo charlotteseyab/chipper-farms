@@ -341,6 +341,68 @@ class GroupCostPoolService
     }
 
     /**
+     * Return a sold pig's cost to the group pool (CF-P0-008).
+     *
+     * The mirror of recordSaleCogs(). A pig sale removes count, value and weight
+     * from the pool; a return puts back EXACTLY what that sale removed, read from
+     * the sale's own movement rather than recomputed.
+     *
+     * Why not reuse recordTransferIn(): its shape is right but its source type is
+     * SOURCE_PIG_GROUP_TRANSFER, which would file a return under group transfers.
+     * Any report asking "what did it cost to build this group" would then count a
+     * reversal as an inflow. A return is an undone outflow, not a new one, and the
+     * distinction has to survive into the data.
+     *
+     * Keyed on the SalesReturn id so the pool shows both the original outflow and
+     * its reversal as separate rows — and so a second return cannot silently
+     * overwrite the first through the unique (source_type, source_id) key.
+     *
+     * @param  string  $returnedValue  the cost the sale removed, as a decimal string
+     * @param  string  $pigWeight      the weight the sale removed
+     */
+    public function recordSalesReturn(
+        int $groupId,
+        string $pigWeight,
+        string $returnedValue,
+        int $salesReturnId,
+        ?CarbonImmutable $occurredAt = null,
+        ?int $actorUserId = null,
+        ?string $reference = null,
+        ?string $notes = null,
+    ): GroupCostMovement {
+        $this->assertNonNegativeString('pig_weight', $pigWeight);
+        $this->assertNonNegativeString('returned_value', $returnedValue);
+
+        return $this->commit(
+            groupId:        $groupId,
+            eventType:      GroupCostMovement::EVENT_SALES_RETURN,
+            sourceType:     GroupCostMovement::SOURCE_SALES_RETURN,
+            sourceId:       $salesReturnId,
+            occurredAt:     $occurredAt ?? CarbonImmutable::now(),
+            actorUserId:    $actorUserId,
+            reference:      $reference,
+            notes:          $notes,
+            eventPigWeight: $pigWeight,
+            openingImportId: null,
+            compute: function (array $before) use ($pigWeight, $returnedValue) {
+                $newCount  = (int) $before['count'] + 1;
+                $newValue  = bcadd($before['value'],  $returnedValue, self::SCALE_QTY);
+                $newWeight = bcadd($before['weight'], $pigWeight,     self::SCALE_QTY);
+
+                return [
+                    'count_delta'        => 1,
+                    'value_delta'        => $returnedValue,
+                    'weight_delta'       => $pigWeight,
+                    'count_after'        => $newCount,
+                    'value_after'        => $newValue,
+                    'weight_after'       => $newWeight,
+                    'event_per_kg_basis' => $this->perKgBasis($before['value'], $before['weight']),
+                ];
+            },
+        );
+    }
+
+    /**
      * Opening pool entry. Refuses if the pool already has any
      * movement.
      */
