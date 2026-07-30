@@ -10,6 +10,16 @@
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
+        <!--
+            tests/Concurrency is deliberately NOT a suite here. `php artisan test`
+            runs every suite in this file, and those tests require a reachable
+            MySQL/MariaDB server, so including them would make the default run
+            depend on external infrastructure. They have their own config:
+
+                vendor/bin/phpunit -c phpunit.concurrency.xml
+
+            See tests/Concurrency/README.md.
+        -->
     </testsuites>
 
     <source>

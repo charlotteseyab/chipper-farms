@@ -252,14 +252,18 @@ class QuoteService
         });
     }
 
+    /**
+     * Allocate an order reference for a quote being converted to an order.
+     *
+     * CRITICAL (CF-P1-014): this must use the SAME sequence as
+     * CheckoutService::nextReference(). Both previously counted
+     * storefront_orders independently and formatted 'SO-{count+1}', so a
+     * checkout and a quote conversion occurring near each other could mint the
+     * same reference against a uniquely-keyed column.
+     */
     protected function nextOrderReference(?int $organizationId): string
     {
-        $count = \App\Models\Storefront\StorefrontOrder::query()
-            ->where('organization_id', $organizationId)
-            ->withTrashed()
-            ->count();
-
-        return 'SO-' . str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
+        return app(StorefrontReferenceAllocator::class)->orderReference($organizationId);
     }
 
     public function canTransition(StorefrontQuote $quote, string $target): bool
@@ -315,13 +319,11 @@ class QuoteService
         return Organization::query()->orderBy('id')->value('id');
     }
 
+    /**
+     * Allocate a quote reference (CF-P1-014). Was count()+1.
+     */
     private function nextReference(?int $organizationId): string
     {
-        $count = StorefrontQuote::query()
-            ->where('organization_id', $organizationId)
-            ->withTrashed()
-            ->count();
-
-        return 'QUO-' . str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
+        return app(StorefrontReferenceAllocator::class)->quoteReference($organizationId);
     }
 }

@@ -84,14 +84,53 @@ class CustomerAccountService
         ]);
     }
 
+    /**
+     * Allocate the next customer code (CF-P1-014).
+     *
+     * Previously 'CUST-' . str_pad(count() + 1). Same two defects as the
+     * storefront order reference: concurrent registrations compute the same
+     * count and collide on the unique (organization_id, code) key, and the
+     * count shifts whenever a counterparty is removed.
+     *
+     * Note the old count() also filtered on type != supplier, so the series was
+     * derived from a subset of the very table whose unique key it had to satisfy
+     * — a supplier created between two customer registrations could change the
+     * next customer code. A dedicated sequence removes that coupling entirely.
+     *
+     * year: 0 — non-annual, continuous series. See CheckoutService::nextReference().
+     */
     protected function nextCustomerCode(?int $organizationId): string
     {
-        $count = Counterparty::query()
-            ->where('organization_id', $organizationId)
-            ->where('type', '!=', Counterparty::TYPE_SUPPLIER)
-            ->count();
+        return app(\App\Services\Numbering\NumberingService::class)->next(
+            sequenceType: 'customer_code',
+            prefix: 'CUST',
+            year: 0,
+            organizationId: $organizationId,
+            padding: 5,
+            formatTemplate: '{prefix}-{number}',
+            initialNumber: $this->highestExistingCustomerCodeNumber($organizationId) + 1,
+        );
+    }
 
-        return 'CUST-' . str_pad((string) ($count + 1), 5, '0', STR_PAD_LEFT);
+    /**
+     * Highest numeric suffix among existing 'CUST-nnnnn' codes.
+     *
+     * Deliberately NOT filtered by type: the unique key covers the whole table,
+     * so the sequence must clear every existing CUST- code regardless of which
+     * counterparty type holds it.
+     */
+    protected function highestExistingCustomerCodeNumber(?int $organizationId): int
+    {
+        $highest = Counterparty::query()
+            ->where('organization_id', $organizationId)
+            ->where('code', 'like', 'CUST-%')
+            ->max('code');
+
+        if (! is_string($highest) || ! preg_match('/(\d+)$/', $highest, $m)) {
+            return 0;
+        }
+
+        return (int) $m[1];
     }
 
     protected function uniqueReferralCode(): string

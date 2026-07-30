@@ -207,13 +207,20 @@ class CheckoutService
         ];
     }
 
+    /**
+     * Allocate the next storefront order reference (CF-P1-014).
+     *
+     * Was 'SO-' . str_pad(count() + 1), which two concurrent checkouts resolve
+     * to the same value — and storefront_orders has a unique key on
+     * (organization_id, reference), so one customer's checkout fails at the last
+     * step, after payment has already been initialised.
+     *
+     * Delegated to StorefrontReferenceAllocator so this and
+     * QuoteService::nextOrderReference() share ONE sequence. They previously
+     * duplicated the same count-based logic and could mint identical references.
+     */
     protected function nextReference(?int $organizationId): string
     {
-        $count = StorefrontOrder::query()
-            ->where('organization_id', $organizationId)
-            ->withTrashed()
-            ->count();
-
-        return 'SO-' . str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
+        return app(StorefrontReferenceAllocator::class)->orderReference($organizationId);
     }
 }

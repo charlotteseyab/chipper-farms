@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Concurrency suite: real multi-process contention against MySQL/MariaDB.
+
+    Separate from phpunit.xml because `php artisan test` runs every suite in that
+    file, and these tests require a reachable database server. Keeping them here
+    means the fast default suite stays infrastructure-free while the concurrency
+    gate remains a first-class, explicitly-run check rather than a skipped test.
+
+    Usage:
+        CF_CONCURRENCY_DB_PORT=3399 vendor/bin/phpunit -c phpunit.concurrency.xml
+
+    Defaults target 127.0.0.1:3399 / chipper_farms_test as root with no password;
+    override with the CF_CONCURRENCY_DB_* environment variables.
+    See tests/Concurrency/README.md.
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true">
+    <testsuites>
+        <testsuite name="Concurrency">
+            <directory>tests/Concurrency</directory>
+        </testsuite>
+    </testsuites>
+
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <!--
+            These are for the parent PHPUnit process only. Each worker process is
+            given its own DB_* environment by ConcurrencyTestCase, pointing at the
+            real MySQL/MariaDB instance — that is the whole point of the suite.
+        -->
+        <env name="CACHE_STORE" value="array"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="TELESCOPE_ENABLED" value="false"/>
+        <env name="PULSE_ENABLED" value="false"/>
+    </php>
+</phpunit>

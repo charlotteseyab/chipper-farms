@@ -196,13 +196,15 @@ class PushToStorefrontService
         return $slug;
     }
 
+    /**
+     * Allocate a listing reference (CF-P1-014). Was count()+1.
+     *
+     * Not named in the register, found by sweeping the repository for
+     * count-based identifiers as the remediation brief requires.
+     */
     protected function nextReference(int $organizationId): string
     {
-        $count = StorefrontListing::query()
-            ->where('organization_id', $organizationId)
-            ->withTrashed()
-            ->count();
-
-        return 'LIST-' . str_pad((string) ($count + 1), 6, '0', STR_PAD_LEFT);
+        return app(\App\Storefront\Services\StorefrontReferenceAllocator::class)
+            ->listingReference($organizationId);
     }
 }

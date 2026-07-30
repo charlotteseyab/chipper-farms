@@ -25,11 +25,19 @@ use Illuminate\Support\Facades\DB;
  * StockValidationException carrying the field+message pair the controller
  * should feed back into session errors.
  *
- * Code generation: preserved exactly from store() — CFPG-{YM}-{next_id}.
- * This uses MAX(id)+1 without locking which is marginally susceptible to
- * race conflicts under heavy concurrency. Acceptable for the current scale.
- * A Phase 1.x improvement would wrap in SELECT ... FOR UPDATE on a counter
- * table, but that's out of scope for this decomposition.
+ * Code generation: CFPG-{YM}-{n}.
+ *
+ * This previously used MAX(id)+1 without locking, and the docblock here
+ * acknowledged the race: "marginally susceptible to race conflicts under heavy
+ * concurrency... A Phase 1.x improvement would wrap in SELECT ... FOR UPDATE on
+ * a counter table, but that's out of scope for this decomposition."
+ *
+ * pigs_management.code carries a UNIQUE key, so the consequence was not a
+ * cosmetic duplicate: two concurrent registrations compute the same MAX(id)+1
+ * and the second insert is rejected outright. The counter table the docblock
+ * asked for now exists (document_sequences) with a locking allocator
+ * (NumberingService), so the deferred improvement is applied here — this is the
+ * repository-wide sweep for MAX()+1 identifiers that CF-P1-014 requires.
  */
 class PigStockService
 {
@@ -69,13 +77,30 @@ class PigStockService
 
         $birthDate = Carbon::parse($data['date_of_birth']);
 
-        // Code generation: CFPG-{YM}-{next_id}. The max(id)+1 approach matches
-        // the original implementation; see class docblock for caveat.
-        $nextId = (int) PigManagement::max('id') + 1;
-        $data['code']        = 'CFPG-' . $birthDate->format('ym') . '-' . $nextId;
+        $organizationId = $this->currentOrganization->id();
+
+        // Code generation: CFPG-{YM}-{n}, with the numeric part allocated under
+        // a row lock instead of MAX(id)+1 (see class docblock).
+        //
+        // padding: 1 keeps the suffix unpadded, matching codes already issued.
+        // year: 0 marks a non-annual, continuous series — the {YM} segment
+        // already varies by birth month, so resetting the counter annually would
+        // reissue suffixes and collide on the unique key.
+        // initialNumber seeds from MAX(id)+1, which is >= every suffix any
+        // existing code can hold, so adoption cannot collide with live data.
+        $sequenceNumber = app(\App\Services\Numbering\NumberingService::class)->next(
+            sequenceType: 'pig_code',
+            prefix: 'CFPG',
+            year: 0,
+            organizationId: $organizationId,
+            padding: 1,
+            formatTemplate: '{number}',
+            initialNumber: ((int) PigManagement::withTrashed()->max('id')) + 1,
+        );
+
+        $data['code']        = 'CFPG-' . $birthDate->format('ym') . '-' . $sequenceNumber;
         $data['age_in_days'] = (int) $birthDate->diffInDays(now());
 
-        $organizationId = $this->currentOrganization->id();
         if ($organizationId !== null) {
             $data['organization_id'] = $organizationId;
         }

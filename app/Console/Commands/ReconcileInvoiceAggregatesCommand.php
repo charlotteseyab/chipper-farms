@@ -29,7 +29,7 @@ use Illuminate\Support\Facades\DB;
  *   php artisan finance:reconcile-invoice-aggregates --fix       — fix drift
  *   php artisan finance:reconcile-invoice-aggregates --org=N     — restrict to one org
  *
- * Schedule: nightly (in app/Console/Kernel.php). Without --fix.
+ * Schedule: nightly at 02:30 (registered in routes/console.php). Without --fix.
  */
 class ReconcileInvoiceAggregatesCommand extends Command
 {
