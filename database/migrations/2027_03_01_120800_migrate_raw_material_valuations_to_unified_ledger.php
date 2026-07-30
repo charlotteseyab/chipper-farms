@@ -40,12 +40,34 @@ use Illuminate\Support\Facades\Schema;
  *     in inventory_movements with the legacy stock_log_id repointed
  *     to source_type='legacy_stock_log' for traceability.
  *
- * Idempotency:
- *   The migration writes to inventory_movements with source_type =
- *   'legacy_valuation' and source_id = the original valuation row's
- *   id. The UNIQUE(source_type, source_id) constraint catches a
- *   re-run cleanly — the second run inserts zero rows and proceeds
- *   to the drop step idempotently.
+ * Idempotency (corrected — CF-P1-016):
+ *   The original note here claimed that "the UNIQUE(source_type, source_id)
+ *   constraint catches a re-run cleanly — the second run inserts zero rows and
+ *   proceeds". The constraint does exist (inventory_movements_source_unique),
+ *   but that is not how a plain INSERT ... SELECT behaves: it ABORTS with
+ *   "1062 Duplicate entry 'legacy_valuation-<id>'". Verified directly against
+ *   MariaDB 11.4.
+ *
+ *   Why that matters despite the DML being transactional: the DROP must run
+ *   outside the transaction (MySQL implicitly commits on DDL — see the comment
+ *   at the drop). So there is a real window in which the copy has COMMITTED but
+ *   the legacy table has not yet been dropped. If the process dies there — a
+ *   deploy timeout, an OOM kill, a lost connection — the next run finds the
+ *   legacy table still present, re-runs the INSERT, and fails on the unique key.
+ *   The migration is then permanently stuck: it cannot complete and cannot be
+ *   rolled forward without manual intervention, mid-deploy.
+ *
+ *   inventory_balances has the same exposure through its own
+ *   UNIQUE(organization_id, item_kind, item_id).
+ *
+ *   Both steps are now genuinely idempotent:
+ *     - the copy carries WHERE NOT EXISTS against the already-migrated
+ *       source_type/source_id pair, so a re-run copies only what is missing;
+ *     - the balance snapshot upserts instead of blind-inserting.
+ *
+ *   NOT EXISTS is used rather than INSERT IGNORE / ON DUPLICATE KEY because it
+ *   is portable: this migration also runs on SQLite in the test suite, where
+ *   INSERT IGNORE is not valid syntax.
  *
  * Rollback:
  *   The down() recreates raw_material_valuations and copies back the
@@ -125,6 +147,11 @@ return new class extends Migration {
                     created_at,
                     updated_at
                 FROM raw_material_valuations
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM inventory_movements im
+                    WHERE im.source_type = \'legacy_valuation\'
+                      AND im.source_id = raw_material_valuations.id
+                )
                 ORDER BY id ASC
             ');
 
@@ -160,10 +187,17 @@ return new class extends Migration {
                     ->where('id', $row->item_id)
                     ->first(['name', 'unit']);
 
-                $balanceId = DB::table('inventory_balances')->insertGetId([
-                    'organization_id'    => $row->organization_id,
-                    'item_kind'          => 'raw_material',
-                    'item_id'            => $row->item_id,
+                // Upsert rather than insert: inventory_balances carries
+                // UNIQUE(organization_id, item_kind, item_id), so a re-run after
+                // a partial failure would abort here exactly as the copy step did
+                // (CF-P1-016). updateOrInsert is portable across MySQL and SQLite.
+                $balanceKey = [
+                    'organization_id' => $row->organization_id,
+                    'item_kind'       => 'raw_material',
+                    'item_id'         => $row->item_id,
+                ];
+
+                $balanceValues = [
                     'item_name_cache'    => $material->name ?? null,
                     'item_unit_cache'    => $material->unit ?? null,
                     'on_hand_qty'        => $latest->quantity_on_hand_after,
@@ -175,9 +209,20 @@ return new class extends Migration {
                                                 ->where('item_id', $row->item_id)
                                                 ->min('occurred_at'),
                     'last_movement_at'   => $latest->occurred_at,
-                    'created_at'         => now(),
                     'updated_at'         => now(),
-                ]);
+                ];
+
+                // created_at is set only when the row is genuinely new, so a
+                // re-run refreshes the snapshot without rewriting its provenance.
+                if (! DB::table('inventory_balances')->where($balanceKey)->exists()) {
+                    $balanceValues['created_at'] = now();
+                }
+
+                DB::table('inventory_balances')->updateOrInsert($balanceKey, $balanceValues);
+
+                $balanceId = DB::table('inventory_balances')
+                    ->where($balanceKey)
+                    ->value('id');
 
                 // Patch every movement row for this material with the
                 // balance_id. The "balance_id" column is informational

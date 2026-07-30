@@ -278,4 +278,64 @@ class DerivedOrganizationScopeTest extends TestCase
         $this->assertFalse($policy->view($this->managerA, $farrowing));
         $this->assertFalse($policy->view($this->managerB, $farrowing));
     }
+
+    /* ---------------------------------------------------------------- */
+    /* Scoped route bindings                                            */
+    /* ---------------------------------------------------------------- */
+
+    /**
+     * A cross-tenant record must be indistinguishable from a missing one.
+     *
+     * The route bindings for pig/farrowing/mating/weaning were global
+     * findOrFail(). Policies denied the action, but the BINDING resolved the
+     * record first, so another tenant's pig returned 403 while a genuinely
+     * absent id returned 404. That difference is an enumeration oracle over the
+     * whole livestock table: an attacker learns which ids exist without ever
+     * being authorised to see them.
+     *
+     * Both cases must now be 404.
+     */
+    public function test_cross_tenant_pig_is_indistinguishable_from_missing(): void
+    {
+        $foreignPig = $this->makePig($this->orgB);
+
+        // Act as an Organization A user; bind A as the current organisation the
+        // way EnsureOrganizationContext would.
+        $this->app->make(CurrentOrganization::class)->bind($this->orgA);
+
+        $crossTenant = $this->actingAs($this->managerA)
+            ->get(route('health.show', $foreignPig->id));
+
+        $absent = $this->actingAs($this->managerA)
+            ->get(route('health.show', 99999999));
+
+        $this->assertSame(
+            $absent->getStatusCode(),
+            $crossTenant->getStatusCode(),
+            'A pig belonging to another organisation returned a different status than a '
+            . 'non-existent one, which lets an attacker enumerate ids. Both must be 404.',
+        );
+
+        $this->assertSame(404, $crossTenant->getStatusCode());
+    }
+
+    public function test_own_organization_pig_still_resolves(): void
+    {
+        $ownPig = $this->makePig($this->orgA);
+
+        $this->app->make(CurrentOrganization::class)->bind($this->orgA);
+
+        // Not asserting 200: health.show requires view_health_records, which this
+        // fixture does not seed. What matters is that the BINDING resolved, i.e.
+        // the response is not the 404 a scoped-out record would produce.
+        $response = $this->actingAs($this->managerA)
+            ->get(route('health.show', $ownPig->id));
+
+        $this->assertNotSame(
+            404,
+            $response->getStatusCode(),
+            'A pig in the user\'s own organisation must still bind; scoping must not '
+            . 'deny legitimate access.',
+        );
+    }
 }
