@@ -88,7 +88,23 @@ class RefundHardeningTest extends StorefrontTestCase
         $this->assertSame(StorefrontListing::STATUS_PUBLISHED, $listing->status);
     }
 
-    public function test_posted_pig_line_is_handed_to_finance_not_auto_reversed(): void
+    /**
+     * Renamed and re-purposed (CF-P0-008).
+     *
+     * This was test_posted_pig_line_is_handed_to_finance_not_auto_reversed, and
+     * it asserted that a pig line produced a "Handed to finance" note instead of
+     * being reversed. That contract is gone: pig lines ARE now auto-reversed by
+     * the sales-return subscribers, so asserting the handoff would pin the
+     * defect in place.
+     *
+     * The fixture points at PigSale#999, which does not exist, so what it
+     * genuinely covers is the DANGLING REFERENCE path: an order line referencing
+     * a sale that is no longer there. The refund must still complete — the
+     * customer is owed their money regardless — while reporting that one line's
+     * accounting could not be reversed. Silently dropping it is what the old
+     * note effectively did.
+     */
+    public function test_refund_reports_a_line_whose_sale_no_longer_exists(): void
     {
         $order = $this->makeRefundableOrder(['finance_posting_status' => 'posted']);
         $order->items()->create([
@@ -103,9 +119,13 @@ class RefundHardeningTest extends StorefrontTestCase
         $refunded = $this->app->make(StorefrontOrderRefundService::class)
             ->refund($order, $this->makeUser('admin'), 'sick animal');
 
+        // The refund completes: the customer is owed their money whatever the
+        // state of the accounting behind it.
         $this->assertSame(StorefrontOrder::STATUS_REFUNDED, $refunded->status);
-        $this->assertStringContainsString('Handed to finance', $refunded->finance_reversal_note);
-        $this->assertStringContainsString('sales return', $refunded->finance_reversal_note);
+
+        // But the unreversed line is reported rather than lost.
+        $this->assertStringContainsString('Requires attention', $refunded->finance_reversal_note);
+        $this->assertStringContainsString('no longer exists', $refunded->finance_reversal_note);
     }
 
     public function test_refund_rejected_from_non_refundable_status(): void

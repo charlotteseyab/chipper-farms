@@ -3,13 +3,11 @@
 namespace App\Storefront\Services;
 
 use App\Models\FeedSale;
-use App\Models\Finance\JournalBatch;
 use App\Models\PigSale;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontOrder;
 use App\Models\Storefront\StorefrontOrderPayment;
 use App\Models\User;
-use App\Services\Finance\JournalReversalService;
 use App\Storefront\Payments\PaystackClient;
 use App\Storefront\Services\Exceptions\InvalidOrderTransitionException;
 use App\Storefront\Services\Exceptions\PaymentException;
@@ -19,18 +17,26 @@ use Illuminate\Support\Facades\Log;
 /**
  * Refunds a storefront order.
  *
- * Scope boundary (deliberate — see README Phase 6):
- *   - Reverses the CUSTOMER-FACING financial legs correctly via the audited
- *     JournalReversalService: the revenue batch (which, for a cash sale, also
- *     returns the cash in one balanced reversal) and any settled cash-receipt
- *     batch. These have no inventory-subledger coupling, so the reversal is
- *     drift-free.
- *   - Restores storefront OPERATIONAL availability (product listing quantity /
- *     republish) so stock is sellable again.
- *   - Does NOT auto-reverse COGS / inventory / biological-asset legs or
- *     un-delete a sold pig: there is no drift-free primitive for a sales
- *     return, so these are explicitly HANDED TO FINANCE via a recorded
- *     finance_reversal_note rather than risk GL↔subledger drift.
+ * WHAT A REFUND NOW DOES (CF-P0-008)
+ *   - Submits the refund to the payment gateway and only reports the order as
+ *     refunded once the provider settles (CF-P0-007).
+ *   - Raises a SALES RETURN for every posted order line. The return's
+ *     subscribers perform the complete reversal: stock or the animal goes back,
+ *     COGS is credited, cost returns to the group cost pool, the biological
+ *     subledger is re-entered, a sold pig is restored, revenue is reversed and
+ *     an invoiced pig sale's invoice is marked reversed.
+ *   - Restores storefront OPERATIONAL availability so stock is sellable again.
+ *
+ * WHAT IT USED TO DO, AND WHY THAT CHANGED
+ *   This service previously reversed only the revenue and receipt journals via
+ *   JournalReversalService, and handed COGS, inventory, biological assets and
+ *   pig restoration to finance through a finance_reversal_note. The stated
+ *   reason was accurate — there was no drift-free sales-return primitive, and
+ *   reversing the GL alone would have left the subledgers disagreeing.
+ *
+ *   That primitive now exists, so the handoff is gone. Note that the sales
+ *   return REPLACES the old journal reversal rather than supplementing it:
+ *   running both would reverse revenue twice, once through each mechanism.
  *
  * If the order was never posted to finance (finance_posting_status = pending),
  * the refund is clean — there is simply nothing to reverse.
@@ -41,9 +47,9 @@ use Illuminate\Support\Facades\Log;
 class StorefrontOrderRefundService
 {
     public function __construct(
-        protected JournalReversalService $reversalService,
         protected ListingService $listingService,
         protected PaystackClient $paystack,
+        protected \App\Services\Sales\RecordSalesReturnService $salesReturns,
     ) {
     }
 
@@ -113,12 +119,21 @@ class StorefrontOrderRefundService
             $handed   = [];
 
             if ($order->finance_posting_status === 'posted') {
+                // CF-P0-008: each posted line now raises a real SALES RETURN.
+                //
+                // This REPLACES the previous mechanism rather than supplementing
+                // it. That code reversed the revenue journal directly with
+                // JournalReversalService and handed COGS, inventory, biological
+                // assets and pig restoration to finance as a text note that
+                // nothing consumed. Raising a return does all of it —
+                // and running both would reverse revenue TWICE, once through
+                // each mechanism.
                 foreach ($order->items as $item) {
-                    if ($item->posted_sale_type === FeedSale::class && $item->posted_sale_id) {
-                        $this->reverseFeedSale((int) $item->posted_sale_id, $actor, $order->reference, $reversed, $handed);
-                    } elseif ($item->posted_sale_type === PigSale::class && $item->posted_sale_id) {
-                        $handed[] = "PigSale#{$item->posted_sale_id}: invoice/COGS/biological-asset reversal + pig restore — process as a sales return";
+                    if ($item->posted_sale_id === null || $item->posted_sale_type === null) {
+                        continue;
                     }
+
+                    $this->raiseSalesReturn($order, $item, $actor, $reason, $reversed, $handed);
                 }
             } else {
                 $reversed[] = 'No finance posting existed — clean refund, nothing to reverse';
@@ -128,7 +143,7 @@ class StorefrontOrderRefundService
 
             $note = 'Reversed automatically: ' . (empty($reversed) ? 'none' : implode('; ', $reversed)) . '.';
             if (! empty($handed)) {
-                $note .= ' Handed to finance (sales-return): ' . implode('; ', $handed) . '.';
+                $note .= ' Requires attention: ' . implode('; ', $handed) . '.';
             }
 
             // Whether this refund is FINISHED depends entirely on the provider.
@@ -287,45 +302,96 @@ class StorefrontOrderRefundService
         ], true);
     }
 
-    protected function reverseFeedSale(int $saleId, User $actor, string $orderRef, array &$reversed, array &$handed): void
-    {
-        $sale = FeedSale::find($saleId);
-        if (! $sale) {
+    /**
+     * Raise a SalesReturn for one refunded order line (CF-P0-008).
+     *
+     * The return is the thing that actually reverses the sale: its subscribers
+     * put stock or the animal back, credit COGS, return cost to the group pool,
+     * reverse revenue and restore the pig record. This method's only job is to
+     * decide WHAT is being returned and to record it.
+     *
+     * A failure here is caught and reported rather than thrown. A refund is
+     * primarily a promise to the customer, and the money has already been
+     * submitted to the gateway by this point; aborting the whole refund because
+     * one line's accounting could not be raised would leave the customer paid
+     * with no record of why. The failure is surfaced on the order instead, and
+     * finance:reconcile-storefront-settlements reports it.
+     *
+     * @param  list<string>  $reversed
+     * @param  list<string>  $handed
+     */
+    protected function raiseSalesReturn(
+        StorefrontOrder $order,
+        \App\Models\Storefront\StorefrontOrderItem $item,
+        User $actor,
+        string $reason,
+        array &$reversed,
+        array &$handed,
+    ): void {
+        $saleClass = (string) $item->posted_sale_type;
+        $saleId    = (int) $item->posted_sale_id;
+
+        $sale = match ($saleClass) {
+            FeedSale::class => FeedSale::find($saleId),
+            PigSale::class  => PigSale::find($saleId),
+            default         => null,
+        };
+
+        if ($sale === null) {
+            $handed[] = sprintf(
+                '%s#%d referenced by order line #%d no longer exists — reversal could not be raised',
+                class_basename($saleClass),
+                $saleId,
+                $item->id,
+            );
+
             return;
         }
 
-        // Revenue (cash sale: this leg also returns the cash).
-        if ($sale->revenue_journal_batch_id) {
-            $batch = JournalBatch::find($sale->revenue_journal_batch_id);
-            if ($this->reversible($batch)) {
-                $this->reversalService->reverse($batch, $actor, "Storefront refund: order {$orderRef}");
-                $reversed[] = "FeedSale#{$sale->id} revenue batch #{$batch->id}";
-            }
-        }
+        // A pig is one animal regardless of what the order line says; feed
+        // returns the quantity that was actually ordered.
+        $quantity = $saleClass === PigSale::class
+            ? '1'
+            : (string) $item->quantity;
 
-        // Settled cash receipt (COD collected at completion) — returns the cash.
-        $receipt = JournalBatch::query()
-            ->where('source_type', FeedSale::class)
-            ->where('source_id', $sale->id)
-            ->where('batch_type', 'auto_feed_sale_receipt')
-            ->where('status', JournalBatch::STATUS_POSTED)
-            ->first();
-        if ($this->reversible($receipt)) {
-            $this->reversalService->reverse($receipt, $actor, "Storefront refund (receipt): order {$orderRef}");
-            $reversed[] = "FeedSale#{$sale->id} receipt batch #{$receipt->id}";
-        }
+        try {
+            $return = $this->salesReturns->record(
+                sale: $sale,
+                actor: $actor,
+                quantity: $quantity,
+                reason: 'Storefront refund — order ' . $order->reference . ': ' . $reason,
+                // Goods refunded through the storefront are assumed to come
+                // back. Where they do not — spoiled, or kept by the customer —
+                // finance raises the return directly with restock: false, which
+                // leaves the cost consumed. The storefront cannot know which
+                // happened, so it takes the ordinary case and leaves the
+                // exception to a human.
+                restock: true,
+                storefrontOrderId: (int) $order->id,
+            );
 
-        // COGS / inventory: no drift-free sales-return primitive — hand to finance.
-        if ($sale->cogs_journal_batch_id) {
-            $handed[] = "FeedSale#{$sale->id} COGS/inventory (batch #{$sale->cogs_journal_batch_id}) — process as a sales return";
-        }
-    }
+            $reversed[] = sprintf(
+                '%s#%d reversed by sales return %s',
+                class_basename($saleClass),
+                $saleId,
+                $return->return_number ?? ('#' . $return->id),
+            );
+        } catch (\Throwable $e) {
+            Log::error('storefront refund could not raise a sales return', [
+                'order_id'   => $order->id,
+                'order_ref'  => $order->reference,
+                'sale_type'  => $saleClass,
+                'sale_id'    => $saleId,
+                'error'      => $e->getMessage(),
+            ]);
 
-    protected function reversible(?JournalBatch $batch): bool
-    {
-        return $batch !== null
-            && $batch->isPosted()
-            && $batch->reversed_by_batch_id === null;
+            $handed[] = sprintf(
+                '%s#%d could not be reversed automatically (%s) — needs finance attention',
+                class_basename($saleClass),
+                $saleId,
+                $e->getMessage(),
+            );
+        }
     }
 
     /**
@@ -347,9 +413,11 @@ class StorefrontOrderRefundService
             $isPig = in_array($listing->kind, [StorefrontListing::KIND_LIVE_PIG, StorefrontListing::KIND_BREEDING_STOCK], true);
 
             if ($isPig) {
-                // The pig was soft-deleted by the sale spine; restoring it is
-                // part of the finance sales return, not a storefront action.
-                $handed[] = "Listing #{$listing->id} (pig) remains sold_out pending pig restore";
+                // The pig itself is restored by the sales return's subscriber
+                // (it owns the soft-delete reversal, the biological subledger and
+                // the cost pool together). The LISTING is left sold_out
+                // deliberately: whether a returned animal goes back on sale is a
+                // commercial decision, not an automatic consequence of a refund.
                 continue;
             }
 
