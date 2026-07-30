@@ -9,6 +9,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PurchaseRequest extends Model
 {
+    // See PigSale: PurchaseRequestPolicy enforces tenancy, so the write path
+    // must stamp it. The controller already set organization_id explicitly on
+    // store(); the trait closes the gap for every other creation path
+    // (CF-P0-005).
+    use \App\Models\Concerns\BelongsToOrganization;
+
     use HasFactory;
 
     protected $fillable = [

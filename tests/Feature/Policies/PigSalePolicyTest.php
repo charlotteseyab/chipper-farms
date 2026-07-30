@@ -102,7 +102,13 @@ class PigSalePolicyTest extends TestCase
     public function test_update_payment_role_matrix(string $role, bool $expected): void
     {
         $this->actingAs($this->makeUser($role));
-        $sale = new PigSale();
+        // Stand-in for "any sale in this user's organisation". The organisation
+        // must be set explicitly: sameOrganization() now fails closed, so an
+        // unsaved model with a null organisation is denied on tenancy grounds and
+        // this test would stop measuring the role matrix it exists to pin.
+        // Cross-tenant behaviour is covered by OrganizationScopePolicyTest and
+        // DerivedOrganizationScopeTest.
+        $sale = new PigSale(['organization_id' => $this->org->id]);
         $this->assertSame($expected, Gate::allows('updatePayment', $sale));
     }
 
@@ -120,7 +126,13 @@ class PigSalePolicyTest extends TestCase
     public function test_delete_role_matrix(string $role, bool $expected): void
     {
         $this->actingAs($this->makeUser($role));
-        $sale = new PigSale();
+        // Stand-in for "any sale in this user's organisation". The organisation
+        // must be set explicitly: sameOrganization() now fails closed, so an
+        // unsaved model with a null organisation is denied on tenancy grounds and
+        // this test would stop measuring the role matrix it exists to pin.
+        // Cross-tenant behaviour is covered by OrganizationScopePolicyTest and
+        // DerivedOrganizationScopeTest.
+        $sale = new PigSale(['organization_id' => $this->org->id]);
         $this->assertSame($expected, Gate::allows('delete', $sale));
     }
 

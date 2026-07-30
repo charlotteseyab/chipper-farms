@@ -2,44 +2,57 @@
 
 namespace App\Policies\Concerns;
 
+use App\Models\Concerns\ResolvesOrganization;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Shared tenant-scope guard for policies.
  *
- * Phase 0.1 introduced organization_id on users; Batch D added
- * organization_id to pig_sales, pig_deaths, purchase_requests,
- * feed_batches, raw_material_stock_logs.
- *
+ * FAIL-CLOSED CONTRACT (CF-P0-005)
+ * --------------------------------
  * Every per-instance policy method (view/update/delete) calls
- * sameOrganization($user, $model) BEFORE checking role permissions.
- * If the user and the resource belong to different organizations the
- * action is denied — even if the user's role would otherwise allow it.
+ * sameOrganization($user, $model) BEFORE checking role permissions. If the user
+ * and the resource belong to different organisations the action is denied even
+ * if the user's role would otherwise allow it.
  *
- * Behaviour for resources without organization_id:
- *   - Returns true (no scope to enforce). This keeps the trait safe to
- *     use on legacy resources during the migration period.
- *   - When organization_id later becomes NOT NULL, every row will have
- *     a value and the check becomes effective everywhere.
+ * What changed and why
+ * --------------------
+ * This trait previously returned TRUE for any resource whose organization_id
+ * was null or absent, described as a tightening guard that "never regresses"
+ * and a branch that would "become unreachable once backfill catches up".
  *
- * Behaviour for users without organization_id:
- *   - Returns false (defensive: an unscoped user shouldn't access scoped data).
- *   - This shouldn't happen post-Phase-0.1 backfill, but defends against
- *     fresh seed data or test fixtures.
+ * Both premises were wrong in practice:
  *
- * Superuser bypass (Gate::before in AuthServiceProvider) runs BEFORE the
- * policy, so superusers skip this check entirely.
+ *  1. 41 of 128 tables have no organization_id column at all — including
+ *     farrowing, matings, weanings, health_records, pig_weights,
+ *     medication_administrations and piglet_deaths. For those the branch was
+ *     not transitional, it was permanent. FarrowingPolicy, MatingPolicy and
+ *     WeaningPolicy each call this helper, so each had NO tenant enforcement:
+ *     an Organization B user could view and mutate Organization A breeding
+ *     records and the policy would allow it.
+ *
+ *  2. A guard that passes on missing data is not a tightening guard. It is
+ *     precisely the case an attacker reaches for, because unscoped legacy rows
+ *     and unpopulated columns are exactly where cross-tenant access lives.
+ *
+ * The contract is now: resolve the resource's organisation; if it cannot be
+ * resolved, DENY. Resolution uses the ResolvesOrganization interface where a
+ * model implements it, which lets column-less models derive tenancy through
+ * their parent pig instead of being exempted.
+ *
+ * Superuser bypass (Gate::before in AppServiceProvider) runs BEFORE the policy,
+ * so superusers skip this check entirely and cannot be locked out.
  */
 trait EnforcesOrganizationScope
 {
     /**
-     * Returns true iff $user and $resource belong to the same organization.
+     * Returns true iff $user and $resource provably belong to the same
+     * organisation.
      *
-     * Pass $resource as a Model (any subclass that may carry organization_id),
-     * a relation (BelongsTo), or null. Null returns true (no resource = no
-     * scope to enforce — used for class-level methods like viewAny/create
-     * where there's no specific instance yet).
+     * $resource === null returns true: class-level abilities such as viewAny
+     * and create have no instance to scope, and the caller's role check is the
+     * control there.
      */
     protected function sameOrganization(User $user, ?Model $resource): bool
     {
@@ -47,30 +60,39 @@ trait EnforcesOrganizationScope
             return true;
         }
 
-        // Defensive: unscoped user fails closed.
+        // An unscoped user can never match a scoped resource.
         if (! $user->organization_id) {
             return false;
         }
 
-        // Resource without organization_id (legacy row, or a model that
-        // doesn't carry the column): the scope check passes. Role check
-        // is the only enforcement until backfill catches up.
-        if (! array_key_exists('organization_id', $resource->getAttributes())
-            && ! property_exists($resource, 'organization_id')
-            && ! method_exists($resource, 'getAttribute')) {
-            return true;
-        }
+        $resourceOrg = $this->resolveResourceOrganizationId($resource);
 
-        $resourceOrg = $resource->getAttribute('organization_id');
-
-        // If the resource genuinely has no organization_id (legacy unbacked
-        // row), pass through. This is intentional — it means the scope
-        // check is a tightening guard, never a regression. Once backfill
-        // populates every row, this branch becomes unreachable.
+        // Unresolvable tenancy is a denial, not an exemption. This is the
+        // branch that used to return true.
         if ($resourceOrg === null) {
-            return true;
+            return false;
         }
 
-        return (int) $user->organization_id === (int) $resourceOrg;
+        return (int) $user->organization_id === $resourceOrg;
+    }
+
+    /**
+     * Resolve the organisation of a resource.
+     *
+     * Order matters: an explicit ResolvesOrganization implementation wins,
+     * because that is how a model without the column declares how to derive its
+     * tenancy. Otherwise fall back to the column when the model carries one.
+     */
+    protected function resolveResourceOrganizationId(Model $resource): ?int
+    {
+        if ($resource instanceof ResolvesOrganization) {
+            $resolved = $resource->resolveOrganizationId();
+
+            return $resolved === null ? null : (int) $resolved;
+        }
+
+        $value = $resource->getAttribute('organization_id');
+
+        return $value === null ? null : (int) $value;
     }
 }

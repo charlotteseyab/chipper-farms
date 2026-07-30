@@ -5,8 +5,31 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-class Weaning extends Model
+use App\Models\Concerns\ResolvesOrganization;
+
+class Weaning extends Model implements ResolvesOrganization
 {
+    /**
+     * The `weanings` table has no organization_id column, so tenancy is derived
+     * from the weaned pig, then the mother (CF-P0-005). Before this,
+     * sameOrganization() passed unconditionally and WeaningPolicy enforced no
+     * tenant boundary.
+     *
+     * Returns null — a denial — when neither can answer.
+     */
+    public function resolveOrganizationId(): ?int
+    {
+        $pigOrg = $this->pig?->organization_id;
+
+        if ($pigOrg !== null) {
+            return (int) $pigOrg;
+        }
+
+        $motherOrg = $this->mother?->organization_id;
+
+        return $motherOrg === null ? null : (int) $motherOrg;
+    }
+
     use HasFactory;
 
     protected $fillable = [

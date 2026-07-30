@@ -8,8 +8,32 @@ use Illuminate\Support\Carbon;
 use App\Helpers\BreedingCalculator;
 use App\Models\User; // Added for relationship consistency
 use App\Models\PigManagement; // Added for relationship consistency
-class Mating extends Model
+use App\Models\Concerns\ResolvesOrganization;
+
+class Mating extends Model implements ResolvesOrganization
 {
+    /**
+     * The `matings` table has no organization_id column, so tenancy is derived
+     * from the female (then the male) pig (CF-P0-005). Before this,
+     * sameOrganization() passed unconditionally for matings and MatingPolicy
+     * enforced no tenant boundary — despite MatingController correctly calling
+     * authorize() on every action.
+     *
+     * Returns null — a denial — when neither parent can answer.
+     */
+    public function resolveOrganizationId(): ?int
+    {
+        $femaleOrg = $this->female?->organization_id;
+
+        if ($femaleOrg !== null) {
+            return (int) $femaleOrg;
+        }
+
+        $maleOrg = $this->male?->organization_id;
+
+        return $maleOrg === null ? null : (int) $maleOrg;
+    }
+
     protected $fillable = [
         'male_id',
         'female_id',

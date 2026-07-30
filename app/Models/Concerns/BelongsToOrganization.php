@@ -32,6 +32,44 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 trait BelongsToOrganization
 {
+    /**
+     * Stamp the current organisation on create when the caller has not set one
+     * (CF-P0-005).
+     *
+     * Without this, every new row was a potential unscoped row, and the policy
+     * layer's fail-closed check would deny access to records the application
+     * itself had just created. Backfilling existing rows is only durable if new
+     * ones stop arriving unscoped.
+     *
+     * Deliberately non-destructive: an explicitly supplied organization_id is
+     * never overwritten (seeders, imports and cross-tenant admin tooling set it
+     * directly), and when no organisation is bound — console commands, some
+     * test fixtures — the attribute is left alone rather than guessed. The
+     * policy layer still fails closed in that case, so this is a tightening of
+     * the write path, not a substitute for the read guard.
+     */
+    public static function bootBelongsToOrganization(): void
+    {
+        static::creating(function ($model) {
+            if (! empty($model->organization_id)) {
+                return;
+            }
+
+            // Resolved lazily and defensively: this boots for every model using
+            // the trait, including during migrations and console commands where
+            // no organisation context exists.
+            try {
+                $organization = app(\App\Support\CurrentOrganization::class)->resolve();
+            } catch (\Throwable) {
+                return;
+            }
+
+            if ($organization !== null) {
+                $model->organization_id = $organization->id;
+            }
+        });
+    }
+
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);

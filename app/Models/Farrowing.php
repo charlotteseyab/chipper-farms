@@ -5,8 +5,34 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
-class Farrowing extends Model
+use App\Models\Concerns\ResolvesOrganization;
+
+class Farrowing extends Model implements ResolvesOrganization
 {
+    /**
+     * The `farrowing` table has no organization_id column, so tenancy is
+     * derived from the sow (CF-P0-005). Before this, sameOrganization() passed
+     * unconditionally for farrowing records and FarrowingPolicy enforced no
+     * tenant boundary at all.
+     *
+     * Returns null — a denial — if the sow is missing or itself unscoped,
+     * rather than guessing.
+     */
+    public function resolveOrganizationId(): ?int
+    {
+        $sowOrg = $this->sow?->organization_id;
+
+        if ($sowOrg !== null) {
+            return (int) $sowOrg;
+        }
+
+        // Fall back to the boar only if the sow cannot answer; a litter's
+        // tenancy follows either parent, and both are pigs in one herd.
+        $boarOrg = $this->boar?->organization_id;
+
+        return $boarOrg === null ? null : (int) $boarOrg;
+    }
+
     use HasFactory;
 
     protected $table = 'farrowing';

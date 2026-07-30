@@ -152,7 +152,22 @@ class OrganizationScopePolicyTest extends TestCase
         $this->assertTrue($policy->viewAny($this->orglessUser));
     }
 
-    public function test_resource_without_organization_id_passes_through(): void
+    /**
+     * A record whose organisation cannot be resolved is DENIED (CF-P0-005).
+     *
+     * This test previously asserted the opposite — that an unscoped row "passes
+     * through, role decides" — and asserted it for managers in BOTH
+     * organisations. That is the vulnerability itself: an Organization B manager
+     * reading an Organization A-adjacent sale. The old expectation was written
+     * on the premise that unscoped rows were a transient pre-backfill artefact,
+     * but 41 of 128 tables carry no organization_id column at all, so for a
+     * large part of the schema the exemption was permanent.
+     *
+     * The assertion is inverted rather than deleted, so the contract is pinned
+     * in the direction that is actually safe and a future "tidy-up" cannot
+     * quietly restore the pass-through.
+     */
+    public function test_resource_with_unresolvable_organization_is_denied(): void
     {
         // Create a sale row with NULL organization_id (legacy pre-backfill row).
         $pigId = \DB::table('pigs_management')->insertGetId([
@@ -182,8 +197,16 @@ class OrganizationScopePolicyTest extends TestCase
         $sale = PigSale::find($saleId);
         $policy = new PigSalePolicy();
 
-        // Legacy unscoped rows: scope check passes through, role decides.
-        $this->assertTrue($policy->view($this->managerInOrgA, $sale));
-        $this->assertTrue($policy->view($this->managerInOrgB, $sale));
+        // Unresolvable tenancy is a denial, for every organisation — including
+        // the one that would "probably" own the row. Guessing is what created
+        // the cross-tenant exposure.
+        $this->assertFalse(
+            $policy->view($this->managerInOrgA, $sale),
+            'A sale with no resolvable organisation must not be viewable, even by the likely owner.',
+        );
+        $this->assertFalse(
+            $policy->view($this->managerInOrgB, $sale),
+            'A sale with no resolvable organisation must not be viewable across tenants.',
+        );
     }
 }

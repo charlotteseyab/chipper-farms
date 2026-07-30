@@ -8,9 +8,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Helpers\BreedingCalculator;
-class PigManagement extends Model 
+class PigManagement extends Model
 {
     use SoftDeletes;
+    // pigs_management is the root of derived tenancy: farrowing, matings,
+    // weanings, health_records, pig_weights, medication_administrations and
+    // piglet_deaths all resolve their organisation through a pig. The trait is
+    // added here so new pigs are stamped with the current organisation on
+    // create; without that, every new pig would be an unscoped row and every
+    // record hanging off it would be unresolvable (CF-P0-005).
+    use \App\Models\Concerns\BelongsToOrganization;
     protected $table = 'pigs_management'; // Pigs Management table name
 
     protected $fillable = [

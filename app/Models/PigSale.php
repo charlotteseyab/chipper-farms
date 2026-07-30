@@ -10,6 +10,11 @@ use Carbon\Carbon;
 class PigSale extends Model
 {
     use SoftDeletes;
+    // Policy-enforced tenancy: PigSalePolicy calls sameOrganization(), which now
+    // fails closed. The trait's creating hook stamps the current organisation so
+    // no code path can produce an unscoped row the policy must then deny
+    // (CF-P0-005).
+    use \App\Models\Concerns\BelongsToOrganization;
 
     // Defaults for legacy NOT NULL columns used in tests
     protected $attributes = [

@@ -10,6 +10,9 @@ use Carbon\Carbon;
 class PigDeath extends Model
 {
     use SoftDeletes;
+    // See PigSale: PigDeathPolicy enforces tenancy, so the write path must
+    // stamp it (CF-P0-005).
+    use \App\Models\Concerns\BelongsToOrganization;
 
     protected $fillable = [
         'pig_id',

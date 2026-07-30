@@ -49,52 +49,60 @@ class PurchaseRequestPolicyTest extends TestCase
         ]);
     }
 
+    /*
+     * NOTE: every in-memory PurchaseRequest stand-in below carries an
+     * organization_id. sameOrganization() now fails closed (CF-P0-005), so an
+     * unscoped stand-in is denied on tenancy grounds. For the positive cases
+     * that produced an outright failure; more insidiously, the NEGATIVE cases
+     * would have kept passing for the wrong reason -- denied on tenancy rather
+     * than on the status or role rule each test exists to pin.
+     */
     public function test_admin_can_approve_pending_request(): void
     {
         $this->actingAs($this->makeUser('admin'));
-        $pr = new PurchaseRequest(['status' => 'pending']);
+        $pr = new PurchaseRequest(['status' => 'pending', 'organization_id' => $this->org->id]);
         $this->assertTrue(Gate::allows('approve', $pr));
     }
 
     public function test_admin_cannot_approve_already_approved_request(): void
     {
         $this->actingAs($this->makeUser('admin'));
-        $pr = new PurchaseRequest(['status' => 'approved']);
+        $pr = new PurchaseRequest(['status' => 'approved', 'organization_id' => $this->org->id]);
         $this->assertFalse(Gate::allows('approve', $pr));
     }
 
     public function test_admin_cannot_approve_declined_request(): void
     {
         $this->actingAs($this->makeUser('admin'));
-        $pr = new PurchaseRequest(['status' => 'declined']);
+        $pr = new PurchaseRequest(['status' => 'declined', 'organization_id' => $this->org->id]);
         $this->assertFalse(Gate::allows('approve', $pr));
     }
 
     public function test_manager_cannot_approve_even_pending_request(): void
     {
         $this->actingAs($this->makeUser('farmmanager'));
-        $pr = new PurchaseRequest(['status' => 'pending']);
+        $pr = new PurchaseRequest(['status' => 'pending', 'organization_id' => $this->org->id]);
         $this->assertFalse(Gate::allows('approve', $pr));
     }
 
     public function test_accountant_can_mark_approved_request_paid(): void
     {
         $this->actingAs($this->makeUser('accountant'));
-        $pr = new PurchaseRequest(['status' => 'approved']);
+        $pr = new PurchaseRequest(['status' => 'approved', 'organization_id' => $this->org->id]);
         $this->assertTrue(Gate::allows('markPaid', $pr));
     }
 
     public function test_accountant_cannot_mark_pending_request_paid(): void
     {
         $this->actingAs($this->makeUser('accountant'));
-        $pr = new PurchaseRequest(['status' => 'pending']);
+        $pr = new PurchaseRequest(['status' => 'pending', 'organization_id' => $this->org->id]);
         $this->assertFalse(Gate::allows('markPaid', $pr));
     }
 
     public function test_manager_cannot_mark_paid(): void
     {
         $this->actingAs($this->makeUser('farmmanager'));
-        $pr = new PurchaseRequest(['status' => 'approved']);
+        $pr = new PurchaseRequest(['status' => 'approved', 'organization_id' => $this->org->id]);
         $this->assertFalse(Gate::allows('markPaid', $pr));
     }
 
@@ -113,14 +121,14 @@ class PurchaseRequestPolicyTest extends TestCase
     public function test_admin_cannot_update_approved_request(): void
     {
         $this->actingAs($this->makeUser('admin'));
-        $pr = new PurchaseRequest(['status' => 'approved']);
+        $pr = new PurchaseRequest(['status' => 'approved', 'organization_id' => $this->org->id]);
         $this->assertFalse(Gate::allows('update', $pr));
     }
 
     public function test_admin_cannot_delete_approved_request(): void
     {
         $this->actingAs($this->makeUser('admin'));
-        $pr = new PurchaseRequest(['status' => 'approved']);
+        $pr = new PurchaseRequest(['status' => 'approved', 'organization_id' => $this->org->id]);
         $this->assertFalse(Gate::allows('delete', $pr));
     }
 }
