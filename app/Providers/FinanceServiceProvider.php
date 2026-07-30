@@ -123,6 +123,7 @@ class FinanceServiceProvider extends ServiceProvider
                 BackfillPigSaleInvoicesCommand::class,
                 ReconcileInvoiceAggregatesCommand::class,
                 CheckOutboxWiringCommand::class,
+                \App\Console\Commands\Finance\ReconcileStorefrontSettlementsCommand::class,
             ]);
 
             $this->app->booted(function () {

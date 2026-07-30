@@ -40,7 +40,21 @@ class OutboxClaimConcurrencyTest extends ConcurrencyTestCase
             "Could not migrate the concurrency database:\n" . $migrate['out'] . $migrate['err'],
         );
 
-        $this->pdo()->exec("DELETE FROM domain_events WHERE event_type LIKE 'conc.%'");
+        // Clear the WHOLE table, not just this suite's 'conc.%' rows.
+        //
+        // OutboxClaimer::claim() takes the OLDEST pending events first, and
+        // recoverStaleClaims() scans every processing row — both correct for
+        // production, where there is one global queue. But it makes these tests
+        // order- and data-dependent: with unrelated rows left behind by earlier
+        // work (33 storefront_order.confirmed events, in the run that exposed
+        // this), a worker claims THOSE instead of the events the test seeded,
+        // and the assertions measure nothing.
+        //
+        // That produced a genuine false failure of test_stale_claims_are_recovered
+        // which looked like a defect in recovery and was not. Deleting only
+        // 'conc.%' was the mistake — the suite documents that it needs a
+        // throwaway database, so it should behave like one.
+        $this->pdo()->exec('DELETE FROM domain_events');
     }
 
     protected function pdo(): \PDO
