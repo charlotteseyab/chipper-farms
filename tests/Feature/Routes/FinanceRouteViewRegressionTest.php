@@ -5,6 +5,7 @@ namespace Tests\Feature\Routes;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
 use Tests\Feature\Finance\FinanceTestSetup;
+use Database\Seeders\FarmOperationsPermissionsSeeder;
 use Tests\TestCase;
 
 class FinanceRouteViewRegressionTest extends TestCase
@@ -15,6 +16,11 @@ class FinanceRouteViewRegressionTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Farm-operations permissions gate the feed, raw-material and
+        // weight-alert routes exercised here (CF-P0-002). Without this the
+        // admin fixture holds no livestock/feed permission and gets 403.
+        $this->seed(FarmOperationsPermissionsSeeder::class);
         $this->setUpFinanceFixtures();
     }
 

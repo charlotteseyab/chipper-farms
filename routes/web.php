@@ -69,29 +69,29 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.readAll');
 
     // Health
-    Route::get('/health', [PigHealthController::class, 'index'])->name('health.index');
-    Route::put('/health/{pig}', [PigHealthController::class, 'update'])->name('health.update');
-    Route::get('/health/create-health', [PigHealthController::class, 'createHealth'])->name('health.create');
-    Route::get('/health/create-medication', [PigHealthController::class, 'createMedication'])->name('health.create-medication');
-    Route::post('/health/store-health', [PigHealthController::class, 'storeHealth'])->name('health.store');
-    Route::post('/health/store-medication', [PigHealthController::class, 'storeMedication'])->name('medications.store');
-    Route::get('/health/{pig}', [PigHealthController::class, 'show'])->name('health.show');
-    Route::get('/health/{pig}/create-health', [PigHealthController::class, 'createHealth'])->name('health.createForPig');
-    Route::get('/health/{pig}/create-medication', [PigHealthController::class, 'createMedication'])->name('medications.createForPig');
-    Route::post('/health/{pig}/health', [PigHealthController::class, 'storeHealth'])->name('health.storeForPig');
-    Route::post('/health/{pig}/medication', [PigHealthController::class, 'storeMedication'])->name('medications.storeForPig');
-    Route::get('/medications/{medication}', [PigHealthController::class, 'showMedication'])->name('medications.show');
-    Route::get('/medications/{medication}/edit', [PigHealthController::class, 'editMedication'])->name('medications.edit');
-    Route::put('/medications/{medication}', [PigHealthController::class, 'updateMedication'])->name('medications.update');
-    Route::delete('/medications/{medication}', [PigHealthController::class, 'destroyMedication'])->name('medications.destroy');
+    Route::get('/health', [PigHealthController::class, 'index'])->middleware('permission:view_health_records')->name('health.index');
+    Route::put('/health/{pig}', [PigHealthController::class, 'update'])->middleware('permission:manage_health_records')->name('health.update');
+    Route::get('/health/create-health', [PigHealthController::class, 'createHealth'])->middleware('permission:manage_health_records')->name('health.create');
+    Route::get('/health/create-medication', [PigHealthController::class, 'createMedication'])->middleware('permission:administer_medication')->name('health.create-medication');
+    Route::post('/health/store-health', [PigHealthController::class, 'storeHealth'])->middleware('permission:manage_health_records')->name('health.store');
+    Route::post('/health/store-medication', [PigHealthController::class, 'storeMedication'])->middleware('permission:administer_medication')->name('medications.store');
+    Route::get('/health/{pig}', [PigHealthController::class, 'show'])->middleware('permission:view_health_records')->name('health.show');
+    Route::get('/health/{pig}/create-health', [PigHealthController::class, 'createHealth'])->middleware('permission:manage_health_records')->name('health.createForPig');
+    Route::get('/health/{pig}/create-medication', [PigHealthController::class, 'createMedication'])->middleware('permission:administer_medication')->name('medications.createForPig');
+    Route::post('/health/{pig}/health', [PigHealthController::class, 'storeHealth'])->middleware('permission:manage_health_records')->name('health.storeForPig');
+    Route::post('/health/{pig}/medication', [PigHealthController::class, 'storeMedication'])->middleware('permission:administer_medication')->name('medications.storeForPig');
+    Route::get('/medications/{medication}', [PigHealthController::class, 'showMedication'])->middleware('permission:view_health_records')->name('medications.show');
+    Route::get('/medications/{medication}/edit', [PigHealthController::class, 'editMedication'])->middleware('permission:manage_medication_records')->name('medications.edit');
+    Route::put('/medications/{medication}', [PigHealthController::class, 'updateMedication'])->middleware('permission:manage_medication_records')->name('medications.update');
+    Route::delete('/medications/{medication}', [PigHealthController::class, 'destroyMedication'])->middleware('permission:manage_medication_records')->name('medications.destroy');
 
     // Medications index & Health reports
-    Route::get('/medications', [PigHealthController::class, 'medicationsIndex'])->name('medications.index');
-    Route::get('/health-reports', [PigHealthController::class, 'reports'])->name('health.reports');
-    Route::get('/health/{pig}/edit', [PigHealthController::class, 'edit'])->name('health.edit');
-    Route::delete('/health/{pig}', [PigHealthController::class, 'destroy'])->name('health.destroy');
-    Route::get('/export/health.csv', [PigHealthController::class, 'exportHealthCsv'])->name('health.export');
-    Route::get('/export/medications.csv', [PigHealthController::class, 'exportMedicationsCsv'])->name('medications.export');
+    Route::get('/medications', [PigHealthController::class, 'medicationsIndex'])->middleware('permission:view_health_records')->name('medications.index');
+    Route::get('/health-reports', [PigHealthController::class, 'reports'])->middleware('permission:view_health_records')->name('health.reports');
+    Route::get('/health/{pig}/edit', [PigHealthController::class, 'edit'])->middleware('permission:manage_health_records')->name('health.edit');
+    Route::delete('/health/{pig}', [PigHealthController::class, 'destroy'])->middleware('permission:delete_health_records')->name('health.destroy');
+    Route::get('/export/health.csv', [PigHealthController::class, 'exportHealthCsv'])->middleware('permission:view_health_records')->name('health.export');
+    Route::get('/export/medications.csv', [PigHealthController::class, 'exportMedicationsCsv'])->middleware('permission:view_health_records')->name('medications.export');
 
     Route::get('/dashboard', function () {
         return view('dashboard');
@@ -171,18 +171,18 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::delete('gestation/{mating}', [App\Http\Controllers\PigManagementController::class, 'destroyGestation'])->name('gestation.destroy');
 
     // Farrowing routes
-    Route::get('farrowing', [App\Http\Controllers\FarrowingController::class, 'index'])->name('farrowing.index');
-    Route::get('farrowing/{farrowing}', [App\Http\Controllers\FarrowingController::class, 'show'])->name('farrowing.show');
-    Route::get('farrowing/{farrowing}/edit', [App\Http\Controllers\FarrowingController::class, 'edit'])->name('farrowing.edit');
-    Route::put('farrowing/{farrowing}', [App\Http\Controllers\FarrowingController::class, 'update'])->name('farrowing.update');
-    Route::post('farrowing/{farrowing}/piglet-deaths', [App\Http\Controllers\FarrowingController::class, 'recordPigletDeath'])->name('farrowing.piglet-deaths.record');
-    Route::put('farrowing/piglet-deaths/{pigletDeath}', [App\Http\Controllers\FarrowingController::class, 'updatePigletDeath'])->name('farrowing.piglet-deaths.update');
-    Route::delete('farrowing/piglet-deaths/{pigletDeath}', [App\Http\Controllers\FarrowingController::class, 'destroyPigletDeath'])->name('farrowing.piglet-deaths.destroy');
+    Route::get('farrowing', [App\Http\Controllers\FarrowingController::class, 'index'])->middleware('permission:view_farrowing')->name('farrowing.index');
+    Route::get('farrowing/{farrowing}', [App\Http\Controllers\FarrowingController::class, 'show'])->middleware('permission:view_farrowing')->name('farrowing.show');
+    Route::get('farrowing/{farrowing}/edit', [App\Http\Controllers\FarrowingController::class, 'edit'])->middleware('permission:manage_farrowing')->name('farrowing.edit');
+    Route::put('farrowing/{farrowing}', [App\Http\Controllers\FarrowingController::class, 'update'])->middleware('permission:manage_farrowing')->name('farrowing.update');
+    Route::post('farrowing/{farrowing}/piglet-deaths', [App\Http\Controllers\FarrowingController::class, 'recordPigletDeath'])->middleware('permission:manage_piglet_deaths')->name('farrowing.piglet-deaths.record');
+    Route::put('farrowing/piglet-deaths/{pigletDeath}', [App\Http\Controllers\FarrowingController::class, 'updatePigletDeath'])->middleware('permission:manage_piglet_deaths')->name('farrowing.piglet-deaths.update');
+    Route::delete('farrowing/piglet-deaths/{pigletDeath}', [App\Http\Controllers\FarrowingController::class, 'destroyPigletDeath'])->middleware('permission:manage_piglet_deaths')->name('farrowing.piglet-deaths.destroy');
     Route::post('gestation/{id}/farrowing', [App\Http\Controllers\PigManagementController::class, 'recordFarrowing'])->name('gestation.farrowing');
     Route::post('gestation/{id}/update-status', [App\Http\Controllers\PigManagementController::class, 'updateGestationStatus'])->name('gestation.update-status');
 
     // Piglet Tracking routes
-    Route::get('piglets/tracking', [App\Http\Controllers\FarrowingController::class, 'pigletTracking'])->name('piglets.tracking');
+    Route::get('piglets/tracking', [App\Http\Controllers\FarrowingController::class, 'pigletTracking'])->middleware('permission:view_farrowing')->name('piglets.tracking');
 
     // Audit trail and archived records
     Route::get('audit-trail', [AuditTrailController::class, 'index'])->name('audit-trail.index');
@@ -232,19 +232,19 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::get('standard-stocks-export/pdf', [App\Http\Controllers\PigManagementController::class, 'standardExportPdf'])->name('standard-stocks.export.pdf');
 
     // Weight Management Routes
-    Route::get('weights', [App\Http\Controllers\WeightManagementController::class, 'index'])->name('weights.index');
-    Route::get('weights/create', [App\Http\Controllers\WeightManagementController::class, 'create'])->name('weights.create');
-    Route::post('weights', [App\Http\Controllers\WeightManagementController::class, 'store'])->name('weights.store');
-    Route::get('weights/{weight}/edit', [App\Http\Controllers\WeightManagementController::class, 'edit'])->name('weights.edit');
-    Route::put('weights/{weight}', [App\Http\Controllers\WeightManagementController::class, 'update'])->name('weights.update');
-    Route::get('weights/reports', [App\Http\Controllers\WeightManagementController::class, 'reports'])->name('weights.reports');
-    Route::get('weights/export/excel', [App\Http\Controllers\WeightManagementController::class, 'exportWeeklyExcel'])->name('weights.index.export-excel');
-    Route::get('api/pigs/{pig}/previous-weight', [App\Http\Controllers\WeightManagementController::class, 'getPreviousWeight'])->name('api.pigs.previous-weight');
-    Route::get('api/pigs/{pig}/expected-weight', [App\Http\Controllers\WeightManagementController::class, 'getExpectedWeight'])->name('api.pigs.expected-weight');
-    Route::get('weights/reports/export-pdf', [App\Http\Controllers\WeightManagementController::class, 'exportPDF'])->name('weights.reports.export-pdf');
+    Route::get('weights', [App\Http\Controllers\WeightManagementController::class, 'index'])->middleware('permission:view_weights')->name('weights.index');
+    Route::get('weights/create', [App\Http\Controllers\WeightManagementController::class, 'create'])->middleware('permission:record_weights')->name('weights.create');
+    Route::post('weights', [App\Http\Controllers\WeightManagementController::class, 'store'])->middleware('permission:record_weights')->name('weights.store');
+    Route::get('weights/{weight}/edit', [App\Http\Controllers\WeightManagementController::class, 'edit'])->middleware('permission:record_weights')->name('weights.edit');
+    Route::put('weights/{weight}', [App\Http\Controllers\WeightManagementController::class, 'update'])->middleware('permission:record_weights')->name('weights.update');
+    Route::get('weights/reports', [App\Http\Controllers\WeightManagementController::class, 'reports'])->middleware('permission:view_weights')->name('weights.reports');
+    Route::get('weights/export/excel', [App\Http\Controllers\WeightManagementController::class, 'exportWeeklyExcel'])->middleware('permission:view_weights')->name('weights.index.export-excel');
+    Route::get('api/pigs/{pig}/previous-weight', [App\Http\Controllers\WeightManagementController::class, 'getPreviousWeight'])->middleware('permission:view_weights')->name('api.pigs.previous-weight');
+    Route::get('api/pigs/{pig}/expected-weight', [App\Http\Controllers\WeightManagementController::class, 'getExpectedWeight'])->middleware('permission:view_weights')->name('api.pigs.expected-weight');
+    Route::get('weights/reports/export-pdf', [App\Http\Controllers\WeightManagementController::class, 'exportPDF'])->middleware('permission:view_weights')->name('weights.reports.export-pdf');
 
     // PDF export for all weights (filtered)
-    Route::get('weights/export/pdf', [App\Http\Controllers\WeightManagementController::class, 'exportAllPDF'])->name('weights.index.export-pdf');
+    Route::get('weights/export/pdf', [App\Http\Controllers\WeightManagementController::class, 'exportAllPDF'])->middleware('permission:view_weights')->name('weights.index.export-pdf');
 
     // Weight Standards Routes (Admin, Manager and Superuser only)
     Route::middleware(['role:admin,manager,superuser'])->group(function () {
@@ -254,8 +254,21 @@ Route::middleware($protectedMiddleware)->group(function () {
     });
 
     // Weight Alerts Management
+    //
+    // Acknowledgement below is already restricted to admin/superuser via the
+    // role middleware; the resource itself was ungated (CF-P0-002).
+    // NOTE ON ORDER: the read resource is constrained with whereNumber so that
+    // GET /weight-alerts/{weight_alert} cannot capture the literal
+    // /weight-alerts/create. Splitting a resource by permission reorders its
+    // routes, and without the constraint `create` resolves as a show id and 404s.
     Route::resource('weight-alerts', App\Http\Controllers\WeightAlertsController::class)
-        ->except(['edit', 'update']);
+        ->only(['index', 'show'])
+        ->middleware('permission:view_weights')
+        ->whereNumber('weight_alert');
+    Route::resource('weight-alerts', App\Http\Controllers\WeightAlertsController::class)
+        ->except(['edit', 'update', 'index', 'show'])
+        ->middleware('permission:record_weights')
+        ->whereNumber('weight_alert');
     Route::middleware(['role:admin,superuser'])->group(function () {
         Route::post('weight-alerts/{weightAlert}/acknowledge', [App\Http\Controllers\WeightAlertsController::class, 'acknowledge'])->name('weight-alerts.acknowledge');
         Route::post('weight-alerts/bulk-acknowledge', [App\Http\Controllers\WeightAlertsController::class, 'bulkAcknowledge'])->name('weight-alerts.bulk-acknowledge');
@@ -269,14 +282,28 @@ Route::middleware($protectedMiddleware)->group(function () {
 
 
     // Structure and Room Management Routes
-    Route::resource('structures', App\Http\Controllers\StructureController::class);
-    Route::post('structures/{structure}/rooms', [App\Http\Controllers\RoomController::class, 'store'])->name('structures.rooms.store');
-    Route::delete('structures/{structure}/rooms/{room}', [App\Http\Controllers\RoomController::class, 'destroy'])->name('structures.rooms.destroy');
-    Route::get('rooms/{room}', [App\Http\Controllers\RoomController::class, 'show'])->name('rooms.show');
-    Route::get('rooms/{room}/edit', [App\Http\Controllers\RoomController::class, 'edit'])->name('rooms.edit');
-    Route::put('rooms/{room}', [App\Http\Controllers\RoomController::class, 'update'])->name('rooms.update');
-    Route::post('rooms', [App\Http\Controllers\RoomController::class, 'storeGlobal'])->name('rooms.store');
-    Route::get('api/structures/{structure}/rooms', [App\Http\Controllers\RoomController::class, 'listByStructure'])->name('api.structures.rooms');
+    //
+    // CF-P0-002: this resource previously sat behind nothing but the broad
+    // authenticated group, so any active user could create, rename or delete
+    // structures. Reads and writes are split — deleting a structure detaches
+    // every room and pen assignment beneath it.
+    // whereNumber for the same reason as weight-alerts above: without it
+    // GET /structures/{structure} swallows GET /structures/create.
+    Route::resource('structures', App\Http\Controllers\StructureController::class)
+        ->only(['index', 'show'])
+        ->middleware('permission:view_facilities')
+        ->whereNumber('structure');
+    Route::resource('structures', App\Http\Controllers\StructureController::class)
+        ->except(['index', 'show'])
+        ->middleware('permission:manage_facilities')
+        ->whereNumber('structure');
+    Route::post('structures/{structure}/rooms', [App\Http\Controllers\RoomController::class, 'store'])->middleware('permission:manage_facilities')->name('structures.rooms.store');
+    Route::delete('structures/{structure}/rooms/{room}', [App\Http\Controllers\RoomController::class, 'destroy'])->middleware('permission:manage_facilities')->name('structures.rooms.destroy');
+    Route::get('rooms/{room}', [App\Http\Controllers\RoomController::class, 'show'])->middleware('permission:view_facilities')->name('rooms.show');
+    Route::get('rooms/{room}/edit', [App\Http\Controllers\RoomController::class, 'edit'])->middleware('permission:manage_facilities')->name('rooms.edit');
+    Route::put('rooms/{room}', [App\Http\Controllers\RoomController::class, 'update'])->middleware('permission:manage_facilities')->name('rooms.update');
+    Route::post('rooms', [App\Http\Controllers\RoomController::class, 'storeGlobal'])->middleware('permission:manage_facilities')->name('rooms.store');
+    Route::get('api/structures/{structure}/rooms', [App\Http\Controllers\RoomController::class, 'listByStructure'])->middleware('permission:view_facilities')->name('api.structures.rooms');
 
     // Settings Routes
     Route::get('settings/setup', [App\Http\Controllers\SettingsController::class, 'setup'])->name('settings.setup');
@@ -304,15 +331,15 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::post('/purchase-requests/{purchaseRequest}/decline', [PurchaseRequestController::class, 'decline'])->name('purchase-requests.decline');
     Route::post('/purchase-requests/{purchaseRequest}/mark-paid', [PurchaseRequestController::class, 'markAsPaid'])->name('purchase-requests.mark-paid');
     Route::get('/purchase-requests/{purchaseRequest}', [PurchaseRequestController::class, 'show'])->name('purchase-requests.show');
-    Route::get('/raw-materials-stock', [RawMaterialController::class, 'index'])->name('raw-materials.index');
-    Route::post('/raw-materials-stock', [RawMaterialController::class, 'store'])->name('raw-materials.store');
-    Route::put('/raw-materials-stock/{rawMaterial}', [RawMaterialController::class, 'update'])->name('raw-materials.update');
-    Route::post('/raw-materials-stock/{rawMaterial}/receive', [RawMaterialController::class, 'receiveStock'])->name('raw-materials.receive');
-    Route::post('/raw-materials-stock/{rawMaterial}/adjust', [RawMaterialController::class, 'adjustStock'])->name('raw-materials.adjust');
-    Route::get('/feed-production', [FeedProductionController::class, 'index'])->name('feed-production.index');
-    Route::post('/feed-production/feed-types', [FeedProductionController::class, 'storeFeedType'])->name('feed-production.feed-types.store');
-    Route::post('/feed-production/recipes', [FeedProductionController::class, 'storeRecipe'])->name('feed-production.recipes.store');
-    Route::post('/feed-production/mix', [FeedProductionController::class, 'mixFeed'])->name('feed-production.mix');
+    Route::get('/raw-materials-stock', [RawMaterialController::class, 'index'])->middleware('permission:view_raw_materials')->name('raw-materials.index');
+    Route::post('/raw-materials-stock', [RawMaterialController::class, 'store'])->middleware('permission:manage_raw_materials')->name('raw-materials.store');
+    Route::put('/raw-materials-stock/{rawMaterial}', [RawMaterialController::class, 'update'])->middleware('permission:manage_raw_materials')->name('raw-materials.update');
+    Route::post('/raw-materials-stock/{rawMaterial}/receive', [RawMaterialController::class, 'receiveStock'])->middleware('permission:manage_raw_materials')->name('raw-materials.receive');
+    Route::post('/raw-materials-stock/{rawMaterial}/adjust', [RawMaterialController::class, 'adjustStock'])->middleware('permission:manage_raw_materials')->name('raw-materials.adjust');
+    Route::get('/feed-production', [FeedProductionController::class, 'index'])->middleware('permission:view_feed_production')->name('feed-production.index');
+    Route::post('/feed-production/feed-types', [FeedProductionController::class, 'storeFeedType'])->middleware('permission:manage_feed_production')->name('feed-production.feed-types.store');
+    Route::post('/feed-production/recipes', [FeedProductionController::class, 'storeRecipe'])->middleware('permission:manage_feed_production')->name('feed-production.recipes.store');
+    Route::post('/feed-production/mix', [FeedProductionController::class, 'mixFeed'])->middleware('permission:manage_feed_production')->name('feed-production.mix');
     Route::get('/planning-reports', [FeedPlanningController::class, 'index'])->name('planning-reports.index');
 
     // Email Settings Routes (Superuser only)

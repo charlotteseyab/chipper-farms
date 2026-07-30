@@ -511,9 +511,38 @@ class NavigationHelper
         return ! in_array($current, $excludedRoutes, true);
     }
 
+    /**
+     * Every authenticated user gets a Dashboard link.
+     *
+     * This previously delegated to self::link() passing User::allowedRoleNames()
+     * as the permitted roles, intending "all roles". But link() returns null
+     * when the current user's role is not in the list, and this method declares
+     * a non-nullable array return — so any user whose role is absent from
+     * ALLOWED_ROLE_NAMES triggered:
+     *
+     *   NavigationHelper::dashboardItem(): Return value must be of type array,
+     *   null returned (View: layouts/app.blade.php)
+     *
+     * That is a 500 on EVERY page rendering the app layout, not a missing menu
+     * entry. `mill_operator` is exactly such a role: the seeders provision it
+     * with real permissions (view_inventory_value, and the feed permissions
+     * added in remediation Phase 2) but it is not in ALLOWED_ROLE_NAMES, so the
+     * system could provision a user it could not then serve a single page to.
+     *
+     * The role filter is dropped rather than the role list extended: the intent
+     * was "everyone", and dashboardRouteName()/dashboardPatterns() already have
+     * default branches that handle any unrecognised role. Building the item
+     * directly makes the method total, so no role can 500 the layout again.
+     */
     private static function dashboardItem(User $user): array
     {
-        return self::link('Dashboard', self::dashboardRouteName($user), self::dashboardPatterns($user), 'fa-solid fa-gauge-high', User::allowedRoleNames());
+        return [
+            'type' => 'link',
+            'label' => 'Dashboard',
+            'route' => self::dashboardRouteName($user),
+            'active_patterns' => (array) self::dashboardPatterns($user),
+            'icon' => 'fa-solid fa-gauge-high',
+        ];
     }
 
     private static function dashboardRouteName(User $user): string

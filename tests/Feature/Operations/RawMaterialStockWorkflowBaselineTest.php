@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\Inventory\ReceiveRawMaterialService;
 use App\Support\CurrentOrganization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Database\Seeders\FarmOperationsPermissionsSeeder;
 use Tests\TestCase;
 
 /**
@@ -38,6 +39,11 @@ class RawMaterialStockWorkflowBaselineTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        // Farm-operations permissions gate the feed, raw-material and
+        // weight-alert routes exercised here (CF-P0-002). Without this the
+        // admin fixture holds no livestock/feed permission and gets 403.
+        $this->seed(FarmOperationsPermissionsSeeder::class);
         $this->org = Organization::create(['slug' => 'chipper-farms', 'name' => 'Chipper Farms']);
 
         $role = Role::firstOrCreate(['name' => 'admin']);

@@ -59,6 +59,11 @@ class DatabaseSeeder extends Seeder
             Phase8LoansTreasuryPermissionsSeeder::class,
             Phase9InvestorPermissionsSeeder::class,
             FeedSalesPermissionsSeeder::class,
+            // Farm-operations catalogue (livestock, facilities, feed). Added in
+            // remediation Phase 2 — before this, no permission existed to gate
+            // health, medication, weights, farrowing, facilities, feed
+            // production or raw materials (CF-P0-002).
+            FarmOperationsPermissionsSeeder::class,
         ]);
 
         // 3. Storefront permissions.
