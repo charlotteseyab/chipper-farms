@@ -52,7 +52,12 @@ class PaystackWebhookController extends Controller
                 ? redirect()->route('storefront.account.orders.show', $order)
                 : redirect()->route('storefront.account.orders.index');
 
-            return $target->with('error', 'Payment could not be verified: ' . $e->getMessage());
+            // CF-P1-020: this used to concatenate $e->getMessage(), which
+            // HttpPaystackClient built from the raw gateway response body — so
+            // Paystack's JSON was flashed into the customer's browser.
+            // customerMessage() is safe by construction and carries only a
+            // correlation id, which support can use to find the logged detail.
+            return $target->with('error', $e->customerMessage());
         }
 
         return ($order

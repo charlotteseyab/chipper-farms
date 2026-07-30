@@ -7,8 +7,10 @@ use App\Domain\Events\Support\SourceReference;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontOrder;
 use App\Models\Storefront\StorefrontOrderEvent;
+use App\Models\Storefront\StorefrontOrderItem;
 use App\Models\User;
 use App\Services\DomainEvents\DispatchDomainEvent;
+use App\Storefront\Services\Exceptions\CodSettlementException;
 use App\Storefront\Services\Exceptions\InventoryConflictException;
 use App\Storefront\Services\Exceptions\InvalidOrderTransitionException;
 use Carbon\CarbonImmutable;
@@ -313,18 +315,90 @@ class OrderService
      *   - Pig-backed listings move to sold_out.
      * Paystack orders are already paid; nothing to settle.
      */
+    /**
+     * Complete fulfilment.
+     *
+     * COD SETTLEMENT IS NOW FATAL ON FAILURE (CF-P0-009)
+     * --------------------------------------------------
+     * This used to call settleCodPayments() and then set payment_status = 'paid'
+     * unconditionally. settleCodPayments() skipped lines with no posted sale,
+     * counted them, wrote a note, and completion proceeded anyway — so an order
+     * whose lines had ALL failed to settle still ended up paid and completed.
+     *
+     * The consequence is a cash discrepancy, not a cosmetic one: the business
+     * believes it has been paid, no receipt exists, and the receivable is closed
+     * against nothing.
+     *
+     * Unsettleable lines are now detected BEFORE the transaction opens, so the
+     * recorded failure event survives (it would be rolled back if written
+     * inside), and completion is refused. Because sales are posted
+     * asynchronously by the outbox, "no posted sale yet" is a normal transient
+     * state — staff retry once posting catches up, which is why this raises a
+     * distinct exception rather than a generic error.
+     */
     public function complete(StorefrontOrder $order, User $actor): StorefrontOrder
     {
         $this->assertTransitionAllowed($order, StorefrontOrder::STATUS_COMPLETED);
 
-        return DB::transaction(function () use ($order, $actor) {
+        $order->loadMissing('items');
+
+        $isCod = $order->payment_method === StorefrontOrder::METHOD_COD;
+        $needsSettlement = $isCod && $order->payment_status !== StorefrontOrder::PAY_PAID;
+
+        if ($needsSettlement) {
+            $blockers = $this->unsettleableCodLines($order);
+
+            if ($blockers !== []) {
+                // Recorded outside the transaction so it is not rolled back with
+                // the refusal. This is the "visible settlement failure" the
+                // remediation brief requires; the previous note was written and
+                // then ignored.
+                $this->recordEvent(
+                    $order,
+                    'system',
+                    $order->status,
+                    $order->status,
+                    'COD settlement BLOCKED — order not marked paid or completed: '
+                        . implode('; ', $blockers),
+                    $actor->id,
+                );
+
+                throw new CodSettlementException(
+                    sprintf(
+                        'Order %s cannot be completed: %d line(s) cannot be settled. '
+                        . 'The order has NOT been marked paid.',
+                        $order->reference,
+                        count($blockers),
+                    ),
+                    $blockers,
+                );
+            }
+        }
+
+        return DB::transaction(function () use ($order, $actor, $needsSettlement) {
             $from = $order->status;
             $order->loadMissing('items');
 
-            $isCod = $order->payment_method === StorefrontOrder::METHOD_COD;
-
-            if ($isCod && $order->payment_status !== StorefrontOrder::PAY_PAID) {
+            if ($needsSettlement) {
                 $this->settleCodPayments($order, $actor);
+
+                // Verify rather than assume. settleCodPayments() delegates to the
+                // sale spine, which can decline; the previous code never checked
+                // and simply declared the order paid.
+                $stillUnsettled = $this->unpaidCodLines($order->refresh());
+
+                if ($stillUnsettled !== []) {
+                    throw new CodSettlementException(
+                        sprintf(
+                            'Order %s: settlement was attempted but %d line(s) are still unpaid. '
+                            . 'Completion rolled back.',
+                            $order->reference,
+                            count($stillUnsettled),
+                        ),
+                        $stillUnsettled,
+                    );
+                }
+
                 $order->forceFill(['payment_status' => StorefrontOrder::PAY_PAID])->save();
             }
 
@@ -344,17 +418,114 @@ class OrderService
     }
 
     /**
-     * Flip each linked underlying sale to 'paid' so the spine posts the COD
-     * cash receipt. Lines without a posted sale (deferred / not-yet-posted) are
-     * noted and skipped — never silently dropped.
+     * Lines that CANNOT be settled at all (CF-P0-009) — the pre-flight gate.
+     *
+     * Deliberately distinct from unpaidCodLines(). A line whose sale exists but
+     * is not yet paid is not a blocker: making it paid is exactly what
+     * settlement does. Conflating the two would refuse every COD completion,
+     * which is how the first version of this fix broke the existing
+     * completion tests.
+     *
+     * Two genuinely unsettleable cases, both of which previously ended with the
+     * order marked paid anyway:
+     *
+     *   - no posted sale linked at all — the case the register names. Sales are
+     *     posted asynchronously by the outbox, so this is usually transient and
+     *     recoverable by retrying;
+     *   - a posted_sale_id pointing at a sale that no longer exists. The old code
+     *     skipped this through `if ($sale && ...)` and did not even count it in
+     *     the unlinked tally, so it was invisible in both the note and the
+     *     outcome.
+     *
+     * @return list<string>
      */
-    protected function settleCodPayments(StorefrontOrder $order, User $actor): void
+    protected function unsettleableCodLines(StorefrontOrder $order): array
     {
-        $unlinked = 0;
+        $order->loadMissing('items');
+
+        $blockers = [];
 
         foreach ($order->items as $item) {
             if ($item->posted_sale_id === null || $item->posted_sale_type === null) {
-                $unlinked++;
+                $blockers[] = "line #{$item->id} has no posted sale yet (finance posting may still be in flight)";
+                continue;
+            }
+
+            if ($this->findPostedSale($item) === null) {
+                $blockers[] = sprintf(
+                    'line #%d references %s#%d which no longer exists',
+                    $item->id,
+                    class_basename((string) $item->posted_sale_type),
+                    $item->posted_sale_id,
+                );
+            }
+        }
+
+        return $blockers;
+    }
+
+    /**
+     * Lines still unpaid AFTER settlement was attempted — the post-check.
+     *
+     * The previous implementation had no equivalent: it called settlement and
+     * declared the order paid without ever confirming the sale spine agreed.
+     *
+     * @return list<string>
+     */
+    protected function unpaidCodLines(StorefrontOrder $order): array
+    {
+        $order->loadMissing('items');
+
+        $unpaid = [];
+
+        foreach ($order->items as $item) {
+            if ($item->posted_sale_id === null || $item->posted_sale_type === null) {
+                $unpaid[] = "line #{$item->id} has no posted sale";
+                continue;
+            }
+
+            $sale = $this->findPostedSale($item);
+
+            if ($sale === null) {
+                $unpaid[] = "line #{$item->id} references a sale that no longer exists";
+                continue;
+            }
+
+            if ($sale->payment_status !== 'paid') {
+                $unpaid[] = sprintf(
+                    'line #%d: %s#%d is still %s',
+                    $item->id,
+                    class_basename((string) $item->posted_sale_type),
+                    $sale->id,
+                    (string) $sale->payment_status,
+                );
+            }
+        }
+
+        return $unpaid;
+    }
+
+    protected function findPostedSale(StorefrontOrderItem $item): ?object
+    {
+        return match ($item->posted_sale_type) {
+            \App\Models\PigSale::class  => \App\Models\PigSale::find($item->posted_sale_id),
+            \App\Models\FeedSale::class => \App\Models\FeedSale::find($item->posted_sale_id),
+            default                     => null,
+        };
+    }
+
+    /**
+     * Flip each linked underlying sale to 'paid' so the spine posts the COD cash
+     * receipt.
+     *
+     * Callers MUST check unsettleableCodLines() before and after. This method
+     * deliberately does not decide policy — it only performs the settlement it
+     * has been cleared to perform.
+     */
+    protected function settleCodPayments(StorefrontOrder $order, User $actor): void
+    {
+        foreach ($order->items as $item) {
+            if ($item->posted_sale_id === null || $item->posted_sale_type === null) {
                 continue;
             }
 
@@ -369,12 +540,6 @@ class OrderService
                     $this->feedPayment->execute($sale, $actor, 'paid');
                 }
             }
-        }
-
-        if ($unlinked > 0) {
-            $this->recordEvent($order, 'system', null, null,
-                "COD settlement: {$unlinked} line(s) had no posted sale yet and were not settled automatically.",
-                $actor->id);
         }
     }
 

@@ -50,4 +50,56 @@ class FakePaystackClient implements PaystackClient
             'raw'       => ['reference' => $reference] + $result,
         ];
     }
+
+    /* ------------------------------------------------------------------ */
+    /* Refunds (CF-P0-007)                                                */
+    /* ------------------------------------------------------------------ */
+
+    /** Every refund submission, so tests can assert the gateway was actually called. */
+    public array $refunds = [];
+
+    /**
+     * Scripted refund outcome. Null = accepted as 'pending', which is what
+     * Paystack actually returns: refunds settle asynchronously, so 'pending' is
+     * the realistic default rather than instant success.
+     *
+     * @var array{status:string, provider_reference?:?string}|null
+     */
+    public ?array $refundResult = null;
+
+    /** When set, refundTransaction() throws this instead of returning. */
+    public ?\Throwable $refundException = null;
+
+    public function refundTransaction(
+        string $transactionReference,
+        ?int $amountMinor = null,
+        ?string $reason = null,
+        ?string $idempotencyKey = null,
+    ): array {
+        $this->refunds[] = compact('transactionReference', 'amountMinor', 'reason', 'idempotencyKey');
+
+        if ($this->refundException !== null) {
+            throw $this->refundException;
+        }
+
+        $result = $this->refundResult ?? ['status' => 'pending'];
+
+        return [
+            'status'             => $result['status'],
+            'provider_reference' => $result['provider_reference']
+                ?? ('rf_' . substr(md5($transactionReference . count($this->refunds)), 0, 12)),
+            'amount'             => $amountMinor,
+            'currency'           => $this->initialised[0]['currency'] ?? 'GHS',
+            'raw'                => ['transaction' => $transactionReference] + $result,
+        ];
+    }
+
+    /** Number of times a refund was submitted for a given transaction. */
+    public function refundCountFor(string $transactionReference): int
+    {
+        return count(array_filter(
+            $this->refunds,
+            fn (array $r) => $r['transactionReference'] === $transactionReference,
+        ));
+    }
 }
