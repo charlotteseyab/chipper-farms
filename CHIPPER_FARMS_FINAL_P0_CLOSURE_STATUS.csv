@@ -1,0 +1,12 @@
+ID,Severity,Phase,Title,Status,Correction,Verification,Notes
+CF-FINAL-P0-001,P0,01,Route-cache tenant disclosure for organization-scoped route model binding,Closed,Route bindings moved from bootstrap withRouting then callback into AppServiceProvider boot registration,Passed targeted cached and uncached cross-tenant tests plus full security suite in both modes,Closed locally
+CF-FINAL-P0-002,P0,00,Full suite not green under production cache posture,Open,None in this pass,Normal cleared-cache suite passed 1307/13 skipped but production-cache suite previously failed 158,Requires repeatable production-cache test strategy
+CF-FINAL-P0-003,P0,04,MariaDB migrations and concurrency gates unavailable,Open,None in this pass,migrate:status failed against 127.0.0.1:3306 and concurrency suite failed against 127.0.0.1:3399,Requires real MariaDB validation
+CF-FINAL-P0-004,P0,03,Refund and sales-return accounting lifecycle not fully certified,Open,None in this pass,Refund unit coverage exists but Paystack sandbox/webhook lifecycle and accounting recovery remain uncertified,Requires saga and accounting proof
+CF-FINAL-P0-005,P0,02,Credit note and return accounting invariants not fully closed,Open,None in this pass,Route-cache tenant piece closed but return accounting and closed-period/concurrency cases remain open,Requires executable accounting tests
+CF-FINAL-P0-006,P0,03,Paystack sandbox and refund webhook certification absent,Open,None in this pass,Paystack credentials absent and only local mocked/fixture tests ran,Requires sandbox charge/refund/webhook evidence
+CF-FINAL-P0-007,P0,06/07,CI infrastructure deployment monitoring and restore certification absent,Open,None in this pass,Local commands ran but external CI deployment monitor and restore drills were not available,Requires independent infrastructure evidence
+CF-FINAL-P1-001,P1,05,Skipped browser/security coverage remains,Open,None in this pass,13 skipped tests remain in normal suite and skip inventory contains conditional route/security skips,Requires skip disposition or replacement coverage
+CF-FINAL-P1-002,P1,07,Scheduler and operations checks not certified end-to-end,Open,None in this pass,schedule:list failed under configured database cache due unavailable MySQL,Requires production-like scheduler and cache backing service
+CF-FINAL-P2-001,P2,01,Dependency freshness warnings,Open,None in this pass,npm build warned Browserslist/caniuse-lite is outdated and npm ci warned deprecated glob transitive dependency,Non-blocking but should be scheduled
+

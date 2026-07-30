@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Route;
 use App\Helpers\NavigationHelper;
 use App\Models\PigWeight;
 use App\Observers\PigWeightObserver;
@@ -18,6 +19,7 @@ use Illuminate\Auth\Events\Logout;
 use App\Models\ActivityLog;
 
 // Phase 0.3 — policies + policy targets
+use App\Models\Concerns\ResolvesOrganization;
 use App\Models\Farrowing;
 use App\Models\Mating;
 use App\Models\Organization;
@@ -123,6 +125,8 @@ class AppServiceProvider extends ServiceProvider
         foreach ($this->policies as $model => $policy) {
             Gate::policy($model, $policy);
         }
+
+        $this->registerOrganizationScopedRouteBindings();
         // ---------------------------------------------------------------------
 
         // Apply runtime settings overrides for breeding config only when settings storage is reachable
@@ -194,6 +198,54 @@ class AppServiceProvider extends ServiceProvider
             } catch (\Throwable $e) {
                 report($e);
             }
+        });
+    }
+
+    private function registerOrganizationScopedRouteBindings(): void
+    {
+        // Organisation-scoped route model bindings (CF-FINAL-P0-001).
+        //
+        // withRouting(... then:) is not replayed from Laravel's cached routes.
+        // Registering binders in a service provider keeps cross-tenant records
+        // indistinguishable from missing records in both cached and uncached
+        // production boots.
+        $scopeToOrganization = function ($model) {
+            if ($model === null) {
+                abort(404);
+            }
+
+            $currentOrganizationId = app(CurrentOrganization::class)->resolve()?->id;
+
+            if ($currentOrganizationId === null) {
+                abort(404);
+            }
+
+            $recordOrganizationId = $model instanceof ResolvesOrganization
+                ? $model->resolveOrganizationId()
+                : $model->getAttribute('organization_id');
+
+            if ($recordOrganizationId === null
+                || (int) $recordOrganizationId !== (int) $currentOrganizationId) {
+                abort(404);
+            }
+
+            return $model;
+        };
+
+        Route::bind('pig', function ($value) use ($scopeToOrganization) {
+            return $scopeToOrganization(PigManagement::find($value));
+        });
+
+        Route::bind('farrowing', function ($value) use ($scopeToOrganization) {
+            return $scopeToOrganization(Farrowing::find($value));
+        });
+
+        Route::bind('mating', function ($value) use ($scopeToOrganization) {
+            return $scopeToOrganization(Mating::find($value));
+        });
+
+        Route::bind('weaning', function ($value) use ($scopeToOrganization) {
+            return $scopeToOrganization(Weaning::find($value));
         });
     }
 }

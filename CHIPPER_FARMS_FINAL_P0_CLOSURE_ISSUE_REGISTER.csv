@@ -1,0 +1,12 @@
+ID,Severity,Title,Status,Closed,Evidence
+CF-FINAL-P0-001,P0,Route-cache tenant disclosure for organization-scoped route model binding,Closed,Yes,Targeted cached/uncached test and security suite cached/uncached passed
+CF-FINAL-P0-002,P0,Full suite not green under production cache posture,Open,No,Production-cache suite failed 158 tests during this closure pass baseline
+CF-FINAL-P0-003,P0,MariaDB migrations and concurrency gates unavailable,Open,No,MySQL 3306 and MariaDB 3399 unavailable
+CF-FINAL-P0-004,P0,Refund and sales-return accounting lifecycle not fully certified,Open,No,No Paystack sandbox refund/webhook or accounting recovery proof
+CF-FINAL-P0-005,P0,Credit note and return accounting invariants not fully closed,Open,No,Accounting edge-case closure not implemented or independently tested in this pass
+CF-FINAL-P0-006,P0,Paystack sandbox and refund webhook certification absent,Open,No,No live sandbox credentials or webhook delivery proof
+CF-FINAL-P0-007,P0,CI infrastructure deployment monitoring and restore certification absent,Open,No,External CI/infra/restore gates unavailable
+CF-FINAL-P1-001,P1,Skipped browser/security coverage remains,Open,No,13 skipped tests remain in normal suite
+CF-FINAL-P1-002,P1,Scheduler and operations checks not certified end-to-end,Open,No,schedule:list failed under configured database cache
+CF-FINAL-P2-001,P2,Dependency freshness warnings,Open,No,npm build and npm ci emitted freshness/deprecation warnings
+
