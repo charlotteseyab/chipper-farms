@@ -1,0 +1,11 @@
+id,severity,area,status,evidence,notes
+CF-P0-007,P0,Paystack refunds,PARTIALLY_REMEDIATED,"tests/Feature/Storefront/RefundExecutionTest.php; tests/Feature/Storefront/OrderHttpTest.php","Submission and authenticated settlement/failure webhook flows covered locally; external Paystack sandbox webhook replay remains pending."
+CF-P0-008,P0,Credit notes,REMEDIATED_LOCALLY,"database/migrations/2028_09_01_100000_create_credit_notes_tables.php; app/Services/Finance/CreditNotes/CreditNoteService.php; tests/Feature/Finance/SalesReturns/SalesReturnRevenueTest.php","Sales returns now create credit-note documents and post auto_credit_note batches idempotently."
+CF-P0-009,P0,MariaDB migrations,REMEDIATED_LOCALLY,"scripts/testing/reset-test-database.sh; bash scripts/testing/run-mariadb-tests.sh tests/Feature/Finance/Schema/JournalBalanceTest.php","Fresh MariaDB migration and targeted MariaDB tests passed on XAMPP MariaDB 10.4.32."
+CF-P0-010,P0,Scheduler/queue,REMEDIATED_LOCALLY,"php artisan schedule:list; Tests\\Feature\\Console\\ScheduleRegistrationTest","Schedules list successfully; default suite covers registration."
+CF-P0-011,P0,Concurrency,REMEDIATED_LOCALLY,"bash scripts/testing/run-concurrency-tests.sh","9 tests / 110 assertions passed on chipper_farms_concurrency_test."
+CF-P0-012,P0,CI/infra,PARTIALLY_REMEDIATED,".github/workflows/ci.yml","CI now calls guarded MariaDB/concurrency paths; remote CI execution is not verified in this local run."
+CF-P0-013,P0,Backup/restore,OPEN_EXTERNAL,"docs/operations/BACKUP_AND_RESTORE_RUNBOOK.md; CHIPPER_FARMS_EXTERNAL_CERTIFICATION_RUNBOOK.md","Requires off-host backup and restore execution outside this workspace."
+CF-P1-017,P1,SQLite skipped schema tests,REMEDIATED_LOCALLY,"bash scripts/testing/run-mariadb-tests.sh tests/Feature/Finance/Schema/JournalBalanceTest.php","SQLite skips remain by design; MariaDB run passed 6 tests / 10 assertions."
+CF-P1-021,P1,Refund saga recovery,PARTIALLY_REMEDIATED,"app/Http/Controllers/Storefront/PaystackWebhookController.php; tests/Feature/Finance/StorefrontSettlementReconciliationTest.php","Local stale/failed refund monitoring and webhook settlement covered; provider sandbox proof pending."
+CF-P2-ARCHIVE,P2,Tracked archive,REMEDIATED_LOCALLY,"git status shows D chipperfarms.zip","Tracked historical archive removed; pre-existing untracked user archive left untouched."

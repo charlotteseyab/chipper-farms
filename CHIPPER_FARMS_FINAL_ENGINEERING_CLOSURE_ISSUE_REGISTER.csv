@@ -1,0 +1,11 @@
+id,severity,title,status,engineering_evidence,external_evidence_needed
+CF-P0-007,P0,Paystack refund execution and settlement,PARTIALLY_REMEDIATED,"RefundExecutionTest; OrderHttpTest refund.processed/refund.failed coverage","Paystack sandbox refund plus webhook replay evidence"
+CF-P0-008,P0,Credit-note document gap,REMEDIATED_LOCALLY,"CreditNoteService; credit_notes migration; SalesReturnRevenueTest; MariaDB targeted tests","External accountant/product owner review of document format"
+CF-P0-009,P0,MariaDB migration certification,REMEDIATED_LOCALLY,"reset-test-database.sh; MariaDB targeted tests","Full production-like upgrade path if historical production data is available"
+CF-P0-010,P0,Scheduler registration,REMEDIATED_LOCALLY,"schedule:list; ScheduleRegistrationTest","Cron/supervisor proof in deployment environment"
+CF-P0-011,P0,Concurrency proof,REMEDIATED_LOCALLY,"run-concurrency-tests.sh 9 passed / 110 assertions","Load test/observability proof optional for production sign-off"
+CF-P0-012,P0,CI/infra gate,PARTIALLY_REMEDIATED,".github/workflows/ci.yml patched","Observed green GitHub Actions run"
+CF-P0-013,P0,Backup restore deploy rollback,OPEN_EXTERNAL,"Runbook prepared","Executed backup, restore, deploy, rollback evidence"
+CF-P1-017,P1,SQLite skipped finance schema tests,REMEDIATED_LOCALLY,"MariaDB JournalBalanceTest passed 6/10","None if MariaDB gate remains required"
+CF-P1-021,P1,Refund saga monitoring/recovery,PARTIALLY_REMEDIATED,"Storefront settlement reconciliation tests and webhook handling","Provider sandbox and monitoring alert proof"
+CF-P2-001,P2,Tracked archive,REMEDIATED_LOCALLY,"chipperfarms.zip removed from tracked worktree","Commit review"
