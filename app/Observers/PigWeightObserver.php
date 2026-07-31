@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\PigWeight;
 use App\Models\WeightAlert;
+use App\Services\Audit\AuditTrailService;
 use App\Services\Weights\WeightAlertGenerationService;
 use Illuminate\Support\Facades\Log;
 
@@ -23,8 +24,10 @@ use Illuminate\Support\Facades\Log;
  */
 class PigWeightObserver
 {
-    public function __construct(protected WeightAlertGenerationService $alerts)
-    {
+    public function __construct(
+        protected WeightAlertGenerationService $alerts,
+        protected AuditTrailService $audit,
+    ) {
     }
 
     public function created(PigWeight $pigWeight): void
@@ -42,6 +45,31 @@ class PigWeightObserver
 
     public function updated(PigWeight $pigWeight): void
     {
+        $changes = collect($pigWeight->getChanges())->except('updated_at')->all();
+
+        if ($changes !== []) {
+            $before = [];
+            foreach (array_keys($changes) as $field) {
+                $before[$field] = $pigWeight->getRawOriginal($field);
+            }
+
+            $pigWeight->loadMissing('pig');
+            $identifier = $pigWeight->pig?->code ?: ($pigWeight->pig?->ear_tag_number ?: 'Pig #'.$pigWeight->pig_id);
+
+            $this->audit->logModelChanges(
+                $pigWeight,
+                'weights',
+                'updated',
+                $before,
+                $changes,
+                [
+                    'record_label' => $identifier.' · '.$pigWeight->weigh_date?->format('Y-m-d'),
+                    'description' => 'Weight record updated from the weight management workflow.',
+                    'metadata' => ['pig_id' => $pigWeight->pig_id],
+                ]
+            );
+        }
+
         if (! $pigWeight->wasChanged('weight')) {
             return;
         }

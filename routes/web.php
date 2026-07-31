@@ -98,6 +98,8 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::post('/health/store-health', [PigHealthController::class, 'storeHealth'])->middleware('permission:manage_health_records')->name('health.store');
     Route::post('/health/store-medication', [PigHealthController::class, 'storeMedication'])->middleware('permission:administer_medication')->name('medications.store');
     Route::get('/health/{pig}', [PigHealthController::class, 'show'])->middleware('permission:view_health_records')->name('health.show');
+    Route::patch('/health/{pig}/status', [PigHealthController::class, 'updateHealthStatus'])->middleware('permission:manage_health_records')->name('health.status.update');
+    Route::get('/health/{pig}/export-pdf', [PigHealthController::class, 'exportPigHealthPdf'])->middleware('permission:view_health_records')->name('health.export-pdf');
     Route::get('/health/{pig}/create-health', [PigHealthController::class, 'createHealth'])->middleware('permission:manage_health_records')->name('health.createForPig');
     Route::get('/health/{pig}/create-medication', [PigHealthController::class, 'createMedication'])->middleware('permission:administer_medication')->name('medications.createForPig');
     Route::post('/health/{pig}/health', [PigHealthController::class, 'storeHealth'])->middleware('permission:manage_health_records')->name('health.storeForPig');
@@ -246,6 +248,8 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::get('sales', [App\Http\Controllers\PigManagementController::class, 'salesIndex'])->name('sales.index');
     Route::get('sales/{id}', [App\Http\Controllers\PigManagementController::class, 'saleShow'])->name('sales.show');
     Route::post('sales/{id}/payment-status', [App\Http\Controllers\PigManagementController::class, 'updatePaymentStatus'])->name('sales.update-payment-status');
+    Route::post('sales/{id}/abort', [App\Http\Controllers\PigSaleController::class, 'abort'])->name('sales.abort');
+    Route::get('sales/{id}/audit', [App\Http\Controllers\PigSaleController::class, 'audit'])->name('sales.audit');
     Route::get('sales-export/csv', [App\Http\Controllers\PigManagementController::class, 'salesExportCsv'])->name('sales.export.csv');
     Route::get('sales-export/pdf', [App\Http\Controllers\PigManagementController::class, 'salesExportPdf'])->name('sales.export.pdf');
 
@@ -259,9 +263,11 @@ Route::middleware($protectedMiddleware)->group(function () {
 
     // Weight Management Routes
     Route::get('weights', [App\Http\Controllers\WeightManagementController::class, 'index'])->middleware('permission:view_weights')->name('weights.index');
+    Route::get('weights/audit', [App\Http\Controllers\WeightManagementController::class, 'auditIndex'])->middleware('permission:view_weights')->name('weights.audit.index');
     Route::get('weights/create', [App\Http\Controllers\WeightManagementController::class, 'create'])->middleware('permission:record_weights')->name('weights.create');
     Route::post('weights', [App\Http\Controllers\WeightManagementController::class, 'store'])->middleware('permission:record_weights')->name('weights.store');
     Route::get('weights/{weight}/edit', [App\Http\Controllers\WeightManagementController::class, 'edit'])->middleware('permission:record_weights')->name('weights.edit');
+    Route::get('weights/{weight}/audit', [App\Http\Controllers\WeightManagementController::class, 'audit'])->middleware('permission:view_weights')->name('weights.audit');
     Route::put('weights/{weight}', [App\Http\Controllers\WeightManagementController::class, 'update'])->middleware('permission:record_weights')->name('weights.update');
     Route::get('weights/reports', [App\Http\Controllers\WeightManagementController::class, 'reports'])->middleware('permission:view_weights')->name('weights.reports');
     Route::get('weights/export/excel', [App\Http\Controllers\WeightManagementController::class, 'exportWeeklyExcel'])->middleware('permission:view_weights')->name('weights.index.export-excel');

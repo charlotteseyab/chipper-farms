@@ -17,6 +17,9 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use App\Models\ActivityLog;
+use App\Models\ExpectedWeightStandard;
+use App\Observers\ExpectedWeightStandardObserver;
+use App\Observers\PigSaleObserver;
 
 // Phase 0.3 — policies + policy targets
 use App\Models\Concerns\ResolvesOrganization;
@@ -93,6 +96,8 @@ class AppServiceProvider extends ServiceProvider
 
         // Register model observers
         PigWeight::observe(PigWeightObserver::class);
+        ExpectedWeightStandard::observe(ExpectedWeightStandardObserver::class);
+        PigSale::observe(PigSaleObserver::class);
 
         // --- Authorization (Phase 0.3) ---------------------------------------
         // Superuser bypass: a superuser is allowed to perform any gate check.

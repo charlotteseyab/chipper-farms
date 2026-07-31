@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PigManagement;
 use App\Models\HealthRecord;
 use App\Models\MedicationAdministration;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
 class PigHealthController extends Controller
@@ -12,9 +13,9 @@ class PigHealthController extends Controller
     public function index(Request $request)
     {
         $query = PigManagement::with(['healthRecords' => function($q) {
-            $q->latest('record_date')->limit(1);
+            $q->latest('record_date')->latest('id')->limit(1);
         }, 'medicationAdministrations' => function($q) {
-            $q->latest('administration_date')->limit(1);
+            $q->latest('administration_date')->latest('id')->limit(1);
         }])->whereDoesntHave('deaths')->whereDoesntHave('sales');
 
         if ($search = $request->get('q')) {
@@ -53,11 +54,88 @@ class PigHealthController extends Controller
         return view('health.index', compact('pigs'));
     }
 
-    public function show(PigManagement $pig)
+    public function show(Request $request, PigManagement $pig)
     {
-        $pig->load(['healthRecords' => function($q) { $q->latest('record_date'); },
-                    'medicationAdministrations' => function($q) { $q->latest('administration_date'); }]);
-        return view('health.show', compact('pig'));
+        $healthRecords = $pig->healthRecords()
+            ->latest('record_date')
+            ->latest('id')
+            ->paginate(10, ['*'], 'health_page')
+            ->withQueryString();
+
+        $medicationRecords = $pig->medicationAdministrations()
+            ->latest('administration_date')
+            ->latest('id')
+            ->paginate(10, ['*'], 'medication_page')
+            ->withQueryString();
+
+        $lastRecord = $pig->healthRecords()->latest('record_date')->latest('id')->first();
+        $lastMedication = $pig->medicationAdministrations()->latest('administration_date')->latest('id')->first();
+
+        return view('health.show', compact(
+            'pig',
+            'healthRecords',
+            'medicationRecords',
+            'lastRecord',
+            'lastMedication'
+        ));
+    }
+
+    public function updateHealthStatus(Request $request, PigManagement $pig)
+    {
+        $record = $pig->healthRecords()->latest('record_date')->latest('id')->first();
+
+        if (! $record) {
+            return redirect()->route('health.show', $pig)
+                ->with('error', 'Add a health record before updating this pig\'s health status.');
+        }
+
+        $data = $request->validate([
+            'severity' => 'nullable|in:mild,moderate,severe,low,medium,high',
+            'treatment_status' => 'required|in:planned,ongoing,completed,stopped',
+            'outcome' => 'nullable|in:recovered,improved,unchanged,worsened',
+            'resolved_at' => 'nullable|date|after_or_equal:'.$record->record_date->toDateString(),
+            'resolution_notes' => 'nullable|string|max:2000',
+        ]);
+
+        $record->update($data);
+
+        return redirect()->route('health.show', $pig)
+            ->with('success', 'Health status updated successfully.');
+    }
+
+    public function exportPigHealthPdf(PigManagement $pig)
+    {
+        $healthRecords = $pig->healthRecords()
+            ->with('recordedBy')
+            ->latest('record_date')
+            ->latest('id')
+            ->get();
+        $medicationRecords = $pig->medicationAdministrations()
+            ->with('administeredBy')
+            ->latest('administration_date')
+            ->latest('id')
+            ->get();
+        $lastRecord = $healthRecords->first();
+        $lastMedication = $medicationRecords->first();
+        $summary = [
+            'health_records' => $healthRecords->count(),
+            'medications' => $medicationRecords->count(),
+            'resolved' => $healthRecords->whereNotNull('resolved_at')->count(),
+            'active' => $healthRecords->whereNull('resolved_at')->count(),
+        ];
+
+        $pdf = Pdf::loadView('health.pdf', compact(
+            'pig',
+            'healthRecords',
+            'medicationRecords',
+            'lastRecord',
+            'lastMedication',
+            'summary'
+        ))->setPaper('a4', 'portrait');
+
+        $identifier = $pig->code ?: ($pig->ear_tag_number ?: $pig->id);
+
+        return $pdf->download('health-report-'.$identifier.'-'.now()->format('Y-m-d').'.pdf');
     }
 
     public function edit(PigManagement $pig)

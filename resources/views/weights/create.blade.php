@@ -513,7 +513,7 @@
 
                                             <div class="weight-field">
                                                 <label class="weight-label">Pig</label>
-                                                <select name="pig_id" id="pig_id" required class="weight-select">
+                                                <select name="pig_id" id="pig_id" required class="weight-select" data-searchable-select data-search-placeholder="Search by ear tag, code, breed, or gender...">
                                                     <option value="" disabled selected>-- Select Pig --</option>
                                                     @foreach($pigs as $pig)
                                                         <option value="{{ $pig->id }}"
@@ -615,7 +615,7 @@
 
                                                 <div class="weight-field">
                                                     <label class="weight-label">Purpose</label>
-                                                    <select name="purpose" id="purpose" required class="weight-select">
+                                                    <select name="purpose" id="purpose" required class="weight-select" data-searchable-select>
                                                         <option value="" disabled selected>-- Select Purpose --</option>
                                                         <option value="routine" {{ old('purpose') == 'routine' ? 'selected' : '' }}>Monthly Routine</option>
                                                         <option value="breeding" {{ old('purpose') == 'breeding' ? 'selected' : '' }}>Breeding Assessment</option>
@@ -652,7 +652,7 @@
                                             <div class="weight-grid-3">
                                                 <div class="weight-field">
                                                     <label class="weight-label">Target Week</label>
-                                                    <select name="target_week" id="target_week" required class="weight-select">
+                                                    <select name="target_week" id="target_week" required class="weight-select" data-searchable-select data-search-placeholder="Search weeks...">
                                                         <option value="" disabled selected>-- Select Week --</option>
                                                         @for($week = 1; $week <= 200; $week++)
                                                             <option value="{{ $week }}" {{ old('target_week') == $week ? 'selected' : '' }}>
@@ -718,7 +718,7 @@
                                             <div class="weight-grid-2">
                                                 <div class="weight-field">
                                                     <label class="weight-label">Body Condition Score (optional)</label>
-                                                    <select name="body_condition_score" class="weight-select">
+                                                    <select name="body_condition_score" class="weight-select" data-searchable-select>
                                                         <option value="" disabled selected>-- Not Assessed --</option>
                                                         <option value="1" {{ old('body_condition_score') == '1' ? 'selected' : '' }}>1 - Very Thin</option>
                                                         <option value="2" {{ old('body_condition_score') == '2' ? 'selected' : '' }}>2 - Thin</option>
@@ -730,7 +730,7 @@
 
                                                 <div class="weight-field">
                                                     <label class="weight-label">Health Status (optional)</label>
-                                                    <select name="health_status" class="weight-select">
+                                                    <select name="health_status" class="weight-select" data-searchable-select>
                                                         <option value="" disabled selected>-- Not Assessed --</option>
                                                         <option value="excellent" {{ old('health_status') == 'excellent' ? 'selected' : '' }}>Excellent</option>
                                                         <option value="good" {{ old('health_status') == 'good' ? 'selected' : '' }}>Good</option>

@@ -105,6 +105,7 @@ class NavigationHelper
                 'items' => array_values(array_filter([
                     self::group('Weight Management', 'fa-solid fa-weight-scale', ['weights*', 'weight-alerts*', 'weight-standards*'], [
                         self::link('All Weights', 'weights.index', 'weights', 'fa-solid fa-list', $allRoles),
+                        self::link('Weight Audit', 'weights.audit.index', 'weights/audit*', 'fa-solid fa-clock-rotate-left', $allRoles),
                         self::link('Record Weight', 'weights.create', 'weights/create*', 'fa-solid fa-plus', $allRoles),
                         self::link('Weight Reports', 'weights.reports', 'weights/reports*', 'fa-solid fa-chart-line', $allRoles),
                         self::link('Weight Alerts', 'weight-alerts.index', ['weight-alerts*', 'weight-alerts-dashboard*'], 'fa-solid fa-triangle-exclamation', $allRoles),

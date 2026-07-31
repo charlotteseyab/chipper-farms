@@ -106,6 +106,24 @@
                                 } elseif ($isRecovered) {
                                     $healthStatusText = 'Recovered / Resolved';
                                     $healthStatusClass = 'text-emerald-700 font-semibold';
+                                } elseif ($hr->outcome === 'worsened') {
+                                    $healthStatusText = 'Worsening / High Risk';
+                                    $healthStatusClass = 'text-red-600 font-semibold';
+                                } elseif ($hr->treatment_status === 'completed') {
+                                    $healthStatusText = 'Treatment Completed';
+                                    $healthStatusClass = 'text-emerald-700 font-semibold';
+                                } elseif ($hr->treatment_status === 'stopped') {
+                                    $healthStatusText = 'Treatment Stopped';
+                                    $healthStatusClass = 'text-orange-700 font-semibold';
+                                } elseif ($hr->outcome === 'improved') {
+                                    $healthStatusText = 'Improving';
+                                    $healthStatusClass = 'text-blue-700 font-semibold';
+                                } elseif ($hr->treatment_status === 'ongoing') {
+                                    $healthStatusText = 'Under Treatment';
+                                    $healthStatusClass = 'text-yellow-600 font-semibold';
+                                } elseif ($hr->treatment_status === 'planned') {
+                                    $healthStatusText = 'Treatment Planned';
+                                    $healthStatusClass = 'text-amber-600 font-semibold';
                                 } elseif ($isSevere) {
                                     $healthStatusText = 'Active High Risk';
                                     $healthStatusClass = 'text-red-600 font-semibold';
@@ -136,6 +154,11 @@
                                     <div class="font-medium text-gray-900">{{ $hr->record_date->format('M d, Y') }}</div>
                                     <div class="text-sm text-gray-600">{{ $hr->condition }} ({{ ucfirst($hr->severity) }})</div>
                                     <div class="text-xs {{ $healthStatusClass }}">{{ $healthStatusText }}</div>
+                                    <div class="mt-1 text-[11px] text-gray-500">
+                                        Treatment: {{ ucfirst($hr->treatment_status ?: 'Not set') }}
+                                        <span class="mx-1">·</span>
+                                        Outcome: {{ ucfirst($hr->outcome ?: 'Not assessed') }}
+                                    </div>
                                 @else
                                     <span class="text-gray-400 italic">No recent record</span>
                                 @endif

@@ -7,6 +7,9 @@
             <p class="text-gray-600 mt-1">Set expected weights for each pig type and age - system will automatically check weekly weights</p>
         </div>
         <div class="flex gap-3">
+            <a href="{{ route('weights.audit.index', ['tab' => 'standards']) }}" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+                Change History
+            </a>
             <a href="{{ route('weight-standards.create') }}" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
                 Add Add Expected Weight
             </a>
@@ -37,7 +40,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Breed</label>
-                <select name="breed" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                <select name="breed" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" data-searchable-select>
                     <option value="">All Breeds</option>
                     <option value="LW" {{ request('breed') === 'LW' ? 'selected' : '' }}>Large White</option>
                     <option value="DR" {{ request('breed') === 'DR' ? 'selected' : '' }}>Duroc</option>
@@ -47,7 +50,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
-                <select name="gender" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                <select name="gender" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" data-searchable-select>
                     <option value="">All Genders</option>
                     <option value="M" {{ request('gender') === 'M' ? 'selected' : '' }}>Male</option>
                     <option value="F" {{ request('gender') === 'F' ? 'selected' : '' }}>Female</option>
@@ -56,7 +59,7 @@
 
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Stock Type</label>
-                <select name="stock_type" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                <select name="stock_type" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" data-searchable-select>
                     <option value="">All Types</option>
                     <option value="standard" {{ request('stock_type') === 'standard' ? 'selected' : '' }}>Standard</option>
                     <option value="breeding" {{ request('stock_type') === 'breeding' ? 'selected' : '' }}>Breeding</option>

@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\PigManagement;
 use App\Models\PigWeight;
+use App\Models\ActivityLog;
 use App\Helpers\FlashHelper;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Response;
+use App\Support\CurrentOrganization;
 
 class WeightManagementController extends Controller
 {
@@ -150,6 +152,77 @@ class WeightManagementController extends Controller
         $selectedPig = $weight->pig;
 
         return view('weights.edit', compact('weight', 'pigs', 'selectedPig'));
+    }
+
+    /**
+     * Display changes across all weight records in the current organization.
+     */
+    public function auditIndex(Request $request, CurrentOrganization $currentOrganization)
+    {
+        $organizationId = $currentOrganization->resolve()?->id;
+        abort_if($organizationId === null, 404);
+
+        $auditTab = $request->query('tab') === 'standards' ? 'standards' : 'weights';
+        $canViewStandards = $request->user()?->isAdmin()
+            || $request->user()?->isManager()
+            || $request->user()?->isSuperuser();
+
+        abort_if($auditTab === 'standards' && ! $canViewStandards, 403);
+
+        $logs = ActivityLog::with('user')
+            ->where('module', $auditTab === 'standards' ? 'weight_standards' : 'weights')
+            ->where('organization_id', $organizationId)
+            ->latest('created_at')
+            ->latest('id')
+            ->paginate(10)
+            ->withQueryString();
+
+        $auditCounts = [
+            'weights' => ActivityLog::where('module', 'weights')
+                ->where('organization_id', $organizationId)
+                ->count(),
+            'standards' => $canViewStandards
+                ? ActivityLog::where('module', 'weight_standards')
+                    ->where('organization_id', $organizationId)
+                    ->count()
+                : 0,
+        ];
+
+        $weight = null;
+
+        return view('weights.audit', compact('weight', 'logs', 'auditTab', 'canViewStandards', 'auditCounts'));
+    }
+
+    /**
+     * Display the immutable change history for one weight record.
+     */
+    public function audit(PigWeight $weight, CurrentOrganization $currentOrganization)
+    {
+        $weight->load('pig');
+        $organizationId = $currentOrganization->resolve()?->id;
+
+        abort_unless(
+            $organizationId !== null
+            && $weight->pig
+            && (int) $weight->pig->organization_id === (int) $organizationId,
+            404
+        );
+
+        $logs = ActivityLog::with('user')
+            ->where('auditable_type', PigWeight::class)
+            ->where('auditable_id', $weight->id)
+            ->latest('created_at')
+            ->latest('id')
+            ->paginate(10)
+            ->withQueryString();
+
+        $auditTab = 'weights';
+        $auditCounts = ['weights' => $logs->total(), 'standards' => 0];
+        $canViewStandards = auth()->user()?->isAdmin()
+            || auth()->user()?->isManager()
+            || auth()->user()?->isSuperuser();
+
+        return view('weights.audit', compact('weight', 'logs', 'auditTab', 'canViewStandards', 'auditCounts'));
     }
 
     /**

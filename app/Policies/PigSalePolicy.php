@@ -61,6 +61,12 @@ class PigSalePolicy
         return $this->sameOrganization($user, $sale) && $user->isAdmin();
     }
 
+    public function reverse(User $user, PigSale $sale): bool
+    {
+        return $this->sameOrganization($user, $sale)
+            && ($user->isAdmin() || $user->isManager());
+    }
+
     public function export(User $user): bool
     {
         return $user->isAdmin() || $user->isManager() || $user->isAccountant();

@@ -5,6 +5,7 @@ namespace App\Services\Sales;
 use App\Domain\Events\Sales\PigSalePaymentStatusChanged;
 use App\Domain\Events\Support\SourceReference;
 use App\Models\PigSale;
+use App\Models\SalesReturn;
 use App\Models\User;
 use App\Services\DomainEvents\DispatchDomainEvent;
 use App\Support\CurrentOrganization;
@@ -47,6 +48,22 @@ class UpdatePigSalePaymentStatusService
         $organizationId = $this->currentOrganization->requireId();
 
         $fromStatus = (string) $sale->payment_status;
+
+        $hasActiveReversal = $sale->salesReturns()
+            ->where('status', '!=', SalesReturn::STATUS_FAILED)
+            ->exists();
+
+        if ($hasActiveReversal) {
+            throw new \InvalidArgumentException(
+                'Payment status cannot be changed after a sale reversal has been initiated.'
+            );
+        }
+
+        if ($fromStatus === 'paid' && $toStatus !== 'paid' && blank($notesAppend)) {
+            throw new \InvalidArgumentException(
+                'A correction reason is required when changing a paid sale to another payment status.'
+            );
+        }
 
         if ($fromStatus === $toStatus && $notesAppend === null) {
             // No-op. No event, no audit write.

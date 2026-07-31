@@ -6,6 +6,9 @@ use App\Http\Requests\Sales\RecordPigSaleRequest;
 use App\Http\Requests\Sales\UpdatePaymentStatusRequest;
 use App\Models\PigManagement;
 use App\Models\PigSale;
+use App\Models\ActivityLog;
+use App\Models\SalesReturn;
+use App\Services\Sales\AbortPigSaleService;
 use App\Services\Sales\RecordPigSaleService;
 use App\Services\Sales\SalesExportService;
 use App\Services\Sales\UpdatePigSalePaymentStatusService;
@@ -96,12 +99,58 @@ class PigSaleController extends Controller
 
     public function show($id)
     {
-        $sale = PigSale::with(['pig', 'soldBy'])->findOrFail($id);
+        $sale = PigSale::with(['pig', 'soldBy', 'salesReturns.returnedBy'])->findOrFail($id);
 
         // Per-instance check — verifies user's org matches the sale's org.
         $this->authorize('view', $sale);
 
         return view('sales.show', compact('sale'));
+    }
+
+    public function abort(Request $request, AbortPigSaleService $service, $id)
+    {
+        $sale = PigSale::with('pig')->findOrFail($id);
+        $this->authorize('reverse', $sale);
+
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:10', 'max:500'],
+            'confirm_abort' => ['accepted'],
+        ]);
+
+        try {
+            $return = $service->execute($sale, $request->user(), $data['reason']);
+        } catch (\InvalidArgumentException $exception) {
+            return back()->withErrors(['abort' => $exception->getMessage()]);
+        }
+
+        return redirect()->route('sales.show', $sale->id)->with(
+            'success',
+            "Sale reversal {$return->return_number} has been initiated. Financial reversal processing may continue in the background."
+        );
+    }
+
+    public function audit($id)
+    {
+        $sale = PigSale::with(['pig', 'soldBy'])->findOrFail($id);
+        $this->authorize('view', $sale);
+
+        $logs = ActivityLog::with('user')
+            ->where('module', 'sales')
+            ->where('auditable_type', PigSale::class)
+            ->where('auditable_id', $sale->id)
+            ->where('organization_id', $sale->organization_id)
+            ->latest('created_at')
+            ->latest('id')
+            ->paginate(10)
+            ->withQueryString();
+
+        $returns = SalesReturn::with('returnedBy')
+            ->where('returnable_type', PigSale::class)
+            ->where('returnable_id', $sale->id)
+            ->latest('id')
+            ->get();
+
+        return view('sales.audit', compact('sale', 'logs', 'returns'));
     }
 
     public function updatePaymentStatus(
@@ -116,12 +165,16 @@ class PigSaleController extends Controller
 
         $data = $request->validated();
 
-        $service->execute(
-            sale:        $sale,
-            actor:       $request->user(),
-            toStatus:    $data['payment_status'],
-            notesAppend: $data['notes'] ?? null,
-        );
+        try {
+            $service->execute(
+                sale:        $sale,
+                actor:       $request->user(),
+                toStatus:    $data['payment_status'],
+                notesAppend: $data['notes'] ?? null,
+            );
+        } catch (\InvalidArgumentException $exception) {
+            return back()->withInput()->withErrors(['payment_status' => $exception->getMessage()]);
+        }
 
         return back()->with('success', 'Payment status updated successfully!');
     }

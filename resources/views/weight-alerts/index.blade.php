@@ -92,7 +92,7 @@
                     <form method="GET" action="{{ route('weight-alerts.index') }}" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Alert Type</label>
-                            <select name="alert_type" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600">
+                            <select name="alert_type" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600" data-searchable-select>
                                 <option value="">All Types</option>
                                 <option value="under_weight" {{ request('alert_type') == 'under_weight' ? 'selected' : '' }}>Under Weight</option>
                                 <option value="over_weight" {{ request('alert_type') == 'over_weight' ? 'selected' : '' }}>Over Weight</option>
@@ -103,7 +103,7 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Severity</label>
-                            <select name="severity" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600">
+                            <select name="severity" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600" data-searchable-select>
                                 <option value="">All Severities</option>
                                 <option value="high" {{ request('severity') == 'high' ? 'selected' : '' }}>High</option>
                                 <option value="medium" {{ request('severity') == 'medium' ? 'selected' : '' }}>Medium</option>
@@ -113,7 +113,7 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                            <select name="acknowledged" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600">
+                            <select name="acknowledged" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600" data-searchable-select>
                                 <option value="">All Alerts</option>
                                 <option value="0" {{ request('acknowledged') === '0' ? 'selected' : '' }}>Unacknowledged</option>
                                 <option value="1" {{ request('acknowledged') === '1' ? 'selected' : '' }}>Acknowledged</option>

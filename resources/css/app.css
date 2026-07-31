@@ -5,3 +5,60 @@
 [x-cloak] {
     display: none;
 }
+
+.searchable-select {
+        @apply relative w-full;
+    }
+
+    .searchable-select__native {
+        @apply sr-only;
+    }
+
+    .searchable-select__trigger {
+        @apply w-full rounded-lg border border-gray-300 bg-white px-3 pr-10 text-left text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500;
+        min-height: 42px;
+        background-image: linear-gradient(45deg, transparent 50%, #64748b 50%), linear-gradient(135deg, #64748b 50%, transparent 50%);
+        background-position: calc(100% - 17px) 50%, calc(100% - 12px) 50%;
+        background-size: 5px 5px, 5px 5px;
+        background-repeat: no-repeat;
+    }
+
+    .searchable-select__trigger.is-placeholder {
+        @apply text-gray-500;
+    }
+
+    .searchable-select__menu {
+        @apply absolute left-0 right-0 z-50 mt-1 hidden rounded-lg border border-gray-200 bg-white p-2 shadow-xl;
+    }
+
+    .searchable-select.is-open .searchable-select__menu {
+        @apply block;
+    }
+
+    .searchable-select__search {
+        @apply mb-2 w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500;
+    }
+
+    .searchable-select__options {
+        @apply max-h-56 overflow-y-auto;
+    }
+
+    .searchable-select__option {
+        @apply block w-full rounded-md px-3 py-2 text-left text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-800 focus:bg-blue-50 focus:text-blue-800 focus:outline-none;
+    }
+
+    .searchable-select__option.is-selected {
+        @apply bg-blue-50 font-semibold text-blue-800;
+    }
+
+    .searchable-select__option:disabled {
+        @apply cursor-not-allowed text-gray-400 hover:bg-transparent;
+    }
+
+    .searchable-select__empty {
+        @apply px-3 py-3 text-center text-sm text-gray-500;
+    }
+
+.searchable-select.is-disabled .searchable-select__trigger {
+        @apply cursor-not-allowed bg-gray-100 text-gray-500;
+}

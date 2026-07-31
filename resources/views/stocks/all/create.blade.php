@@ -526,7 +526,7 @@
                             <div class="pig-grid-2">
                                 <div class="pig-field">
                                     <label class="pig-label">Breed</label>
-                                    <select name="breed" required class="pig-select">
+                                    <select name="breed" required class="pig-select" data-searchable-select>
                                         <option value="" {{ old('breed') ? '' : 'selected' }} disabled>Select breed</option>
                                         <option value="LW" {{ old('breed') === 'LW' ? 'selected' : '' }}>Large White</option>
                                         <option value="DR" {{ old('breed') === 'DR' ? 'selected' : '' }}>Duroc</option>
@@ -536,7 +536,7 @@
 
                                 <div class="pig-field">
                                     <label class="pig-label">Gender</label>
-                                    <select name="gender" required class="pig-select">
+                                    <select name="gender" required class="pig-select" data-searchable-select>
                                         <option value="" {{ old('gender') ? '' : 'selected' }} disabled>Select gender</option>
                                         <option value="M" {{ old('gender') === 'M' ? 'selected' : '' }}>Male</option>
                                         <option value="F" {{ old('gender') === 'F' ? 'selected' : '' }}>Female</option>
@@ -597,7 +597,7 @@
 
                             <div class="pig-field" style="margin-bottom:14px;">
                                 <label class="pig-label">Structure</label>
-                                <select name="structure_id" id="structure_id" class="pig-select">
+                                <select name="structure_id" id="structure_id" class="pig-select" data-searchable-select data-search-placeholder="Search structures...">
                                     <option value="" {{ old('structure_id') ? '' : 'selected' }} disabled>Select structure (optional)</option>
                                     @isset($structures)
                                         @foreach ($structures as $structure)
@@ -614,7 +614,7 @@
 
                             <div class="pig-field">
                                 <label class="pig-label">Room</label>
-                                <select name="room_id" id="room_id" class="pig-select" disabled>
+                                <select name="room_id" id="room_id" class="pig-select" data-searchable-select data-search-placeholder="Search rooms..." disabled>
                                     <option value="" disabled selected>Select structure first</option>
                                 </select>
                                 <div class="pig-help">Choose a structure first to load available rooms.</div>
@@ -626,7 +626,7 @@
 
                             <div class="pig-field" style="margin-bottom:14px;">
                                 <label class="pig-label">Father (optional)</label>
-                                <select name="father_id" id="father_id" class="pig-select">
+                                <select name="father_id" id="father_id" class="pig-select" data-searchable-select data-search-placeholder="Search fathers...">
                                     <option value="" {{ old('father_id') ? '' : 'selected' }} disabled>Select father</option>
                                     @foreach ($males as $male)
                                         <option value="{{ $male->id }}" {{ old('father_id') == $male->id ? 'selected' : '' }}>
@@ -638,7 +638,7 @@
 
                             <div class="pig-field">
                                 <label class="pig-label">Mother (optional)</label>
-                                <select name="mother_id" id="mother_id" class="pig-select">
+                                <select name="mother_id" id="mother_id" class="pig-select" data-searchable-select data-search-placeholder="Search mothers...">
                                     <option value="" {{ old('mother_id') ? '' : 'selected' }} disabled>Select mother</option>
                                     @foreach ($females as $female)
                                         <option value="{{ $female->id }}" {{ old('mother_id') == $female->id ? 'selected' : '' }}>
