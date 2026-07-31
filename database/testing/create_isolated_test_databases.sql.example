@@ -1,0 +1,37 @@
+-- Chipper Farms isolated local MariaDB test databases.
+-- Replace __LOCAL_TEST_PASSWORD__ only in a local, untracked copy.
+-- Do not commit real credentials.
+
+CREATE DATABASE IF NOT EXISTS chipper_farms_test
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+CREATE DATABASE IF NOT EXISTS chipper_farms_concurrency_test
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+CREATE DATABASE IF NOT EXISTS chipper_farms_upgrade_test
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+CREATE DATABASE IF NOT EXISTS chipper_farms_restore_test
+CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;
+
+CREATE USER IF NOT EXISTS 'chipper_test'@'localhost'
+IDENTIFIED BY '__LOCAL_TEST_PASSWORD__';
+
+CREATE USER IF NOT EXISTS 'chipper_test'@'127.0.0.1'
+IDENTIFIED BY '__LOCAL_TEST_PASSWORD__';
+
+GRANT ALL PRIVILEGES ON chipper_farms_test.* TO 'chipper_test'@'localhost';
+GRANT ALL PRIVILEGES ON chipper_farms_concurrency_test.* TO 'chipper_test'@'localhost';
+GRANT ALL PRIVILEGES ON chipper_farms_upgrade_test.* TO 'chipper_test'@'localhost';
+GRANT ALL PRIVILEGES ON chipper_farms_restore_test.* TO 'chipper_test'@'localhost';
+
+GRANT ALL PRIVILEGES ON chipper_farms_test.* TO 'chipper_test'@'127.0.0.1';
+GRANT ALL PRIVILEGES ON chipper_farms_concurrency_test.* TO 'chipper_test'@'127.0.0.1';
+GRANT ALL PRIVILEGES ON chipper_farms_upgrade_test.* TO 'chipper_test'@'127.0.0.1';
+GRANT ALL PRIVILEGES ON chipper_farms_restore_test.* TO 'chipper_test'@'127.0.0.1';
+
+FLUSH PRIVILEGES;

@@ -181,6 +181,10 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
+      - name: Create isolated MariaDB test databases
+        run: |
+          php -r '$pdo = new PDO("mysql:host=127.0.0.1;port=3306;charset=utf8mb4", "root", "root"); foreach (["chipper_farms_test", "chipper_farms_concurrency_test", "chipper_farms_upgrade_test", "chipper_farms_restore_test"] as $db) { $pdo->exec("CREATE DATABASE IF NOT EXISTS `{$db}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"); }'
+
       # The default suite runs on SQLite for speed (see phpunit.xml). That is
       # deliberate and unchanged — but CF-P1-017 is precisely that a green
       # SQLite run is not a release gate, so the MariaDB migration and the
@@ -190,6 +194,7 @@ jobs:
 
       - name: Fresh migration on MariaDB
         env:
+          APP_ENV: testing
           DB_CONNECTION: mysql
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
@@ -199,12 +204,13 @@ jobs:
           CACHE_STORE: array
           SESSION_DRIVER: array
           QUEUE_CONNECTION: sync
-        run: php artisan migrate:fresh --force
+        run: bash scripts/testing/reset-test-database.sh
 
       - name: Re-run migrations (idempotency)
         # CF-P1-016: a migration that cannot be re-run leaves a deploy stuck
         # halfway. Running migrate again must be a clean no-op.
         env:
+          APP_ENV: testing
           DB_CONNECTION: mysql
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
@@ -218,6 +224,7 @@ jobs:
 
       - name: Seed on MariaDB
         env:
+          APP_ENV: testing
           DB_CONNECTION: mysql
           DB_HOST: 127.0.0.1
           DB_PORT: 3306
@@ -228,6 +235,12 @@ jobs:
           SESSION_DRIVER: array
           QUEUE_CONNECTION: sync
         run: php artisan db:seed --force
+
+      - name: MariaDB engine-specific regression tests
+        env:
+          DB_USERNAME: root
+          DB_PASSWORD: root
+        run: bash scripts/testing/run-mariadb-tests.sh tests/Feature/Finance/Schema/JournalBalanceTest.php tests/Feature/Finance/SalesReturns/SalesReturnRevenueTest.php tests/Feature/Storefront/OrderHttpTest.php
 
   # ---------------------------------------------------------------------------
   # Concurrency suite. Requires real row locking, so it cannot run on SQLite and
@@ -267,6 +280,9 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
+      - name: Create isolated concurrency database
+        run: php -r '$pdo = new PDO("mysql:host=127.0.0.1;port=3306;charset=utf8mb4", "root", "root"); $pdo->exec("CREATE DATABASE IF NOT EXISTS `chipper_farms_concurrency_test` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");'
+
       - name: Run concurrency suite
         # These spawn real OS processes with independent connections. They fail
         # rather than skip when no database is reachable, by design — the
@@ -275,10 +291,10 @@ jobs:
         env:
           CF_CONCURRENCY_DB_HOST: 127.0.0.1
           CF_CONCURRENCY_DB_PORT: 3306
-          CF_CONCURRENCY_DB_DATABASE: chipper_farms_test
+          CF_CONCURRENCY_DB_DATABASE: chipper_farms_concurrency_test
           CF_CONCURRENCY_DB_USERNAME: root
           CF_CONCURRENCY_DB_PASSWORD: root
-        run: vendor/bin/phpunit -c phpunit.concurrency.xml
+        run: bash scripts/testing/run-concurrency-tests.sh
 
   # ---------------------------------------------------------------------------
   # Boot-level checks that catch config/route/view errors a unit test will not.

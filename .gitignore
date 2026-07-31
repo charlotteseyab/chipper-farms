@@ -9,6 +9,11 @@
 .env
 .env.backup
 .env.production
+.env.testing.mariadb.local
+.env.testing.local
+*.sql
+*.sql.gz
+*.dump
 .phpactor.json
 .phpunit.result.cache
 Homestead.json

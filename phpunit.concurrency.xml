@@ -8,9 +8,9 @@
     gate remains a first-class, explicitly-run check rather than a skipped test.
 
     Usage:
-        CF_CONCURRENCY_DB_PORT=3399 vendor/bin/phpunit -c phpunit.concurrency.xml
+        CF_CONCURRENCY_DB_PORT=3306 vendor/bin/phpunit -c phpunit.concurrency.xml
 
-    Defaults target 127.0.0.1:3399 / chipper_farms_test as root with no password;
+    Defaults target 127.0.0.1:3306 / chipper_farms_concurrency_test as chipper_test;
     override with the CF_CONCURRENCY_DB_* environment variables.
     See tests/Concurrency/README.md.
 -->

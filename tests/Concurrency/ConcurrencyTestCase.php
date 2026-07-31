@@ -30,9 +30,9 @@ abstract class ConcurrencyTestCase extends TestCase
         parent::setUp();
 
         $host = getenv('CF_CONCURRENCY_DB_HOST') ?: '127.0.0.1';
-        $port = getenv('CF_CONCURRENCY_DB_PORT') ?: '3399';
-        $name = getenv('CF_CONCURRENCY_DB_DATABASE') ?: 'chipper_farms_test';
-        $user = getenv('CF_CONCURRENCY_DB_USERNAME') ?: 'root';
+        $port = getenv('CF_CONCURRENCY_DB_PORT') ?: '3306';
+        $name = getenv('CF_CONCURRENCY_DB_DATABASE') ?: 'chipper_farms_concurrency_test';
+        $user = getenv('CF_CONCURRENCY_DB_USERNAME') ?: 'chipper_test';
         $pass = getenv('CF_CONCURRENCY_DB_PASSWORD');
 
         $this->dbEnv = [
@@ -50,12 +50,31 @@ abstract class ConcurrencyTestCase extends TestCase
             'APP_ENV'           => 'testing',
         ];
 
+        $this->assertSafeDatabaseSelection();
         $this->assertDatabaseReachable();
 
         $this->workDir = sys_get_temp_dir() . '/cf-concurrency-' . getmypid();
         if (! is_dir($this->workDir)) {
             mkdir($this->workDir, 0777, true);
         }
+    }
+
+    protected function assertSafeDatabaseSelection(): void
+    {
+        $name = $this->dbEnv['DB_DATABASE'];
+
+        $this->assertSame('testing', $this->dbEnv['APP_ENV']);
+        $this->assertMatchesRegularExpression(
+            '/^chipper_farms_(test|concurrency_test|upgrade_test|restore_test)$/',
+            $name,
+            'Concurrency tests may only run against the approved isolated test databases.',
+        );
+        $this->assertSame(
+            'chipper_farms_concurrency_test',
+            $name,
+            'The concurrency suite must not share the integration or normal application database.',
+        );
+        $this->assertNotContains($name, ['mysql', 'information_schema', 'performance_schema', 'sys']);
     }
 
     protected function tearDown(): void
