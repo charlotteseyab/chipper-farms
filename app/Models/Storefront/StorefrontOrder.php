@@ -89,7 +89,10 @@ class StorefrontOrder extends Model
         'customer_note', 'staff_notes',
         'confirmed_by_user_id', 'confirmed_at', 'cancelled_by_user_id', 'cancelled_at', 'cancel_reason',
         'placed_at', 'completed_at', 'completed_by_user_id',
-        'refunded_at', 'refunded_by_user_id', 'refund_reason', 'finance_reversal_note', 'invoice_id', 'receipt_id', 'finance_posting_status', 'finance_posting_error',
+        'refunded_at', 'refunded_by_user_id', 'refund_reason', 'refund_provider_reference',
+        'refund_provider_status', 'refund_submitted_at', 'refund_failure_reason',
+        'refund_idempotency_key', 'refund_amount_minor', 'finance_reversal_note',
+        'invoice_id', 'receipt_id', 'finance_posting_status', 'finance_posting_error',
     ];
 
     protected function casts(): array
@@ -103,6 +106,7 @@ class StorefrontOrder extends Model
             'placed_at'    => 'datetime',
             'completed_at' => 'datetime',
             'refunded_at'  => 'datetime',
+            'refund_submitted_at' => 'datetime',
         ];
     }
 

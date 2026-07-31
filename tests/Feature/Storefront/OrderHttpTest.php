@@ -4,6 +4,7 @@ namespace Tests\Feature\Storefront;
 
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontOrder;
+use App\Models\Storefront\StorefrontOrderEvent;
 use App\Models\Storefront\StorefrontOrderItem;
 use App\Models\Storefront\StorefrontOrderPayment;
 use App\Storefront\Payments\PaystackClient;
@@ -177,5 +178,110 @@ class OrderHttpTest extends StorefrontTestCase
 
         $this->assertSame(StorefrontOrderPayment::STATUS_VERIFIED, StorefrontOrderPayment::first()->status);
         $this->assertSame(StorefrontOrder::STATUS_PAYMENT_CONFIRMED, $order->fresh()->status);
+    }
+
+    public function test_refund_processed_webhook_marks_pending_paystack_refund_settled(): void
+    {
+        config(['services.paystack.secret_key' => 'sk_test_secret']);
+
+        [$order, $payment] = $this->pendingPaystackRefundOrder();
+
+        $body = json_encode([
+            'event' => 'refund.processed',
+            'data' => [
+                'reference' => 'rf_settled_123',
+                'status' => 'processed',
+                'amount' => 25000,
+                'transaction' => ['reference' => $payment->provider_reference],
+            ],
+        ]);
+
+        $this->call(
+            'POST',
+            route('storefront.paystack.webhook'),
+            [], [], [],
+            ['HTTP_X-PAYSTACK-SIGNATURE' => hash_hmac('sha512', $body, 'sk_test_secret'), 'CONTENT_TYPE' => 'application/json'],
+            $body
+        )->assertOk();
+
+        $order = $order->fresh();
+        $this->assertSame(StorefrontOrder::STATUS_REFUNDED, $order->status);
+        $this->assertSame(StorefrontOrder::PAY_REFUNDED, $order->payment_status);
+        $this->assertSame('processed', $order->refund_provider_status);
+        $this->assertNotNull($order->refunded_at);
+        $this->assertSame(StorefrontOrderPayment::STATUS_REFUNDED, $payment->fresh()->status);
+
+        $this->assertDatabaseHas('storefront_order_events', [
+            'order_id' => $order->id,
+            'type' => StorefrontOrderEvent::TYPE_PAYMENT,
+            'to_status' => StorefrontOrder::STATUS_REFUNDED,
+        ]);
+    }
+
+    public function test_refund_failed_webhook_keeps_order_pending_for_triage(): void
+    {
+        config(['services.paystack.secret_key' => 'sk_test_secret']);
+
+        [$order] = $this->pendingPaystackRefundOrder();
+
+        $body = json_encode([
+            'event' => 'refund.failed',
+            'data' => [
+                'reference' => 'rf_settled_123',
+                'status' => 'failed',
+            ],
+        ]);
+
+        $this->call(
+            'POST',
+            route('storefront.paystack.webhook'),
+            [], [], [],
+            ['HTTP_X-PAYSTACK-SIGNATURE' => hash_hmac('sha512', $body, 'sk_test_secret'), 'CONTENT_TYPE' => 'application/json'],
+            $body
+        )->assertOk();
+
+        $order = $order->fresh();
+        $this->assertSame(StorefrontOrder::STATUS_REFUND_APPROVED, $order->status);
+        $this->assertSame(StorefrontOrder::PAY_REFUND_PENDING, $order->payment_status);
+        $this->assertSame('failed', $order->refund_provider_status);
+        $this->assertNull($order->refunded_at);
+        $this->assertSame('Paystack reported refund failure.', $order->refund_failure_reason);
+    }
+
+    /**
+     * @return array{0:StorefrontOrder, 1:StorefrontOrderPayment}
+     */
+    protected function pendingPaystackRefundOrder(): array
+    {
+        $order = StorefrontOrder::create([
+            'organization_id' => $this->org->id,
+            'reference' => 'SO-REF-' . uniqid(),
+            'status' => StorefrontOrder::STATUS_REFUND_APPROVED,
+            'payment_status' => StorefrontOrder::PAY_REFUND_PENDING,
+            'payment_method' => StorefrontOrder::METHOD_PAYSTACK,
+            'fulfilment_method' => StorefrontOrder::FULFIL_PICKUP,
+            'subtotal' => '250.00',
+            'total' => '250.00',
+            'currency_code' => 'GHS',
+            'placed_at' => now(),
+            'refund_provider_reference' => 'rf_settled_123',
+            'refund_provider_status' => 'pending',
+            'refund_submitted_at' => now(),
+            'refund_amount_minor' => 25000,
+        ]);
+
+        $payment = StorefrontOrderPayment::create([
+            'organization_id' => $this->org->id,
+            'order_id' => $order->id,
+            'provider' => StorefrontOrderPayment::PROVIDER_PAYSTACK,
+            'reference' => 'PSK-' . $order->reference,
+            'provider_reference' => 'PSK-' . $order->reference,
+            'amount' => '250.00',
+            'currency_code' => 'GHS',
+            'status' => StorefrontOrderPayment::STATUS_VERIFIED,
+            'verified_at' => now(),
+        ]);
+
+        return [$order, $payment];
     }
 }

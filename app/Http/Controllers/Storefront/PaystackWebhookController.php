@@ -3,13 +3,17 @@
 namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
+use App\Models\Storefront\StorefrontOrder;
+use App\Models\Storefront\StorefrontOrderEvent;
 use App\Models\Storefront\StorefrontOrderPayment;
 use App\Storefront\Payments\PaystackSignature;
 use App\Storefront\Services\Exceptions\PaymentException;
 use App\Storefront\Services\PaystackService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -96,6 +100,213 @@ class PaystackWebhookController extends Controller
             }
         }
 
+        if (is_string($event) && str_starts_with($event, 'refund.')) {
+            $this->handleRefundEvent($event, is_array($payload['data'] ?? null) ? $payload['data'] : []);
+        }
+
         return response()->json(['status' => 'ok']);
+    }
+
+    /**
+     * Paystack refund settlement is asynchronous. The submission endpoint only
+     * says "accepted"; this authenticated webhook is what lets the storefront
+     * finally claim that money has actually returned to the customer.
+     *
+     * @param  array<string,mixed>  $data
+     */
+    protected function handleRefundEvent(string $event, array $data): void
+    {
+        $refundReference = $this->stringFrom($data, ['reference', 'refund_reference', 'id']);
+        $transactionReference = $this->stringFrom($data, ['transaction.reference', 'transaction_reference']);
+        $providerStatus = $this->statusForRefundEvent($event, (string) ($data['status'] ?? ''));
+
+        if ($refundReference === null && $transactionReference === null) {
+            Log::warning('Paystack refund webhook ignored: missing refund and transaction references.', [
+                'event' => $event,
+            ]);
+
+            return;
+        }
+
+        $order = StorefrontOrder::query()
+            ->where(function (Builder $query) use ($refundReference, $transactionReference): void {
+                if ($refundReference !== null) {
+                    $query->where('refund_provider_reference', $refundReference);
+                }
+
+                if ($transactionReference !== null) {
+                    $query->orWhereHas('payments', function (Builder $payments) use ($transactionReference): void {
+                        $payments->where('provider', StorefrontOrderPayment::PROVIDER_PAYSTACK)
+                            ->where('provider_reference', $transactionReference);
+                    });
+                }
+            })
+            ->latest('id')
+            ->first();
+
+        if ($order === null) {
+            Log::warning('Paystack refund webhook ignored: no matching order.', [
+                'event' => $event,
+                'refund_reference' => $refundReference,
+                'transaction_reference' => $transactionReference,
+            ]);
+
+            return;
+        }
+
+        DB::transaction(function () use ($order, $event, $data, $refundReference, $providerStatus): void {
+            $locked = StorefrontOrder::lockForUpdate()->findOrFail($order->id);
+            $fromStatus = $locked->status;
+            $alreadyFinal = $locked->refunded_at !== null
+                && $locked->status === StorefrontOrder::STATUS_REFUNDED
+                && $locked->payment_status === StorefrontOrder::PAY_REFUNDED;
+
+            $attributes = [
+                'refund_provider_status' => $providerStatus,
+                'refund_failure_reason' => null,
+            ];
+
+            if ($refundReference !== null && empty($locked->refund_provider_reference)) {
+                $attributes['refund_provider_reference'] = $refundReference;
+            }
+
+            if ($this->refundEventIsSettled($event, $providerStatus)) {
+                if ($alreadyFinal) {
+                    $locked->forceFill($attributes)->save();
+                    return;
+                }
+
+                $attributes['status'] = StorefrontOrder::STATUS_REFUNDED;
+                $attributes['payment_status'] = StorefrontOrder::PAY_REFUNDED;
+                $attributes['refunded_at'] = now();
+
+                $locked->forceFill($attributes)->save();
+                $this->markPaymentRefunded($locked, $data);
+                $this->recordWebhookEvent(
+                    $locked,
+                    $fromStatus,
+                    StorefrontOrder::STATUS_REFUNDED,
+                    "Paystack refund settled via {$event}.",
+                );
+
+                return;
+            }
+
+            if ($this->refundEventIsFailed($event, $providerStatus)) {
+                $attributes['status'] = StorefrontOrder::STATUS_REFUND_APPROVED;
+                $attributes['payment_status'] = StorefrontOrder::PAY_REFUND_PENDING;
+                $attributes['refund_failure_reason'] = 'Paystack reported refund failure.';
+
+                $locked->forceFill($attributes)->save();
+                $this->recordWebhookEvent(
+                    $locked,
+                    $fromStatus,
+                    StorefrontOrder::STATUS_REFUND_APPROVED,
+                    "Paystack refund failed via {$event}.",
+                );
+
+                return;
+            }
+
+            $locked->forceFill($attributes)->save();
+        });
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     */
+    protected function markPaymentRefunded(StorefrontOrder $order, array $data): void
+    {
+        $transactionReference = $this->stringFrom($data, ['transaction.reference', 'transaction_reference']);
+
+        $query = StorefrontOrderPayment::query()
+            ->where('order_id', $order->id)
+            ->where('provider', StorefrontOrderPayment::PROVIDER_PAYSTACK);
+
+        if ($transactionReference !== null) {
+            $query->where('provider_reference', $transactionReference);
+        } else {
+            $query->where('status', StorefrontOrderPayment::STATUS_VERIFIED);
+        }
+
+        $payment = $query->latest('id')->first();
+
+        if ($payment !== null) {
+            $payment->forceFill([
+                'status' => StorefrontOrderPayment::STATUS_REFUNDED,
+                'raw_response' => $data,
+            ])->save();
+        }
+    }
+
+    protected function recordWebhookEvent(
+        StorefrontOrder $order,
+        ?string $fromStatus,
+        string $toStatus,
+        string $note,
+    ): void {
+        StorefrontOrderEvent::create([
+            'organization_id' => $order->organization_id,
+            'order_id' => $order->id,
+            'type' => StorefrontOrderEvent::TYPE_PAYMENT,
+            'from_status' => $fromStatus,
+            'to_status' => $toStatus,
+            'note' => $note,
+        ]);
+    }
+
+    /**
+     * @param  array<string,mixed>  $payload
+     * @param  list<string>  $paths
+     */
+    protected function stringFrom(array $payload, array $paths): ?string
+    {
+        foreach ($paths as $path) {
+            $value = $payload;
+
+            foreach (explode('.', $path) as $segment) {
+                if (! is_array($value) || ! array_key_exists($segment, $value)) {
+                    $value = null;
+                    break;
+                }
+
+                $value = $value[$segment];
+            }
+
+            if (is_string($value) && $value !== '') {
+                return $value;
+            }
+
+            if (is_int($value)) {
+                return (string) $value;
+            }
+        }
+
+        return null;
+    }
+
+    protected function statusForRefundEvent(string $event, string $status): string
+    {
+        if ($status !== '') {
+            return strtolower($status);
+        }
+
+        return match ($event) {
+            'refund.processed' => 'processed',
+            'refund.failed' => 'failed',
+            default => 'pending',
+        };
+    }
+
+    protected function refundEventIsSettled(string $event, string $status): bool
+    {
+        return $event === 'refund.processed'
+            || in_array($status, ['processed', 'success', 'succeeded', 'reversed'], true);
+    }
+
+    protected function refundEventIsFailed(string $event, string $status): bool
+    {
+        return $event === 'refund.failed'
+            || in_array($status, ['failed', 'cancelled', 'canceled'], true);
     }
 }
