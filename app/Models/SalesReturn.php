@@ -55,6 +55,8 @@ class SalesReturn extends Model
         'posting_error',
         'cogs_reversal_batch_id',
         'revenue_reversal_batch_id',
+        'credit_note_id',
+        'credit_note_status',
         'inventory_movement_id',
         'biological_transfer_id',
         'cogs_reversed_amount',
@@ -91,6 +93,11 @@ class SalesReturn extends Model
     public function storefrontOrder(): BelongsTo
     {
         return $this->belongsTo(\App\Models\Storefront\StorefrontOrder::class, 'storefront_order_id');
+    }
+
+    public function creditNote(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Finance\CreditNote::class, 'credit_note_id');
     }
 
     public function isPosted(): bool

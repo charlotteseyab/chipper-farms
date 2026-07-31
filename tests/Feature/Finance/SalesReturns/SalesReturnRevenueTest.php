@@ -11,8 +11,10 @@ use App\Models\DomainEvent;
 use App\Models\FeedSale;
 use App\Models\FeedType;
 use App\Models\Finance\Account;
+use App\Models\Finance\CreditNote;
 use App\Models\Finance\InventoryAccountMapping;
 use App\Models\Finance\Journal;
+use App\Models\Finance\JournalBatch;
 use App\Models\Finance\JournalLine;
 use App\Models\SalesReturn;
 use App\Services\Finance\Inventory\InventoryService;
@@ -152,6 +154,10 @@ class SalesReturnRevenueTest extends TestCase
         $return = $this->runRevenueReversal($return);
 
         $this->assertNotNull($return->revenue_reversal_batch_id);
+        $this->assertNotNull($return->credit_note_id);
+        $this->assertSame(CreditNote::STATUS_POSTED, $return->creditNote->status);
+        $this->assertSame(0, bccomp('480.00', (string) $return->creditNote->total, 2));
+        $this->assertSame($return->revenue_reversal_batch_id, $return->creditNote->journal_batch_id);
 
         $lines = $this->batchLines($return->revenue_reversal_batch_id);
 
@@ -176,6 +182,7 @@ class SalesReturnRevenueTest extends TestCase
         $return = $this->runRevenueReversal($return);
 
         $lines = $this->batchLines($return->revenue_reversal_batch_id);
+        $this->assertSame(0, bccomp('480.00', (string) $return->creditNote->total, 2));
 
         $this->assertTrue(
             $this->has($lines, '1030', credit: '480.00'),
@@ -203,6 +210,8 @@ class SalesReturnRevenueTest extends TestCase
         $this->assertTrue($this->has($lines, '4110', debit: '120.00'));
         $this->assertTrue($this->has($lines, '1120', credit: '120.00'));
         $this->assertSame(0, bccomp((string) $return->revenue_reversed_amount, '120', 2));
+        $this->assertSame(0, bccomp((string) $return->creditNote->total, '120', 2));
+        $this->assertSame(0, bccomp((string) $return->creditNote->lines()->firstOrFail()->quantity, '10', 4));
     }
 
     /**
@@ -226,6 +235,7 @@ class SalesReturnRevenueTest extends TestCase
 
         $lines = $this->batchLines($return->revenue_reversal_batch_id);
         $this->assertTrue($this->has($lines, '1030', credit: '480.00'));
+        $this->assertSame(CreditNote::STATUS_POSTED, $return->creditNote->status);
     }
 
     public function test_revenue_reversal_is_idempotent_on_replay(): void
@@ -253,8 +263,14 @@ class SalesReturnRevenueTest extends TestCase
 
         $this->assertSame(
             1,
-            \App\Models\Finance\JournalBatch::where('batch_type', 'auto_sales_return_revenue')->count(),
-            'Exactly one revenue reversal batch may exist per return.',
+            JournalBatch::where('batch_type', 'auto_credit_note')->count(),
+            'Exactly one credit-note posting batch may exist per return.',
+        );
+
+        $this->assertSame(
+            1,
+            CreditNote::where('sales_return_id', $return->id)->count(),
+            'Exactly one credit note may exist per return.',
         );
     }
 

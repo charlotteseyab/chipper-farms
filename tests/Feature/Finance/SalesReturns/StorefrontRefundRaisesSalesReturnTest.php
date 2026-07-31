@@ -12,9 +12,11 @@ use App\Models\DomainEvent;
 use App\Models\FeedSale;
 use App\Models\FeedType;
 use App\Models\Finance\Account;
+use App\Models\Finance\CreditNote;
 use App\Models\Finance\InventoryAccountMapping;
 use App\Models\Finance\InventoryBalance;
 use App\Models\Finance\InventoryMovement;
+use App\Models\Finance\JournalBatch;
 use App\Models\SalesReturn;
 use App\Models\Storefront\StorefrontOrder;
 use App\Models\User;
@@ -257,16 +259,22 @@ class StorefrontRefundRaisesSalesReturnTest extends TestCase
         $return = SalesReturn::where('returnable_id', $sale->id)->firstOrFail();
         $this->drainReturn($return);
 
-        // Exactly one reversal batch from the return...
+        // Exactly one credit-note posting batch from the return...
         $this->assertSame(
             1,
-            \App\Models\Finance\JournalBatch::where('batch_type', 'auto_sales_return_revenue')->count(),
-            'More than one revenue reversal batch exists for a single refund.',
+            JournalBatch::where('batch_type', 'auto_credit_note')->count(),
+            'More than one credit-note revenue reversal batch exists for a single refund.',
+        );
+
+        $this->assertSame(
+            1,
+            CreditNote::where('sales_return_id', $return->id)->count(),
+            'More than one credit note exists for a single refund return.',
         );
 
         // ...and the sale's ORIGINAL revenue batch must not also have been
         // reversed through the old mechanism.
-        $originalBatch = \App\Models\Finance\JournalBatch::find($sale->revenue_journal_batch_id);
+        $originalBatch = JournalBatch::find($sale->revenue_journal_batch_id);
         $this->assertNotNull($originalBatch);
         $this->assertNull(
             $originalBatch->reversed_by_batch_id,

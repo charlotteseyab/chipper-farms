@@ -42,6 +42,7 @@ class JournalPosting extends Model
     public const PURPOSE_VENDOR_INVOICE       = 'vendor_invoice';
     public const PURPOSE_CASH_PAYMENT         = 'cash_payment';
     public const PURPOSE_PAYMENT_ALLOCATION   = 'payment_allocation';
+    public const PURPOSE_CREDIT_NOTE          = 'credit_note';
 
     /*
      * Sales returns (CF-P0-008).
