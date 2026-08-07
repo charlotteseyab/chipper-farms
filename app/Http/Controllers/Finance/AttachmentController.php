@@ -9,6 +9,7 @@ use App\Models\Finance\Receipt;
 use App\Models\Finance\Refund;
 use App\Models\Finance\VendorInvoice;
 use App\Models\Finance\Payment;
+use App\Models\Finance\QuickExpense;
 use App\Services\Finance\Attachments\AttachmentService;
 use App\Support\CurrentOrganization;
 use Illuminate\Database\Eloquent\Model;
@@ -85,6 +86,23 @@ class AttachmentController extends Controller
             'class' => Payment::class,
             'view'  => 'view_finance',
             'write' => 'create_payment',
+        ],
+        // Quick Expense receipts (Phase 6, deferred from Phase 4).
+        //
+        // `write` is record_expenses rather than a finance-module permission,
+        // because the whole point of Quick Expense is that a store officer
+        // photographs the receipt at the fuel station. Requiring view_finance to
+        // attach the receipt would put the evidence out of reach of the person
+        // holding it.
+        //
+        // Download still accepts view OR write, so that same officer can see
+        // the receipt they uploaded without being granted the finance module —
+        // and an accountant with view_finance can see it without being able to
+        // record expenses.
+        'quick-expenses' => [
+            'class' => QuickExpense::class,
+            'view'  => 'view_finance',
+            'write' => 'record_expenses',
         ],
     ];
 

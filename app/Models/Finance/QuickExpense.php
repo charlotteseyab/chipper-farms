@@ -98,6 +98,19 @@ class QuickExpense extends Model
         return $this->belongsTo(User::class, 'recorded_by_user_id');
     }
 
+    /**
+     * Receipt photos and PDFs (Phase 6, blueprint §23 item 8).
+     *
+     * Uses the existing finance attachment subsystem rather than a second store,
+     * so private-disk placement, mime validation, size limits, organisation
+     * scoping and the per-parent download authorisation in AttachmentController
+     * all apply unchanged.
+     */
+    public function attachments(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(FinanceAttachment::class, 'attachable');
+    }
+
     public function isPaidNow(): bool
     {
         return $this->settlement === self::SETTLEMENT_PAID_NOW;
