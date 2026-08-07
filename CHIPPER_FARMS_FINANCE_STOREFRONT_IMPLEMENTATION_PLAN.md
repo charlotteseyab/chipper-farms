@@ -44,7 +44,7 @@ infrastructure.
 | 4 | Quick Expense | §23 | 1, 2 | COMPLETE |
 | 5 | Cash, Bank & MoMo workspace | §25 | 1 | COMPLETE |
 | 6a | Simple Purchase — attachments | §23 | 4 | COMPLETE |
-| 6b | Simple Purchase — stock/non-stock | §24 | 1, 2, 5 | NOT STARTED (design resolved) |
+| 6b | Simple Purchase — stock/non-stock | §24 | 1, 2, 5 | COMPLETE (service) |
 | 7 | Sales, customers, suppliers, invoices, loans | §26–§29 | 1, 2 | NOT STARTED |
 | 8 | Storefront settings and catalog configuration | §34 | 1, 2 | NOT STARTED |
 | 9 | Guest cart and checkout | §38 | 8 | NOT STARTED |
