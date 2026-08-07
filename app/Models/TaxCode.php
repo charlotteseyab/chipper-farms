@@ -66,11 +66,33 @@ class TaxCode extends Model
         return $q->whereIn('applies_to', ['purchase', 'both']);
     }
 
-    public function calculateTax(float $baseAmount): float
+    /**
+     * Tax on a base amount, as a decimal string.
+     *
+     * Takes and returns strings. The previous signature was
+     * `calculateTax(float): float` and used `round($base * $rate / 100, 2)`,
+     * which is binary floating point applied to money — the one thing this
+     * codebase's money rules forbid outright. It happened to be unused, so no
+     * posted figure was ever wrong, but it was a live trap: the first caller to
+     * reach for it would have introduced representation error into tax.
+     *
+     * For a multi-levy treatment such as Ghana's VAT/NHIL/GETFund stack, do not
+     * call this three times and add up — use TaxCalculator with a TaxProfile,
+     * which knows whether the levies share a base or cascade.
+     */
+    public function calculateTax(string $baseAmount, int $scale = 2): string
     {
-        if ($this->rate_type === 'percent') {
-            return round($baseAmount * ((float) $this->rate / 100), 2);
+        if (! is_numeric($baseAmount)) {
+            throw new \InvalidArgumentException("Tax base must be numeric, got [{$baseAmount}].");
         }
-        return round((float) $this->rate, 2);  // fixed amount
+
+        if ($this->rate_type !== 'percent') {
+            return \App\Services\Finance\Tax\TaxCalculation::round((string) $this->rate, $scale);
+        }
+
+        return \App\Services\Finance\Tax\TaxCalculation::round(
+            bcdiv(bcmul($baseAmount, (string) $this->rate, 10), '100', 10),
+            $scale,
+        );
     }
 }

@@ -85,6 +85,10 @@ class DatabaseSeeder extends Seeder
             FiscalYearSeeder::class,
             PaymentMethodSeeder::class,
             TaxCodeSeeder::class,
+            // Ghana tax profiles group the individual tax codes above into the
+            // selectable treatments users actually pick. Must run after
+            // TaxCodeSeeder so components can link to their codes.
+            GhanaTaxProfileSeeder::class,
             RawMaterialSeeder::class,
             CustomerCategorySeeder::class,
             SupplierCategoriesSeeder::class,

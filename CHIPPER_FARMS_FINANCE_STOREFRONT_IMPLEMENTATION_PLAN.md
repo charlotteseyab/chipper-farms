@@ -39,7 +39,7 @@ infrastructure.
 | --- | --- | --- | --- | --- |
 | 0 | Baseline, architecture verification, scope lock | §2, §6, §8 | — | COMPLETE |
 | 1 | Organisation feature flags and module presets | §32, §33 | 0 | COMPLETE |
-| 2 | Ghana tax architecture and tax profiles | §13, §30 | 0 | NOT STARTED |
+| 2 | Ghana tax architecture and tax profiles | §13, §30 | 0 | COMPLETE |
 | 3 | Finance navigation, Overview, Needs Attention | §20, §22 | 1 | NOT STARTED |
 | 4 | Quick Expense | §23 | 1, 2 | NOT STARTED |
 | 5 | Cash, Bank & MoMo workspace | §25 | 1 | NOT STARTED |
