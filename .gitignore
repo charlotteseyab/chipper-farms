@@ -26,3 +26,9 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Claude Code. settings.json IS tracked — it carries the shared permission
+# policy, including the deny rules that encode this project's safety
+# constraints. Only the machine-specific overrides stay local.
+.claude/settings.local.json
+.claude/*.local.json
