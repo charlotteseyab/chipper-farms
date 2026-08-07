@@ -458,6 +458,16 @@ Route::middleware($protectedMiddleware)->group(function () {
         Route::middleware('permission:view_finance')->group(function () {
             Route::get('/', \App\Http\Controllers\Finance\FinanceDashboardController::class)
                 ->name('dashboard');
+
+            // Farm-facing money screen (Phase 3). Gated on the Finance Overview
+            // feature AND view_finance, per the standing rule that a flag hides
+            // a surface but never authorises one. The ledger dashboard above is
+            // kept and moves under Advanced Accounting rather than being
+            // deleted (blueprint §25).
+            Route::get('/overview', \App\Http\Controllers\Finance\FinanceOverviewController::class)
+                ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_OVERVIEW)
+                ->name('overview');
+
             Route::get('/trial-balance', \App\Http\Controllers\Finance\TrialBalanceController::class)
                 ->name('trial-balance');
         });

@@ -62,8 +62,16 @@ class FinanceDashboardController extends Controller
 
         // Counts.
         $kpis = [
-            'pending_events'     => DomainEvent::where('status', DomainEvent::STATUS_PENDING)->count(),
-            'failed_events'      => DomainEvent::where('status', DomainEvent::STATUS_FAILED)->count(),
+            // Scoped to the organisation, like every other count on this
+            // screen. These two were previously unscoped while the two below
+            // were not, so an accountant at one farm saw another farm's failure
+            // counts — and their own number was wrong as a result.
+            'pending_events'     => DomainEvent::where('status', DomainEvent::STATUS_PENDING)
+                                        ->when($orgId, fn ($q) => $q->where('organization_id', $orgId))
+                                        ->count(),
+            'failed_events'      => DomainEvent::where('status', DomainEvent::STATUS_FAILED)
+                                        ->when($orgId, fn ($q) => $q->where('organization_id', $orgId))
+                                        ->count(),
             'drafts_awaiting'    => JournalBatch::where('status', JournalBatch::STATUS_DRAFT)
                                         ->when($orgId, fn ($q) => $q->where('organization_id', $orgId))
                                         ->count(),
