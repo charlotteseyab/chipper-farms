@@ -76,6 +76,19 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(CurrentOrganization::class, function () {
             return new CurrentOrganization();
         });
+
+        // Organisation feature flags (Phase 1). Singleton so navigation can
+        // resolve many keys per request against one cached read. The container
+        // is rebuilt between requests and between tests, so the cache cannot
+        // outlive the organisation context it describes — deliberately unlike
+        // the static memo that caused a stale-permission defect earlier in this
+        // codebase.
+        $this->app->singleton(
+            \App\Services\Organizations\OrganizationFeatureService::class,
+            fn ($app) => new \App\Services\Organizations\OrganizationFeatureService(
+                $app->make(CurrentOrganization::class),
+            ),
+        );
     }
 
     /**

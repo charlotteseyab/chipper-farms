@@ -59,7 +59,7 @@ class PigSaleWorkflowBaselineTest extends TestCase
         $this->app->make(CurrentOrganization::class)->bind($this->org);
     }
 
-    protected function makePig(string $ear = null): PigManagement
+    protected function makePig(?string $ear = null): PigManagement
     {
         return PigManagement::create([
             'ear_tag_number' => $ear ?? ('TEST-' . uniqid()),

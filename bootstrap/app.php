@@ -34,6 +34,11 @@ return Application::configure(basePath: dirname(__DIR__))
             // any user holding at least one finance-module permission; the
             // per-route 'permission' gates enforce the specific action.
             'finance.access' => \App\Http\Middleware\EnsureFinanceAccess::class,
+            // Organisation feature gate (Phase 1). Hides a surface that is
+            // switched off for the tenant. NOT an authorization control — the
+            // 'permission' alias above remains authoritative and every gated
+            // route must still carry it.
+            'feature' => \App\Http\Middleware\EnsureFeatureEnabled::class,
         ]);
 
         // Paystack posts server-to-server webhooks with no CSRF token; the

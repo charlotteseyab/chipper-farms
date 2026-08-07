@@ -74,6 +74,11 @@ class DatabaseSeeder extends Seeder
             StorefrontRefundPermissionsSeeder::class,
         ]);
 
+        // 3b. Organisation module/feature administration (Phase 1).
+        $this->call([
+            OrganizationFeaturePermissionsSeeder::class,
+        ]);
+
         // 4. Organization-scoped accounting and reference data.
         $this->call([
             ChartOfAccountsSeeder::class,

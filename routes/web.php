@@ -342,6 +342,19 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::post('settings/setup/breeding', [App\Http\Controllers\SettingsController::class, 'saveBreeding'])->name('settings.setup.breeding.save');
     Route::post('settings/setup/breeding/reset', [App\Http\Controllers\SettingsController::class, 'resetBreeding'])->name('settings.setup.breeding.reset');
     Route::get('settings/activity-log', [App\Http\Controllers\SettingsController::class, 'activityLog'])->name('settings.activity-log');
+
+    // Modules & Features (Phase 1). Guarded by permission only — deliberately
+    // NOT by a feature flag, because gating the flag screen behind a flag can
+    // lock an administrator out of the switch that turns it back on.
+    Route::get('settings/modules', [App\Http\Controllers\Settings\ModuleFeatureController::class, 'index'])
+        ->middleware('permission:manage_feature_flags')
+        ->name('settings.modules');
+    Route::put('settings/modules', [App\Http\Controllers\Settings\ModuleFeatureController::class, 'update'])
+        ->middleware('permission:manage_feature_flags')
+        ->name('settings.modules.update');
+    Route::post('settings/modules/preset', [App\Http\Controllers\Settings\ModuleFeatureController::class, 'applyPreset'])
+        ->middleware('permission:manage_feature_flags')
+        ->name('settings.modules.preset');
     
     // User Management Routes (Superuser only)
     Route::get('settings/users', [App\Http\Controllers\SettingsController::class, 'users'])->name('settings.users');
