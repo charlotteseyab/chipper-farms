@@ -80,11 +80,74 @@
                 </section>
             @endif
 
-            {{-- Money summary cards land with the phases that own their data:
-                 cash and transfers with the Cash/Bank/MoMo workspace, spend with
-                 Quick Expense and Simple Purchase, receivables with Sales &
-                 Money In. Rendering placeholder figures now would be worse than
-                 rendering nothing. --}}
+            {{-- Money summary (Phase 7). Every figure is derived from posted
+                 journal lines, so nothing here can disagree with the ledger. --}}
+            <section>
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+                    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <p class="text-sm text-slate-600">Cash, bank &amp; MoMo</p>
+                        <p @class([
+                            'mt-1 text-2xl font-semibold',
+                            'text-rose-600'  => bccomp($cards['cash_available'], '0', 2) < 0,
+                            'text-slate-900' => bccomp($cards['cash_available'], '0', 2) >= 0,
+                        ])>
+                            GHS {{ number_format((float) $cards['cash_available'], 2) }}
+                        </p>
+                        @if (bccomp($cards['cash_available'], '0', 2) < 0)
+                            <p class="mt-1 text-xs text-rose-600">
+                                This is below zero, which usually means a payment was recorded
+                                against the wrong account.
+                            </p>
+                        @endif
+                    </div>
+
+                    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <p class="text-sm text-slate-600">Money in — {{ $cards['month_label'] }}</p>
+                        <p class="mt-1 text-2xl font-semibold text-slate-900">
+                            GHS {{ number_format((float) $cards['sales_this_month'], 2) }}
+                        </p>
+                    </div>
+
+                    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <p class="text-sm text-slate-600">Money out — {{ $cards['month_label'] }}</p>
+                        <p class="mt-1 text-2xl font-semibold text-slate-900">
+                            GHS {{ number_format((float) $cards['expenses_this_month'], 2) }}
+                        </p>
+                    </div>
+
+                    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <p class="text-sm text-slate-600">Left over — {{ $cards['month_label'] }}</p>
+                        <p @class([
+                            'mt-1 text-2xl font-semibold',
+                            'text-rose-600'    => bccomp($cards['net_this_month'], '0', 2) < 0,
+                            'text-emerald-700' => bccomp($cards['net_this_month'], '0', 2) >= 0,
+                        ])>
+                            GHS {{ number_format((float) $cards['net_this_month'], 2) }}
+                        </p>
+                    </div>
+
+                    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <p class="text-sm text-slate-600">Customers owe us</p>
+                        <p class="mt-1 text-2xl font-semibold text-slate-900">
+                            GHS {{ number_format((float) $cards['customers_owing'], 2) }}
+                        </p>
+                    </div>
+
+                    <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <p class="text-sm text-slate-600">Bills to pay</p>
+                        <p class="mt-1 text-2xl font-semibold text-slate-900">
+                            GHS {{ number_format((float) $cards['bills_to_pay'], 2) }}
+                        </p>
+                    </div>
+
+                </div>
+
+                <p class="mt-3 text-xs text-slate-500">
+                    Figures come straight from your books and update as soon as something is
+                    recorded.
+                </p>
+            </section>
 
         </div>
     </main>

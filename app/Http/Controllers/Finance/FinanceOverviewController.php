@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
+use App\Services\Finance\Overview\FinanceSummaryService;
 use App\Services\Finance\Overview\NeedsAttentionService;
 use App\Support\CurrentOrganization;
 use App\Support\Features\FeatureCatalog;
@@ -36,6 +37,7 @@ class FinanceOverviewController extends Controller
 {
     public function __construct(
         protected NeedsAttentionService $needsAttention,
+        protected FinanceSummaryService $summary,
         protected OrganizationFeatureService $features,
         protected CurrentOrganization $currentOrganization,
     ) {
@@ -60,6 +62,8 @@ class FinanceOverviewController extends Controller
             'attention'     => $attention,
             'attentionTotal' => array_sum(array_column($attention, 'count')),
             'quickActions'  => $this->quickActions(),
+            // Deferred from Phase 3 until the flows that own each figure existed.
+            'cards'         => $this->summary->cards(),
         ]);
     }
 
