@@ -41,7 +41,7 @@ infrastructure.
 | 1 | Organisation feature flags and module presets | §32, §33 | 0 | COMPLETE |
 | 2 | Ghana tax architecture and tax profiles | §13, §30 | 0 | COMPLETE |
 | 3 | Finance navigation, Overview, Needs Attention | §20, §22 | 1 | COMPLETE |
-| 4 | Quick Expense | §23 | 1, 2 | NOT STARTED |
+| 4 | Quick Expense | §23 | 1, 2 | COMPLETE |
 | 5 | Cash, Bank & MoMo workspace | §25 | 1 | NOT STARTED |
 | 6 | Simple Purchase | §24 | 1, 2, 5 | NOT STARTED |
 | 7 | Sales, customers, suppliers, invoices, loans | §26–§29 | 1, 2 | NOT STARTED |

@@ -77,6 +77,7 @@ class DatabaseSeeder extends Seeder
         // 3b. Organisation module/feature administration (Phase 1).
         $this->call([
             OrganizationFeaturePermissionsSeeder::class,
+            QuickExpensePermissionsSeeder::class,
         ]);
 
         // 4. Organization-scoped accounting and reference data.

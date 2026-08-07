@@ -472,6 +472,24 @@ Route::middleware($protectedMiddleware)->group(function () {
                 ->name('trial-balance');
         });
 
+        // Record Expense (Phase 4). Feature-gated for presentation, permission-
+        // gated for access. record_expenses is deliberately narrower than
+        // manage_finance: recording routine spend is a daily operational act,
+        // not an accounting one.
+        Route::prefix('expenses')->name('expenses.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_QUICK_EXPENSE)
+            ->group(function () {
+                Route::get('/', [\App\Http\Controllers\Finance\QuickExpenseController::class, 'index'])
+                    ->middleware('permission:record_expenses,view_finance')
+                    ->name('index');
+                Route::get('/create', [\App\Http\Controllers\Finance\QuickExpenseController::class, 'create'])
+                    ->middleware('permission:record_expenses')
+                    ->name('create');
+                Route::post('/', [\App\Http\Controllers\Finance\QuickExpenseController::class, 'store'])
+                    ->middleware('permission:record_expenses')
+                    ->name('store');
+            });
+
         // Chart of Accounts.
         Route::prefix('coa')->name('coa.')->group(function () {
             // Listing/show open to view_finance.
