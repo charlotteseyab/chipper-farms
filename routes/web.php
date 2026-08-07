@@ -490,6 +490,22 @@ Route::middleware($protectedMiddleware)->group(function () {
                     ->name('store');
             });
 
+        // Purchases (Phase 6b). Same gating shape as expenses: the feature flag
+        // hides the surface, the permission decides access.
+        Route::prefix('purchases')->name('purchases.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_SIMPLE_PURCHASE)
+            ->group(function () {
+                Route::get('/', [\App\Http\Controllers\Finance\SimplePurchaseController::class, 'index'])
+                    ->middleware('permission:record_purchases,view_finance')
+                    ->name('index');
+                Route::get('/create', [\App\Http\Controllers\Finance\SimplePurchaseController::class, 'create'])
+                    ->middleware('permission:record_purchases')
+                    ->name('create');
+                Route::post('/', [\App\Http\Controllers\Finance\SimplePurchaseController::class, 'store'])
+                    ->middleware('permission:record_purchases')
+                    ->name('store');
+            });
+
         // Chart of Accounts.
         Route::prefix('coa')->name('coa.')->group(function () {
             // Listing/show open to view_finance.

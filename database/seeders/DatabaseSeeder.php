@@ -78,6 +78,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             OrganizationFeaturePermissionsSeeder::class,
             QuickExpensePermissionsSeeder::class,
+            SimplePurchasePermissionsSeeder::class,
         ]);
 
         // 4. Organization-scoped accounting and reference data.
