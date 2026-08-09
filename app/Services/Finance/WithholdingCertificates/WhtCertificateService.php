@@ -365,12 +365,27 @@ class WhtCertificateService
         // try the relation if it exists, otherwise fall back gracefully.
         $bits = [];
         if (method_exists($supplier, 'addresses')) {
+            // Column is `is_default`, not `is_primary`. `counterparty_contacts`
+            // does have `is_primary`, which is where the confusion came from —
+            // but on `counterparty_addresses` this threw
+            // "Unknown column 'is_primary'" and took every WHT certificate
+            // generation down with it. Invisible until the test database was
+            // rebuilt from the migrations.
+            //
+            // The or-condition is also grouped now: `where(A)->orWhere(B)`
+            // combined with the relation's own constraint produced
+            // `(counterparty_id = ? AND is_default = 1) OR address_type = 'billing'`,
+            // which could return ANOTHER SUPPLIER'S billing address.
             $primary = $supplier->addresses()
-                ->where('is_primary', true)
-                ->orWhere('address_type', 'billing')
+                ->where(function ($q) {
+                    $q->where('is_default', true)->orWhere('address_type', 'billing');
+                })
                 ->first();
             if ($primary) {
-                foreach (['line1', 'line2', 'city', 'region', 'country'] as $f) {
+                // Columns are address_line_1 / address_line_2. Reading line1 /
+                // line2 returned null for both and silently produced an address
+                // missing its street lines.
+                foreach (['address_line_1', 'address_line_2', 'city', 'region', 'country'] as $f) {
                     if (! empty($primary->{$f})) $bits[] = $primary->{$f};
                 }
             }
