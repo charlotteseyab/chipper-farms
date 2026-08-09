@@ -15,6 +15,8 @@ class PigDeath extends Model
     use \App\Models\Concerns\BelongsToOrganization;
 
     protected $fillable = [
+        'death_cause_other',
+        'disposal_method_other',
         'pig_id',
         'death_date',
         'death_cause',
@@ -153,5 +155,32 @@ class PigDeath extends Model
                 $death->age_at_death = $death->calculateAgeAtDeath();
             }
         });
+    }
+
+    /**
+     * Surface the free text when the enum says 'other'.
+     *
+     * The column stores the constrained value so the CHECK constraint holds and
+     * the field stays reportable — "how did we lose pigs last quarter" remains a
+     * GROUP BY. These accessors mean every existing `$death->death_cause` call
+     * site still renders what the user actually typed, so no view needed
+     * changing when the collapse was removed.
+     *
+     * A legacy row that holds raw free text in the enum column (written before
+     * the constraint was enforced) has no '_other' value and is returned
+     * unchanged, so historical records display exactly as they did.
+     */
+    public function getDeathCauseAttribute($value)
+    {
+        return $value === 'other' && ! empty($this->attributes['death_cause_other'])
+            ? $this->attributes['death_cause_other']
+            : $value;
+    }
+
+    public function getDisposalMethodAttribute($value)
+    {
+        return $value === 'other' && ! empty($this->attributes['disposal_method_other'])
+            ? $this->attributes['disposal_method_other']
+            : $value;
     }
 }

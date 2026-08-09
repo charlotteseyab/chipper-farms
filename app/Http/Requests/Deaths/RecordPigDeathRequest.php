@@ -45,21 +45,37 @@ class RecordPigDeathRequest extends FormRequest
     {
         $data = $this->validated();
 
-        $deathCause = $data['death_cause'] === 'other'
-            ? trim((string) ($data['death_cause_other'] ?? ''))
-            : $data['death_cause'];
+        // The enum columns keep their constrained value; the free text goes to
+        // its own column.
+        //
+        // These previously collapsed the free text INTO the enum column, which
+        // the CHECK constraint rejects — so selecting "Other" and typing a
+        // reason was a 500 in production, every time. It survived because the
+        // test database had drifted from the migrations and carried no such
+        // constraint.
+        //
+        // Reads are unaffected: PigDeath accessors surface the free text when
+        // the enum says 'other', so every existing `$death->death_cause` call
+        // site still shows what the user typed.
+        $deathCause      = $data['death_cause'];
+        $deathCauseOther = $deathCause === 'other'
+            ? (trim((string) ($data['death_cause_other'] ?? '')) ?: null)
+            : null;
 
-        $disposalMethod = $data['disposal_method'] === 'other'
-            ? trim((string) ($data['disposal_method_other'] ?? ''))
-            : $data['disposal_method'];
+        $disposalMethod      = $data['disposal_method'];
+        $disposalMethodOther = $disposalMethod === 'other'
+            ? (trim((string) ($data['disposal_method_other'] ?? '')) ?: null)
+            : null;
 
         return [
             'death_date'       => $data['death_date'],
             'death_cause'      => $deathCause,
+            'death_cause_other' => $deathCauseOther,
             'final_weight'     => $data['final_weight']     ?? null,
             'death_location'   => $data['death_location']   ?? null,
             'veterinary_notes' => $data['veterinary_notes'] ?? null,
             'disposal_method'  => $disposalMethod,
+            'disposal_method_other' => $disposalMethodOther,
             'disposal_date'    => $data['disposal_date']    ?? null,
             'death_notes'      => $data['death_notes']      ?? null,
         ];

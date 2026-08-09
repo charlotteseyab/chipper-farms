@@ -64,10 +64,14 @@ class RecordPigDeathService
                 'pig_id'          => $pig->id,
                 'death_date'      => $data['death_date'],
                 'death_cause'     => $data['death_cause'],
+                // Free text for the 'other' option lives in its own column so
+                // the enum column stays inside its CHECK constraint.
+                'death_cause_other' => $data['death_cause_other'] ?? null,
                 'final_weight'    => $data['final_weight']     ?? null,
                 'death_location'  => $data['death_location']   ?? null,
                 'veterinary_notes'=> $data['veterinary_notes'] ?? null,
                 'disposal_method' => $data['disposal_method'],
+                'disposal_method_other' => $data['disposal_method_other'] ?? null,
                 'disposal_date'   => $data['disposal_date']    ?? null,
                 'death_notes'     => $data['death_notes']      ?? null,
                 'recorded_by'     => $actor->id,
