@@ -98,3 +98,92 @@ like the target.
 sh ~/.local/share/cf-mariadb/start.sh          # brings 11.4.2 up on 3399
 bash scripts/testing/run-mariadb-tests.sh      # reads .env.testing.mariadb.local
 ```
+
+---
+
+# Triage — first root cause found, and a correction to this document
+
+## Correction: the server had shut down
+
+The two full-suite runs above were made against a server that performed a
+**clean shutdown at 16:54** ("initiated by: unknown" — the `nohup`'d process was
+reaped when its parent shell exited). The identical 1520/39/3 across both runs
+looked like determinism and may partly have been a stale read.
+
+The server has been restarted detached (`setsid`, own session) so it survives,
+and the findings below are reproduced against a server confirmed up.
+
+**The failures are real.** `PigDeathWorkflowBaselineTest` re-run on a live
+11.4.2 server: 5 tests, 2 failures, 6 constraint violations. Not a crash
+artefact.
+
+## Root cause #1 — the "Other" option is unusable, in production
+
+**Severity: P1. A real defect, not a test problem.**
+
+`pig_deaths` carries CHECK constraints:
+
+```sql
+CHECK (death_cause     IN ('disease','accident','natural','stillbirth','crushing',
+                           'starvation','hypothermia','dehydration','congenital',
+                           'unknown','other'))
+CHECK (disposal_method IN ('burial','incineration','rendering','donation',
+                           'disposal','other'))
+```
+
+`RecordPigDeathRequest` (lines 49–53) collapses the free-text field into the
+enum column:
+
+```php
+$data['death_cause']     = 'other' ? trim($data['death_cause_other'])     : …
+$data['disposal_method'] = 'other' ? trim($data['disposal_method_other']) : …
+```
+
+So a user who selects **Other** and types "research donation" causes an INSERT
+of `disposal_method = 'research donation'` — a value the constraint forbids.
+
+**Result in production: a 500 error.** The "Other" option is unusable on both
+fields, for every user, every time.
+
+### Why nobody noticed
+
+The test database on port 3306 did not have these constraints. It had drifted
+from the migrations — almost certainly created by an older migration run
+predating them. The tests asserted the collapse behaviour and passed, because
+the database was not enforcing the rule the migrations define.
+
+This reframes the headline of this document. The primary problem was not the
+MariaDB *version*; it was that **the test database had drifted from the schema
+the migrations produce**, so an entire class of constraint was unenforced. The
+version move is what exposed it, because it forced a freshly-migrated database.
+
+### The fix is a design decision, not a patch
+
+Two options, and they are not equivalent:
+
+1. **Keep the enum, stop collapsing.** `disposal_method` stays `'other'`; the
+   free text stays in `disposal_method_other`, which is what that column is for.
+   Display code concatenates. This preserves the constraint's value — the column
+   remains queryable and groupable, which is the point of an enum on a reporting
+   field.
+
+2. **Widen the constraint to free text.** Simpler, and throws away the ability
+   to aggregate disposal methods, which a farm report would want.
+
+Option 1 is correct. It touches `RecordPigDeathRequest`, the two tests that
+assert the collapse, and any display path that reads the column. It is not
+attempted here because it is a behaviour change to an operational workflow and
+deserves its own commit and review.
+
+## Remaining triage
+
+Not yet root-caused:
+
+| Signature | Count | Likely shape |
+| --- | ---: | --- |
+| `journals_balanced_when_posted_check` | 12 | Fixtures posting unbalanced journals that the old database accepted. Most serious — this constraint is double-entry's last line of defence. |
+| `pig_sales_sale_purpose_check` | 8 | Probably the same enum-collapse pattern as pig_deaths |
+| `SQLSTATE[42S22] Column not found` | 32 | Needs inspection; may be further schema drift |
+
+The pig-sale cluster is very likely the same root cause as this one, which would
+make 14 of the 42 a single defect class.
