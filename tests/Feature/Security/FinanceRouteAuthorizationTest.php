@@ -147,12 +147,16 @@ class FinanceRouteAuthorizationTest extends TestCase
     {
         $this->actingAs($this->outsider)
             ->post(route('finance.bank-accounts.store'), [
-                'name'          => 'Attacker Account',
+                'label'         => 'Attacker Account',
                 'currency_code' => 'GHS',
             ])
             ->assertForbidden();
 
-        $this->assertDatabaseMissing('bank_accounts', ['name' => 'Attacker Account']);
+        // Column is `label`. This asserted on `name`, which bank_accounts does
+        // not have — so on MariaDB the assertion ERRORED rather than passing or
+        // failing, and the "nothing was written" half of this security test was
+        // never actually evaluated. assertForbidden() carried the whole test.
+        $this->assertDatabaseMissing('bank_accounts', ['label' => 'Attacker Account']);
     }
 
     public function test_outer_boundary_denies_finance_dashboard(): void
