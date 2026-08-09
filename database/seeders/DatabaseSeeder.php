@@ -91,6 +91,7 @@ class DatabaseSeeder extends Seeder
             // selectable treatments users actually pick. Must run after
             // TaxCodeSeeder so components can link to their codes.
             GhanaTaxProfileSeeder::class,
+            TaxSettingsPermissionsSeeder::class,
             RawMaterialSeeder::class,
             CustomerCategorySeeder::class,
             SupplierCategoriesSeeder::class,

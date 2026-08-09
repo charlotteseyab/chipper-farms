@@ -490,6 +490,25 @@ Route::middleware($protectedMiddleware)->group(function () {
                     ->name('store');
             });
 
+        // Tax settings (completes Phase 2). Deliberately NOT feature-gated:
+        // tax configuration must stay reachable even when advanced accounting
+        // is switched off, or a farm on Essentials could never enter the taxes
+        // it charges. Permission alone protects it.
+        Route::prefix('tax')->name('tax.')
+            ->middleware('permission:manage_tax_settings')
+            ->group(function () {
+                Route::get('/', [\App\Http\Controllers\Finance\TaxSettingsController::class, 'index'])
+                    ->name('index');
+                Route::post('/profiles', [\App\Http\Controllers\Finance\TaxSettingsController::class, 'storeProfile'])
+                    ->name('profiles.store');
+                Route::post('/profiles/{profile}/components', [\App\Http\Controllers\Finance\TaxSettingsController::class, 'storeComponent'])
+                    ->name('components.store')->whereNumber('profile');
+                Route::delete('/profiles/{profile}/components/{component}', [\App\Http\Controllers\Finance\TaxSettingsController::class, 'destroyComponent'])
+                    ->name('components.destroy')->whereNumber('profile')->whereNumber('component');
+                Route::post('/profiles/{profile}/default', [\App\Http\Controllers\Finance\TaxSettingsController::class, 'setDefault'])
+                    ->name('profiles.default')->whereNumber('profile');
+            });
+
         // Purchases (Phase 6b). Same gating shape as expenses: the feature flag
         // hides the surface, the permission decides access.
         Route::prefix('purchases')->name('purchases.')
