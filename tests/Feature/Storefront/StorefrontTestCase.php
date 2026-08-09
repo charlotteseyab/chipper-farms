@@ -37,6 +37,26 @@ abstract class StorefrontTestCase extends TestCase
         $this->seed(StorefrontPermissionsSeeder::class);
     }
 
+    /**
+     * Switch a storefront feature on for the test organisation (Phase 8).
+     *
+     * A test organisation is brand new, so every flag resolves to its catalogue
+     * *default* — and Manure Sales, Services and Delivery all default to off.
+     * Since Phase 8 those defaults are enforced, so a test that sells manure or
+     * delivers has to say so, exactly as a real farm would.
+     */
+    protected function enableStorefrontFeature(string $featureKey, ?Organization $organization = null): void
+    {
+        $this->app->make(\App\Services\Organizations\OrganizationFeatureService::class)
+            ->enable($featureKey, $organization ?? $this->org);
+    }
+
+    protected function disableStorefrontFeature(string $featureKey, ?Organization $organization = null): void
+    {
+        $this->app->make(\App\Services\Organizations\OrganizationFeatureService::class)
+            ->disable($featureKey, $organization ?? $this->org);
+    }
+
     protected function seedStorefrontQuotePermissions(): void
     {
         $this->seed(\Database\Seeders\StorefrontQuotePermissionsSeeder::class);

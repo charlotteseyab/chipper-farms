@@ -15,6 +15,15 @@ class QuoteRequestRequest extends FormRequest
 {
     public function authorize(): bool
     {
+        // Phase 8 — a farm that does not take quote requests has no such
+        // endpoint. Checked here rather than only in the controller because
+        // authorize() runs BEFORE the rules: otherwise a malformed post to a
+        // switched-off surface gets validation messages back, which is both a
+        // dead end for the sender and a description of a form that does not
+        // exist. 404 rather than 403 for the same reason as everywhere else —
+        // the surface is not part of this farm's shop.
+        abort_unless(\App\Storefront\Support\StorefrontSettings::quotesEnabled(), 404);
+
         return true;
     }
 

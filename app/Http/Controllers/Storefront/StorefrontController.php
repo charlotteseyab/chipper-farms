@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Storefront\StorefrontCategory;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontPlacement;
+use App\Storefront\Support\StorefrontCatalog;
 use App\Storefront\Support\StorefrontSettings;
-use App\Support\CurrentOrganization;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -16,19 +16,25 @@ use Illuminate\View\View;
  * operational auth/permission middleware — the shop is browsable by anyone.
  * Org context: for unauthenticated visitors we resolve the default/first
  * organization so the catalogue renders; an authenticated user's org wins.
+ *
+ * PHASE 8 — CATEGORIES THIS FARM HAS SWITCHED OFF DO NOT APPEAR
+ * -------------------------------------------------------------
+ * Every query here is constrained to `StorefrontCatalog::enabledKinds()`.
+ * Before Phase 8 the thirteen `storefront.*` feature flags were enforced
+ * nowhere, so a farm that switched Manure Sales off carried on selling manure
+ * publicly. Filtering here rather than in the views means the same rule covers
+ * the catalogue, search, category cards, placements and the detail page, and a
+ * new view cannot forget it.
  */
 class StorefrontController extends Controller
 {
-    public function __construct(protected CurrentOrganization $currentOrganization)
-    {
-    }
-
     public function home(): View
     {
         $orgId = $this->resolveOrganizationId();
 
         $categories = StorefrontCategory::query()
             ->where('organization_id', $orgId)
+            ->tap(fn ($q) => StorefrontCatalog::constrainCategoriesToEnabledKinds($q, $orgId))
             ->active()->ordered()->get();
 
         // Hero + featured placements, resolved to their published listings.
@@ -46,6 +52,7 @@ class StorefrontController extends Controller
         if ($hero->isEmpty() && collect($featured)->every->isEmpty()) {
             $featured['new_arrivals'] = StorefrontListing::query()
                 ->where('organization_id', $orgId)
+                ->tap(fn ($q) => StorefrontCatalog::constrainToEnabledKinds($q, $orgId))
                 ->visible()->latest('published_at')->limit(8)->get();
         }
 
@@ -61,12 +68,17 @@ class StorefrontController extends Controller
     {
         $orgId = $this->resolveOrganizationId();
 
+        $enabledKinds = StorefrontCatalog::enabledKinds($orgId);
+
         $query = StorefrontListing::query()
             ->where('organization_id', $orgId)
+            ->whereIn('kind', $enabledKinds)
             ->visible()
             ->with(['media', 'category']);
 
-        // Filters.
+        // Filters. `?kind=` narrows; it cannot widen past the constraint above,
+        // so a URL naming a switched-off category returns nothing rather than
+        // reopening it.
         if ($kind = $request->string('kind')->toString()) {
             if (in_array($kind, StorefrontListing::KINDS, true)) {
                 $query->ofKind($kind);
@@ -111,6 +123,7 @@ class StorefrontController extends Controller
 
         $categories = StorefrontCategory::query()
             ->where('organization_id', $orgId)
+            ->tap(fn ($q) => StorefrontCatalog::constrainCategoriesToEnabledKinds($q, $orgId))
             ->active()->ordered()->get();
 
         return view('storefront.public.shop', [
@@ -143,9 +156,14 @@ class StorefrontController extends Controller
             ->firstOrFail();
 
         // Only publicly-visible listings render on the public detail page.
+        // The kind check is Phase 8: without it a switched-off category stayed
+        // reachable by its direct URL, which is how a "hidden" surface stops
+        // being hidden — the links go, the pages stay, and the first search
+        // result finds one.
         abort_unless(
             $listing->status === StorefrontListing::STATUS_PUBLISHED
-            && $listing->sale_mode !== StorefrontListing::MODE_HIDDEN,
+            && $listing->sale_mode !== StorefrontListing::MODE_HIDDEN
+            && StorefrontCatalog::isKindEnabled($listing->kind, $orgId),
             404,
         );
 
@@ -179,19 +197,23 @@ class StorefrontController extends Controller
             ->limit($limit)
             ->get()
             ->map(fn (StorefrontPlacement $p) => $p->listing)
-            ->filter(fn ($l) => $l && $l->status === StorefrontListing::STATUS_PUBLISHED)
+            ->filter(fn ($l) => $l
+                && $l->status === StorefrontListing::STATUS_PUBLISHED
+                && StorefrontCatalog::isKindEnabled($l->kind, $orgId))
             ->values();
     }
 
+    /**
+     * The organisation this public request is serving.
+     *
+     * Delegated to the storefront settings resolver so the fallback rule for an
+     * unauthenticated visitor — first organisation, single-tenant in practice
+     * for Chipper — is defined once. It previously lived here and the settings
+     * accessor resolved separately, which meant a page and the settings it read
+     * could describe different farms.
+     */
     protected function resolveOrganizationId(): ?int
     {
-        $org = $this->currentOrganization->get();
-        if ($org !== null) {
-            return $org->id;
-        }
-
-        // Unauthenticated visitor: fall back to the first organization so the
-        // public catalogue renders. Single-tenant in practice for Chipper.
-        return \App\Models\Organization::query()->orderBy('id')->value('id');
+        return StorefrontSettings::organizationId();
     }
 }

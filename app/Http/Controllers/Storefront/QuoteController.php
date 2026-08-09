@@ -18,6 +18,17 @@ use Illuminate\View\View;
  * entry points:
  *   - From a listing: ?listing={id} pre-seeds a single line.
  *   - Bulk/standalone: an empty multi-line request.
+ *
+ * PHASE 8 — QUOTE REQUESTS ARE OPTIONAL
+ * -------------------------------------
+ * `storefront.quotes` decides whether this farm takes them. Enforced in the
+ * controller rather than with the `feature:` middleware because that middleware
+ * resolves the organisation from `CurrentOrganization`, which is null for the
+ * unauthenticated visitors this flow exists to serve; `StorefrontSettings`
+ * resolves the public organisation the same way every other public page does.
+ *
+ * The check covers `store()` as well as `create()` on purpose. Hiding the link
+ * and leaving the endpoint is how a switched-off surface keeps accepting work.
  */
 class QuoteController extends Controller
 {
@@ -27,8 +38,15 @@ class QuoteController extends Controller
     ) {
     }
 
+    protected function assertQuotesOffered(): void
+    {
+        abort_unless(\App\Storefront\Support\StorefrontSettings::quotesEnabled(), 404);
+    }
+
     public function create(Request $request): View
     {
+        $this->assertQuotesOffered();
+
         $listing = null;
 
         if ($listingId = $request->integer('listing')) {
@@ -46,6 +64,8 @@ class QuoteController extends Controller
 
     public function store(QuoteRequestRequest $request): RedirectResponse
     {
+        $this->assertQuotesOffered();
+
         $data = QuoteRequestData::fromArray($request->validated());
 
         $quote = $this->quotes->request($data, $request->user());

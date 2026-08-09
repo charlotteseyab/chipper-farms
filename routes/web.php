@@ -1456,6 +1456,23 @@ Route::middleware($protectedMiddleware)->group(function () {
         Route::middleware('permission:refund_storefront_orders')->group(function () {
             Route::post('/orders/{order}/refund', [\App\Http\Controllers\Storefront\AdminOrderController::class, 'refund'])->name('orders.refund');
         });
+
+        /*
+        | Shop settings (Phase 8, blueprint §34).
+        |
+        | Permission-gated only, deliberately not `feature:storefront.enabled`:
+        | this is the screen that explains why a shop is dark, and locking the
+        | recovery surface behind the thing that is switched off turns a
+        | configuration mistake into a support call.
+        */
+        Route::middleware('permission:manage_storefront_settings')->group(function () {
+            Route::get('/settings',  [\App\Http\Controllers\Storefront\StorefrontSettingsController::class, 'index'])->name('settings.index');
+            Route::put('/settings',  [\App\Http\Controllers\Storefront\StorefrontSettingsController::class, 'update'])->name('settings.update');
+
+            Route::post('/settings/delivery-areas',            [\App\Http\Controllers\Storefront\StorefrontSettingsController::class, 'storeZone'])->name('settings.zones.store');
+            Route::put('/settings/delivery-areas/{zone}',      [\App\Http\Controllers\Storefront\StorefrontSettingsController::class, 'updateZone'])->name('settings.zones.update');
+            Route::delete('/settings/delivery-areas/{zone}',   [\App\Http\Controllers\Storefront\StorefrontSettingsController::class, 'destroyZone'])->name('settings.zones.destroy');
+        });
     });
 
 });
@@ -1501,14 +1518,20 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified']
 | middleware passes through unauthenticated requests, so these are open.
 */
 Route::prefix('shop')->name('storefront.')->group(function () {
-    Route::get('/', [\App\Http\Controllers\Storefront\StorefrontController::class, 'home'])->name('home');
-    Route::get('/browse', [\App\Http\Controllers\Storefront\StorefrontController::class, 'shop'])->name('shop');
+    // Phase 8 — browsing and ordering close when the organisation switches its
+    // shop off. Deliberately NOT applied to the Paystack webhook below: money
+    // already in flight must still be verified, and a closed shop must never
+    // strand a payment a buyer has already made.
+    Route::middleware('storefront.open')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Storefront\StorefrontController::class, 'home'])->name('home');
+        Route::get('/browse', [\App\Http\Controllers\Storefront\StorefrontController::class, 'shop'])->name('shop');
 
-    // Phase 2 — public listing detail + quote-request flow.
-    Route::get('/quote', [\App\Http\Controllers\Storefront\QuoteController::class, 'create'])->name('quote.create');
-    Route::post('/quote', [\App\Http\Controllers\Storefront\QuoteController::class, 'store'])->middleware('throttle:storefront-quote')->name('quote.store');
-    Route::get('/quote/thanks/{reference}', [\App\Http\Controllers\Storefront\QuoteController::class, 'thanks'])->name('quote.thanks');
-    Route::get('/listing/{slug}', [\App\Http\Controllers\Storefront\StorefrontController::class, 'detail'])->name('listing');
+        // Phase 2 — public listing detail + quote-request flow.
+        Route::get('/quote', [\App\Http\Controllers\Storefront\QuoteController::class, 'create'])->name('quote.create');
+        Route::post('/quote', [\App\Http\Controllers\Storefront\QuoteController::class, 'store'])->middleware('throttle:storefront-quote')->name('quote.store');
+        Route::get('/quote/thanks/{reference}', [\App\Http\Controllers\Storefront\QuoteController::class, 'thanks'])->name('quote.thanks');
+        Route::get('/listing/{slug}', [\App\Http\Controllers\Storefront\StorefrontController::class, 'detail'])->name('listing');
+    });
 
     // Phase 3 — Paystack server-to-server webhook (CSRF-exempt; HMAC-verified
     // in the controller). Path must match the exception in bootstrap/app.php.

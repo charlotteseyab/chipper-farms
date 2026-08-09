@@ -13,6 +13,8 @@ use App\Storefront\Services\Exceptions\CheckoutException;
 use App\Storefront\Services\Exceptions\PaymentException;
 use App\Storefront\Services\PaystackService;
 use App\Storefront\Support\CheckoutData;
+use App\Storefront\Support\StorefrontCatalog;
+use App\Storefront\Support\StorefrontSettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -41,10 +43,21 @@ class CheckoutController extends Controller
             ->where('counterparty_id', $profile->counterparty_id)
             ->orderByDesc('is_default')->get();
 
+        // Phase 8 — offer only what this farm has switched on. The same lists
+        // back CheckoutRequest's validation, so the page cannot present a
+        // choice the endpoint would reject.
+        $organizationId = $request->user()->organization_id;
+
         return view('storefront.checkout.show', [
-            'cart'      => $cart,
-            'subtotal'  => $cart->subtotal(),
-            'addresses' => $addresses,
+            'cart'               => $cart,
+            'subtotal'           => $cart->subtotal(),
+            'addresses'          => $addresses,
+            'paymentMethods'     => StorefrontCatalog::enabledPaymentMethods($organizationId),
+            'fulfilmentMethods'  => StorefrontCatalog::enabledFulfilmentMethods($organizationId),
+            'deliveryZones'      => StorefrontSettings::deliveryZones($organizationId),
+            'refundPolicy'       => StorefrontSettings::refundPolicy($organizationId),
+            'supportEmail'       => StorefrontSettings::supportEmail($organizationId),
+            'supportPhone'       => StorefrontSettings::supportPhone($organizationId),
         ]);
     }
 

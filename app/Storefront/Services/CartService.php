@@ -7,6 +7,7 @@ use App\Models\Storefront\StorefrontCartItem;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\User;
 use App\Storefront\Services\Exceptions\CartException;
+use App\Storefront\Support\StorefrontCatalog;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -125,6 +126,16 @@ class CartService
 
     protected function assertOrderable(StorefrontListing $listing): void
     {
+        // Phase 8: the category this listing belongs to must still be one the
+        // organisation sells. Checked here rather than only in the controller
+        // because a cart built before a category was switched off would
+        // otherwise carry the item all the way to checkout — and because a
+        // listing left published by mistake is reachable by any caller that
+        // has its model.
+        if (! StorefrontCatalog::isKindEnabled($listing->kind, $listing->organization_id)) {
+            throw new CartException('This item is no longer offered.');
+        }
+
         if (! $listing->isOrderable()) {
             throw new CartException('This listing is not available for direct purchase.');
         }

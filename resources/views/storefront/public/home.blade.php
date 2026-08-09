@@ -1,4 +1,21 @@
-@php use App\Storefront\Support\StorefrontSettings; @endphp
+@php
+    use App\Storefront\Support\StorefrontCatalog;
+    use App\Storefront\Support\StorefrontSettings;
+
+    // Phase 8: the hero buttons pointed at Live Pigs and Feed unconditionally.
+    // A farm selling only breeding stock advertised two empty aisles. Take the
+    // first two enabled kinds instead, and drop the row entirely when a farm has
+    // disabled every category.
+    $heroKinds = array_slice(StorefrontCatalog::enabledKinds(), 0, 2);
+    $kindLabels = [
+        'live_pig'       => 'Live Pigs',
+        'piglet_lot'     => 'Piglets',
+        'breeding_stock' => 'Breeding Stock',
+        'feed'           => 'Feed',
+        'manure'         => 'Manure',
+        'service'        => 'Services',
+    ];
+@endphp
 <x-storefront.layout :title="StorefrontSettings::storeName()">
     {{-- Hero --}}
     <section class="bg-gradient-to-br from-slate-900 to-slate-700 text-white">
@@ -7,9 +24,15 @@
                 <h1 class="text-3xl md:text-5xl font-bold leading-tight">{{ StorefrontSettings::heroHeadline() }}</h1>
                 <p class="mt-4 text-slate-300 text-lg">{{ StorefrontSettings::heroSubheadline() }}</p>
                 <div class="mt-8 flex flex-wrap gap-3">
-                    <a href="{{ route('storefront.shop', ['kind' => 'live_pig']) }}" class="px-5 py-2.5 rounded-xl bg-white text-slate-900 font-medium">Shop Live Pigs</a>
-                    <a href="{{ route('storefront.shop', ['kind' => 'feed']) }}" class="px-5 py-2.5 rounded-xl bg-slate-800 border border-slate-600 font-medium">Shop Feed</a>
-                    <a href="{{ route('storefront.shop') }}" class="px-5 py-2.5 rounded-xl border border-slate-500 font-medium">Request a Quote</a>
+                    @foreach($heroKinds as $i => $heroKind)
+                        <a href="{{ route('storefront.shop', ['kind' => $heroKind]) }}"
+                           class="px-5 py-2.5 rounded-xl font-medium {{ $i === 0 ? 'bg-white text-slate-900' : 'bg-slate-800 border border-slate-600' }}">
+                            Shop {{ $kindLabels[$heroKind] ?? $heroKind }}
+                        </a>
+                    @endforeach
+                    @if(StorefrontSettings::quotesEnabled())
+                        <a href="{{ route('storefront.quote.create') }}" class="px-5 py-2.5 rounded-xl border border-slate-500 font-medium">Request a Quote</a>
+                    @endif
                 </div>
             </div>
             @if($hero)

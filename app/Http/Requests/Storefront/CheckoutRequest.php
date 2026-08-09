@@ -2,10 +2,26 @@
 
 namespace App\Http\Requests\Storefront;
 
-use App\Models\Storefront\StorefrontOrder;
+use App\Storefront\Support\StorefrontCatalog;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Checkout input.
+ *
+ * PHASE 8 — THE CHOICES ARE THE ORGANISATION'S, NOT THE ENUM'S
+ * -------------------------------------------------------------
+ * `payment_method` and `fulfilment_method` used to accept every value the
+ * `StorefrontOrder` constants allow. That meant a farm which had switched
+ * Paystack off still accepted `payment_method=paystack` from a hand-posted
+ * form, and one that offered pickup only still accepted a delivery order —
+ * the settings screen said one thing and the endpoint did another.
+ *
+ * They are now validated against what this organisation actually offers.
+ * `CheckoutService` repeats both checks: a form request only guards the HTTP
+ * path, and the service is reachable from tests, console tooling and any future
+ * caller.
+ */
 class CheckoutRequest extends FormRequest
 {
     public function authorize(): bool
@@ -15,9 +31,14 @@ class CheckoutRequest extends FormRequest
 
     public function rules(): array
     {
+        $organizationId = $this->user()?->organization_id;
+
+        $payments   = StorefrontCatalog::enabledPaymentMethods($organizationId);
+        $fulfilment = StorefrontCatalog::enabledFulfilmentMethods($organizationId);
+
         return [
-            'payment_method'    => ['required', Rule::in([StorefrontOrder::METHOD_COD, StorefrontOrder::METHOD_PAYSTACK])],
-            'fulfilment_method' => ['required', Rule::in([StorefrontOrder::FULFIL_PICKUP, StorefrontOrder::FULFIL_DELIVERY])],
+            'payment_method'    => ['required', Rule::in($payments)],
+            'fulfilment_method' => ['required', Rule::in($fulfilment)],
 
             'shipping_address_id' => ['nullable', 'integer', 'exists:counterparty_addresses,id'],
             'ship_to_name'        => ['nullable', 'string', 'max:200'],
@@ -28,6 +49,17 @@ class CheckoutRequest extends FormRequest
             'ship_region'         => ['nullable', 'string', 'max:120'],
             'ship_ghana_post_gps' => ['nullable', 'string', 'max:40'],
 
+            // Scoped to the buyer's own organisation rather than a bare
+            // `exists:` — otherwise a posted id from another farm's zone list
+            // would price this farm's delivery.
+            'delivery_zone_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('storefront_delivery_zones', 'id')
+                    ->where('organization_id', $organizationId)
+                    ->where('is_active', true),
+            ],
+
             'customer_note' => ['nullable', 'string', 'max:2000'],
         ];
     }
@@ -37,6 +69,9 @@ class CheckoutRequest extends FormRequest
         return [
             'ship_address_line_1.required_if' => 'A delivery address is required for delivery orders.',
             'ship_city.required_if'           => 'A delivery city is required for delivery orders.',
+            'payment_method.in'               => 'That payment method is not available from this farm.',
+            'fulfilment_method.in'            => 'That delivery option is not available from this farm.',
+            'delivery_zone_id.exists'         => 'Choose a delivery area from the list.',
         ];
     }
 }

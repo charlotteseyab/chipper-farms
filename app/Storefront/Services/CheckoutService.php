@@ -4,11 +4,14 @@ namespace App\Storefront\Services;
 
 use App\Models\CounterpartyAddress;
 use App\Models\Storefront\StorefrontCart;
+use App\Models\Storefront\StorefrontDeliveryZone;
 use App\Models\Storefront\StorefrontOrder;
 use App\Models\Storefront\StorefrontOrderItem;
 use App\Models\User;
 use App\Storefront\Services\Exceptions\CheckoutException;
 use App\Storefront\Support\CheckoutData;
+use App\Storefront\Support\StorefrontCatalog;
+use App\Storefront\Support\StorefrontSettings;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -44,6 +47,13 @@ class CheckoutService
             throw new CheckoutException('Your cart is empty.');
         }
 
+        // Phase 8 — what this farm actually offers. Repeated from
+        // CheckoutRequest deliberately: the request class guards the HTTP path
+        // only, and this service is reachable from tests, console tooling and
+        // any later caller. An order taken by a method the farm cannot settle
+        // is not a validation slip, it is money it has no process to collect.
+        $this->assertOfferedTerms($user, $data);
+
         $profile = $this->accounts->ensureProfile($user);
 
         return DB::transaction(function () use ($user, $data, $cart, $profile) {
@@ -51,6 +61,9 @@ class CheckoutService
 
             // Resolve + snapshot the shipping address for delivery orders.
             $ship = $this->resolveShipping($data, $profile->counterparty_id);
+
+            // Zone-priced delivery, when the organisation has zones configured.
+            $zone = $this->resolveDeliveryZone($data, $organizationId);
 
             $deliveryFee = '0.00';
             $subtotal    = '0.00';
@@ -75,9 +88,12 @@ class CheckoutService
                 $lineTotal = bcmul($unitPrice, (string) $item->quantity, 2);
                 $subtotal  = bcadd($subtotal, $lineTotal, 2);
 
-                // Accumulate delivery fee (once per listing that charges one) only
-                // when the order is a delivery order.
-                if ($data->isDelivery() && $listing->delivery_allowed && $listing->delivery_fee !== null) {
+                // Accumulate delivery fee (once per listing that charges one)
+                // only when the order is a delivery order AND the organisation
+                // prices delivery per listing. When it has zones, the zone fee
+                // is the delivery fee and adding these too would charge twice
+                // for one journey.
+                if ($zone === null && $data->isDelivery() && $listing->delivery_allowed && $listing->delivery_fee !== null) {
                     $deliveryFee = bcadd($deliveryFee, (string) $listing->delivery_fee, 2);
                 }
 
@@ -87,6 +103,10 @@ class CheckoutService
                     'unit_price' => $unitPrice,
                     'line_total' => $lineTotal,
                 ];
+            }
+
+            if ($zone !== null) {
+                $deliveryFee = $zone->feeString();
             }
 
             if (! $data->isDelivery()) {
@@ -120,6 +140,8 @@ class CheckoutService
                 'ship_ghana_post_gps' => $ship['ship_ghana_post_gps'] ?? null,
                 'subtotal'          => $subtotal,
                 'delivery_fee'      => $deliveryFee,
+                'delivery_zone_id'   => $data->isDelivery() ? $zone?->id : null,
+                'delivery_zone_name' => $data->isDelivery() ? $zone?->name : null,
                 'total'             => $total,
                 'currency_code'     => 'GHS',
                 'customer_note'     => $data->customerNote,
@@ -158,6 +180,64 @@ class CheckoutService
 
             return $order->load('items');
         });
+    }
+
+    /**
+     * The store must be open, and the payment and fulfilment methods must be
+     * ones this organisation offers (Phase 8, blueprint §34).
+     */
+    protected function assertOfferedTerms(User $user, CheckoutData $data): void
+    {
+        $organizationId = $user->organization_id;
+
+        if (! StorefrontSettings::enabled($organizationId)) {
+            throw new CheckoutException('This shop is not accepting orders at the moment.');
+        }
+
+        if (! StorefrontCatalog::isPaymentMethodEnabled($data->paymentMethod, $organizationId)) {
+            throw new CheckoutException('That payment method is not available from this farm.');
+        }
+
+        if ($data->isDelivery() && ! StorefrontSettings::deliveryEnabled($organizationId)) {
+            throw new CheckoutException('This farm does not offer delivery — please choose pickup.');
+        }
+    }
+
+    /**
+     * The delivery zone this order is priced by, or null when the organisation
+     * prices delivery per listing instead.
+     *
+     * Re-read from the database inside checkout rather than trusted from the
+     * form: the price the buyer was shown is not the price the farm charges,
+     * and a posted `delivery_zone_id` is buyer input like any other. Scoped to
+     * the organisation so another farm's zone cannot price this one's delivery,
+     * and to active zones so a withdrawn zone stops being chargeable.
+     */
+    protected function resolveDeliveryZone(CheckoutData $data, ?int $organizationId): ?StorefrontDeliveryZone
+    {
+        if (! $data->isDelivery()) {
+            return null;
+        }
+
+        $zones = StorefrontSettings::deliveryZones($organizationId);
+
+        if ($zones->isEmpty()) {
+            // No zones configured: per-listing delivery fees apply, exactly as
+            // before Phase 8.
+            return null;
+        }
+
+        if ($data->deliveryZoneId === null) {
+            throw new CheckoutException('Choose a delivery area so we can price your delivery.');
+        }
+
+        $zone = $zones->firstWhere('id', $data->deliveryZoneId);
+
+        if ($zone === null) {
+            throw new CheckoutException('That delivery area is no longer available.');
+        }
+
+        return $zone;
     }
 
     /**

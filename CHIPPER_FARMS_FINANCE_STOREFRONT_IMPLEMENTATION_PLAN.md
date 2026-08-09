@@ -45,8 +45,8 @@ infrastructure.
 | 5 | Cash, Bank & MoMo workspace | §25 | 1 | COMPLETE |
 | 6a | Simple Purchase — attachments | §23 | 4 | COMPLETE |
 | 6b | Simple Purchase — stock/non-stock | §24 | 1, 2, 5 | COMPLETE (service) |
-| 7 | Sales, customers, suppliers, invoices, loans | §26–§29 | 1, 2 | NOT STARTED |
-| 8 | Storefront settings and catalog configuration | §34 | 1, 2 | NOT STARTED |
+| 7 | Sales, customers, suppliers, invoices, loans | §26–§29 | 1, 2 | PARTIAL (Overview money cards only) |
+| 8 | Storefront settings and catalog configuration | §34 | 1, 2 | COMPLETE |
 | 9 | Guest cart and checkout | §38 | 8 | NOT STARTED |
 | 10 | Checkout holds and reservations | §36, §37 | 9 | NOT STARTED |
 | 11 | Pig to storefront | §35 | 8, 10 | NOT STARTED |
@@ -104,8 +104,8 @@ advisory:
 
 | Risk | Origin | Mitigation |
 | --- | --- | --- |
-| Global `system_configs` has no `organization_id`; live sale pricing is shared across tenants | Phase 0 §6 | Flags get their own scoped table; settings migration is a separate tracked workstream |
-| MariaDB gates run on EOL 10.4.32, not the certified 11.4.2 | Phase 0 §8 | Re-point and re-run in Phase 17; all concurrency claims re-derived there |
+| Global `system_configs` has no `organization_id`; live sale pricing is shared across tenants | Phase 0 §6 | Flags got their own scoped table (Phase 1); storefront settings got theirs (Phase 8). **Narrowed, still open:** `sales.pricing.*` remains global because it drives the operational sale path too |
+| MariaDB gates run on EOL 10.4.32, not the certified 11.4.2 | Phase 0 §8 | **Closed.** Gates re-pointed at 11.4.2 on port 3399; the 42 failures it exposed are all fixed and the suite is green (Phase 8 §6.2) |
 | Hiding advanced finance breaks accountant workflow | Blueprint §57 | Existing organisations backfill to Full Accounting; nothing hidden by default |
 | Quick Expense could bypass accounting controls | Blueprint SEC-002 | Implemented strictly as a wrapper over existing posting services |
 | Holds could deadlock | Blueprint §57 | Deterministic lock ordering plus expiry job; proven under real contention |

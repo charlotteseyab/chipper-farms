@@ -85,7 +85,7 @@ class StorefrontOrder extends Model
         'status', 'payment_status', 'payment_method', 'fulfilment_method',
         'shipping_address_id', 'ship_to_name', 'ship_to_phone',
         'ship_address_line_1', 'ship_address_line_2', 'ship_city', 'ship_region', 'ship_ghana_post_gps',
-        'subtotal', 'delivery_fee', 'total', 'currency_code',
+        'subtotal', 'delivery_fee', 'delivery_zone_id', 'delivery_zone_name', 'total', 'currency_code',
         'customer_note', 'staff_notes',
         'confirmed_by_user_id', 'confirmed_at', 'cancelled_by_user_id', 'cancelled_at', 'cancel_reason',
         'placed_at', 'completed_at', 'completed_by_user_id',

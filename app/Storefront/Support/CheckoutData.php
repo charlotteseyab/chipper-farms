@@ -22,6 +22,9 @@ final class CheckoutData
         public readonly ?string $shipRegion = null,
         public readonly ?string $shipGhanaPostGps = null,
         public readonly ?string $customerNote = null,
+        // Phase 8: which delivery zone the buyer picked. Only meaningful on a
+        // delivery order, and only when the organisation has configured zones.
+        public readonly ?int $deliveryZoneId = null,
     ) {
     }
 
@@ -52,6 +55,9 @@ final class CheckoutData
             shipRegion:        $data['ship_region'] ?? null,
             shipGhanaPostGps:  $data['ship_ghana_post_gps'] ?? null,
             customerNote:      $data['customer_note'] ?? null,
+            deliveryZoneId:    isset($data['delivery_zone_id']) && $data['delivery_zone_id'] !== ''
+                ? (int) $data['delivery_zone_id']
+                : null,
         );
     }
 }

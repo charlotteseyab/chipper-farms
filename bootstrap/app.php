@@ -39,6 +39,11 @@ return Application::configure(basePath: dirname(__DIR__))
             // 'permission' alias above remains authoritative and every gated
             // route must still carry it.
             'feature' => \App\Http\Middleware\EnsureFeatureEnabled::class,
+            // Public shop open/closed (Phase 8). Distinct from 'feature'
+            // because the public shop resolves its organisation for guests,
+            // and because a closed shop answers 503 with a page rather than
+            // 404 — its visitors are the public, with no other way in.
+            'storefront.open' => \App\Http\Middleware\EnsureStorefrontOpen::class,
         ]);
 
         // Paystack posts server-to-server webhooks with no CSRF token; the

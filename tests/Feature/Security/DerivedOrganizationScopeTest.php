@@ -180,7 +180,12 @@ class DerivedOrganizationScopeTest extends TestCase
             'male_id'      => $male->id,
             'planned_date' => now()->subDays(20)->toDateString(),
             'mating_date'  => now()->subDays(20)->toDateString(),
-            'status'       => 'pending',
+            // 'pending' is a valid `pregnancy_status`, not a valid `status` —
+            // matings.status is enum('planned','completed','cancelled','failed').
+            // SQLite has no enum so the fixture passed there; MariaDB truncates
+            // the value and errors. The two tests below assert organisation
+            // derivation and cross-tenant visibility, so any valid status does.
+            'status'       => 'planned',
         ]);
     }
 

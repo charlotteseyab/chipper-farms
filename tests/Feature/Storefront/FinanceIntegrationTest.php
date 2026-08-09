@@ -160,6 +160,11 @@ class FinanceIntegrationTest extends StorefrontTestCase
     public function test_non_postable_line_is_deferred_not_posted(): void
     {
         $customer = $this->makeUser('customer');
+
+        // Manure Sales defaults to off, and since Phase 8 that default is
+        // enforced at the cart. A farm that sells manure switches it on.
+        $this->enableStorefrontFeature(\App\Support\Features\FeatureCatalog::STOREFRONT_MANURE_SALES);
+
         $listing = $this->makePublishedListing([
             'kind'               => StorefrontListing::KIND_MANURE,
             'pricing_basis'      => StorefrontListing::BASIS_FIXED,

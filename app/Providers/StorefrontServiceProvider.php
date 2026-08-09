@@ -18,6 +18,11 @@ class StorefrontServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        // Phase 8 — per-organisation storefront settings. A singleton so its
+        // per-organisation cache lives exactly one request (and exactly one
+        // test), rather than a static memo that outlives the rows it describes.
+        $this->app->singleton(\App\Storefront\Support\StorefrontSettingsResolver::class);
+
         // Bind the Paystack gateway client. HttpPaystackClient in production;
         // tests bind a fake implementation of the PaystackClient interface.
         $this->app->bind(

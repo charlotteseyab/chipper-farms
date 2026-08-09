@@ -1,4 +1,19 @@
-@php use App\Storefront\Support\StorefrontSettings; @endphp
+@php
+    use App\Storefront\Support\StorefrontCatalog;
+    use App\Storefront\Support\StorefrontSettings;
+
+    // Phase 8: the nav used to hard-code every kind, so a farm that had turned
+    // Manure Sales off still advertised a Manure tab that led to an empty shop.
+    $navKinds = StorefrontCatalog::enabledKinds();
+    $kindLabels = [
+        'live_pig'       => 'Live Pigs',
+        'piglet_lot'     => 'Piglets',
+        'breeding_stock' => 'Breeding',
+        'feed'           => 'Feed',
+        'manure'         => 'Manure',
+        'service'        => 'Services',
+    ];
+@endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
@@ -18,11 +33,9 @@
                 <span>{{ StorefrontSettings::storeName() }}</span>
             </a>
             <nav class="hidden md:flex items-center gap-5 text-sm font-medium text-slate-600">
-                <a href="{{ route('storefront.shop', ['kind' => 'live_pig']) }}" class="hover:text-slate-900">Live Pigs</a>
-                <a href="{{ route('storefront.shop', ['kind' => 'piglet_lot']) }}" class="hover:text-slate-900">Piglets</a>
-                <a href="{{ route('storefront.shop', ['kind' => 'breeding_stock']) }}" class="hover:text-slate-900">Breeding</a>
-                <a href="{{ route('storefront.shop', ['kind' => 'feed']) }}" class="hover:text-slate-900">Feed</a>
-                <a href="{{ route('storefront.shop', ['kind' => 'manure']) }}" class="hover:text-slate-900">Manure</a>
+                @foreach($navKinds as $navKind)
+                    <a href="{{ route('storefront.shop', ['kind' => $navKind]) }}" class="hover:text-slate-900">{{ $kindLabels[$navKind] ?? $navKind }}</a>
+                @endforeach
                 <a href="{{ route('storefront.shop') }}" class="hover:text-slate-900">Shop all</a>
             </nav>
             <div class="flex items-center gap-3 text-sm">

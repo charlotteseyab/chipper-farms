@@ -358,3 +358,54 @@ them, and the MariaDB suite was pointed at a database that had lost them.
 
 Six production defects, one of them a P0 in the storefront sale spine, were
 hidden by that single gap.
+
+---
+
+# Closed — 2026-08-09, during Phase 8
+
+The last two of the remaining five are fixed. **The gate is at zero.**
+
+| Milestone | Errors | Failures |
+| --- | ---: | ---: |
+| Initial, on freshly-migrated 11.4.2 | 39 | 3 |
+| After WHT address fix | 24 | 2 |
+| After balance-helper fix | 18 | 2 |
+| After export / Other / storefront fixes | 13 | 0 |
+| After org-less fixture fix | 5 | 0 |
+| After the mating-status fixture fix (Phase 8) | **0** | **0** |
+
+## The last two, and a correction to what this document said about them
+
+This document attributed `DerivedOrganizationScopeTest`'s two mating tests to
+"inserts `pigs_management` with `organization_id => null`". That cause was real
+and was fixed in `0ea6634` / `2939998`. It was not the whole story — underneath
+it sat a second, unrelated fixture defect:
+
+```
+SQLSTATE[01000]: Warning: 1265 Data truncated for column 'status' at row 1
+insert into `matings` (`female_id`, `male_id`, `planned_date`, `status`, ...)
+values (133, 134, 2026-07-20 00:00:00, pending, ...)
+```
+
+`matings.status` is `enum('planned','completed','cancelled','failed')`. `pending`
+is a valid **`pregnancy_status`** — a different column on the same table. The
+fixture had confused the two.
+
+Not a production defect: no application path writes `pending` to that column
+(`Mating.php` uses it only for `pregnancy_status`). Both tests assert
+organisation derivation and cross-tenant visibility, so any valid status serves.
+
+It is, though, one more instance of this document's central finding: **SQLite has
+no enum, so it could never have caught this.** That is the fifth defect in this
+programme found only because the gates were moved to a correctly-constrained
+server.
+
+## Verification
+
+```
+$ bash scripts/testing/run-mariadb-tests.sh     # MariaDB 11.4.2, port 3399
+Tests: 1575, Assertions: 4673, Skipped: 7       # 0 failures, 0 errors
+```
+
+Recorded as IMP-059. Phase 17 still owes the concurrency re-derivation — what is
+closed here is that the gate runs on the certified server and passes.
