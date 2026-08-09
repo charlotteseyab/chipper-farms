@@ -70,14 +70,24 @@ class RecordPigSaleService
             }
             unset($data['price_source']);
 
-            // Collapse "other" selections into their text values.
-            if (($data['sale_purpose'] ?? null) === 'other') {
-                $data['sale_purpose'] = $data['sale_purpose_other'] ?? 'other';
+            // sale_purpose KEEPS its constrained value; the free text goes to
+            // its own column.
+            //
+            // This used to overwrite sale_purpose with the free text, which the
+            // pig_sales_sale_purpose_check constraint rejects — so selecting
+            // "Other" and typing a reason was a 500 in production. PigSale's
+            // accessor surfaces the text on read, so every existing
+            // $sale->sale_purpose call site is unaffected.
+            if (($data['sale_purpose'] ?? null) !== 'other') {
+                $data['sale_purpose_other'] = null;
             }
+
+            // payment_method carries no CHECK constraint, so the existing
+            // collapse there is left alone rather than changed speculatively.
             if (($data['payment_method'] ?? null) === 'other') {
                 $data['payment_method'] = $data['payment_method_other'] ?? 'other';
             }
-            unset($data['sale_purpose_other'], $data['payment_method_other']);
+            unset($data['payment_method_other']);
 
             if (! isset($data['buyer_name']) || $data['buyer_name'] === null) {
                 $data['buyer_name'] = '';

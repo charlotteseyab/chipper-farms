@@ -29,6 +29,20 @@ use Illuminate\Support\Facades\Schema;
  * was written for a farm that exports. The constraint appears to predate that
  * and was never revisited.
  *
+ * 'storefront' IS INCLUDED
+ * ------------------------
+ * StorefrontOrderConfirmedSubscriber writes sale_purpose => 'storefront' for
+ * every pig sold through the shop. That value was in no allowed list, so on a
+ * correctly-constrained database EVERY storefront pig sale failed to post to
+ * finance — the sale spine broke silently at the subscriber.
+ *
+ * Added rather than changed: 'storefront' is arguably a CHANNEL rather than a
+ * purpose, and pig_sales already has sales_channel_id for that. Rewriting the
+ * subscriber to emit 'market' would be the cleaner model, but it would restate
+ * how every historical storefront sale is categorised in reports. That is a
+ * business call, so this migration preserves existing behaviour and the
+ * question is recorded instead.
+ *
  * 'cull' IS RETAINED
  * ------------------
  * This migration is purely additive. Dropping 'cull' would reject any existing
@@ -48,7 +62,7 @@ return new class extends Migration
 {
     private const CONSTRAINT = 'pig_sales_sale_purpose_check';
 
-    private const ALLOWED = "'market', 'breeding', 'slaughter', 'cull', 'export', 'other'";
+    private const ALLOWED = "'market', 'breeding', 'slaughter', 'cull', 'export', 'storefront', 'other'";
 
     public function up(): void
     {

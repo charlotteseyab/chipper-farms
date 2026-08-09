@@ -50,6 +50,7 @@ class PigSale extends Model
         'buyer_contact',
         'buyer_address',
         'sale_purpose',
+        'sale_purpose_other',
         'payment_method',
         'payment_status',
         'notes',
@@ -395,5 +396,22 @@ class PigSale extends Model
         if ($startDate) $query->where('sale_date', '>=', $startDate);
         if ($endDate)   $query->where('sale_date', '<=', $endDate);
         return $query->count();
+    }
+
+    /**
+     * Surface the free text when sale_purpose is 'other'.
+     *
+     * The column keeps its constrained value so pig_sales_sale_purpose_check
+     * holds and sales stay groupable by purpose. Reads are unchanged: every
+     * existing $sale->sale_purpose call site still shows what was typed.
+     *
+     * Legacy rows holding raw free text in the column have no '_other' value
+     * and are returned unchanged.
+     */
+    public function getSalePurposeAttribute($value)
+    {
+        return $value === 'other' && ! empty($this->attributes['sale_purpose_other'])
+            ? $this->attributes['sale_purpose_other']
+            : $value;
     }
 }
