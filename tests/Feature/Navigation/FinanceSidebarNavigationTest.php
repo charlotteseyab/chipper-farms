@@ -135,6 +135,14 @@ class FinanceSidebarNavigationTest extends TestCase
             'password' => bcrypt('x'),
             'role' => $roleName,
             'role_id' => $role->id,
+            // users.organization_id is NOT NULL. Omitting it errored with
+            // "Field doesn't have a default value" — a different failure from
+            // passing an explicit null, and one that only appears on a database
+            // that actually carries the constraint.
+            'organization_id' => \App\Models\Organization::query()->value('id')
+                ?? \App\Models\Organization::create([
+                    'slug' => 'nav-' . uniqid(), 'name' => 'Nav Test Farm', 'is_active' => true,
+                ])->id,
         ]);
     }
 }

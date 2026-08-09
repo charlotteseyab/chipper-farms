@@ -146,10 +146,20 @@ class FinanceReadinessMigrationsTest extends TestCase
             'updated_at' => now(),
         ]);
 
+        // users.organization_id is NOT NULL. This raw insert omitted it, which
+        // errors with "Field doesn't have a default value" — visible only on a
+        // database that carries the constraint.
+        $orgId = \DB::table('organizations')->value('id')
+            ?? \DB::table('organizations')->insertGetId([
+                'slug' => 'mig-' . uniqid(), 'name' => 'Migration Test Farm',
+                'is_active' => true, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+
         $userId = \DB::table('users')->insertGetId([
             'name' => 'Tester',
             'email' => 'test_' . uniqid() . '@example.com',
             'password' => bcrypt('secret'),
+            'organization_id' => $orgId,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
