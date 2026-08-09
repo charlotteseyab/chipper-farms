@@ -203,7 +203,16 @@ class StorefrontOrderConfirmedSubscriber extends Subscriber
             'sale_price'     => (float) $lineTotal,
             'weight_type'    => $item->price_basis,
             'sale_date'      => now()->toDateString(),
-            'sale_purpose'   => 'storefront',
+            // A storefront pig sale IS a market sale. 'storefront' is the
+            // CHANNEL, not the purpose — and the feed path right below already
+            // models it that way, passing channel => 'storefront' as its own
+            // field. Pig sales stuffing it into sale_purpose was the
+            // inconsistency, and it put a value in the column that no CHECK
+            // constraint permitted, so every storefront pig sale failed to post.
+            //
+            // The channel remains recoverable: storefront_order_items carries
+            // posted_sale_id back to this sale.
+            'sale_purpose'   => 'market',
             'payment_status' => $paymentStatus,
             'payment_method' => $paymentMethod,
             'buyer_name'     => $buyerName,

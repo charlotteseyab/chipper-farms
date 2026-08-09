@@ -29,19 +29,18 @@ use Illuminate\Support\Facades\Schema;
  * was written for a farm that exports. The constraint appears to predate that
  * and was never revisited.
  *
- * 'storefront' IS INCLUDED
- * ------------------------
- * StorefrontOrderConfirmedSubscriber writes sale_purpose => 'storefront' for
- * every pig sold through the shop. That value was in no allowed list, so on a
- * correctly-constrained database EVERY storefront pig sale failed to post to
- * finance — the sale spine broke silently at the subscriber.
+ * 'storefront' IS DELIBERATELY NOT INCLUDED
+ * -----------------------------------------
+ * StorefrontOrderConfirmedSubscriber used to write sale_purpose => 'storefront',
+ * which no allowed list permitted — so every storefront pig sale failed to post
+ * to finance.
  *
- * Added rather than changed: 'storefront' is arguably a CHANNEL rather than a
- * purpose, and pig_sales already has sales_channel_id for that. Rewriting the
- * subscriber to emit 'market' would be the cleaner model, but it would restate
- * how every historical storefront sale is categorised in reports. That is a
- * business call, so this migration preserves existing behaviour and the
- * question is recorded instead.
+ * The first fix widened the constraint to accept it, to avoid restating how
+ * historical storefront sales are categorised. The storefront and finance
+ * modules are not in production, so there is no history to protect, and the
+ * subscriber now emits 'market' instead: a storefront pig sale IS a market
+ * sale, and 'storefront' is the CHANNEL. The feed path already modelled it that
+ * way, passing channel => 'storefront' as its own field.
  *
  * 'cull' IS RETAINED
  * ------------------
@@ -62,7 +61,7 @@ return new class extends Migration
 {
     private const CONSTRAINT = 'pig_sales_sale_purpose_check';
 
-    private const ALLOWED = "'market', 'breeding', 'slaughter', 'cull', 'export', 'storefront', 'other'";
+    private const ALLOWED = "'market', 'breeding', 'slaughter', 'cull', 'export', 'other'";
 
     public function up(): void
     {

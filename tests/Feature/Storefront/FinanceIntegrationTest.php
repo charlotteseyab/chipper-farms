@@ -146,7 +146,12 @@ class FinanceIntegrationTest extends StorefrontTestCase
         $this->assertNotNull($sale, 'A PigSale should have been created.');
         $this->assertEquals(45.0, (float) $sale->price_per_kg, 'Agreed price must not be repriced from settings.');
         $this->assertEquals(3262.5, (float) $sale->sale_price);
-        $this->assertSame('storefront', $sale->sale_purpose);
+        // 'market', not 'storefront'. A storefront pig sale IS a market sale;
+        // 'storefront' is the channel, which the feed path already models as a
+        // separate field. The old value was permitted by no CHECK constraint,
+        // so every storefront pig sale failed to post to finance — this
+        // assertion was encoding that defect.
+        $this->assertSame('market', $sale->sale_purpose);
         // Pig is soldsoft-deleted by the sale spine.
         $this->assertTrue(PigManagement::withTrashed()->find($pig->id)->trashed());
         $this->assertSame('posted', $order->fresh()->finance_posting_status);
