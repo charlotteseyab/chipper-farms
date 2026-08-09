@@ -311,3 +311,50 @@ caught any of them, and the MariaDB suite was pointed at a database that had
 lost them.
 
 That gap concealed a P0 in the storefront sale spine for as long as it existed.
+
+---
+
+# Closing state
+
+| Milestone | Errors | Failures |
+| --- | ---: | ---: |
+| Initial, on freshly-migrated 11.4.2 | 39 | 3 |
+| After WHT address fix | 24 | 2 |
+| After balance-helper fix | 18 | 2 |
+| After export / Other / storefront fixes | 13 | 0 |
+| After org-less fixture fix | **5** | **0** |
+
+**42 → 5. Zero failures.**
+
+## The remaining five, correctly characterised
+
+I claimed these were all the same org-less-user pattern. That was right for two
+of them and wrong for the rest. Accurately:
+
+| Test | Cause |
+| --- | --- |
+| `DerivedOrganizationScopeTest::test_mating_derives_organization_from_female` | Inserts `pigs_management` with `organization_id => null` |
+| `DerivedOrganizationScopeTest::test_mating_is_not_visible_across_organizations` | Same |
+| `FinanceReadinessMigrationsTest::test_pig_deaths_accepts_stillbirth_after_enum_fix` | Creates a user with **no** `organization_id` key at all — "Field doesn't have a default value" rather than "cannot be null" |
+| `FinanceSidebarNavigationTest` ×2 | Not yet diagnosed |
+
+They share a theme rather than a pattern: **fixtures written before organisation
+scoping became mandatory.** Each needs its own look, not one find-and-replace.
+
+That distinction matters because "they're all the same" is the kind of claim
+that leads to a blanket fix which quietly changes what two of the tests were
+actually asserting.
+
+## What this exercise established
+
+Every production defect found here was ordinary — a value outside a CHECK, a
+column that does not exist, an ungrouped `orWhere`. All are caught by a
+correctly-migrated database on the first run.
+
+They survived because the test database had drifted from the migrations, and
+because SQLite never had these constraints at all: the original migration added
+them only on mysql/pgsql. So the default suite could not have caught any of
+them, and the MariaDB suite was pointed at a database that had lost them.
+
+Six production defects, one of them a P0 in the storefront sale spine, were
+hidden by that single gap.
