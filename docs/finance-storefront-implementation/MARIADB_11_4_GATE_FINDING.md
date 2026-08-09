@@ -187,3 +187,60 @@ Not yet root-caused:
 
 The pig-sale cluster is very likely the same root cause as this one, which would
 make 14 of the 42 a single defect class.
+
+---
+
+# Triage progress
+
+| Run | Errors | Failures |
+| --- | ---: | ---: |
+| Initial, on freshly-migrated 11.4.2 | 39 | 3 |
+| After the WHT address fix (`316ea78`) | **24** | **2** |
+
+The WHT fix cleared 16 of the 42 — one defect, three bugs in a single block.
+
+## Remaining, by signature
+
+| Signature | Count | Status |
+| --- | ---: | --- |
+| `journals_balanced_when_posted_check` | 12 | **Not root-caused.** Highest priority. |
+| `pig_sales_sale_purpose_check` | 8 | Almost certainly the same enum-collapse defect as `pig_deaths` — one fix should clear both, making 14 of the original 42 a single cause. |
+| `pig_deaths_death_cause_check` | 3 | Root-caused (§ "Other" defect). Fix deferred as a behaviour change. |
+| `pig_deaths_disposal_method_check` | 3 | Same. |
+| `Unknown column 'name'` | 2 | Not investigated. Small. |
+
+## Root cause #2 — WHT certificate address lookup (FIXED, `316ea78`)
+
+Three defects in one block of `WhtCertificateService`:
+
+1. **Queried `counterparty_addresses.is_primary`.** That column does not exist;
+   the table has `is_default`. `counterparty_contacts` is the table with
+   `is_primary`, which is where the confusion came from — `CustomerService`
+   uses it correctly on contacts. Crashed every certificate generation.
+
+2. **Read `line1` / `line2`.** The columns are `address_line_1` /
+   `address_line_2`. Both resolved to null, so a certificate rendered with no
+   street lines and no error — a silent failure, arguably worse than the crash.
+
+3. **Ungrouped `orWhere`.** `where('is_default', true)->orWhere('address_type', 'billing')`
+   on a relation produces
+   `(counterparty_id = ? AND is_default = 1) OR address_type = 'billing'`.
+   The second branch is unconstrained by counterparty, so it could return **a
+   different supplier's billing address** onto a withholding tax certificate —
+   a document sent to the supplier and to GRA.
+
+Only the first was causing test failures. The other two were found by reading
+the surrounding lines while fixing it, and would not have surfaced from the
+error message alone.
+
+## The pattern across both root causes
+
+Neither is exotic. Both are the kind of defect that a correctly-migrated test
+database catches on the first run: a column that does not exist, and a value
+outside a CHECK constraint.
+
+They survived because the port-3306 test database had drifted from the
+migrations and was not enforcing what the schema defines. That is the finding
+worth carrying forward — not the MariaDB version, but that **the gates were
+being run against a database that did not match the application's own
+migrations**, so a whole class of integrity rule was never tested.
