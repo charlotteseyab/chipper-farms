@@ -49,8 +49,20 @@ class BankReconciliationServiceTest extends TestCase
     /**
      * Post a journal batch hitting the bank account, on a given date and direction.
      */
-    protected function postJournalToBank(string $date, string $debit, string $credit, string $contraDebit = '0.00', string $contraCredit = '0.00'): JournalBatch
+    protected function postJournalToBank(string $date, string $debit, string $credit, ?string $contraDebit = null, ?string $contraCredit = null): JournalBatch
     {
+        // The contra side MIRRORS the bank side unless a caller overrides it.
+        //
+        // These defaulted to '0.00', and no caller ever passed them — so this
+        // helper, whose own comment promises "so the batch balances", produced
+        // journals with 1000.00 debit and 0.00 credit and marked them POSTED.
+        // `journals_balanced_when_posted_check` rejects exactly that, and it
+        // accounted for 12 of the failures found when the test database was
+        // rebuilt from the migrations. The old database did not have the
+        // constraint, so the imbalance was never noticed.
+        $contraDebit  ??= $credit;
+        $contraCredit ??= $debit;
+
         // Counter-entry to the revenue account so the batch balances.
         $batch = JournalBatch::create([
             'organization_id' => $this->org->id,
