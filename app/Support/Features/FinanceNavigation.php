@@ -81,12 +81,15 @@ final class FinanceNavigation
                 'permission' => ['record_purchases', 'manage_vendor_invoices'],
             ],
             [
+                // Phase 7 (§28): points at the Money In workspace rather than
+                // the invoice register. Invoices and receipts keep their own
+                // screens and are linked from it.
                 'label'      => 'Sales & Money In',
-                'route'      => 'finance.invoices.index',
+                'route'      => 'finance.money-in.index',
                 'icon'       => 'fa-solid fa-hand-holding-dollar',
-                'active'     => ['finance/invoices*', 'finance/receipts*', 'finance/feed-sales*'],
+                'active'     => ['finance/money-in*', 'finance/invoices*', 'finance/receipts*', 'finance/feed-sales*'],
                 'feature'    => FeatureCatalog::FINANCE_SALES_MONEY_IN,
-                'permission' => ['manage_invoices', 'view_invoices'],
+                'permission' => ['view_finance', 'manage_invoices', 'view_invoices'],
             ],
             [
                 'label'      => 'Cash, Bank & MoMo',
@@ -105,12 +108,16 @@ final class FinanceNavigation
                 'permission' => ['manage_loans', 'view_loans'],
             ],
             [
-                'label'      => 'Customers & Suppliers',
-                'route'      => 'finance.customers.index',
+                // Phase 7 (§27): points at the unified People & Businesses
+                // workspace rather than the customer master. The accountant's
+                // customer and supplier screens are still reachable from it and
+                // by their own URLs — the menu entry changed, not the surfaces.
+                'label'      => 'People & Businesses',
+                'route'      => 'finance.contacts.index',
                 'icon'       => 'fa-solid fa-address-book',
-                'active'     => ['finance/customers*', 'finance/suppliers*'],
+                'active'     => ['finance/contacts*', 'finance/customers*', 'finance/suppliers*'],
                 'feature'    => FeatureCatalog::FINANCE_CONTACTS,
-                'permission' => ['manage_customers', 'view_customers', 'manage_suppliers'],
+                'permission' => ['view_finance', 'manage_customers', 'view_customers', 'manage_suppliers'],
             ],
             [
                 'label'      => 'Reports',

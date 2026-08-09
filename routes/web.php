@@ -596,7 +596,30 @@ Route::middleware($protectedMiddleware)->group(function () {
         | Customer master (Phase 2a)
         |---------------------------------------------------------------
         */
-        Route::prefix('customers')->name('customers.')->group(function () {
+        /*
+        | People & Businesses (Phase 7, blueprint §27).
+        |
+        | One workspace over the counterparties the farm deals with. The
+        | accountant-grade customer and supplier screens below are kept and
+        | linked to; this is the front door, not a replacement.
+        */
+        Route::prefix('contacts')->name('contacts.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_CONTACTS)
+            ->group(function () {
+                Route::get('/', [\App\Http\Controllers\Finance\ContactsController::class, 'index'])
+                    ->middleware('permission:view_finance')
+                    ->name('index');
+                // Guided creation. The permission for the ROLE chosen is
+                // checked in the controller — someone who may add customers
+                // must not gain suppliers by picking a different radio button.
+                Route::post('/', [\App\Http\Controllers\Finance\ContactsController::class, 'store'])
+                    ->middleware('permission:manage_customers,manage_suppliers')
+                    ->name('store');
+            });
+
+        Route::prefix('customers')->name('customers.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_CONTACTS)
+            ->group(function () {
 
             // Listing/show — view_finance.
             Route::middleware('permission:view_finance')->group(function () {
@@ -660,7 +683,50 @@ Route::middleware($protectedMiddleware)->group(function () {
         | Invoices (Phase 2b)
         |---------------------------------------------------------------
         */
-        Route::prefix('invoices')->name('invoices.')->group(function () {
+        /*
+        | Credits (Phase 7, blueprint §29).
+        |
+        | Read-only on purpose. A credit note is an EFFECT of a sales return and
+        | its idempotency key is anchored to that return; a screen that minted
+        | them directly would allow revenue reversed with no return to explain
+        | it, and a second reversal for the same goods. The return UX that
+        | creates them is §43, in Phase 13.
+        */
+        Route::prefix('credit-notes')->name('credit-notes.')
+            ->middleware(['feature:' . \App\Support\Features\FeatureCatalog::FINANCE_SALES_MONEY_IN, 'permission:view_finance'])
+            ->group(function () {
+                Route::get('/', [\App\Http\Controllers\Finance\CreditNoteController::class, 'index'])->name('index');
+                Route::get('/{creditNote}', [\App\Http\Controllers\Finance\CreditNoteController::class, 'show'])
+                    ->whereNumber('creditNote')->name('show');
+                Route::get('/{creditNote}/document', [\App\Http\Controllers\Finance\CreditNoteController::class, 'document'])
+                    ->whereNumber('creditNote')->name('document');
+            });
+
+        /*
+        | Sales & Money In (Phase 7, blueprint §28; closes IMP-027).
+        |
+        | The farm-facing front door to invoices and receipts, and the "one
+        | button" §28 asks for. Posting stays with ReceiptService and
+        | AllocationService — this controller owns no journal.
+        */
+        Route::prefix('money-in')->name('money-in.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_SALES_MONEY_IN)
+            ->group(function () {
+                Route::get('/', [\App\Http\Controllers\Finance\MoneyInController::class, 'index'])
+                    ->middleware('permission:view_finance')
+                    ->name('index');
+                // create_receipt, the same permission the receipt screen
+                // requires. A shortcut to an action must not be a shortcut
+                // around the permission that action needs.
+                Route::post('/invoices/{invoice}/payment', [\App\Http\Controllers\Finance\MoneyInController::class, 'recordPayment'])
+                    ->middleware('permission:create_receipt')
+                    ->whereNumber('invoice')
+                    ->name('record');
+            });
+
+        Route::prefix('invoices')->name('invoices.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_SALES_MONEY_IN)
+            ->group(function () {
 
             // Listing/show — view_finance.
             Route::middleware('permission:view_finance')->group(function () {
@@ -668,6 +734,10 @@ Route::middleware($protectedMiddleware)->group(function () {
                 Route::get('/{invoice}', [\App\Http\Controllers\Finance\InvoiceController::class, 'show'])
                     ->whereNumber('invoice')
                     ->name('show');
+                // The customer's copy (Phase 7, §28).
+                Route::get('/{invoice}/document', [\App\Http\Controllers\Finance\FinanceDocumentController::class, 'invoice'])
+                    ->whereNumber('invoice')
+                    ->name('document');
             });
 
             // Create + cancel-draft — create_invoice.
@@ -695,7 +765,9 @@ Route::middleware($protectedMiddleware)->group(function () {
         });
 
             /* Receipts (Phase 2c) */
-        Route::prefix('receipts')->name('receipts.')->group(function () {
+        Route::prefix('receipts')->name('receipts.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_SALES_MONEY_IN)
+            ->group(function () {
             Route::get('/',                [\App\Http\Controllers\Finance\ReceiptController::class, 'index'])
                 ->middleware('permission:view_finance')
                 ->name('index');
@@ -709,6 +781,11 @@ Route::middleware($protectedMiddleware)->group(function () {
                 ->whereNumber('receipt')
                 ->middleware('permission:view_finance')
                 ->name('show');
+            // The customer's copy (Phase 7, §28).
+            Route::get('/{receipt}/document', [\App\Http\Controllers\Finance\FinanceDocumentController::class, 'receipt'])
+                ->whereNumber('receipt')
+                ->middleware('permission:view_finance')
+                ->name('document');
             Route::post('/{receipt}/allocations',
                                         [\App\Http\Controllers\Finance\ReceiptController::class, 'storeAllocation'])
                 ->whereNumber('receipt')
@@ -833,7 +910,9 @@ Route::middleware($protectedMiddleware)->group(function () {
 
         
             /* Suppliers (Phase 3a) */
-        Route::prefix('suppliers')->name('suppliers.')->group(function () {
+        Route::prefix('suppliers')->name('suppliers.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_CONTACTS)
+            ->group(function () {
             Route::get('/',                  [\App\Http\Controllers\Finance\SupplierController::class, 'index'])
                 ->middleware('permission:view_finance')
                 ->name('index');
@@ -1339,7 +1418,9 @@ Route::middleware($protectedMiddleware)->group(function () {
         });
 
 
-        Route::prefix('loans')->name('loans.')->group(function () {
+        Route::prefix('loans')->name('loans.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_LOANS)
+            ->group(function () {
             Route::get('/',                       [LoanController::class, 'index'])->middleware('permission:view_loans')->name('index');
             Route::get('/create',                 [LoanController::class, 'create'])->middleware('permission:view_loans')->name('create');
             Route::post('/',                      [LoanController::class, 'store'])->middleware('permission:manage_loans')->name('store');
@@ -1364,7 +1445,9 @@ Route::middleware($protectedMiddleware)->group(function () {
             Route::post('/{investor}/distribute', [InvestorController::class, 'distribute'])->middleware('permission:manage_investors')->name('distribute');
         });
 
-        Route::prefix('feed-sales')->name('feed-sales.')->group(function () {
+        Route::prefix('feed-sales')->name('feed-sales.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_SALES_MONEY_IN)
+            ->group(function () {
             Route::get('/',       [FeedSaleController::class, 'index'])->middleware('permission:view_feed_sales')->name('index');
             Route::get('/create', [FeedSaleController::class, 'create'])->middleware('permission:record_feed_sales')->name('create');
             Route::post('/',      [FeedSaleController::class, 'store'])->middleware('permission:record_feed_sales')->name('store');

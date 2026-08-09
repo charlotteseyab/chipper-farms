@@ -7,6 +7,7 @@ use App\Http\Requests\Finance\StoreLoanRequest;
 use App\Http\Requests\Finance\RepayLoanRequest;
 use App\Models\Finance\BankAccount;
 use App\Models\Finance\Loan;
+use App\Models\Finance\LoanScheduleLine;
 use App\Services\Finance\Loans\Exceptions\LoanException;
 use App\Services\Finance\Loans\LoanReclassificationService;
 use App\Services\Finance\Loans\LoanService;
@@ -32,15 +33,63 @@ class LoanController extends Controller
     ) {
     }
 
+    /**
+     * Loans, in the language a farm owner uses (Phase 7, blueprint §26).
+     *
+     * §26 asks for "add loan / receive loan money / record repayment / view
+     * upcoming payments" and says to "hide amortisation and liability
+     * terminology from owner view unless the user opens details". The list was
+     * previously a register — reference, lender, type, principal, outstanding —
+     * with the schedule reachable only by opening a loan and scrolling past an
+     * amortisation table. The one thing an owner needs first, *when is the next
+     * payment due*, was the hardest thing on the screen to find.
+     *
+     * The figures are read straight off the loans and their schedule lines. No
+     * new calculation: `LoanService` still owns everything that touches the GL.
+     */
     public function index(Request $request)
     {
         $orgId = $this->currentOrg->id();
+
         $loans = Loan::query()
             ->when($orgId, fn ($q) => $q->where('organization_id', $orgId))
             ->orderByDesc('id')
             ->paginate(25);
 
-        return view('finance.loans.index', ['loans' => $loans]);
+        // What is still owed across every active loan — principal plus interest
+        // already accrued, because both are money the farm has to find.
+        // bcmath, never floats: these are balances, not display values.
+        $stillOwed = '0.00';
+        foreach (Loan::query()
+            ->when($orgId, fn ($q) => $q->where('organization_id', $orgId))
+            ->active()
+            ->get(['principal_outstanding', 'interest_accrued_outstanding']) as $active) {
+            $stillOwed = bcadd($stillOwed, (string) $active->principal_outstanding, 2);
+            $stillOwed = bcadd($stillOwed, (string) $active->interest_accrued_outstanding, 2);
+        }
+
+        // The next payments due, across all loans. §26's "view upcoming
+        // payments" — the schedule lines that already exist, surfaced where the
+        // question is asked rather than inside one loan's amortisation table.
+        $upcoming = LoanScheduleLine::query()
+            ->when($orgId, fn ($q) => $q->where('organization_id', $orgId))
+            ->where('status', '!=', 'paid')
+            ->whereHas('loan', fn ($q) => $q->where('status', Loan::STATUS_ACTIVE))
+            ->with('loan')
+            ->orderBy('due_date')
+            ->limit(6)
+            ->get();
+
+        return view('finance.loans.index', [
+            'loans'     => $loans,
+            'stillOwed' => $stillOwed,
+            'upcoming'  => $upcoming,
+            // Reclassification is an accounting act, and §26 lists it under
+            // advanced accounting. It stays available; it comes off the
+            // owner's front page for organisations that are not doing it.
+            'advancedAccounting' => app(\App\Services\Organizations\OrganizationFeatureService::class)
+                ->usable(\App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING),
+        ]);
     }
 
     public function create()
