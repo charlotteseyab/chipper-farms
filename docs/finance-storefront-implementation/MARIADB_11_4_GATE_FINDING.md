@@ -244,3 +244,70 @@ migrations and was not enforcing what the schema defines. That is the finding
 worth carrying forward — not the MariaDB version, but that **the gates were
 being run against a database that did not match the application's own
 migrations**, so a whole class of integrity rule was never tested.
+
+---
+
+# Final triage state
+
+| Run | Errors | Failures |
+| --- | ---: | ---: |
+| Initial, freshly-migrated 11.4.2 | 39 | 3 |
+| After WHT address fix | 24 | 2 |
+| After balance-helper fix | 18 | 2 |
+| After export + Other + storefront fixes | **~11** | **0** |
+
+Failures are at zero. The remaining errors are one class, diagnosed below.
+
+## Five production defects found and fixed
+
+| # | Defect | Severity |
+| --- | --- | --- |
+| 1 | **Every storefront pig sale failed to post to finance.** `StorefrontOrderConfirmedSubscriber` writes `sale_purpose => 'storefront'`, permitted by no constraint. The sale spine broke at the subscriber, after payment and confirmation. | **P0** |
+| 2 | WHT certificates crashed on a non-existent column, rendered addresses with no street lines, and could carry **another supplier's billing address** onto a GRA document | P1 |
+| 3 | "Other" unusable on pig death recording — 500 every time | P1 |
+| 4 | "Other" unusable on pig sales — same cause | P1 |
+| 5 | Export sale purpose rejected by the constraint | P1 |
+
+Two test-only defects were also fixed: a helper writing unbalanced posted
+journals, and a security test whose assertion targeted a non-existent column and
+therefore never evaluated.
+
+## The remaining errors are not a defect
+
+The ~11 remaining are all `Column 'organization_id' cannot be null`, in tests
+that deliberately construct an org-less user or record to exercise a rejection
+path — `EnsureOrganizationContextMiddlewareTest::test_user_without_organization_id_is_rejected`
+and several `OrganizationScopePolicyTest` cases.
+
+`users.organization_id` is now `NOT NULL`. The fixture cannot be built because
+**the database forbids the state the test wants to test.**
+
+That is the organisation-scoping remediation (CF-P0-005) having succeeded more
+completely than the tests around it were updated to reflect. The defensive
+application code those tests cover is still correct to keep — defence in depth
+against a legacy row or a future nullable column — but the scenario is no longer
+reachable through Eloquent.
+
+Resolving it is a decision, not a fix:
+
+1. mark those tests as covering a state the schema now prevents, and assert the
+   constraint instead; or
+2. keep them meaningful by inserting through raw SQL with checks disabled, which
+   is arguably testing fiction.
+
+Option 1 is honest. Neither is urgent, and neither indicates a production
+problem.
+
+## The finding, restated
+
+Every one of the five production defects is ordinary: a value outside a CHECK
+constraint, a column that does not exist, an ungrouped `orWhere`. All are caught
+by a correctly-migrated database on the first run.
+
+They survived because the port-3306 test database had drifted from the
+migrations, and **SQLite never had these constraints at all** — the original
+migration only added them on mysql/pgsql. So the default suite could never have
+caught any of them, and the MariaDB suite was pointed at a database that had
+lost them.
+
+That gap concealed a P0 in the storefront sale spine for as long as it existed.
