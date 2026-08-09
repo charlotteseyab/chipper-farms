@@ -25,7 +25,24 @@ final class CheckoutData
         // Phase 8: which delivery zone the buyer picked. Only meaningful on a
         // delivery order, and only when the organisation has configured zones.
         public readonly ?int $deliveryZoneId = null,
+
+        // Phase 9: who the buyer is when they have no account. Ignored for a
+        // signed-in buyer, whose identity comes from their profile — a form
+        // field must not be able to re-address someone else's order.
+        public readonly ?string $guestName = null,
+        public readonly ?string $guestEmail = null,
+        public readonly ?string $guestPhone = null,
     ) {
+    }
+
+    /**
+     * A guest must leave at least one way to be reached. An order nobody can be
+     * told about is one the farm cannot confirm and the buyer cannot chase.
+     */
+    public function hasGuestContact(): bool
+    {
+        return ($this->guestEmail !== null && trim($this->guestEmail) !== '')
+            || ($this->guestPhone !== null && trim($this->guestPhone) !== '');
     }
 
     public function isDelivery(): bool
@@ -58,6 +75,9 @@ final class CheckoutData
             deliveryZoneId:    isset($data['delivery_zone_id']) && $data['delivery_zone_id'] !== ''
                 ? (int) $data['delivery_zone_id']
                 : null,
+            guestName:  $data['guest_name'] ?? null,
+            guestEmail: $data['guest_email'] ?? null,
+            guestPhone: $data['guest_phone'] ?? null,
         );
     }
 }

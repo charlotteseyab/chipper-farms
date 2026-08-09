@@ -82,6 +82,7 @@ class StorefrontOrder extends Model
 
     protected $fillable = [
         'organization_id', 'reference', 'counterparty_id', 'customer_user_id', 'quote_id',
+        'guest_name', 'guest_email', 'guest_phone', 'guest_claim_token', 'claimed_at',
         'status', 'payment_status', 'payment_method', 'fulfilment_method',
         'shipping_address_id', 'ship_to_name', 'ship_to_phone',
         'ship_address_line_1', 'ship_address_line_2', 'ship_city', 'ship_region', 'ship_ghana_post_gps',
@@ -107,6 +108,7 @@ class StorefrontOrder extends Model
             'completed_at' => 'datetime',
             'refunded_at'  => 'datetime',
             'refund_submitted_at' => 'datetime',
+            'claimed_at'   => 'datetime',
         ];
     }
 

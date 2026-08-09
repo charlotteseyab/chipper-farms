@@ -81,7 +81,7 @@
                 <div class="mt-6 flex flex-wrap gap-3">
                     @if($detail['orderable'])
                         @auth
-                            <form method="POST" action="{{ route('storefront.account.cart.add', $listing) }}" class="flex items-center gap-2">
+                            <form method="POST" action="{{ route('storefront.cart.add', $listing) }}" class="flex items-center gap-2">
                                 @csrf
                                 <input type="number" name="quantity" value="1" min="1" step="1" class="w-20 rounded-xl border-slate-300 text-sm">
                                 <button type="submit" class="px-5 py-2.5 rounded-xl bg-slate-800 text-white font-medium">Add to cart</button>

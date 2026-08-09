@@ -1579,14 +1579,10 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified']
         Route::get('/quotes', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'quotes'])->name('quotes');
         Route::post('/favourites/{listing}/toggle', [\App\Http\Controllers\Storefront\FavouriteController::class, 'toggle'])->name('favourites.toggle');
 
-        // Phase 3 — cart, checkout, payment callback, orders.
-        Route::get('/cart', [\App\Http\Controllers\Storefront\CartController::class, 'index'])->name('cart.index');
-        Route::post('/cart/add/{listing}', [\App\Http\Controllers\Storefront\CartController::class, 'add'])->name('cart.add');
-        Route::patch('/cart/items/{item}', [\App\Http\Controllers\Storefront\CartController::class, 'update'])->name('cart.update');
-        Route::delete('/cart/items/{item}', [\App\Http\Controllers\Storefront\CartController::class, 'remove'])->name('cart.remove');
-
-        Route::get('/checkout', [\App\Http\Controllers\Storefront\CheckoutController::class, 'show'])->name('checkout.show');
-        Route::post('/checkout', [\App\Http\Controllers\Storefront\CheckoutController::class, 'place'])->name('checkout.place');
+        // Phase 9 — cart and checkout MOVED to the public shop routes, because
+        // §17 lists guest checkout as essential scope and a cart behind a login
+        // wall cannot be filled before one. One set of routes serves both a
+        // signed-in buyer and a guest; CartOwnerResolver tells them apart.
         Route::get('/paystack/callback', [\App\Http\Controllers\Storefront\PaystackWebhookController::class, 'callback'])->name('paystack.callback');
 
         Route::get('/orders', [\App\Http\Controllers\Storefront\CustomerOrderController::class, 'index'])->name('orders.index');
@@ -1614,7 +1610,38 @@ Route::prefix('shop')->name('storefront.')->group(function () {
         Route::post('/quote', [\App\Http\Controllers\Storefront\QuoteController::class, 'store'])->middleware('throttle:storefront-quote')->name('quote.store');
         Route::get('/quote/thanks/{reference}', [\App\Http\Controllers\Storefront\QuoteController::class, 'thanks'])->name('quote.thanks');
         Route::get('/listing/{slug}', [\App\Http\Controllers\Storefront\StorefrontController::class, 'detail'])->name('listing');
+
+        /*
+        | Cart and checkout (Phase 9, blueprint §38).
+        |
+        | Public: a guest fills a basket against a cart token and checks out
+        | without an account. A signed-in buyer uses the same screens, and a
+        | guest cart merges into their own when they log in.
+        */
+        Route::get('/cart',                [\App\Http\Controllers\Storefront\CartController::class, 'index'])->name('cart.index');
+        Route::post('/cart/add/{listing}', [\App\Http\Controllers\Storefront\CartController::class, 'add'])->name('cart.add');
+        Route::patch('/cart/items/{item}', [\App\Http\Controllers\Storefront\CartController::class, 'update'])->name('cart.update');
+        Route::delete('/cart/items/{item}',[\App\Http\Controllers\Storefront\CartController::class, 'remove'])->name('cart.remove');
+
+        Route::get('/checkout',  [\App\Http\Controllers\Storefront\CheckoutController::class, 'show'])->name('checkout.show');
+        Route::post('/checkout', [\App\Http\Controllers\Storefront\CheckoutController::class, 'place'])
+            ->middleware('throttle:storefront-checkout')->name('checkout.place');
     });
+
+    /*
+    | Guest order tracking and account claim (Phase 9, §38 recovery).
+    |
+    | Deliberately OUTSIDE the storefront.open gate, for the same reason as the
+    | Paystack webhook: an order already placed must stay visible to whoever
+    | placed it, whatever the farm has since done with its shop.
+    |
+    | The token in the URL is the credential — see GuestOrderController.
+    */
+    Route::get('/order/{reference}/{token}', [\App\Http\Controllers\Storefront\GuestOrderController::class, 'track'])
+        ->name('order.track');
+    Route::post('/order/{reference}/{token}/claim', [\App\Http\Controllers\Storefront\GuestOrderController::class, 'claim'])
+        ->middleware(['auth:sanctum', config('jetstream.auth_session')])
+        ->name('order.claim');
 
     // Phase 3 — Paystack server-to-server webhook (CSRF-exempt; HMAC-verified
     // in the controller). Path must match the exception in bootstrap/app.php.

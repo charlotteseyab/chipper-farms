@@ -56,6 +56,59 @@ class CustomerAccountService
         });
     }
 
+    /**
+     * The AR counterparty for a guest buyer (Phase 9, blueprint §38).
+     *
+     * A guest order still has to reach finance, and finance is built on
+     * counterparties — so "no account" means no `User`, never no counterparty.
+     *
+     * MATCHING IS BY EMAIL ONLY, AND ONLY WHEN AN EMAIL IS GIVEN
+     * ----------------------------------------------------------
+     * Matching on phone was considered and rejected: phone numbers are shared
+     * within households and re-issued by networks, so a match would silently
+     * post one person's order onto another person's ledger. An email match is
+     * the same rule `ensureCounterparty()` already applies for registered
+     * buyers, so a guest who later registers with the same address lands on the
+     * counterparty they were already using instead of a duplicate.
+     *
+     * A guest with no email gets a fresh counterparty every time. That is the
+     * right trade: a duplicate contact record is a tidy-up job, whereas a wrong
+     * match is someone else's purchase history and credit balance.
+     */
+    public function counterpartyForGuest(
+        string $name,
+        ?string $email,
+        ?string $phone,
+        ?int $organizationId,
+    ): Counterparty {
+        $email = $email !== null && trim($email) !== '' ? trim($email) : null;
+        $phone = $phone !== null && trim($phone) !== '' ? trim($phone) : null;
+
+        if ($email !== null) {
+            $byEmail = Counterparty::query()
+                ->where('organization_id', $organizationId)
+                ->where('type', '!=', Counterparty::TYPE_SUPPLIER)
+                ->where('email', $email)
+                ->first();
+
+            if ($byEmail !== null) {
+                return $byEmail;
+            }
+        }
+
+        return Counterparty::create([
+            'organization_id'      => $organizationId,
+            'type'                 => Counterparty::TYPE_CUSTOMER,
+            'code'                 => $this->nextCustomerCode($organizationId),
+            'name'                 => $name,
+            'primary_contact_name' => $name,
+            'email'                => $email,
+            'phone'                => $phone,
+            'currency_code'        => 'GHS',
+            'is_active'            => true,
+        ]);
+    }
+
     protected function ensureCounterparty(User $user, ?int $organizationId): Counterparty
     {
         // Reuse an existing customer counterparty matched on email, else create.

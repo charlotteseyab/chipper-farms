@@ -47,6 +47,17 @@ class StorefrontServiceProvider extends ServiceProvider
             return \Illuminate\Cache\RateLimiting\Limit::perMinute(60)->by($request->ip());
         });
 
+        // Phase 9 — checkout became an unauthenticated POST when guest checkout
+        // landed, so it joins the throttled surfaces. Ten a minute is generous
+        // for a person and useless for a script: each attempt mints an order
+        // reference from the numbering sequence and can create a counterparty.
+        // Keyed by the authenticated user where there is one, so several buyers
+        // behind one office NAT do not throttle each other.
+        \Illuminate\Support\Facades\RateLimiter::for('storefront-checkout', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(10)
+                ->by($request->user()?->id ?: $request->ip());
+        });
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 SyncListingAvailabilityCommand::class,

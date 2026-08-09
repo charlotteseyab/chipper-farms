@@ -25,9 +25,40 @@
             </div>
         @else
 
-        <form method="POST" action="{{ route('storefront.account.checkout.place') }}" class="grid md:grid-cols-3 gap-6">
+        @if($isGuest && ! $guestAllowed)
+            {{-- This farm asks for an account. Not a 404 on a full basket —
+                 the buyer is told what to do and their cart is waiting. --}}
+            <div class="rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 px-5 py-4 text-sm">
+                <p class="font-semibold">This farm asks buyers to sign in before ordering.</p>
+                <p class="mt-1">Your cart is saved — it will still be here after you sign in.</p>
+                <a href="{{ route('login') }}" class="mt-3 inline-block px-4 py-2 rounded-xl bg-slate-800 text-white">Sign in or create an account</a>
+            </div>
+        @else
+
+        <form method="POST" action="{{ route('storefront.checkout.place') }}" class="grid md:grid-cols-3 gap-6">
             @csrf
             <div class="md:col-span-2 space-y-6">
+                @if($isGuest)
+                    {{-- Phase 9 (§38): guest identity. A name and one way to be
+                         reached — the farm has to be able to confirm a live
+                         animal is available before anyone travels. --}}
+                    <div class="rounded-2xl bg-white border border-slate-200 p-5 space-y-3">
+                        <h2 class="font-semibold text-slate-700">Your details</h2>
+                        <p class="text-xs text-slate-500">
+                            No account needed. Sign in instead if you would rather keep your orders together.
+                        </p>
+                        <input type="text" name="guest_name" required maxlength="200" placeholder="Your name"
+                               value="{{ old('guest_name') }}" class="w-full rounded-xl border-slate-300 text-sm">
+                        <div class="grid sm:grid-cols-2 gap-3">
+                            <input type="text" name="guest_phone" maxlength="60" placeholder="Phone"
+                                   value="{{ old('guest_phone') }}" class="w-full rounded-xl border-slate-300 text-sm">
+                            <input type="email" name="guest_email" maxlength="190" placeholder="Email (optional)"
+                                   value="{{ old('guest_email') }}" class="w-full rounded-xl border-slate-300 text-sm">
+                        </div>
+                        <p class="text-xs text-slate-400">A phone number or an email — whichever is easier to reach you on.</p>
+                    </div>
+                @endif
+
                 {{-- Fulfilment --}}
                 <div class="rounded-2xl bg-white border border-slate-200 p-5 space-y-4">
                     <h2 class="font-semibold text-slate-700">Fulfilment</h2>
@@ -72,7 +103,7 @@
                             </label>
                             <p class="text-xs text-slate-400">Or fill the fields below for a new delivery address.</p>
                         @endif
-                        <input type="text" name="ship_to_name" placeholder="Recipient name" class="w-full rounded-xl border-slate-300 text-sm" value="{{ old('ship_to_name', auth()->user()->name) }}">
+                        <input type="text" name="ship_to_name" placeholder="Recipient name" class="w-full rounded-xl border-slate-300 text-sm" value="{{ old('ship_to_name', auth()->user()?->name ?? old('guest_name')) }}">
                         <input type="text" name="ship_to_phone" placeholder="Phone" class="w-full rounded-xl border-slate-300 text-sm" value="{{ old('ship_to_phone') }}">
                         <input type="text" name="ship_address_line_1" placeholder="Address line 1" class="w-full rounded-xl border-slate-300 text-sm" value="{{ old('ship_address_line_1') }}">
                         <div class="grid grid-cols-2 gap-3">
@@ -130,6 +161,7 @@
                 @endif
             </div>
         </form>
+        @endif
         @endif
     </div>
 </x-storefront.layout>

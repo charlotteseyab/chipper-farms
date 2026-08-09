@@ -18,7 +18,7 @@ class StorefrontCart extends Model
     public const STATUS_CONVERTED = 'converted';
     public const STATUS_ABANDONED = 'abandoned';
 
-    protected $fillable = ['organization_id', 'user_id', 'status'];
+    protected $fillable = ['organization_id', 'user_id', 'guest_token', 'status'];
 
     public function items(): HasMany
     {

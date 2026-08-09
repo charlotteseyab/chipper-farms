@@ -24,14 +24,24 @@ use Illuminate\Validation\Rule;
  */
 class CheckoutRequest extends FormRequest
 {
+    /**
+     * Open to guests since Phase 9. Whether this farm actually accepts guest
+     * orders is decided by `storefront.guest_checkout` inside
+     * `CheckoutService::resolveCounterpartyId()`, where refusing produces a
+     * sentence the buyer can act on rather than a 403 on a full basket.
+     */
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        return true;
     }
 
     public function rules(): array
     {
-        $organizationId = $this->user()?->organization_id;
+        $user = $this->user();
+
+        // A guest's organisation is the one the public shop is serving.
+        $organizationId = $user?->organization_id
+            ?? app(\App\Storefront\Support\StorefrontSettingsResolver::class)->organizationId();
 
         $payments   = StorefrontCatalog::enabledPaymentMethods($organizationId);
         $fulfilment = StorefrontCatalog::enabledFulfilmentMethods($organizationId);
@@ -61,6 +71,18 @@ class CheckoutRequest extends FormRequest
             ],
 
             'customer_note' => ['nullable', 'string', 'max:2000'],
+
+            // Phase 9 — who the guest is. Required only when there is no
+            // signed-in buyer; for a signed-in buyer these are ignored by
+            // CheckoutService entirely, so a posted guest_email cannot
+            // re-address someone else's order.
+            'guest_name'  => ['nullable', 'string', 'max:200', Rule::requiredIf($user === null)],
+            'guest_email' => ['nullable', 'email', 'max:190', Rule::requiredIf(
+                $user === null && ! $this->filled('guest_phone')
+            )],
+            'guest_phone' => ['nullable', 'string', 'max:60', Rule::requiredIf(
+                $user === null && ! $this->filled('guest_email')
+            )],
         ];
     }
 
@@ -72,6 +94,9 @@ class CheckoutRequest extends FormRequest
             'payment_method.in'               => 'That payment method is not available from this farm.',
             'fulfilment_method.in'            => 'That delivery option is not available from this farm.',
             'delivery_zone_id.exists'         => 'Choose a delivery area from the list.',
+            'guest_name.required'             => 'Please give your name so we know who the order is for.',
+            'guest_email.required'            => 'Give a phone number or an email address so we can confirm your order.',
+            'guest_phone.required'            => 'Give a phone number or an email address so we can confirm your order.',
         ];
     }
 }

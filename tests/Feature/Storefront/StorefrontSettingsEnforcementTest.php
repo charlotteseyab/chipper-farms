@@ -232,7 +232,7 @@ class StorefrontSettingsEnforcementTest extends StorefrontTestCase
         $this->app->make(CartService::class)->addItem($customer, $listing, '1');
 
         $this->actingAs($customer)
-            ->post(route('storefront.account.checkout.place'), [
+            ->post(route('storefront.checkout.place'), [
                 'payment_method' => 'cod', 'fulfilment_method' => 'pickup',
             ])
             ->assertSessionHasErrors('payment_method');
@@ -283,7 +283,7 @@ class StorefrontSettingsEnforcementTest extends StorefrontTestCase
         $listing  = $this->makePublishedListing(['fixed_price' => '500.00', 'quantity_available' => '2']);
         $this->app->make(CartService::class)->addItem($customer, $listing, '1');
 
-        $response = $this->actingAs($customer)->get(route('storefront.account.checkout.show'))->assertOk();
+        $response = $this->actingAs($customer)->get(route('storefront.checkout.show'))->assertOk();
 
         $response->assertSee('value="cod"', false);
         $response->assertDontSee('value="paystack"', false);

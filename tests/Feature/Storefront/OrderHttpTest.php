@@ -30,13 +30,33 @@ class OrderHttpTest extends StorefrontTestCase
         }
     }
 
-    public function test_cart_and_checkout_require_auth(): void
+    /**
+     * REWRITTEN IN PHASE 9. This test previously asserted that the cart and
+     * checkout redirect a guest to /login — the behaviour blueprint §17 calls
+     * out as wrong ("guest cart/checkout" is *essential* storefront scope) and
+     * that Phase 9 exists to reverse. It was encoding the defect, so it now
+     * asserts the intended behaviour instead of being deleted.
+     */
+    public function test_a_guest_can_reach_the_cart_and_checkout(): void
     {
-        $listing = $this->makePublishedListing();
+        $listing = $this->makePublishedListing([
+            'kind' => StorefrontListing::KIND_FEED,
+            'pricing_basis' => StorefrontListing::BASIS_FIXED,
+            'fixed_price' => '250.00',
+            'quantity_available' => '5',
+        ]);
 
-        $this->get(route('storefront.account.cart.index'))->assertRedirect(route('login'));
-        $this->post(route('storefront.account.cart.add', $listing))->assertRedirect(route('login'));
-        $this->get(route('storefront.account.checkout.show'))->assertRedirect(route('login'));
+        $this->get(route('storefront.cart.index'))->assertOk();
+
+        $this->post(route('storefront.cart.add', $listing), ['quantity' => '1'])
+            ->assertRedirect(route('storefront.cart.index'));
+
+        // Checkout with nothing in the basket goes back to the basket rather
+        // than to /login — the guest is not blocked, they simply have nothing
+        // to buy yet. The full guest journey, which needs the cart cookie
+        // carried between requests, is in GuestCheckoutTest.
+        $this->get(route('storefront.checkout.show'))
+            ->assertRedirect(route('storefront.cart.index'));
     }
 
     public function test_customer_can_add_listing_to_cart(): void
@@ -51,8 +71,8 @@ class OrderHttpTest extends StorefrontTestCase
         ]);
 
         $this->actingAs($this->makeUser('customer'))
-            ->post(route('storefront.account.cart.add', $listing), ['quantity' => '1'])
-            ->assertRedirect(route('storefront.account.cart.index'))
+            ->post(route('storefront.cart.add', $listing), ['quantity' => '1'])
+            ->assertRedirect(route('storefront.cart.index'))
             ->assertSessionHas('success', 'Added to cart.');
     }
 

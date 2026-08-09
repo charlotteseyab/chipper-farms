@@ -7,26 +7,50 @@ use App\Models\Storefront\StorefrontCartItem;
 use App\Models\Storefront\StorefrontListing;
 use App\Storefront\Services\CartService;
 use App\Storefront\Services\Exceptions\CartException;
+use App\Storefront\Support\CartOwnerResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
- * Authenticated customer cart. (v1 requires sign-in to buy, which keeps every
- * order tied to a real AR counterparty for clean finance integration.)
+ * The cart, for anyone (Phase 9, blueprint §38 "cart works before login
+ * through session/cart token").
+ *
+ * WHAT CHANGED
+ * ------------
+ * This controller previously sat behind `auth:sanctum` and took
+ * `$request->user()` as read. §17 lists guest checkout as *essential* scope, and
+ * a shop that demands registration before you can pick something up is a shop
+ * most buyers leave. Ownership is now resolved through `CartOwnerResolver`,
+ * which answers with the signed-in buyer or with a guest token, so the same
+ * screen serves both.
+ *
+ * READS DO NOT MINT A TOKEN
+ * -------------------------
+ * `index()` uses `current()`, which returns null for a visitor who has never
+ * had a cart, and renders an empty basket. Only `add()` uses
+ * `currentOrCreate()`. Otherwise every anonymous page view would set a cookie
+ * and leave an empty cart row behind it.
  */
 class CartController extends Controller
 {
-    public function __construct(protected CartService $cart)
-    {
+    public function __construct(
+        protected CartService $cart,
+        protected CartOwnerResolver $owners,
+    ) {
     }
 
     public function index(Request $request): View
     {
-        $cart = $this->cart->activeFor($request->user());
-        $cart->load('items.listing.media');
+        $owner = $this->owners->current($request);
 
-        return view('storefront.cart.index', ['cart' => $cart]);
+        $cart = $owner === null ? null : $this->cart->existingFor($owner);
+        $cart?->load('items.listing.media');
+
+        return view('storefront.cart.index', [
+            'cart'    => $cart,
+            'isGuest' => $owner === null || $owner->isGuest(),
+        ]);
     }
 
     public function add(Request $request, StorefrontListing $listing): RedirectResponse
@@ -36,12 +60,16 @@ class CartController extends Controller
         ]);
 
         try {
-            $this->cart->addItem($request->user(), $listing, (string) ($validated['quantity'] ?? '1'));
+            $this->cart->addItem(
+                $this->owners->currentOrCreate($request),
+                $listing,
+                (string) ($validated['quantity'] ?? '1'),
+            );
         } catch (CartException $e) {
             return back()->with('error', $e->getMessage());
         }
 
-        return redirect()->route('storefront.account.cart.index')->with('success', 'Added to cart.');
+        return redirect()->route('storefront.cart.index')->with('success', 'Added to cart.');
     }
 
     public function update(Request $request, StorefrontCartItem $item): RedirectResponse
@@ -51,7 +79,10 @@ class CartController extends Controller
         ]);
 
         try {
-            $this->cart->updateQuantity($request->user(), $item, (string) $validated['quantity']);
+            // Inside the try on purpose: requireOwner() raises the same
+            // CartException as the service, so both refusals reach the buyer
+            // as a sentence rather than one as a sentence and one as a crash.
+            $this->cart->updateQuantity($this->requireOwner($request), $item, (string) $validated['quantity']);
         } catch (CartException $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -62,11 +93,28 @@ class CartController extends Controller
     public function remove(Request $request, StorefrontCartItem $item): RedirectResponse
     {
         try {
-            $this->cart->removeItem($request->user(), $item);
+            $this->cart->removeItem($this->requireOwner($request), $item);
         } catch (CartException $e) {
             return back()->with('error', $e->getMessage());
         }
 
         return back()->with('success', 'Item removed.');
+    }
+
+    /**
+     * Changing a cart line requires an owner. A visitor with no token owns no
+     * cart, so `CartService::assertOwned()` would refuse anyway — this turns
+     * that into the same "not yours" answer rather than a null dereference,
+     * and keeps the refusal in one place.
+     */
+    protected function requireOwner(Request $request): \App\Storefront\Support\CartOwner
+    {
+        $owner = $this->owners->current($request);
+
+        if ($owner === null) {
+            throw new CartException('That cart item does not belong to you.');
+        }
+
+        return $owner;
     }
 }

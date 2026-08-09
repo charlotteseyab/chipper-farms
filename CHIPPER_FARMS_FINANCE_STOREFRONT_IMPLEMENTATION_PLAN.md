@@ -47,7 +47,7 @@ infrastructure.
 | 6b | Simple Purchase — stock/non-stock | §24 | 1, 2, 5 | COMPLETE (service) |
 | 7 | Sales, customers, suppliers, invoices, loans | §26–§29 | 1, 2 | COMPLETE |
 | 8 | Storefront settings and catalog configuration | §34 | 1, 2 | COMPLETE |
-| 9 | Guest cart and checkout | §38 | 8 | NOT STARTED |
+| 9 | Guest cart and checkout | §38 | 8 | COMPLETE |
 | 10 | Checkout holds and reservations | §36, §37 | 9 | NOT STARTED |
 | 11 | Pig to storefront | §35 | 8, 10 | NOT STARTED |
 | 12 | Storefront → finance integration | §41 | 10, 11 | NOT STARTED |

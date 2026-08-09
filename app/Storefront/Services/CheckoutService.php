@@ -9,6 +9,7 @@ use App\Models\Storefront\StorefrontOrder;
 use App\Models\Storefront\StorefrontOrderItem;
 use App\Models\User;
 use App\Storefront\Services\Exceptions\CheckoutException;
+use App\Storefront\Support\CartOwner;
 use App\Storefront\Support\CheckoutData;
 use App\Storefront\Support\StorefrontCatalog;
 use App\Storefront\Support\StorefrontSettings;
@@ -38,29 +39,39 @@ class CheckoutService
     ) {
     }
 
-    public function checkout(User $user, CheckoutData $data): StorefrontOrder
+    public function checkout(CartOwner|User $owner, CheckoutData $data): StorefrontOrder
     {
-        $cart = $this->cartService->activeFor($user);
+        $owner = CartOwner::from($owner);
+
+        $cart = $this->cartService->activeFor($owner);
         $cart->load('items.listing');
 
         if ($cart->items->isEmpty()) {
             throw new CheckoutException('Your cart is empty.');
         }
 
+        // Phase 9 — a guest order still needs an AR counterparty; "no account"
+        // means no User, never no counterparty. A signed-in buyer's identity
+        // comes from their profile and the guest fields are ignored, so a form
+        // field cannot re-address someone else's order.
+        $organizationId = $owner->isGuest()
+            ? $owner->organizationId
+            : $owner->user->organization_id;
+
         // Phase 8 — what this farm actually offers. Repeated from
         // CheckoutRequest deliberately: the request class guards the HTTP path
         // only, and this service is reachable from tests, console tooling and
         // any later caller. An order taken by a method the farm cannot settle
         // is not a validation slip, it is money it has no process to collect.
-        $this->assertOfferedTerms($user, $data);
+        $this->assertOfferedTerms($organizationId, $data);
 
-        $profile = $this->accounts->ensureProfile($user);
+        $counterpartyId = $this->resolveCounterpartyId($owner, $data, $organizationId);
 
-        return DB::transaction(function () use ($user, $data, $cart, $profile) {
-            $organizationId = $user->organization_id;
+        return DB::transaction(function () use ($owner, $data, $cart, $counterpartyId, $organizationId) {
+            $user = $owner->user;
 
             // Resolve + snapshot the shipping address for delivery orders.
-            $ship = $this->resolveShipping($data, $profile->counterparty_id);
+            $ship = $this->resolveShipping($data, $counterpartyId);
 
             // Zone-priced delivery, when the organisation has zones configured.
             $zone = $this->resolveDeliveryZone($data, $organizationId);
@@ -120,8 +131,17 @@ class CheckoutService
             $order = StorefrontOrder::create([
                 'organization_id'   => $organizationId,
                 'reference'         => $this->nextReference($organizationId),
-                'counterparty_id'   => $profile->counterparty_id,
-                'customer_user_id'  => $user->id,
+                'counterparty_id'   => $counterpartyId,
+                'customer_user_id'  => $user?->id,
+                'guest_name'        => $owner->isGuest() ? trim((string) $data->guestName) : null,
+                'guest_email'       => $owner->isGuest() ? $this->blankToNull($data->guestEmail) : null,
+                'guest_phone'       => $owner->isGuest() ? $this->blankToNull($data->guestPhone) : null,
+                // Single-use, delivered in the confirmation URL. It is how a
+                // guest tracks the order without an account, and how they later
+                // prove the order is theirs when claiming it. Cleared on claim
+                // so a forwarded link cannot be replayed against a second
+                // account.
+                'guest_claim_token' => $owner->isGuest() ? bin2hex(random_bytes(32)) : null,
                 'status'            => $isPaystack
                     ? StorefrontOrder::STATUS_PENDING_PAYMENT
                     : StorefrontOrder::STATUS_PENDING_CONFIRMATION,
@@ -174,8 +194,8 @@ class CheckoutService
                 $order,
                 type: 'status_change',
                 toStatus: $order->status,
-                note: 'Order placed by customer.',
-                actorId: $user->id,
+                note: $owner->isGuest() ? 'Order placed by guest.' : 'Order placed by customer.',
+                actorId: $user?->id,
             );
 
             return $order->load('items');
@@ -183,13 +203,62 @@ class CheckoutService
     }
 
     /**
+     * The AR counterparty this order belongs to (Phase 9, blueprint §38).
+     *
+     * A signed-in buyer's comes from their profile. A guest's is matched or
+     * created from what they typed — see
+     * `CustomerAccountService::counterpartyForGuest()` for why the match is by
+     * email only.
+     *
+     * The guest fields on `CheckoutData` are read ONLY on the guest branch. A
+     * signed-in buyer posting `guest_email` must not be able to re-address
+     * their order onto someone else's ledger.
+     */
+    protected function resolveCounterpartyId(CartOwner $owner, CheckoutData $data, ?int $organizationId): int
+    {
+        if (! $owner->isGuest()) {
+            return (int) $this->accounts->ensureProfile($owner->user)->counterparty_id;
+        }
+
+        if (! StorefrontSettings::guestCheckoutEnabled($organizationId)) {
+            throw new CheckoutException('This farm asks buyers to create an account before ordering.');
+        }
+
+        $name = trim((string) $data->guestName);
+
+        if ($name === '') {
+            throw new CheckoutException('Please give your name so we know who the order is for.');
+        }
+
+        if (! $data->hasGuestContact()) {
+            throw new CheckoutException('Please give a phone number or an email address so we can confirm your order.');
+        }
+
+        return (int) $this->accounts->counterpartyForGuest(
+            name: $name,
+            email: $data->guestEmail,
+            phone: $data->guestPhone,
+            organizationId: $organizationId,
+        )->id;
+    }
+
+    protected function blankToNull(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
      * The store must be open, and the payment and fulfilment methods must be
      * ones this organisation offers (Phase 8, blueprint §34).
      */
-    protected function assertOfferedTerms(User $user, CheckoutData $data): void
+    protected function assertOfferedTerms(?int $organizationId, CheckoutData $data): void
     {
-        $organizationId = $user->organization_id;
-
         if (! StorefrontSettings::enabled($organizationId)) {
             throw new CheckoutException('This shop is not accepting orders at the moment.');
         }

@@ -39,8 +39,11 @@
                 <a href="{{ route('storefront.shop') }}" class="hover:text-slate-900">Shop all</a>
             </nav>
             <div class="flex items-center gap-3 text-sm">
+                {{-- Phase 9: the cart is for everyone. It sat inside @auth, which
+                     meant a guest could not see the basket they were allowed to
+                     fill — the link and the capability disagreed. --}}
+                <a href="{{ route('storefront.cart.index') }}" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100">Cart</a>
                 @auth
-                    <a href="{{ route('storefront.account.cart.index') }}" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100">Cart</a>
                     <a href="{{ route('storefront.account.dashboard') }}" class="px-3 py-1.5 rounded-lg bg-slate-800 text-white">My account</a>
                 @else
                     <a href="{{ route('login') }}" class="px-3 py-1.5 rounded-lg border border-slate-300 hover:bg-slate-100">Sign in</a>
