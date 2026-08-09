@@ -54,10 +54,25 @@ class OrganizationScopePolicyTest extends TestCase
             'organization_id' => $this->orgB->id,
         ]);
 
-        $this->orglessUser = User::forceCreate([
-            'name' => 'Orgless', 'email' => 'orgless@example.com',
-            'password' => bcrypt('x'),
-            'role' => 'manager', 'role_id' => $managerRole->id,
+        // NOT persisted. users.organization_id is NOT NULL, so this row cannot
+        // exist — the organisation-scoping remediation closed that hole at the
+        // database level.
+        //
+        // The policy's defensive branch for an org-less user is still worth
+        // keeping and still worth testing: it guards against a future nullable
+        // column, a raw insert, or a model hydrated from elsewhere. An unsaved
+        // instance exercises exactly that branch without asserting the database
+        // permits something it forbids.
+        //
+        // Persisting it with forceCreate is what made every test in this class
+        // error on a correctly-constrained database.
+        $this->orglessUser = new User();
+        $this->orglessUser->forceFill([
+            'id'              => 999999,
+            'name'            => 'Orgless',
+            'email'           => 'orgless@example.com',
+            'role'            => 'manager',
+            'role_id'         => $managerRole->id,
             'organization_id' => null,
         ]);
     }

@@ -52,10 +52,20 @@ class EnsureOrganizationContextMiddlewareTest extends TestCase
 
     public function test_user_without_organization_id_is_rejected(): void
     {
-        $user = User::forceCreate([
-            'name' => 'No Org',
-            'email' => 'noorg@example.com',
-            'password' => bcrypt('x'),
+        // NOT persisted. users.organization_id is NOT NULL, so this row cannot
+        // exist — organisation scoping is enforced at the database level, which
+        // is a stronger guarantee than the middleware alone.
+        //
+        // The middleware's rejection branch is still worth keeping and testing:
+        // it guards against a model hydrated from a raw query, a future nullable
+        // column, or a guard that returns a user built in memory. An unsaved
+        // instance exercises that branch honestly, rather than asserting the
+        // database permits a row it rejects.
+        $user = new User();
+        $user->forceFill([
+            'id'              => 999999,
+            'name'            => 'No Org',
+            'email'           => 'noorg@example.com',
             'organization_id' => null,
         ]);
 
