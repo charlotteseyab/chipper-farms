@@ -81,6 +81,11 @@ class PigSale extends Model
         'cost_centre_id',
         'sales_channel_id',
         'tax_code_id',
+        // IMP-091: profile-based tax carried from the storefront so the
+        // invoice totals what the buyer was actually charged.
+        'tax_profile_id',
+        'tax_amount',
+        'tax_snapshot',
         'legacy_source_id',
 
         // Phase 5 — COGS leg (Dr 5110 Cost of Pigs Sold / Cr 1230 Live Pig Inventory)
@@ -93,6 +98,7 @@ class PigSale extends Model
     ];
 
     protected $casts = [
+        'tax_snapshot' => 'array',
         'sale_date'      => 'date',
         'sale_price'     => 'decimal:2',
         'sale_weight'    => 'decimal:2',

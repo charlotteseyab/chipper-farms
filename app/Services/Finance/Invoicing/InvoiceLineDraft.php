@@ -35,6 +35,22 @@ final class InvoiceLineDraft
         public readonly ?int $revenueAccountId = null,
         public readonly ?int $costCentreId = null,
         public readonly ?int $salesChannelId = null,
+        /**
+         * A tax amount the CALLER already computed (IMP-091).
+         *
+         * `taxRatePercent` can only express a single percentage. Ghana's 2026
+         * regime charges VAT, NHIL and GETFund on a shared base, and a profile
+         * may also carry a fixed levy or a component that compounds on the
+         * others — none of which a single rate can represent, and recomputing
+         * from an "effective rate" would round differently from the figure the
+         * buyer was actually charged.
+         *
+         * So a caller holding a `TaxCalculation` passes the amount instead.
+         * When this is non-null it IS the line tax and `taxRatePercent` is
+         * ignored; the two are mutually exclusive by construction below rather
+         * than by convention.
+         */
+        public readonly ?string $taxAmount = null,
     ) {
         // Validate quantity > 0.
         if (bccomp($quantity, '0', 4) <= 0) {
@@ -49,6 +65,18 @@ final class InvoiceLineDraft
         if (bccomp($taxRatePercent, '0', 2) < 0) {
             throw new \InvalidArgumentException("InvoiceLineDraft taxRatePercent must be >= 0, got {$taxRatePercent}");
         }
+        if ($taxAmount !== null && bccomp($taxAmount, '0', 2) < 0) {
+            throw new \InvalidArgumentException("InvoiceLineDraft taxAmount must be >= 0, got {$taxAmount}");
+        }
+        // Refuse rather than silently preferring one. A caller supplying both
+        // has two different ideas about the tax and only one of them can be
+        // right; picking quietly is how the invoice ends up disagreeing with
+        // the receipt.
+        if ($taxAmount !== null && bccomp($taxRatePercent, '0', 2) > 0) {
+            throw new \InvalidArgumentException(
+                'InvoiceLineDraft accepts taxRatePercent OR taxAmount, not both.'
+            );
+        }
 
         // Compute totals. Round each to 2 decimals so the persisted values
         // match what the customer sees on the printed invoice.
@@ -59,8 +87,13 @@ final class InvoiceLineDraft
         $discount = $this->roundToCents($discount);
 
         $netOfDiscount = bcsub($subtotal, $discount, 8);
-        $tax = bcdiv(bcmul($netOfDiscount, $taxRatePercent, 8), '100', 8);
-        $tax = $this->roundToCents($tax);
+
+        if ($taxAmount !== null) {
+            $tax = $this->roundToCents($taxAmount);
+        } else {
+            $tax = bcdiv(bcmul($netOfDiscount, $taxRatePercent, 8), '100', 8);
+            $tax = $this->roundToCents($tax);
+        }
 
         $total = bcadd(bcsub($subtotal, $discount, 2), $tax, 2);
 

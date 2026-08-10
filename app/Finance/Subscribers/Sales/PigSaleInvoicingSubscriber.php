@@ -154,6 +154,11 @@ class PigSaleInvoicingSubscriber extends Subscriber
             itemCode:        $sale->pig?->ear_tag_number,
             pigId:           $sale->pig_id,
             taxCodeId:       $sale->tax_code_id,
+            // IMP-091 — when the sale carries a profile-computed tax (a
+            // storefront order), that figure IS the tax: it is what the buyer
+            // was charged and what the receipt shows. Null for every other
+            // sale, which keeps the existing single-code path untouched.
+            taxAmount:       $sale->tax_amount,
             costCentreId:    $sale->cost_centre_id,
             salesChannelId:  $sale->sales_channel_id,
         );

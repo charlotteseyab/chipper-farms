@@ -146,10 +146,28 @@
                             <li class="flex justify-between"><span class="text-slate-600">{{ $item->listing->title }} × {{ rtrim(rtrim((string)$item->quantity,'0'),'.') }}</span><span>GHS {{ number_format((float)$item->lineTotal(),2) }}</span></li>
                         @endforeach
                     </ul>
-                    <div class="border-t border-slate-100 mt-3 pt-3 flex justify-between font-bold">
-                        <span>Subtotal</span><span>GHS {{ number_format((float)$subtotal,2) }}</span>
+                    <div class="border-t border-slate-100 mt-3 pt-3 flex justify-between">
+                        <span class="text-slate-600">Subtotal</span><span>GHS {{ number_format((float)$subtotal,2) }}</span>
                     </div>
-                    <p class="text-xs text-slate-400 mt-1">Delivery fee (if applicable) added on the next step.</p>
+
+                    {{-- §38: "show subtotal, delivery, tax, total". Until
+                         IMP-091 the order carried no tax at all, so this line
+                         could not exist. The figure shown is what the real
+                         TaxCalculator will charge on the goods; delivery is
+                         part of the taxable base too, so the final amount is
+                         confirmed once the fulfilment choice is known. --}}
+                    @if($taxPreview !== null)
+                        <div class="mt-1 flex justify-between text-slate-600">
+                            <span>{{ $taxLabel }}</span>
+                            <span>{{ $taxInclusive ? 'included' : 'GHS ' . number_format((float) $taxPreview, 2) }}</span>
+                        </div>
+                    @endif
+
+                    <div class="mt-2 pt-2 border-t border-slate-100 flex justify-between font-bold">
+                        <span>Total so far</span>
+                        <span>GHS {{ number_format((float) $totalPreview, 2) }}</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">Delivery fee (if applicable) is added on the next step, and is taxed with the rest.</p>
                     <button type="submit" class="mt-4 w-full px-5 py-2.5 rounded-xl bg-slate-800 text-white font-medium">Place order</button>
                 </div>
 

@@ -34,6 +34,11 @@ class FeedSale extends Model
         'sale_total',
         'sale_date',
         'channel',
+        // IMP-091: profile-based tax carried from a storefront order so the
+        // ledger records what the buyer was actually charged.
+        'tax_profile_id',
+        'tax_amount',
+        'tax_snapshot',
         'payment_status',
         'payment_method',
         'counterparty_id',
@@ -54,6 +59,7 @@ class FeedSale extends Model
     protected function casts(): array
     {
         return [
+            'tax_snapshot' => 'array',
             'quantity_kg' => 'decimal:4',
             'unit_price'  => 'decimal:4',
             'sale_total'  => 'decimal:2',

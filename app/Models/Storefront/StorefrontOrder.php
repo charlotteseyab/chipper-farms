@@ -87,6 +87,7 @@ class StorefrontOrder extends Model
         'shipping_address_id', 'ship_to_name', 'ship_to_phone',
         'ship_address_line_1', 'ship_address_line_2', 'ship_city', 'ship_region', 'ship_ghana_post_gps',
         'subtotal', 'delivery_fee', 'delivery_zone_id', 'delivery_zone_name', 'total', 'currency_code',
+        'tax_total', 'tax_profile_id', 'tax_snapshot',
         'customer_note', 'staff_notes',
         'confirmed_by_user_id', 'confirmed_at', 'cancelled_by_user_id', 'cancelled_at', 'cancel_reason',
         'placed_at', 'completed_at', 'completed_by_user_id',
@@ -101,6 +102,8 @@ class StorefrontOrder extends Model
         return [
             'subtotal'     => 'decimal:2',
             'delivery_fee' => 'decimal:2',
+            'tax_total'    => 'decimal:2',
+            'tax_snapshot' => 'array',
             'total'        => 'decimal:2',
             'confirmed_at' => 'datetime',
             'cancelled_at' => 'datetime',

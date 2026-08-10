@@ -98,22 +98,53 @@ class FeedSaleRevenueSubscriber extends Subscriber
             'reference'       => 'Feed Sale #' . $sale->id,
         ];
 
+        // IMP-091 — output tax on a feed sale.
+        //
+        // Feed revenue posts straight to the ledger rather than through an
+        // invoice, so unlike the pig path there is no InvoicePostingService to
+        // credit the tax account. Without this the buyer would be charged tax
+        // at checkout that never reached the books: worse than charging none,
+        // because the farm would hold money it had not recorded as owed.
+        //
+        // The split: the customer owes (or paid) the GROSS; revenue is the NET;
+        // the difference is a liability to the revenue authority, not income.
+        $tax = $sale->tax_amount !== null
+            ? bcadd((string) $sale->tax_amount, '0', 2)
+            : '0.00';
+
+        $hasTax  = bccomp($tax, '0', 2) > 0;
+        $gross   = bcadd($saleTotal, $tax, 2);
+        $netSale = $saleTotal;
+
+        $lines = [
+            JournalLineDraft::debit(
+                accountId: $offsetAccount->id,
+                amount: $hasTax ? $gross : $saleTotal,
+                description: $description,
+                dimensions: $dims,
+            ),
+            JournalLineDraft::credit(
+                accountId: $revenueAccount->id,
+                amount: $netSale,
+                description: $description,
+                dimensions: $dims,
+            ),
+        ];
+
+        if ($hasTax) {
+            $lines[] = JournalLineDraft::credit(
+                // Same account the invoice path credits, so a feed sale and a
+                // pig sale under one tax regime land in one place.
+                accountId: $this->accountResolver->byHint('VAT_CONTROL')->id,
+                amount: $tax,
+                description: $description . ' — VAT',
+                dimensions: $dims,
+            );
+        }
+
         $journal = new JournalDraft(
             journalType: 'sales_revenue',
-            lines: [
-                JournalLineDraft::debit(
-                    accountId: $offsetAccount->id,
-                    amount: $saleTotal,
-                    description: $description,
-                    dimensions: $dims,
-                ),
-                JournalLineDraft::credit(
-                    accountId: $revenueAccount->id,
-                    amount: $saleTotal,
-                    description: $description,
-                    dimensions: $dims,
-                ),
-            ],
+            lines: $lines,
             reference: 'Feed Sale #' . $sale->id,
             description: $description,
             currencyCode: 'GHS',

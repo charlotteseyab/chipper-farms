@@ -73,9 +73,27 @@ class CheckoutController extends Controller
                 ->orderByDesc('is_default')->get();
         }
 
+        // §38 — the buyer sees the tax before committing. Computed with the
+        // real TaxCalculator so the preview and the order cannot disagree; the
+        // base here is the goods only, since delivery is not chosen yet.
+        $subtotal   = $cart->subtotal();
+        $taxation   = app(\App\Storefront\Services\StorefrontTaxService::class)
+            ->calculate((string) $subtotal, $organizationId);
+
+        $taxInclusive = $taxation !== null
+            && $taxation->priceMode === \App\Models\Finance\TaxProfile::PRICE_INCLUSIVE;
+
         return view('storefront.checkout.show', [
             'cart'               => $cart,
-            'subtotal'           => $cart->subtotal(),
+            'subtotal'           => $subtotal,
+            'taxPreview'         => $taxation?->totalTax,
+            'taxInclusive'       => $taxInclusive,
+            'taxLabel'           => $taxation === null
+                ? 'Tax'
+                : 'Tax (' . collect($taxation->components)->pluck('code')->join(' + ') . ')',
+            'totalPreview'       => $taxation === null || $taxInclusive
+                ? (string) $subtotal
+                : bcadd((string) $subtotal, $taxation->totalTax, 2),
             'addresses'          => $addresses,
             'isGuest'            => $owner->isGuest(),
             'guestAllowed'       => $guestAllowed,

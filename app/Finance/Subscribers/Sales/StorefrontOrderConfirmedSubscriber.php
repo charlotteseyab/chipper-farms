@@ -94,9 +94,17 @@ class StorefrontOrderConfirmedSubscriber extends Subscriber
         $posted = 0;
         $deferred = [];
 
+        // IMP-091 — split the order's tax across its lines before routing any
+        // of them. Each line becomes its own sale and its own invoice, so the
+        // tax the buyer was charged has to be apportioned; allocating here
+        // rather than per line is what makes the parts sum to the whole. See
+        // StorefrontTaxService::allocate() for why independent rounding does
+        // not add up.
+        $taxByItem = $this->allocateTax($order);
+
         try {
             foreach ($order->items as $item) {
-                $reason = $this->routeLine($item, $order, $actor, $paymentStatus, $paymentMethod, $buyerName, $counterpartyId);
+                $reason = $this->routeLine($item, $order, $actor, $paymentStatus, $paymentMethod, $buyerName, $counterpartyId, $taxByItem[$item->id] ?? '0.00');
                 if ($reason === null) {
                     $posted++;
                 } else {
@@ -150,6 +158,34 @@ class StorefrontOrderConfirmedSubscriber extends Subscriber
     /**
      * Route a single line. Returns null on success, or a defer-reason string.
      */
+    /**
+     * The order's tax, split across its lines.
+     *
+     * @return array<int, string> order item id => tax amount
+     */
+    protected function allocateTax(\App\Models\Storefront\StorefrontOrder $order): array
+    {
+        $snapshot = $order->tax_snapshot;
+
+        if (! is_array($snapshot) || $snapshot === []) {
+            return [];
+        }
+
+        $calculation = \App\Services\Finance\Tax\TaxCalculation::fromSnapshot($snapshot);
+
+        $lineTotals = [];
+        foreach ($order->items as $item) {
+            $lineTotals[$item->id] = (string) $item->line_total;
+        }
+
+        // Delivery is part of the taxable base but is not an order line, so its
+        // share of the tax rides on the lines proportionally. The alternative —
+        // a phantom delivery line on one of the invoices — would put a charge
+        // on a document that never mentions it.
+        return app(\App\Storefront\Services\StorefrontTaxService::class)
+            ->allocate($calculation, $lineTotals);
+    }
+
     protected function routeLine(
         $item,
         StorefrontOrder $order,
@@ -158,21 +194,25 @@ class StorefrontOrderConfirmedSubscriber extends Subscriber
         ?string $paymentMethod,
         ?string $buyerName,
         ?int $counterpartyId,
+        string $lineTax = '0.00',
     ): ?string {
         $kind = $item->kind;
 
         if (in_array($kind, [StorefrontListing::KIND_LIVE_PIG, StorefrontListing::KIND_BREEDING_STOCK], true)) {
-            return $this->routePigLine($item, $actor, $paymentStatus, $paymentMethod, $buyerName, $counterpartyId);
+            return $this->routePigLine($item, $actor, $paymentStatus, $paymentMethod, $buyerName, $counterpartyId, $order, $lineTax);
         }
 
         if ($kind === StorefrontListing::KIND_FEED) {
-            return $this->routeFeedLine($item, $actor, $paymentStatus, $paymentMethod, $buyerName, $counterpartyId);
+            return $this->routeFeedLine($item, $actor, $paymentStatus, $paymentMethod, $buyerName, $counterpartyId, $order, $lineTax);
         }
 
         return 'kind_not_auto_postable:' . $kind;
     }
 
-    protected function routePigLine($item, User $actor, string $paymentStatus, ?string $paymentMethod, ?string $buyerName, ?int $counterpartyId): ?string
+    /**
+     * @param  string  $lineTax  this line's share of the order's tax (IMP-091)
+     */
+    protected function routePigLine($item, User $actor, string $paymentStatus, ?string $paymentMethod, ?string $buyerName, ?int $counterpartyId, ?StorefrontOrder $order = null, string $lineTax = '0.00'): ?string
     {
         if ($item->source_type !== PigManagement::class || $item->source_id === null) {
             return 'pig_source_missing';
@@ -213,6 +253,13 @@ class StorefrontOrderConfirmedSubscriber extends Subscriber
             // The channel remains recoverable: storefront_order_items carries
             // posted_sale_id back to this sale.
             'sale_purpose'   => 'market',
+            // IMP-091 — the tax the buyer was actually charged, carried onto
+            // the sale so the invoice totals the same number. The snapshot
+            // rides along because a credit note must reverse the regime that
+            // applied at the time, not today's (IMP-014).
+            'tax_profile_id' => $order?->tax_profile_id,
+            'tax_amount'     => $lineTax,
+            'tax_snapshot'   => $order?->tax_snapshot,
             'payment_status' => $paymentStatus,
             'payment_method' => $paymentMethod,
             'buyer_name'     => $buyerName,
@@ -227,7 +274,10 @@ class StorefrontOrderConfirmedSubscriber extends Subscriber
         return null;
     }
 
-    protected function routeFeedLine($item, User $actor, string $paymentStatus, ?string $paymentMethod, ?string $buyerName, ?int $counterpartyId): ?string
+    /**
+     * @param  string  $lineTax  this line's share of the order's tax (IMP-091)
+     */
+    protected function routeFeedLine($item, User $actor, string $paymentStatus, ?string $paymentMethod, ?string $buyerName, ?int $counterpartyId, ?StorefrontOrder $order = null, string $lineTax = '0.00'): ?string
     {
         if ($item->source_type !== FeedType::class || $item->source_id === null) {
             return 'feed_source_missing';
@@ -245,6 +295,9 @@ class StorefrontOrderConfirmedSubscriber extends Subscriber
             'quantity_kg'     => (float) $item->quantity,
             'unit_price'      => (float) $item->unit_price,
             'channel'         => 'storefront',
+            'tax_profile_id'  => $order?->tax_profile_id,
+            'tax_amount'      => $lineTax,
+            'tax_snapshot'    => $order?->tax_snapshot,
             'payment_status'  => $paymentStatus,
             'payment_method'  => $paymentMethod,
             'counterparty_id' => $counterpartyId,

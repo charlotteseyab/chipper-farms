@@ -37,6 +37,7 @@ class CheckoutService
         protected ListingAvailabilityService $availability,
         protected OrderService $orders,
         protected HoldService $holds,
+        protected StorefrontTaxService $tax,
     ) {
     }
 
@@ -128,7 +129,24 @@ class CheckoutService
                 $deliveryFee = '0.00';
             }
 
-            $total = bcadd($subtotal, $deliveryFee, 2);
+            // IMP-091 — tax, computed by the real TaxCalculator against the
+            // organisation's storefront profile. Base is subtotal plus
+            // delivery: carriage is part of the consideration for the supply,
+            // and taxing the goods but not the delivery under-declares on every
+            // delivered order.
+            //
+            // When the profile prices INCLUSIVE the base is already gross, so
+            // the tax is recovered from within it and the total does not grow.
+            // When it prices EXCLUSIVE the tax is added on top. TaxCalculator
+            // knows which from the profile; the storefront does not decide it.
+            $taxableBase = bcadd($subtotal, $deliveryFee, 2);
+            $taxation    = $this->tax->calculate($taxableBase, $organizationId);
+
+            $taxTotal = $taxation?->totalTax ?? '0.00';
+
+            $total = $taxation !== null && $taxation->priceMode === \App\Models\Finance\TaxProfile::PRICE_INCLUSIVE
+                ? $taxableBase
+                : bcadd($taxableBase, $taxTotal, 2);
 
             $isPaystack = $data->isPaystack();
 
@@ -164,6 +182,12 @@ class CheckoutService
                 'ship_ghana_post_gps' => $ship['ship_ghana_post_gps'] ?? null,
                 'subtotal'          => $subtotal,
                 'delivery_fee'      => $deliveryFee,
+                'tax_total'         => $taxTotal,
+                'tax_profile_id'    => $taxation?->profileId,
+                // The component breakdown as charged. A credit note must
+                // reverse the regime that applied at the time, not today's
+                // (IMP-014), and that needs the breakdown, not one number.
+                'tax_snapshot'      => $taxation?->toSnapshot(),
                 'delivery_zone_id'   => $data->isDelivery() ? $zone?->id : null,
                 'delivery_zone_name' => $data->isDelivery() ? $zone?->name : null,
                 'total'             => $total,

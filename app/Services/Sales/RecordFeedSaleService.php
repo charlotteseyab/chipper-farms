@@ -71,6 +71,12 @@ class RecordFeedSaleService
                 'counterparty_id' => $data['counterparty_id'] ?? null,
                 'buyer_name'      => $data['buyer_name'] ?? null,
                 'buyer_contact'   => $data['buyer_contact'] ?? null,
+                // IMP-091 — profile-based tax carried from a storefront order,
+                // so the ledger records what the buyer was actually charged.
+                // Null for a direct farm-gate sale, which is untouched.
+                'tax_profile_id'  => $data['tax_profile_id'] ?? null,
+                'tax_amount'      => $data['tax_amount'] ?? null,
+                'tax_snapshot'    => $data['tax_snapshot'] ?? null,
                 'sold_by_user_id' => $actor->id,
                 'notes'           => $data['notes'] ?? null,
             ]);
