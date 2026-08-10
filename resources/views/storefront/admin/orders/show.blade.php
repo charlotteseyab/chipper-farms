@@ -145,6 +145,97 @@
                     </div>
                 @endif
 
+                {{--
+                    §46 — the recovery console.
+
+                    "Every non-final state needs a visible recovery path."
+                    The order has recorded its finance posting outcome since
+                    Phase 4 and showed it nowhere, so a line that never
+                    reached the books was invisible on the one page a staff
+                    member actually opens.
+
+                    Seeing the state follows `view_storefront_orders` — anyone
+                    who can open the order should be able to tell that something
+                    is wrong with it, and hiding that from a clerk recreates the
+                    dead end this panel exists to close. Acting on it is a
+                    separate right, below.
+                --}}
+                @if($order->finance_posting_status && $order->finance_posting_status !== 'posted')
+                    @php
+                        $financeTone = match ($order->finance_posting_status) {
+                            'failed'  => 'border-rose-200 bg-rose-50 text-rose-900',
+                            'pending' => 'border-sky-200 bg-sky-50 text-sky-900',
+                            default   => 'border-amber-200 bg-amber-50 text-amber-900',
+                        };
+                    @endphp
+                    <div class="rounded-2xl border p-5 {{ $financeTone }}">
+                        <p class="font-semibold">
+                            @switch($order->finance_posting_status)
+                                @case('failed')  This order has not reached the books @break
+                                @case('pending') Finance posting queued @break
+                                @case('skipped') Some lines were not posted @break
+                                @default        Finance posting: {{ $order->finance_posting_status }}
+                            @endswitch
+                        </p>
+
+                        @if($order->finance_posting_error)
+                            <p class="mt-2 text-sm">{{ $order->finance_posting_error }}</p>
+                        @endif
+
+                        @if($order->finance_posting_status === 'skipped')
+                            <p class="mt-2 text-sm">
+                                Deferred lines are not errors — they are lines the sale spine could not
+                                route automatically (a pig with no weight, feed not sold in kg). Record
+                                them by hand, or correct the listing and re-run.
+                            </p>
+                        @endif
+
+                        @can('manage_storefront_orders')
+                            @if($replayableEvent)
+                                <form method="POST" action="{{ route('storefront.admin.orders.retry-finance', $order) }}" class="mt-3">
+                                    @csrf
+                                    <button type="submit" class="px-4 py-2 rounded-xl bg-slate-800 text-white text-sm">
+                                        Retry finance posting
+                                    </button>
+                                    <span class="ml-2 text-xs">
+                                        Safe to press more than once — the posting is idempotent.
+                                    </span>
+                                </form>
+                            @endif
+                        @endcan
+                    </div>
+                @endif
+
+                {{-- §46: held listings need a visible expire/release/confirm path. --}}
+                @if($liveHolds->isNotEmpty())
+                    <div class="rounded-2xl border border-slate-200 bg-white p-5">
+                        <p class="font-semibold text-slate-800">Stock held for this order</p>
+                        <ul class="mt-2 space-y-1 text-sm text-slate-600">
+                            @foreach($liveHolds as $hold)
+                                <li class="flex items-center justify-between gap-3">
+                                    <span>{{ $hold->listing?->title ?? 'Listing #' . $hold->listing_id }}</span>
+                                    <span class="tabular-nums">
+                                        {{ rtrim(rtrim($hold->quantityString(), '0'), '.') }}
+                                        @if($hold->isLive())
+                                            @if($hold->expires_at)
+                                                · until {{ $hold->expires_at->format('d M H:i') }}
+                                            @else
+                                                · until you decide
+                                            @endif
+                                        @else
+                                            · {{ $hold->status }}
+                                        @endif
+                                    </span>
+                                </li>
+                            @endforeach
+                        </ul>
+                        <p class="mt-2 text-xs text-slate-500">
+                            Confirming the order consumes the hold; cancelling releases it. A hold with a
+                            time limit lapses on its own and puts the stock back on sale.
+                        </p>
+                    </div>
+                @endif
+
                 @can('manage_storefront_orders')
                     <form method="POST" action="{{ route('storefront.admin.orders.note', $order) }}" class="rounded-2xl bg-white border border-slate-200 p-5">@csrf
                         <h2 class="font-semibold text-slate-700 mb-2 text-sm">Add a note</h2>

@@ -1572,6 +1572,11 @@ Route::middleware($protectedMiddleware)->group(function () {
             Route::post('/orders/{order}/complete',       [\App\Http\Controllers\Storefront\AdminOrderController::class, 'complete'])->name('orders.complete');
             Route::post('/orders/{order}/note',           [\App\Http\Controllers\Storefront\AdminOrderController::class, 'addNote'])->name('orders.note');
             Route::post('/orders/{order}/verify-payment', [\App\Http\Controllers\Storefront\AdminOrderController::class, 'verifyPayment'])->name('orders.verify-payment');
+            // §46: "finance posting failed → replay event after fixing cause."
+            // Re-queues the outbox event; posts nothing itself, and every
+            // posting downstream is idempotency-keyed so a replay of work that
+            // already succeeded writes no second journal.
+            Route::post('/orders/{order}/retry-finance', [\App\Http\Controllers\Storefront\AdminOrderController::class, 'retryFinancePosting'])->name('orders.retry-finance');
         });
 
         // Reports (Phase 5).

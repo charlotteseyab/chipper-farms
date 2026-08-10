@@ -61,7 +61,92 @@ class AdminOrderController extends Controller
         $this->assertSameOrg($order);
         $order->load(['items.listing', 'payments', 'events.actor', 'counterparty']);
 
-        return view('storefront.admin.orders.show', ['order' => $order]);
+        return view('storefront.admin.orders.show', [
+            'order' => $order,
+            // §46: "the admin order page should become the recovery console for
+            // storefront states." The order already recorded whether its
+            // finance posting failed or was skipped, and showed it nowhere —
+            // so a line that never reached the books was invisible on the one
+            // page a staff member actually opens.
+            'replayableEvent' => $this->replayableEventFor($order),
+            'liveHolds'       => \App\Models\Storefront\StorefrontInventoryHold::query()
+                ->where('order_id', $order->id)
+                ->with('listing')
+                ->get(),
+        ]);
+    }
+
+    /**
+     * The finance event this order could sensibly be re-run from, if any.
+     *
+     * Only a FAILED event is offered. A processed one has already done its
+     * work, and while the posting idempotency key would make a replay a no-op,
+     * offering the button would suggest there is something to fix when there is
+     * not.
+     */
+    protected function replayableEventFor(StorefrontOrder $order): ?\App\Models\DomainEvent
+    {
+        if ($order->finance_posting_status === 'posted') {
+            return null;
+        }
+
+        return \App\Models\DomainEvent::query()
+            ->where('event_type', \App\Domain\Events\Sales\StorefrontOrderConfirmed::TYPE)
+            ->where('source_id', $order->id)
+            ->where('status', \App\Models\DomainEvent::STATUS_FAILED)
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    /**
+     * Re-queue a failed finance posting (§46: "replay event after fixing
+     * cause").
+     *
+     * SAFE TO PRESS TWICE, BY CONSTRUCTION
+     * ------------------------------------
+     * This does not post anything. It returns the outbox event to `pending` so
+     * the normal claimer picks it up, and every posting downstream is guarded by
+     * `journal_postings.idempotency_key` — a replay that already succeeded
+     * writes no second journal. The subscribers carry their own guards too (the
+     * credit-note path refuses to refund twice on a replayed event).
+     *
+     * Restricted to events that actually FAILED. Re-queueing a processed event
+     * would be a no-op that looked like an action.
+     */
+    public function retryFinancePosting(StorefrontOrder $order): RedirectResponse
+    {
+        $this->assertSameOrg($order);
+
+        $event = $this->replayableEventFor($order);
+
+        if ($event === null) {
+            return back()->with('error', 'There is no failed finance posting to retry on this order.');
+        }
+
+        $event->forceFill([
+            'status'           => \App\Models\DomainEvent::STATUS_PENDING,
+            'claimed_at'       => null,
+            'claimed_by'       => null,
+            'next_retry_at'    => null,
+            'processing_error' => null,
+        ])->save();
+
+        $order->forceFill([
+            'finance_posting_status' => 'pending',
+            'finance_posting_error'  => null,
+        ])->save();
+
+        $this->orders->recordEvent(
+            order: $order,
+            type: 'finance',
+            note: 'Finance posting re-queued by staff after a failure.',
+            actorId: auth()->id(),
+        );
+
+        return back()->with(
+            'success',
+            'Finance posting re-queued. It will be retried automatically; check back shortly.',
+        );
     }
 
     public function confirm(StorefrontOrder $order): RedirectResponse
