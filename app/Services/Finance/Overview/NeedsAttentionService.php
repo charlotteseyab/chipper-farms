@@ -77,6 +77,7 @@ class NeedsAttentionService
             $this->pendingRefunds($organizationId),
             $this->ordersAwaitingConfirmation($organizationId),
             $this->missingTaxConfiguration($organizationId),
+            $this->unsettledStorefrontPayments($organizationId),
         ]);
 
         // Critical first, then by size — the biggest problem of the worst kind
@@ -333,6 +334,81 @@ class NeedsAttentionService
     }
 
     /* ------------------------------------------------------------------ */
+
+    /**
+     * Storefront payments whose money state and internal state disagree
+     * (Phase 12, blueprint §41; closes the remaining half of IMP-027).
+     *
+     * `finance:reconcile-storefront-settlements` has computed this since the
+     * prior remediation programme, and it is a good command — it REPORTS rather
+     * than acting, because every discrepancy here is a decision with money
+     * attached. But it only speaks to a cron log. A treasurer looking at the
+     * finance screen had no way to know a payment had been verified at the
+     * gateway and never posted, or that an order was marked refunded with no
+     * provider record behind it.
+     *
+     * This surfaces the same conditions where somebody will see them. It
+     * deliberately does not fix anything: the command's own docblock explains
+     * why automatic correction risks a worse outcome than the discrepancy, and
+     * nothing here changes that.
+     */
+    protected function unsettledStorefrontPayments(int $organizationId): ?array
+    {
+        if (! Schema::hasTable('storefront_orders')) {
+            return null;
+        }
+
+        // Paid at the gateway, but the sale never reached finance. The money is
+        // real and the books do not show it.
+        $verifiedNotPosted = StorefrontOrder::query()
+            ->where('organization_id', $organizationId)
+            ->where('payment_status', StorefrontOrder::PAY_PAYSTACK_VERIF)
+            ->whereIn('status', [
+                StorefrontOrder::STATUS_CONFIRMED,
+                StorefrontOrder::STATUS_COMPLETED,
+            ])
+            ->where(function ($q) {
+                $q->whereNull('finance_posting_status')
+                    ->orWhere('finance_posting_status', '!=', 'posted');
+            })
+            ->count();
+
+        // Still waiting for the buyer to come back from the gateway, long after
+        // any reasonable payment attempt would have finished.
+        $stalePending = StorefrontOrder::query()
+            ->where('organization_id', $organizationId)
+            ->where('status', StorefrontOrder::STATUS_PENDING_PAYMENT)
+            ->where('placed_at', '<', now()->subDay())
+            ->count();
+
+        $total = $verifiedNotPosted + $stalePending;
+
+        if ($total === 0) {
+            return null;
+        }
+
+        $messages = [];
+        if ($verifiedNotPosted > 0) {
+            $messages[] = "{$verifiedNotPosted} paid order(s) have not reached the books";
+        }
+        if ($stalePending > 0) {
+            $messages[] = "{$stalePending} order(s) have been waiting for payment for over a day";
+        }
+
+        return [
+            'key'      => 'storefront.settlement_discrepancies',
+            // Money taken and not recorded is the serious half. A buyer who
+            // wandered off mid-payment is untidy, not urgent.
+            'severity' => $verifiedNotPosted > 0 ? self::SEVERITY_CRITICAL : self::SEVERITY_INFO,
+            'count'    => $total,
+            'message'  => ucfirst(implode('; ', $messages)) . '.',
+            'detail'   => 'Run `php artisan finance:reconcile-storefront-settlements` for the full list. '
+                . 'Do not resubmit anything to the payment provider on the strength of this — '
+                . 'a discrepancy can mean the money never moved, and acting blindly risks paying twice.',
+            'route'      => null,
+            'permission' => 'view_storefront_orders',
+        ];
+    }
 
     protected function resolveOrganizationId(Organization|int|null $organization): ?int
     {
