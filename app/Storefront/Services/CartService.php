@@ -25,8 +25,10 @@ use Illuminate\Support\Facades\DB;
  */
 class CartService
 {
-    public function __construct(protected ListingAvailabilityService $availability)
-    {
+    public function __construct(
+        protected ListingAvailabilityService $availability,
+        protected HoldService $holds,
+    ) {
     }
 
     public function activeFor(CartOwner|User $owner): StorefrontCart
@@ -246,9 +248,20 @@ class CartService
         }
     }
 
+    /**
+     * Phase 10: what the shop can still SELL, not what the column says.
+     *
+     * `quantity_available` counts stock another buyer is already checking out
+     * with. Offering it again puts an item in a basket that checkout will refuse
+     * — a worse moment to find out, and for a live animal a wasted journey.
+     *
+     * This is advisory, not the guarantee: the cart takes no lock. The
+     * authoritative refusal is `HoldService::placeForOrder()`, which locks the
+     * listing first.
+     */
     protected function assertQuantityAvailable(StorefrontListing $listing, string $quantity): void
     {
-        if (bccomp($quantity, (string) $listing->quantity_available, 4) > 0) {
+        if (bccomp($quantity, $this->holds->availableToSell($listing), 4) > 0) {
             throw new CartException('Requested quantity exceeds what is available.');
         }
     }

@@ -36,6 +36,7 @@ class CheckoutService
         protected CustomerAccountService $accounts,
         protected ListingAvailabilityService $availability,
         protected OrderService $orders,
+        protected HoldService $holds,
     ) {
     }
 
@@ -90,9 +91,12 @@ class CheckoutService
                 if (! $listing->isOrderable() || ! $this->availability->isSourceAvailable($listing)) {
                     throw new CheckoutException("\"{$listing->title}\" is no longer available.");
                 }
-                if (bccomp((string) $item->quantity, (string) $listing->quantity_available, 4) > 0) {
-                    throw new CheckoutException("Not enough stock for \"{$listing->title}\".");
-                }
+                // Phase 10: the quantity check that used to live here read
+                // `quantity_available` WITHOUT a lock, which is the classic
+                // check-then-act race — two checkouts both see one left and both
+                // proceed. It is now owned by HoldService::placeForOrder(),
+                // which locks the listing first and counts other buyers' live
+                // holds. One authority, and it is the one holding the lock.
 
                 // Re-price from the listing now (authoritative), not the snapshot.
                 $unitPrice = $this->cartService->effectiveUnitPrice($listing);
@@ -189,6 +193,13 @@ class CheckoutService
 
             // Convert the cart.
             $cart->update(['status' => StorefrontCart::STATUS_CONVERTED]);
+
+            // Phase 10 (§37) — claim the stock before anyone is sent to pay.
+            // Inside this transaction on purpose: a hold must not survive a
+            // checkout that failed afterwards, and an order must not exist
+            // without its holds. Insufficient stock raises
+            // InventoryConflictException, which rolls the order back.
+            $this->holds->placeForOrder($order->load('items'));
 
             $this->orders->recordEvent(
                 $order,

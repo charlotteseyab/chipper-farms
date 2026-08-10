@@ -107,6 +107,17 @@ class OrderConfirmationConcurrencyTest extends ConcurrencyTestCase
             ]),
         );
         \$orderIds[] = \$order->id;
+
+        // PHASE 10: checkout now places an inventory hold, so more orders than
+        // stock can no longer be created this way — which is the new FIRST line
+        // of defence and is proved in HoldConcurrencyTest.
+        //
+        // This file tests the SECOND line: confirmation under contention. The
+        // fixture therefore releases each hold as it goes, which is exactly the
+        // real situation it must survive — holds that lapsed while several
+        // unpaid orders were outstanding, and staff then confirming them all.
+        app(App\\Storefront\\Services\\HoldService::class)
+            ->releaseForOrder(\$order, 'Concurrency fixture: hold lapsed.');
     }
 
     echo json_encode([

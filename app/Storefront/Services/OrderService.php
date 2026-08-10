@@ -75,6 +75,7 @@ class OrderService
         protected DispatchDomainEvent $dispatcher,
         protected \App\Services\Sales\UpdatePigSalePaymentStatusService $pigPayment,
         protected \App\Services\Sales\UpdateFeedSalePaymentStatusService $feedPayment,
+        protected HoldService $holds,
     ) {
     }
 
@@ -137,6 +138,14 @@ class OrderService
             $from = $locked->status;
 
             $this->applyInventoryEffect($locked, reserve: true, actor: $actor);
+
+            // Phase 10 (§37) — "convert hold to reserved/sold_out using current
+            // locked confirmation logic". The stock has now actually moved, so
+            // the hold stops suppressing availability: leaving it live would
+            // subtract the same units twice, once from the column and once from
+            // the hold. Same transaction, under the same listing locks
+            // applyInventoryEffect() just took.
+            $this->holds->consumeForOrder($locked);
 
             $locked->forceFill([
                 'status'               => StorefrontOrder::STATUS_CONFIRMED,
@@ -252,6 +261,11 @@ class OrderService
             'payment_status' => StorefrontOrder::PAY_FAILED,
         ])->save();
 
+        // Phase 10 (§37) — "payment failure/timeout: release hold". Stock a
+        // buyer could not pay for goes straight back on sale rather than
+        // waiting for the expiry sweep to notice.
+        $this->holds->releaseForOrder($order, 'Payment failed.');
+
         $this->recordEvent($order, 'payment', $from, StorefrontOrder::STATUS_FAILED, $note, $actor?->id);
 
         return $order->refresh();
@@ -269,6 +283,12 @@ class OrderService
             if ($this->hadInventoryReserved($from)) {
                 $this->applyInventoryEffect($order, reserve: false, actor: $actor);
             }
+
+            // Phase 10 (§37) — "staff cancel: release hold". Scoped to still-
+            // active holds, so cancelling an order that was already confirmed
+            // cannot turn its consumed hold back into a released one and hand
+            // back stock the reversal above has already returned.
+            $this->holds->releaseForOrder($order, $reason ? "Cancelled: {$reason}" : 'Order cancelled.');
 
             $order->forceFill([
                 'status'               => StorefrontOrder::STATUS_CANCELLED,

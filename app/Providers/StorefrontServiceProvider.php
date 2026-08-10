@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Console\Commands\Storefront\ExpireInventoryHoldsCommand;
 use App\Console\Commands\Storefront\SyncListingAvailabilityCommand;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
@@ -61,6 +62,7 @@ class StorefrontServiceProvider extends ServiceProvider
         if ($this->app->runningInConsole()) {
             $this->commands([
                 SyncListingAvailabilityCommand::class,
+                ExpireInventoryHoldsCommand::class,
             ]);
 
             $this->app->booted(function () {
@@ -71,6 +73,17 @@ class StorefrontServiceProvider extends ServiceProvider
                     ->hourly()
                     ->withoutOverlapping(10)
                     ->name('storefront:sync-availability')
+                    ->onOneServer();
+
+                // Phase 10 (§37). Every minute, because the unit being returned
+                // is often the only one: an hourly sweep would leave the last
+                // boar unsellable for up to an hour after an abandoned
+                // checkout. The sweep is one conditional UPDATE over an indexed
+                // predicate, so running it often is cheap.
+                $schedule->command('storefront:expire-holds')
+                    ->everyMinute()
+                    ->withoutOverlapping(5)
+                    ->name('storefront:expire-holds')
                     ->onOneServer();
             });
         }

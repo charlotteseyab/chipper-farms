@@ -48,7 +48,7 @@ infrastructure.
 | 7 | Sales, customers, suppliers, invoices, loans | §26–§29 | 1, 2 | COMPLETE |
 | 8 | Storefront settings and catalog configuration | §34 | 1, 2 | COMPLETE |
 | 9 | Guest cart and checkout | §38 | 8 | COMPLETE |
-| 10 | Checkout holds and reservations | §36, §37 | 9 | NOT STARTED |
+| 10 | Checkout holds and reservations | §36, §37 | 9 | COMPLETE |
 | 11 | Pig to storefront | §35 | 8, 10 | NOT STARTED |
 | 12 | Storefront → finance integration | §41 | 10, 11 | NOT STARTED |
 | 13 | Refunds, returns and recovery UX | §42–§45 | 12 | NOT STARTED |
@@ -108,7 +108,7 @@ advisory:
 | MariaDB gates run on EOL 10.4.32, not the certified 11.4.2 | Phase 0 §8 | **Closed.** Gates re-pointed at 11.4.2 on port 3399; the 42 failures it exposed are all fixed and the suite is green (Phase 8 §6.2) |
 | Hiding advanced finance breaks accountant workflow | Blueprint §57 | Existing organisations backfill to Full Accounting; nothing hidden by default |
 | Quick Expense could bypass accounting controls | Blueprint SEC-002 | Implemented strictly as a wrapper over existing posting services |
-| Holds could deadlock | Blueprint §57 | Deterministic lock ordering plus expiry job; proven under real contention |
+| Holds could deadlock | Blueprint §57 | **Closed.** Both hold placement and confirmation lock listings ascending by id; ten workers over two shared listings in opposite order complete without deadlock on MariaDB 11.4.2 (Phase 10 §3.1) |
 | Ghana tax defaults cannot be self-certified | Blueprint §61 | Accountant/GRA confirmation required before production |
 | Paystack sandbox credentials unavailable | Prior programme | External certification runbook |
 | CI has never run on a real runner | Prior programme | External certification runbook |

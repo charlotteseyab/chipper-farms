@@ -106,14 +106,32 @@ class OrderConfirmationIntegrityTest extends StorefrontTestCase
         ]);
 
         // Two customers, two orders, one pig.
+        //
+        // PHASE 10 CHANGED THE SETUP, NOT THE POINT. Checkout now places a hold,
+        // so the second buyer can no longer reach checkout at all while the
+        // first buyer's hold is live — which is the new first line of defence
+        // and is tested in HoldServiceTest.
+        //
+        // What this test guards is the SECOND line: reservePigListing() at
+        // confirmation. To reach it, the first hold is released between the two
+        // checkouts, exactly as it would be if the first buyer's payment window
+        // lapsed and the second bought in the gap. Both orders then exist and
+        // both are presented for confirmation.
         $orders = [];
+        $holds  = $this->app->make(\App\Storefront\Services\HoldService::class);
+
         foreach (['customer', 'customer'] as $i => $role) {
             $buyer = $this->makeUser($role);
             $this->app->make(CartService::class)->addItem($buyer, $listing, '1');
-            $orders[] = $this->app->make(CheckoutService::class)->checkout(
+            $order = $this->app->make(CheckoutService::class)->checkout(
                 $buyer,
                 CheckoutData::fromArray(['payment_method' => 'cod', 'fulfilment_method' => 'pickup']),
             );
+
+            $orders[] = $order;
+
+            // Free the pig for the next checkout in the loop.
+            $holds->releaseForOrder($order, 'Test: simulating a lapsed hold.');
         }
 
         $staff   = $this->makeUser('admin');
