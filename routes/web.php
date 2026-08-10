@@ -469,6 +469,7 @@ Route::middleware($protectedMiddleware)->group(function () {
                 ->name('overview');
 
             Route::get('/trial-balance', \App\Http\Controllers\Finance\TrialBalanceController::class)
+                ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING)
                 ->name('trial-balance');
         });
 
@@ -526,7 +527,9 @@ Route::middleware($protectedMiddleware)->group(function () {
             });
 
         // Chart of Accounts.
-        Route::prefix('coa')->name('coa.')->group(function () {
+        Route::prefix('coa')->name('coa.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING)
+            ->group(function () {
             // Listing/show open to view_finance.
             Route::middleware('permission:view_finance')->group(function () {
                 Route::get('/', [\App\Http\Controllers\Finance\CoaController::class, 'index'])->name('index');
@@ -552,7 +555,9 @@ Route::middleware($protectedMiddleware)->group(function () {
         });
 
         // Journals (manual entry + approval queue).
-        Route::prefix('journals')->name('journals.')->group(function () {
+        Route::prefix('journals')->name('journals.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING)
+            ->group(function () {
             // Index + show open to view_finance.
             Route::middleware('permission:view_finance')->group(function () {
                 Route::get('/', [\App\Http\Controllers\Finance\JournalController::class, 'index'])->name('index');
@@ -956,7 +961,9 @@ Route::middleware($protectedMiddleware)->group(function () {
         });
 
                 /* Supplier Statements (Phase 3d) */
-                Route::prefix('supplier-statements')->name('supplier-statements.')->group(function () {
+                Route::prefix('supplier-statements')->name('supplier-statements.')
+                    ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_AP)
+                    ->group(function () {
                     // Reads: supplier balances and statement detail. OR'd with
                     // manage_supplier_statements because the roles that
                     // administer statements must be able to read them, and
@@ -985,7 +992,9 @@ Route::middleware($protectedMiddleware)->group(function () {
                 });
 
            /* Vendor Invoices (Phase 3b) */
-        Route::prefix('vendor-invoices')->name('vendor-invoices.')->group(function () {
+        Route::prefix('vendor-invoices')->name('vendor-invoices.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_AP)
+            ->group(function () {
             Route::get('/',                          [\App\Http\Controllers\Finance\VendorInvoiceController::class, 'index'])
                 ->middleware('permission:view_finance,create_purchase_request_vendor_invoice')
                 ->name('index');
@@ -1059,7 +1068,9 @@ Route::middleware($protectedMiddleware)->group(function () {
         });
 
         /* Payment Runs (Phase 3c) */
-        Route::prefix('payment-runs')->name('payment-runs.')->group(function () {
+        Route::prefix('payment-runs')->name('payment-runs.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_AP)
+            ->group(function () {
             Route::get('/',                          [\App\Http\Controllers\Finance\PaymentRunController::class, 'index'])
                 ->middleware('permission:view_finance')
                 ->name('index');
@@ -1095,7 +1106,9 @@ Route::middleware($protectedMiddleware)->group(function () {
                 ->name('reverse');
         });
 
-        Route::prefix('wht-certificates')->name('wht-certificates.')->group(function () {
+        Route::prefix('wht-certificates')->name('wht-certificates.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_WHT)
+            ->group(function () {
             // Reads: tax certificates disclose supplier and withholding detail.
             // Phase3dPermissionsSeeder defines manage_wht_certificates as
             // covering "draft, refresh, view, void, download", and does not
@@ -1152,7 +1165,9 @@ Route::middleware($protectedMiddleware)->group(function () {
                 // ============================================================
         // Bank Statements (Phase 3e)
         // ============================================================
-        Route::prefix('bank-statements')->name('bank-statements.')->group(function () {
+        Route::prefix('bank-statements')->name('bank-statements.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_BANK_RECONCILIATION)
+            ->group(function () {
             // Reads: statement lines are raw bank transaction data, and the
             // file download is the same disclosure. Gated on the bank-handling
             // permissions rather than view_finance, consistent with Phase 3e
@@ -1185,7 +1200,9 @@ Route::middleware($protectedMiddleware)->group(function () {
                 // ============================================================
         // Bank Reconciliation (Phase 3e)
         // ============================================================
-        Route::prefix('bank-reconciliation')->name('bank-reconciliation.')->group(function () {
+        Route::prefix('bank-reconciliation')->name('bank-reconciliation.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_BANK_RECONCILIATION)
+            ->group(function () {
             // Reads — same narrower bank-data boundary as bank statements.
             Route::middleware('permission:import_bank_statement,reconcile_bank_statement')->group(function () {
                 Route::get('/',         [\App\Http\Controllers\Finance\BankReconciliationController::class, 'index'])->name('index');
@@ -1332,7 +1349,10 @@ Route::middleware($protectedMiddleware)->group(function () {
         | Group Cost Pools (read-only)
         |--------------------------------------------------------------------------
         */
-        Route::middleware('permission:view_group_pools')
+        Route::middleware([
+            'permission:view_group_pools',
+            'feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL,
+        ])
         ->prefix('costing/group-pools')
         ->name('costing.group-pools.')
         ->group(function () {
@@ -1347,6 +1367,7 @@ Route::middleware($protectedMiddleware)->group(function () {
         */
         Route::prefix('costing/opening-pig-inventory')
         ->name('costing.opening-pig-inventory.')
+        ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL)
         ->group(function () {
             Route::get('/',         [OpeningPigPoolController::class, 'index'])
                 ->middleware('permission:view_group_pools')
@@ -1391,7 +1412,9 @@ Route::middleware($protectedMiddleware)->group(function () {
         /*
         | Period close workflow.
         */
-        Route::prefix('close')->name('close.')->group(function () {
+        Route::prefix('close')->name('close.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_PERIOD_CLOSE)
+            ->group(function () {
             Route::get('/', [PeriodCloseController::class, 'index'])
                 ->middleware('permission:view_period_close')->name('index');
 
@@ -1412,7 +1435,9 @@ Route::middleware($protectedMiddleware)->group(function () {
         /*
         | Year-end close.
         */
-        Route::prefix('year-end')->name('year-end.')->group(function () {
+        Route::prefix('year-end')->name('year-end.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_PERIOD_CLOSE)
+            ->group(function () {
             Route::get('/', [YearEndCloseController::class, 'index'])
                 ->middleware('permission:view_period_close')->name('index');
 
@@ -1423,7 +1448,10 @@ Route::middleware($protectedMiddleware)->group(function () {
                 ->middleware('permission:override_period_close')->name('reverse');
         });
 
-        Route::middleware('permission:view_financial_reports')
+        Route::middleware([
+            'permission:view_financial_reports',
+            'feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL,
+        ])
         ->prefix('biological-assets')
         ->name('biological-assets.')
         ->group(function () {
@@ -1447,7 +1475,9 @@ Route::middleware($protectedMiddleware)->group(function () {
         Route::get('/treasury', TreasuryController::class)->middleware('permission:view_treasury')->name('treasury');
 
 
-        Route::prefix('investors')->name('investors.')->group(function () {
+        Route::prefix('investors')->name('investors.')
+            ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_INVESTOR_MANAGEMENT)
+            ->group(function () {
             Route::get('/',                    [InvestorController::class, 'index'])->middleware('permission:view_investors')->name('index');
             Route::get('/create',              [InvestorController::class, 'create'])->middleware('permission:manage_investors')->name('create');
             Route::post('/',                   [InvestorController::class, 'store'])->middleware('permission:manage_investors')->name('store');

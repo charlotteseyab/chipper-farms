@@ -48,6 +48,19 @@ class FinanceRouteAuthorizationTest extends TestCase
         $this->org = Organization::create(['slug' => 'cf', 'name' => 'CF']);
         $this->app->make(CurrentOrganization::class)->bind($this->org);
 
+        // Phase 14 — every feature ON, deliberately.
+        //
+        // This file tests the PERMISSION boundary. Once advanced surfaces are
+        // feature-gated, a disabled feature answers 404 and would mask whether
+        // the permission check ran at all: the test would pass for the wrong
+        // reason, which is the failure mode SEC-001 warns about
+        // ("feature enabled AND permission granted"). Turning everything on
+        // means every refusal below is a permission refusal.
+        $features = $this->app->make(\App\Services\Organizations\OrganizationFeatureService::class);
+        foreach (\App\Support\Features\FeatureCatalog::keys() as $key) {
+            $features->enable($key, $this->org);
+        }
+
         $this->seed(FinancePermissionsSeeder::class);
         $this->seed(Phase3aSupplierPermissionsSeeder::class);
         $this->seed(Phase3bVendorInvoicePermissionsSeeder::class);

@@ -35,10 +35,38 @@ trait FinanceTestSetup
     protected Account $arAccount;
     protected Account $expenseAccount;
 
+    /**
+     * Turn on the whole feature catalogue for the fixture organisation.
+     *
+     * Mirrors the Phase 1 backfill, which enables everything for organisations
+     * that existed when the flag layer landed — nothing a working farm relies
+     * on should vanish because a flag defaulted to off.
+     */
+    protected function enableAllFinanceFeatures(): void
+    {
+        $features = $this->app->make(\App\Services\Organizations\OrganizationFeatureService::class);
+
+        foreach (\App\Support\Features\FeatureCatalog::keys() as $key) {
+            $features->enable($key, $this->org);
+        }
+    }
+
     protected function setUpFinanceFixtures(): void
     {
         $this->org = Organization::create(['slug' => 'cf', 'name' => 'CF']);
         $this->app->make(CurrentOrganization::class)->bind($this->org);
+
+        // Phase 14 — this fixture represents an ESTABLISHED accounting
+        // organisation: one with a chart of accounts, fiscal periods and an
+        // accountant. Phase 1's backfill gives exactly such an organisation the
+        // whole catalogue, so the fixture does the same rather than leaving
+        // every ledger test to discover that journals are now gated.
+        //
+        // A test ABOUT gating must therefore switch a feature off deliberately,
+        // which is the right way round: the interesting assertion is "this
+        // surface disappears when the farm turns it off", not "it happens to be
+        // on".
+        $this->enableAllFinanceFeatures();
 
         $this->year = FiscalYear::create([
             'organization_id' => $this->org->id,
