@@ -103,6 +103,78 @@ class SalesReturnRevenueTest extends TestCase
         return [$feedType, $sale->fresh()];
     }
 
+    /**
+     * §44 — "credit note should reverse tax according to the original tax
+     * snapshot" (Phase 13).
+     *
+     * WHY THIS TEST EXISTS AT ALL
+     * ---------------------------
+     * The reversal was first covered by unit tests over `reversedTax()` and
+     * `buildPostingDraft()` separately. Reintroducing the defect — hard-coding
+     * the reversal back to '0.00' in `ensureForSalesReturn()` — broke NOTHING,
+     * because nothing exercised the line that joins the two. A guard nothing
+     * exercises is not a guard, so this drives the whole path.
+     *
+     * The consequence if it regresses: the farm keeps the VAT it collected on
+     * goods that came back, and the customer is credited the net having paid
+     * the gross.
+     */
+    public function test_a_return_credits_the_tax_that_was_charged(): void
+    {
+        [, $sale] = $this->soldFeed(sellQty: 10.0, paymentStatus: 'paid');
+
+        // The sale carried tax, as a storefront sale does since Phase 12b.
+        $profile = \App\Models\Finance\TaxProfile::create([
+            'organization_id' => $this->org->id,
+            'code' => 'GH-2026-RET', 'name' => 'Ghana standard 2026',
+            'applies_to' => 'sales', 'treatment' => \App\Models\Finance\TaxProfile::TREATMENT_STANDARD,
+            'price_mode' => \App\Models\Finance\TaxProfile::PRICE_EXCLUSIVE,
+            'effective_from' => '2020-01-01', 'is_active' => true,
+        ]);
+
+        foreach ([['VAT', '15'], ['NHIL', '2.5'], ['GETFUND', '2.5']] as $i => [$code, $rate]) {
+            \App\Models\Finance\TaxProfileComponent::create([
+                'tax_profile_id' => $profile->id,
+                'code' => $code, 'label' => $code,
+                'rate_type' => \App\Models\Finance\TaxProfileComponent::RATE_PERCENT,
+                'rate' => $rate,
+                'base_mode' => \App\Models\Finance\TaxProfileComponent::BASE_NET,
+                'calculation_order' => $i + 1,
+            ]);
+        }
+
+        $calculation = app(\App\Services\Finance\Tax\TaxCalculator::class)
+            ->apply($profile->load('components'), (string) $sale->sale_total);
+
+        $sale->forceFill([
+            'tax_profile_id' => $profile->id,
+            'tax_amount'     => $calculation->totalTax,
+            'tax_snapshot'   => $calculation->toSnapshot(),
+        ])->save();
+
+        $return = app(RecordSalesReturnService::class)->record(
+            sale: $sale->fresh(), actor: $this->user, quantity: '10', reason: 'Spoiled',
+        );
+
+        $this->runRevenueReversal($return);
+
+        $note = \App\Models\Finance\CreditNote::where('sales_return_id', $return->id)->firstOrFail();
+
+        // 120.00 sale total, 20% = 24.00 of tax, all of it returned.
+        $this->assertSame(
+            $calculation->totalTax,
+            bcadd((string) $note->tax_total, '0', 2),
+            'The credit note must give back the tax the buyer paid. Zero here means the '
+            . 'farm keeps VAT on goods that came back.',
+        );
+
+        $this->assertSame(
+            bcadd((string) $note->subtotal, $calculation->totalTax, 2),
+            bcadd((string) $note->total, '0', 2),
+            'The customer is credited the gross — what they actually paid.',
+        );
+    }
+
     protected function runRevenueReversal(SalesReturn $return): SalesReturn
     {
         $event = DomainEvent::where('event_type', SalesReturnRecorded::TYPE)

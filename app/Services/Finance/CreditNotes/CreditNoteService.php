@@ -14,6 +14,7 @@ use App\Models\Finance\JournalBatch;
 use App\Models\Finance\JournalPosting;
 use App\Models\PigSale;
 use App\Models\SalesReturn;
+use App\Services\Finance\Tax\TaxCalculation;
 use App\Models\User;
 use App\Services\Numbering\NumberingService;
 use Carbon\CarbonImmutable;
@@ -59,6 +60,22 @@ class CreditNoteService
                 organizationId: (int) $locked->organization_id,
             );
 
+            // §44 — "credit note should reverse tax according to the original
+            // tax snapshot". Until Phase 12b there was no snapshot to reverse
+            // and this was hard-coded to zero, which was honest: the sale had
+            // carried no tax either.
+            //
+            // Now that storefront sales charge tax, a zero here would strand
+            // it: the farm would have collected VAT on goods that came back and
+            // never reversed it, and the customer would be credited the net
+            // while having paid the gross.
+            //
+            // The reversal scales the ORIGINAL calculation rather than
+            // recomputing from today's profile — IMP-014. A 2024 sale taxed
+            // under the old cascading regime is credited at that regime's
+            // figure in 2026, not at today's 20%.
+            $taxReversal = $this->reversedTax($source, (string) $locked->proportion);
+
             $note = CreditNote::create([
                 'organization_id' => $locked->organization_id,
                 'credit_note_number' => $number,
@@ -68,8 +85,8 @@ class CreditNoteService
                 'customer_id' => $this->customerIdFor($source),
                 'currency_code' => 'GHS',
                 'subtotal' => $amount,
-                'tax_total' => '0.00',
-                'total' => $amount,
+                'tax_total' => $taxReversal,
+                'total' => bcadd($amount, $taxReversal, 2),
                 'issue_date' => CarbonImmutable::instance($accountingDate)->toDateString(),
                 'accounting_date' => CarbonImmutable::instance($accountingDate)->toDateString(),
                 'reason' => $locked->reason,
@@ -90,8 +107,8 @@ class CreditNoteService
                 'description' => 'Sales return ' . $locked->return_number,
                 'quantity' => $locked->quantity,
                 'unit_price' => $this->unitPriceFor($locked, $amount),
-                'tax_amount' => '0.00',
-                'line_total' => $amount,
+                'tax_amount' => $taxReversal,
+                'line_total' => bcadd($amount, $taxReversal, 2),
                 'revenue_account_id' => $revenueAccount->id,
                 'quantity_sold' => $quantitySold,
                 'quantity_previously_credited' => $this->previouslyCreditedQuantity($locked),
@@ -110,12 +127,32 @@ class CreditNoteService
     public function buildPostingDraft(CreditNote $note, ?int $domainEventId = null): JournalBatchDraft
     {
         $lines = [];
+
         foreach ($note->lines as $line) {
             $description = "Credit note {$note->credit_note_number} revenue adjustment";
+
+            // Revenue is reversed NET of tax. `line_total` now includes the tax
+            // reversal, and debiting the whole of it to revenue would reduce
+            // income by more than was ever earned — the tax was never income,
+            // it was a liability to the revenue authority.
+            $net = bcsub((string) $line->line_total, (string) $line->tax_amount, 2);
+
             $lines[] = JournalLineDraft::debit(
                 (int) $line->revenue_account_id,
-                (string) $line->line_total,
+                $net,
                 $description,
+                $this->dimensions($note),
+            );
+        }
+
+        // The tax comes off the liability, not off income. One line for the
+        // note's total tax, mirroring how InvoicePostingService credits it on
+        // the way out — the same account, in the opposite direction.
+        if (bccomp((string) $note->tax_total, '0', 2) > 0) {
+            $lines[] = JournalLineDraft::debit(
+                $this->accounts->byHint('VAT_CONTROL')->id,
+                (string) $note->tax_total,
+                "Credit note {$note->credit_note_number} — VAT reversal",
                 $this->dimensions($note),
             );
         }
@@ -235,6 +272,30 @@ class CreditNoteService
         }
 
         throw new \RuntimeException('original_revenue_not_posted');
+    }
+
+    /**
+     * The tax to credit back, scaled from what was originally charged.
+     *
+     * `TaxCalculation::proportion()` exists for exactly this and is what makes
+     * the reversal use the original regime: it scales the stored components
+     * rather than re-running today's profile over the returned amount.
+     *
+     * A sale with no snapshot — every sale before Phase 12b, and every sale by
+     * a farm that charges no tax — reverses nothing, which is correct: there
+     * was no tax to give back.
+     */
+    protected function reversedTax(FeedSale|PigSale $source, string $proportion): string
+    {
+        $snapshot = $source->tax_snapshot;
+
+        if (! is_array($snapshot) || $snapshot === []) {
+            return '0.00';
+        }
+
+        return TaxCalculation::fromSnapshot($snapshot)
+            ->proportion($proportion)
+            ->totalTax;
     }
 
     protected function returnAmount(SalesReturn $return, FeedSale|PigSale $source): string
