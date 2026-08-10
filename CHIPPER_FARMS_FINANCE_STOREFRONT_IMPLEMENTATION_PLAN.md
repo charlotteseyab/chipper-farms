@@ -49,7 +49,7 @@ infrastructure.
 | 8 | Storefront settings and catalog configuration | §34 | 1, 2 | COMPLETE |
 | 9 | Guest cart and checkout | §38 | 8 | COMPLETE |
 | 10 | Checkout holds and reservations | §36, §37 | 9 | COMPLETE |
-| 11 | Pig to storefront | §35 | 8, 10 | NOT STARTED |
+| 11 | Pig to storefront | §35 | 8, 10 | COMPLETE |
 | 12 | Storefront → finance integration | §41 | 10, 11 | NOT STARTED |
 | 13 | Refunds, returns and recovery UX | §42–§45 | 12 | NOT STARTED |
 | 14 | Advanced feature gating | §16, §18 | 1, 3–13 | NOT STARTED |

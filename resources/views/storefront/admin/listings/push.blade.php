@@ -18,6 +18,38 @@
             </div>
         @endif
 
+        {{--
+            Phase 11 (§35 step 2). Shown when the wizard OPENS, not after the
+            form is submitted: a staff member should learn why an animal cannot
+            be sold before filling anything in, and should learn every reason at
+            once rather than one per attempt.
+
+            Reasons rejected at submit time land in `eligibility_blockers` and
+            render in the same block, so the two paths look identical.
+        --}}
+        @php $blockers = session('eligibility_blockers', $eligibility['blockers'] ?? []); @endphp
+
+        @if(! empty($blockers))
+            <div class="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">
+                <p class="font-semibold">This pig cannot be listed for sale yet.</p>
+                <ul class="mt-2 list-disc list-inside space-y-1">
+                    @foreach($blockers as $blocker)<li>{{ $blocker }}</li>@endforeach
+                </ul>
+            </div>
+        @endif
+
+        @if(! empty($eligibility['cautions'] ?? []))
+            {{-- Cautions do not block. A treatment with no withdrawal period
+                 recorded may genuinely have none, or may just be an unfilled
+                 field — either way the gap is shown rather than guessed at. --}}
+            <div class="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-900">
+                <p class="font-semibold">Worth checking before you publish</p>
+                <ul class="mt-2 list-disc list-inside space-y-1">
+                    @foreach($eligibility['cautions'] as $caution)<li>{{ $caution }}</li>@endforeach
+                </ul>
+            </div>
+        @endif
+
         <form method="POST" action="{{ route('storefront.admin.push.store') }}" class="space-y-6">
             @csrf
             @if($source)

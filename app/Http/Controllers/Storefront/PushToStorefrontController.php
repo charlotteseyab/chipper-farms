@@ -48,6 +48,10 @@ class PushToStorefrontController extends Controller
         $source       = null;
         $sourceKind   = null;
         $prefill      = [];
+        // Phase 11 (§35 step 2): checked when the wizard OPENS, so a staff
+        // member sees why an animal cannot be sold before filling in a form
+        // that will be refused.
+        $eligibility  = ['eligible' => true, 'blockers' => [], 'cautions' => []];
 
         if ($pigId = $request->integer('pig')) {
             /** @var PigManagement|null $pig */
@@ -64,6 +68,9 @@ class PushToStorefrontController extends Controller
                     'pricing_basis'       => StorefrontListing::BASIS_LIVE,
                     'sale_mode'           => StorefrontListing::MODE_FIXED,
                 ];
+
+                $eligibility = app(\App\Storefront\Services\PigListingEligibilityService::class)
+                    ->check($pig, StorefrontListing::BASIS_LIVE, $orgId);
             }
         }
 
@@ -81,6 +88,7 @@ class PushToStorefrontController extends Controller
             'kinds'       => StorefrontListing::KINDS,
             'modes'       => StorefrontListing::MODES,
             'bases'       => StorefrontListing::BASES,
+            'eligibility' => $eligibility,
         ]);
     }
 
@@ -101,6 +109,11 @@ class PushToStorefrontController extends Controller
             $listing = $this->pushService->execute($source, $request->user(), $data);
         } catch (DuplicateListingException $e) {
             return back()->withInput()->with('error', $e->getMessage());
+        } catch (\App\Storefront\Services\Exceptions\ListingNotEligibleException $e) {
+            // Every reason at once, as a list rather than one run-on sentence.
+            return back()->withInput()
+                ->with('error', 'This pig cannot be listed for sale.')
+                ->with('eligibility_blockers', $e->reasons);
         }
 
         return redirect()

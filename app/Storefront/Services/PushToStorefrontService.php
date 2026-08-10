@@ -37,6 +37,7 @@ use Illuminate\Support\Str;
 class PushToStorefrontService
 {
     public function __construct(
+        protected PigListingEligibilityService $eligibility,
         protected CurrentOrganization $currentOrganization,
         protected ListingService $listingService,
         protected ListingAvailabilityService $availability,
@@ -57,6 +58,24 @@ class PushToStorefrontService
 
             if ($sourceType !== null && $sourceId !== null) {
                 $this->guardAgainstDuplicate($organizationId, $sourceType, $sourceId);
+            }
+
+            // Phase 11 (§35 step 2) — "alive, unsold, not already actively
+            // listed, not under withdrawal/health hold, has latest weight if
+            // price-by-kg". Two of those were enforced, one late, and two could
+            // not be enforced at all until this phase added the data.
+            //
+            // Every blocker is reported at once: a staff member standing in a
+            // barn should learn everything that is wrong in one go, not one
+            // thing per attempt.
+            if ($source instanceof \App\Models\PigManagement) {
+                $eligibility = $this->eligibility->check($source, $data->pricingBasis, $organizationId);
+
+                if (! $eligibility['eligible']) {
+                    throw new \App\Storefront\Services\Exceptions\ListingNotEligibleException(
+                        $eligibility['blockers'],
+                    );
+                }
             }
 
             $listing = new StorefrontListing();

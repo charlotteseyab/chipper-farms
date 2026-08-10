@@ -67,6 +67,20 @@ class ListingService
             );
         }
 
+        // Phase 11 (§35) — re-check eligibility at the moment the listing goes
+        // public, not only when it was drafted. A listing drafted on Monday and
+        // published on Friday may have had a treatment recorded in between, and
+        // checking only at push would let it go live regardless. Withdrawal
+        // periods are the reason this matters: they start after the paperwork,
+        // not before it.
+        $eligibility = app(PigListingEligibilityService::class)->checkListing($listing);
+
+        if (! $eligibility['eligible']) {
+            throw new \App\Storefront\Services\Exceptions\ListingNotEligibleException(
+                $eligibility['blockers'],
+            );
+        }
+
         return DB::transaction(function () use ($listing, $actor) {
             $listing->forceFill([
                 'status'             => StorefrontListing::STATUS_PUBLISHED,
