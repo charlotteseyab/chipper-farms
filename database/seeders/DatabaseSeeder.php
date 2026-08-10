@@ -92,6 +92,7 @@ class DatabaseSeeder extends Seeder
             // TaxCodeSeeder so components can link to their codes.
             GhanaTaxProfileSeeder::class,
             TaxSettingsPermissionsSeeder::class,
+            SalesReturnPermissionsSeeder::class,
             RawMaterialSeeder::class,
             CustomerCategorySeeder::class,
             SupplierCategoriesSeeder::class,

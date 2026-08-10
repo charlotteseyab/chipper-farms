@@ -108,6 +108,16 @@ final class FinanceNavigation
                 'permission' => ['manage_loans', 'view_loans'],
             ],
             [
+                // IMP-098 (§43): the return-request surface. Sits beside Sales
+                // & Money In because a return is money going back the other way.
+                'label'      => 'Returns',
+                'route'      => 'finance.returns.index',
+                'icon'       => 'fa-solid fa-rotate-left',
+                'active'     => 'finance/returns*',
+                'feature'    => FeatureCatalog::FINANCE_SALES_MONEY_IN,
+                'permission' => ['record_sales_returns'],
+            ],
+            [
                 // Phase 7 (§27): points at the unified People & Businesses
                 // workspace rather than the customer master. The accountant's
                 // customer and supplier screens are still reachable from it and

@@ -238,6 +238,16 @@ class PigHealthController extends Controller
             'dosage' => 'required|string|max:255',
             'purpose' => 'nullable|string|max:255',
             'route' => 'nullable|string|max:100',
+            // IMP-090 — the withdrawal period, in days, as printed on the
+            // bottle. Phase 11 built the enforcement (a pig inside its
+            // withdrawal cannot be listed for sale) and this is the input it
+            // was waiting on; until now every treatment recorded read as "no
+            // withdrawal", so the guard could never fire.
+            //
+            // Nullable because most treatments genuinely carry none. Capped at
+            // 365: withdrawal periods are measured in days and a number beyond
+            // a year is a typo, not a medicine.
+            'withdrawal_period_days' => 'nullable|integer|min:0|max:365',
             'notes' => 'nullable|string',
             'pig_id' => 'nullable|exists:pigs_management,id',
         ]);

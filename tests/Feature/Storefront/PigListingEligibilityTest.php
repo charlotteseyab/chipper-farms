@@ -149,6 +149,65 @@ class PigListingEligibilityTest extends StorefrontTestCase
     }
 
     /* ---------------------------------------------------------------- */
+    /* The recording form (IMP-090)                                     */
+    /* ---------------------------------------------------------------- */
+
+    /**
+     * The input the enforcement was waiting on.
+     *
+     * Phase 11 built the guard and left IMP-090 open: there was no field on the
+     * medication form for a withdrawal period, so every treatment recorded in
+     * production read as "no withdrawal" and the guard could never fire. This
+     * drives the real HTTP path to prove the value now lands.
+     */
+    public function test_a_withdrawal_period_recorded_on_the_form_blocks_a_sale(): void
+    {
+        $this->seed(\Database\Seeders\FarmOperationsPermissionsSeeder::class);
+
+        $pig   = $this->makePig();
+        $vet   = $this->makeUser('admin');
+
+        $this->actingAs($vet)->post(route('medications.store'), [
+            'pig_id'                 => $pig->id,
+            'administration_date'    => now()->subDay()->toDateString(),
+            'medication_name'        => 'Oxytetracycline',
+            'dosage'                 => '10ml',
+            'withdrawal_period_days' => 28,
+        ])->assertRedirect();
+
+        $administration = MedicationAdministration::where('pig_id', $pig->id)->firstOrFail();
+
+        $this->assertSame(28, $administration->withdrawal_period_days);
+        $this->assertNotNull(
+            $administration->withdrawal_ends_on,
+            'The derived end date is what the eligibility query reads.',
+        );
+
+        // And the guard now fires, which it could not before this field existed.
+        $this->assertFalse($this->eligibility->check($pig)['eligible']);
+    }
+
+    public function test_a_treatment_recorded_with_no_withdrawal_period_still_saves(): void
+    {
+        $this->seed(\Database\Seeders\FarmOperationsPermissionsSeeder::class);
+
+        $pig = $this->makePig();
+
+        $this->actingAs($this->makeUser('admin'))->post(route('medications.store'), [
+            'pig_id'              => $pig->id,
+            'administration_date' => now()->toDateString(),
+            'medication_name'     => 'Vitamin B complex',
+            'dosage'              => '5ml',
+        ])->assertRedirect();
+
+        $this->assertNull(
+            MedicationAdministration::where('pig_id', $pig->id)->firstOrFail()->withdrawal_ends_on,
+        );
+        // Most treatments carry none; the sale is not blocked.
+        $this->assertTrue($this->eligibility->check($pig)['eligible']);
+    }
+
+    /* ---------------------------------------------------------------- */
     /* Health hold                                                      */
     /* ---------------------------------------------------------------- */
 

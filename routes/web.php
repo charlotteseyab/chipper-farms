@@ -684,6 +684,20 @@ Route::middleware($protectedMiddleware)->group(function () {
         |---------------------------------------------------------------
         */
         /*
+        | Returns (IMP-098, blueprint §43 step 1).
+        |
+        | The step that had no surface: "user requests return/refund with reason
+        | and quantity". Everything after it was already built, so this records
+        | through RecordSalesReturnService and posts nothing itself.
+        */
+        Route::prefix('returns')->name('returns.')
+            ->middleware(['feature:' . \App\Support\Features\FeatureCatalog::FINANCE_SALES_MONEY_IN, 'permission:record_sales_returns'])
+            ->group(function () {
+                Route::get('/',  [\App\Http\Controllers\Finance\SalesReturnController::class, 'index'])->name('index');
+                Route::post('/', [\App\Http\Controllers\Finance\SalesReturnController::class, 'store'])->name('store');
+            });
+
+        /*
         | Credits (Phase 7, blueprint §29).
         |
         | Read-only on purpose. A credit note is an EFFECT of a sales return and

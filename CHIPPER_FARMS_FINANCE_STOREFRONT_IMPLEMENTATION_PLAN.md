@@ -52,7 +52,8 @@ infrastructure.
 | 11 | Pig to storefront | §35 | 8, 10 | COMPLETE |
 | 12 | Storefront → finance integration | §41 | 10, 11 | COMPLETE |
 | 12b | Storefront tax (IMP-091) | §38, §30 | 12 | COMPLETE |
-| 13 | Refunds, returns and recovery UX | §42–§45 | 12 | COMPLETE (accounting; return UI open as IMP-098) |
+| 13 | Refunds, returns and recovery UX | §42–§45 | 12 | COMPLETE |
+| 13b | Return screen + withdrawal field | §43, §35 | 13 | COMPLETE |
 | 14 | Advanced feature gating | §16, §18 | 1, 3–13 | NOT STARTED |
 | 15 | Responsive UX and no-dead-end audit | §46, §55 | 3–14 | NOT STARTED |
 | 16 | Full security and regression | §47–§49 | 1–15 | NOT STARTED |

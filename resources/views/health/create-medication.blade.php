@@ -47,6 +47,32 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700">Route</label>
                 <input type="text" name="route" value="{{ old('route') }}" placeholder="e.g., oral, injection" class="mt-1 block w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" />
+            </div>
+
+            {{--
+                IMP-090 — the withdrawal period, as printed on the bottle.
+
+                This is the input Phase 11's enforcement was waiting on: a pig
+                inside its withdrawal period cannot be pushed to the shop, and
+                until this field existed every treatment read as "no withdrawal"
+                so the guard could never fire.
+
+                Left blank when the medicine carries none, which is most of
+                them — guessing a default would block legal sales and teach
+                people to ignore the warning.
+            --}}
+            <div>
+                <label class="block text-sm font-medium text-gray-700">
+                    Withdrawal period (days)
+                </label>
+                <input type="number" name="withdrawal_period_days" min="0" max="365"
+                       value="{{ old('withdrawal_period_days') }}"
+                       placeholder="e.g. 28 — leave blank if none"
+                       class="mt-1 block w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" />
+                <p class="mt-1 text-xs text-gray-500">
+                    How long before this animal may be sold for meat. Check the label.
+                    While the period is running the pig cannot be listed on the shop.
+                </p>
                 @error('route')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
             </div>
             <div>
