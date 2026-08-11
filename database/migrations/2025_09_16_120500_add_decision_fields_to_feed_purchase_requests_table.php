@@ -14,8 +14,9 @@ return new class extends Migration
     public function up()
     {
         Schema::table('users', function (Blueprint $table) {
-            // ACTION: Add the 'last_seen' column
-            $table->timestamp('last_seen')->nullable()->after('remember_token');
+            if (! Schema::hasColumn('users', 'last_seen')) {
+                $table->timestamp('last_seen')->nullable()->after('remember_token');
+            }
         });
     }
 
@@ -24,11 +25,27 @@ return new class extends Migration
      *
      * @return void
      */
+    /**
+     * IMP-134.
+     *
+     * `users.last_seen` is added TWICE — here and by
+     * `2025_09_30_110724_add_last_seen_to_users_table`, which guards both its
+     * add and its drop. Rolling back runs the later one first, so by the time
+     * this one ran the column was already gone and the whole rollback aborted
+     * with "Can't DROP COLUMN `last_seen`". That is why the schema could not be
+     * rolled back at all.
+     *
+     * Guarded to match its twin. The file name says feed_purchase_requests and
+     * the migration touches `users`; the name is left alone because the
+     * migrations table records it and renaming would re-run the migration on
+     * every deployed database.
+     */
     public function down()
     {
         Schema::table('users', function (Blueprint $table) {
-            // REVERSE ACTION: Drop the 'last_seen' column
-            $table->dropColumn('last_seen');
+            if (Schema::hasColumn('users', 'last_seen')) {
+                $table->dropColumn('last_seen');
+            }
         });
     }
 };
