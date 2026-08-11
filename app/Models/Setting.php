@@ -11,39 +11,126 @@ class Setting extends Model
     protected $table = 'system_configs';
 
     protected $fillable = [
+        'organization_id',
         'key',
         'value',
     ];
 
+    /**
+     * Settings are organisation-scoped, with a shared default (IMP-001).
+     *
+     * `system_configs` was global: one row per key for the whole installation.
+     * That is harmless for a logo, and a money defect for
+     * `sales.pricing.live_weight_price`, which `RecordPigSaleService` reads to
+     * price a real sale — on a second tenant, one farm's price per kilo would
+     * set another farm's revenue.
+     *
+     * A row with a NULL `organization_id` is the default for every farm. A row
+     * with an id belongs to that farm alone and wins for it. Nothing was
+     * migrated, so every value that exists today is still the default and still
+     * applies everywhere until a farm saves its own.
+     *
+     * Reads resolve the organisation from `CurrentOrganization`, the same
+     * resolver the rest of the application uses. Outside any organisation
+     * context — console commands, the installer — the default row answers,
+     * which is the behaviour those callers had before.
+     */
     public static function get(string $key, $default = null)
     {
-        $row = static::query()->where('key', $key)->first();
+        $organizationId = static::currentOrganizationId();
+
+        $row = null;
+
+        if ($organizationId !== null) {
+            $row = static::query()
+                ->where('organization_id', $organizationId)
+                ->where('key', $key)
+                ->first();
+        }
+
+        // Fall back to the shared default.
+        $row ??= static::query()
+            ->whereNull('organization_id')
+            ->where('key', $key)
+            ->first();
+
         if (! $row) {
             return $default;
         }
 
-        $decoded = json_decode($row->value, true);
-
-        return $decoded === null && json_last_error() !== JSON_ERROR_NONE
-            ? $row->value
-            : $decoded;
+        return static::decode($row->value);
     }
 
+    /**
+     * Write the value for the current organisation.
+     *
+     * Inside an organisation context this writes that farm's own row and leaves
+     * the shared default untouched, so saving a price for one farm cannot move
+     * another farm's prices. Outside one it writes the default, which is what a
+     * seeder or installer means.
+     */
     public static function set(string $key, $value): void
     {
         $stored = is_array($value) ? json_encode($value) : (string) $value;
-        static::updateOrCreate(['key' => $key], ['value' => $stored]);
+
+        static::updateOrCreate(
+            ['organization_id' => static::currentOrganizationId(), 'key' => $key],
+            ['value' => $stored],
+        );
     }
 
+    /**
+     * Every setting visible to the current organisation.
+     *
+     * Its own rows layered over the shared defaults, so a settings screen shows
+     * what this farm would actually get.
+     *
+     * @return array<string, mixed>
+     */
     public static function getAll(): array
     {
-        return self::all()->pluck('value', 'key')->map(function ($value) {
-            $decoded = json_decode($value, true);
+        $organizationId = static::currentOrganizationId();
 
-            return ($decoded === null && json_last_error() !== JSON_ERROR_NONE)
-                ? $value
-                : $decoded;
-        })->toArray();
+        $defaults = static::query()
+            ->whereNull('organization_id')
+            ->pluck('value', 'key')
+            ->map(fn ($value) => static::decode($value))
+            ->toArray();
+
+        if ($organizationId === null) {
+            return $defaults;
+        }
+
+        $scoped = static::query()
+            ->where('organization_id', $organizationId)
+            ->pluck('value', 'key')
+            ->map(fn ($value) => static::decode($value))
+            ->toArray();
+
+        return array_merge($defaults, $scoped);
+    }
+
+    protected static function currentOrganizationId(): ?int
+    {
+        if (! app()->bound(\App\Support\CurrentOrganization::class)) {
+            return null;
+        }
+
+        try {
+            return app(\App\Support\CurrentOrganization::class)->id();
+        } catch (\Throwable $e) {
+            // No organisation context — the shared default is the right answer.
+            return null;
+        }
+    }
+
+    protected static function decode($value)
+    {
+        $decoded = json_decode((string) $value, true);
+
+        return ($decoded === null && json_last_error() !== JSON_ERROR_NONE)
+            ? $value
+            : $decoded;
     }
 
     public static function defaultPurchaseFeedItems(): array

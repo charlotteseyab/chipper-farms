@@ -3,12 +3,17 @@
         <!-- Header -->
         <div class="bg-white shadow-sm border-b border-gray-200">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                <div class="flex items-center justify-between">
+                {{-- IMP-114: wraps on a phone. This row was a non-wrapping flex
+                     of four buttons, which pushed the whole page 236px wider than a
+                     390px screen — the page slid sideways and the last button sat
+                     off-screen. The table below was already correctly wrapped in an
+                     overflow-x-auto container; it was never the cause. --}}
+                <div class="flex flex-wrap items-center justify-between gap-4">
                     <div>
                         <h1 class="text-3xl font-bold text-gray-900">Sales Management</h1>
                         <p class="text-gray-600 mt-1">Track and manage all pig sales</p>
                     </div>
-                    <div class="flex items-center space-x-4">
+                    <div class="flex flex-wrap items-center gap-3">
                         <!-- <a href="{{ \App\Helpers\NavigationHelper::getContextualBackUrl('sales') }}" 
                            class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

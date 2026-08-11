@@ -14,7 +14,27 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    public const ALLOWED_ROLE_NAMES = ['superuser', 'admin', 'farmmanager', 'dataentry', 'accountant', 'treasurer', 'salesperson', 'customer'];
+    /**
+     * Roles a user may actually hold.
+     *
+     * `mill_operator` was added when IMP-118 was closed. It is not a new product
+     * role — the rest of the system already assumed it existed:
+     *
+     *   - `FarmOperationsPermissionsSeeder` and `Phase4InventoryPermissionsSeeder`
+     *     provision it with feed, raw-material and inventory-value permissions;
+     *   - `EnsureFinanceAccess` documents it in its role matrix as holding one
+     *     finance-module permission;
+     *   - `NavigationHelper::dashboardItem()` was made total specifically because
+     *     a role outside this list would 500 every page that renders the layout,
+     *     and mill_operator was named as the role that did it.
+     *
+     * So the seeders granted it five permissions, the middleware planned for it,
+     * the navigation was hardened for it — and the one thing missing was its
+     * name here, which meant no user could ever hold it and every one of those
+     * grants reached nobody. Adding the name completes a role the codebase was
+     * already built around rather than inventing one.
+     */
+    public const ALLOWED_ROLE_NAMES = ['superuser', 'admin', 'farmmanager', 'dataentry', 'accountant', 'treasurer', 'salesperson', 'customer', 'mill_operator'];
 
     use HasApiTokens;
 

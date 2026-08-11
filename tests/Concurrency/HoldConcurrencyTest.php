@@ -244,9 +244,16 @@ PHP, isolation: 'READ COMMITTED');
     /**
      * One round of the race: N workers, one animal, exactly one winner.
      */
-    protected function assertOneHoldWins(int $workers, int $round): void
+    /**
+     * One published animal with $workers pending orders queued against it.
+     *
+     * Extracted from assertOneHoldWins() so the deterministic lock test above
+     * can reuse the exact same fixture shape.
+     *
+     * @return array{listing_id:int, order_ids:list<int>}
+     */
+    protected function seedLockFixture(int $workers): array
     {
-
         $result = $this->runConcurrently(1, <<<PHP
     \$org = App\\Models\\Organization::firstOrCreate(
         ['slug' => 'conc-hold-lock'],
@@ -303,7 +310,16 @@ PHP);
 
         $this->assertSame(0, $result[0]['exit'], 'Lock fixture failed: ' . ($result[0]['err'] ?? ''));
 
-        $fixture   = json_decode($result[0]['out'], true);
+        $fixture = json_decode($result[0]['out'], true);
+
+        $this->assertIsArray($fixture, 'Lock fixture returned unparseable output: ' . $result[0]['out']);
+
+        return $fixture;
+    }
+
+    protected function assertOneHoldWins(int $workers, int $round): void
+    {
+        $fixture   = $this->seedLockFixture($workers);
         $orderJson = json_encode($fixture['order_ids']);
 
         $results = $this->runConcurrently($workers, <<<PHP
@@ -337,6 +353,95 @@ PHP, isolation: 'READ COMMITTED');
             $this->liveHoldCount($fixture['listing_id']),
             "Round {$round}: more than one live hold exists for one animal.",
         );
+    }
+
+    /**
+     * The row lock itself, asserted deterministically (IMP-084).
+     *
+     * WHY THE RACE TEST WAS NOT ENOUGH
+     * --------------------------------
+     * `test_the_listing_lock_alone_prevents_a_double_hold()` is the outcome
+     * test, and it is the one that matters. But its NEGATIVE control was
+     * probabilistic: with `lockForUpdate()` removed, twelve workers did produce
+     * two live holds on one animal — a real observed oversell — yet it would not
+     * reproduce on demand. The window between the read and the write is
+     * microseconds wide, so whether two workers land in it depends on how busy
+     * the machine happens to be. A control that only sometimes fails cannot tell
+     * you the guarantee is still there.
+     *
+     * This test removes the luck. Instead of hoping two workers collide, one
+     * worker takes an explicit `FOR UPDATE` lock on the listing row and holds
+     * it; another then calls `placeForOrder()` with a two-second lock wait.
+     *
+     *   - If `placeForOrder()` locks the listing row, it must wait behind the
+     *     held lock and hit a lock-wait timeout. That is the pass.
+     *   - If it does not lock, it sails past and places the hold immediately.
+     *
+     * Those two outcomes differ by mechanism, not by timing, so the result is
+     * the same on an idle machine and a loaded one.
+     *
+     * The lock is asserted on the row `placeForOrder()` must actually contend
+     * for — the listing being held — so this cannot pass by locking the wrong
+     * row, which is the usual weakness of asserting mechanism.
+     */
+    public function test_placing_a_hold_waits_behind_a_lock_on_the_listing_row(): void
+    {
+        $fixture   = $this->seedLockFixture(1);
+        $orderJson = json_encode($fixture['order_ids']);
+
+        $results = $this->runConcurrently(2, <<<PHP
+    \$orderIds = json_decode('{$orderJson}', true);
+    \$listingId = {$fixture['listing_id']};
+
+    if (\$workerId === 0) {
+        // Hold an exclusive lock on the listing row, then sit on it long enough
+        // for the other worker to run into it and give up.
+        Illuminate\\Support\\Facades\\DB::transaction(function () use (\$listingId) {
+            Illuminate\\Support\\Facades\\DB::select(
+                'SELECT id FROM storefront_listings WHERE id = ? FOR UPDATE',
+                [\$listingId]
+            );
+            usleep(6000000);
+        });
+        echo 'HELD';
+        return;
+    }
+
+    // Give worker 0 time to take its lock first. This ordering is what makes
+    // the test deterministic — it is not a race, it is a queue.
+    usleep(1500000);
+
+    \$order = App\\Models\\Storefront\\StorefrontOrder::find(\$orderIds[0]);
+    app(App\\Support\\CurrentOrganization::class)->bind(\$order->organization);
+
+    Illuminate\\Support\\Facades\\DB::statement('SET SESSION innodb_lock_wait_timeout = 2');
+
+    try {
+        Illuminate\\Support\\Facades\\DB::transaction(function () use (\$order) {
+            app(App\\Storefront\\Services\\HoldService::class)->placeForOrder(\$order);
+        });
+        echo 'PLACED_WITHOUT_WAITING';
+    } catch (Illuminate\\Database\\QueryException \$e) {
+        echo str_contains(\$e->getMessage(), 'Lock wait timeout')
+            ? 'BLOCKED_BY_LOCK'
+            : 'OTHER_DB_ERROR:' . \$e->getMessage();
+    } catch (Throwable \$e) {
+        echo 'OTHER_ERROR:' . get_class(\$e);
+    }
+PHP, isolation: 'READ COMMITTED');
+
+        $this->assertSame('HELD', $results[0]['out'], 'The lock holder did not complete: ' . ($results[0]['err'] ?? ''));
+
+        $this->assertSame(
+            'BLOCKED_BY_LOCK',
+            $results[1]['out'],
+            'placeForOrder() did not wait behind an exclusive lock held on the listing row it was '
+            . 'about to hold. Without that lock, two buyers can each read "one available" before '
+            . "either writes.\nWorker output: " . $results[1]['out'],
+        );
+
+        // And nothing was actually held, because the attempt was refused.
+        $this->assertSame(0, $this->liveHoldCount($fixture['listing_id']));
     }
 
     /**

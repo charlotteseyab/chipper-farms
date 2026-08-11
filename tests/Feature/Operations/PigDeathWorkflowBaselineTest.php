@@ -18,7 +18,8 @@ use Tests\TestCase;
  * Asserts the observable outcomes of PigManagementController::recordDeath:
  *   - pig_deaths row is created with correct fields
  *   - pig is soft-deleted from active stock
- *   - "other" death cause / disposal method collapse to text
+ *   - "other" death cause / disposal method keep the enum and store the free
+ *     text in their own column, surfaced by the model accessors
  *   - already-deceased pig cannot be recorded dead again
  *   - PigDeathRecorded event emitted (requires SOURCE_INTEGRATION_PATCHES.md
  *     Patch 7 applied)
@@ -91,7 +92,7 @@ class PigDeathWorkflowBaselineTest extends TestCase
         $this->assertSoftDeleted('pigs_management', ['id' => $pig->id]);
     }
 
-    public function test_other_cause_collapses_to_text(): void
+    public function test_other_cause_is_stored_beside_the_enum_and_read_back(): void
     {
         $pig = $this->makePig();
 
@@ -108,7 +109,7 @@ class PigDeathWorkflowBaselineTest extends TestCase
         $this->assertSame('heat stroke during transport', $death->death_cause);
     }
 
-    public function test_other_disposal_method_collapses_to_text(): void
+    public function test_other_disposal_method_is_stored_beside_the_enum_and_read_back(): void
     {
         $pig = $this->makePig();
 

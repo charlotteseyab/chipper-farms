@@ -32,3 +32,9 @@ yarn-error.log
 # constraints. Only the machine-specific overrides stay local.
 .claude/settings.local.json
 .claude/*.local.json
+
+# Laravel Dusk runtime artefacts (browser console logs, failure screenshots,
+# page source dumps). Regenerated on every run; never useful in history.
+/tests/Browser/console
+/tests/Browser/screenshots
+/tests/Browser/source

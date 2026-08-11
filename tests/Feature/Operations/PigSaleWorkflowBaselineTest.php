@@ -28,7 +28,8 @@ use Tests\TestCase;
  *   - price rate captured from settings at sale time (not mutated on later change)
  *   - domain event emitted in the same transaction as the sale
  *   - double-sell prevention (a pig already sold cannot be sold again)
- *   - "other" purpose/payment collapse into free-text
+ *   - "other" purpose/payment keep the enum and store the free text in their
+ *     own column, surfaced by the model accessors
  */
 class PigSaleWorkflowBaselineTest extends TestCase
 {
@@ -225,7 +226,7 @@ class PigSaleWorkflowBaselineTest extends TestCase
         $this->assertSame(3300.00, (float) $sale->sale_price);
     }
 
-    public function test_other_sale_purpose_collapses_to_text(): void
+    public function test_other_sale_purpose_is_stored_beside_the_enum_and_read_back(): void
     {
         $pig = $this->makePig();
 
@@ -241,7 +242,7 @@ class PigSaleWorkflowBaselineTest extends TestCase
         $this->assertSame('experimental trial', $sale->sale_purpose);
     }
 
-    public function test_other_payment_method_collapses_to_text(): void
+    public function test_other_payment_method_is_stored_beside_the_enum_and_read_back(): void
     {
         $pig = $this->makePig();
 

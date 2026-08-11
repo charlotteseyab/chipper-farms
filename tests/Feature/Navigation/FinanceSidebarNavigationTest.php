@@ -119,6 +119,21 @@ class FinanceSidebarNavigationTest extends TestCase
      */
     private function enableAdvancedFinanceFeatures(User $user): void
     {
+        // Bind the organisation the way a real request does.
+        //
+        // `FinanceNavigation` asks `OrganizationFeatureService::usable()` WITHOUT
+        // an organisation id, so the service resolves it from
+        // `CurrentOrganization`. Enabling the flags on `$user->organization`
+        // while nothing is bound leaves the navigation reading a different
+        // organisation — in practice none — so every flag falls back to its
+        // catalogue default and the advanced entries vanish.
+        //
+        // This test passed anyway for a while, because when it ran after other
+        // tests in the same process something else had already bound an
+        // organisation. Run on its own it failed on both engines. The MariaDB
+        // gate surfaced it; the order-dependence was the real defect.
+        app(\App\Support\CurrentOrganization::class)->bind($user->organization);
+
         $features = app(\App\Services\Organizations\OrganizationFeatureService::class);
 
         foreach (\App\Support\Features\FeatureCatalog::all() as $key => $definition) {

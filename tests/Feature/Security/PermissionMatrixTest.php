@@ -39,21 +39,18 @@ class PermissionMatrixTest extends TestCase
     /**
      * Role rows that carry grants but no user can hold.
      *
-     * A grant to a role outside `ALLOWED_ROLE_NAMES` reaches nobody. `manager`
-     * used to be here and is now reconciled; `mill_operator` remains, and is a
-     * deliberate exception rather than an oversight:
+     * Empty, and it should stay that way. A grant to a role outside
+     * `ALLOWED_ROLE_NAMES` reaches nobody.
      *
-     *   - It is a real farm job, but not one of §49's seven columns, so adding
-     *     it to the allowed roles is a product decision this phase has no
-     *     mandate to make.
-     *   - Nothing is lost by it today. All five of its permissions are also held
-     *     by `farmmanager` and `admin`, so no work is unreachable — it is dead
-     *     weight, not a lockout.
+     * Both former entries are now closed. `manager` was reconciled into
+     * `farmmanager` (IMP-115). `mill_operator` was added to the allowed roles
+     * (IMP-118) — not as a new product role, but because the seeders, the
+     * finance-access middleware and the navigation had all been built around it
+     * already and only its name was missing.
      *
-     * Recorded as IMP-118. If mill operators are to be real users, they need a
-     * row in §49 first.
+     * @var list<string>
      */
-    private const KNOWN_UNREACHABLE_ROLES = ['mill_operator'];
+    private const KNOWN_UNREACHABLE_ROLES = [];
 
     protected function setUp(): void
     {
@@ -181,6 +178,34 @@ class PermissionMatrixTest extends TestCase
             . 'so no user created through the application can hold them and the grants '
             . 'reach nobody: ' . $unreachable->implode(', ')
         );
+    }
+
+    /**
+     * A mill operator can now be created, and served a page (IMP-118).
+     *
+     * Before this, the seeders granted the role five permissions, the
+     * finance-access middleware listed it, and `NavigationHelper` had been
+     * hardened because of it — but `syncRoleFields()` rejected the name, so no
+     * user could hold it and every grant reached nobody.
+     */
+    public function test_a_mill_operator_can_be_provisioned_and_served(): void
+    {
+        $user = $this->userWithRole('mill_operator');
+
+        // The role is assignable through the application's own path, not just
+        // by forcing the column.
+        $user->syncRoleFields('mill_operator');
+        $user->save();
+
+        $this->assertSame('mill_operator', $user->fresh()->role);
+
+        // And the permissions the seeders always intended for it actually apply.
+        $this->assertTrue($user->fresh()->can('view_inventory_value'));
+
+        // The layout renders. This is the specific 500 NavigationHelper was
+        // hardened against: a role outside ALLOWED_ROLE_NAMES used to make
+        // dashboardItem() return null on every page using the app layout.
+        $this->actingAs($user->fresh())->get('/dashboard')->assertSuccessful();
     }
 
     /**
