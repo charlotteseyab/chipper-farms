@@ -57,7 +57,7 @@ infrastructure.
 | 14 | Advanced feature gating | §16, §18 | 1, 3–13 | COMPLETE |
 | 15 | Responsive UX and no-dead-end audit | §46, §55 | 3–14 | COMPLETE (§46 order states; §55 viewport review and IMP-070 carried to 16) |
 | 16 | Full security and regression | §47–§49 | 1–15 | COMPLETE |
-| 17 | Local production certification | §60 | 16 | NOT STARTED |
+| 17 | Local production certification | §60 | 16 | COMPLETE (§60 Mobile row not done — IMP-114) |
 | 18 | Final implementation review | §63, §64 | 17 | NOT STARTED |
 
 Phase reports live in `docs/finance-storefront-implementation/`.

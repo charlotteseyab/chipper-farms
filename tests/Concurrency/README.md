@@ -37,11 +37,17 @@ with no concurrency evidence at all.
 ```bash
 CF_CONCURRENCY_DB_HOST=127.0.0.1 \
 CF_CONCURRENCY_DB_PORT=3399 \
-CF_CONCURRENCY_DB_DATABASE=chipper_farms_test \
+CF_CONCURRENCY_DB_DATABASE=chipper_farms_concurrency_test \
 CF_CONCURRENCY_DB_USERNAME=root \
 CF_CONCURRENCY_DB_PASSWORD= \
-vendor/bin/phpunit --testsuite=Concurrency
+vendor/bin/phpunit -c phpunit.concurrency.xml
 ```
+
+The database name is not free-form. `assertSafeDatabaseSelection()` requires it
+to be `chipper_farms_concurrency_test`, so this suite can never be pointed at
+the integration or application database and truncate it. This README used to
+say `chipper_farms_test`, which fails that guard — corrected in Phase 17 after
+following it produced the failure it is designed to produce.
 
 The suite migrates the target database itself on first use. Point it at a
 throwaway database — it truncates the tables it works with.
