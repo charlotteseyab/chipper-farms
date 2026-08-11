@@ -206,8 +206,16 @@ class FinanceOverviewScreenTest extends TestCase
         $svc = $this->features();
         $svc->enable(FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING);
 
+        // `view_finance` and `view_financial_reports`, because those are the
+        // permissions the ledger routes actually enforce.
+        //
+        // This fixture used to grant 'view_chart_of_accounts' and
+        // 'view_journals' — names no seeder creates. It passed because
+        // FinanceNavigation asked for exactly those phantom names, so the test
+        // and the code were wrong together and agreed with each other. Phase 18
+        // found eighteen such names; the menu now asks for what the routes check.
         $nav = FinanceNavigation::build($this->user([
-            'view_chart_of_accounts', 'view_journals', 'view_financial_reports',
+            'view_finance', 'view_financial_reports',
         ]));
 
         $advanced = collect($nav)->firstWhere('label', 'Advanced Accounting');

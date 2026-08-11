@@ -87,7 +87,7 @@ final class FinanceNavigation
                 'icon'       => 'fa-solid fa-cart-shopping',
                 'active'     => 'finance/purchases*',
                 'feature'    => FeatureCatalog::FINANCE_SIMPLE_PURCHASE,
-                'permission' => ['record_purchases', 'manage_vendor_invoices'],
+                'permission' => ['record_purchases', 'view_finance'],
             ],
             [
                 // Phase 7 (§28): points at the Money In workspace rather than
@@ -98,7 +98,7 @@ final class FinanceNavigation
                 'icon'       => 'fa-solid fa-hand-holding-dollar',
                 'active'     => ['finance/money-in*', 'finance/invoices*', 'finance/receipts*', 'finance/feed-sales*'],
                 'feature'    => FeatureCatalog::FINANCE_SALES_MONEY_IN,
-                'permission' => ['view_finance', 'manage_invoices', 'view_invoices'],
+                'permission' => ['view_finance'],
             ],
             [
                 'label'      => 'Cash, Bank & MoMo',
@@ -106,7 +106,7 @@ final class FinanceNavigation
                 'icon'       => 'fa-solid fa-wallet',
                 'active'     => ['finance/bank-accounts*', 'finance/payments*'],
                 'feature'    => FeatureCatalog::FINANCE_CASH_BANK_MOMO,
-                'permission' => ['manage_bank_accounts', 'view_bank_accounts', 'manage_payments'],
+                'permission' => ['manage_bank_accounts', 'view_bank_accounts'],
             ],
             [
                 'label'      => 'Loans',
@@ -136,7 +136,7 @@ final class FinanceNavigation
                 'icon'       => 'fa-solid fa-address-book',
                 'active'     => ['finance/contacts*', 'finance/customers*', 'finance/suppliers*'],
                 'feature'    => FeatureCatalog::FINANCE_CONTACTS,
-                'permission' => ['view_finance', 'manage_customers', 'view_customers', 'manage_suppliers'],
+                'permission' => ['view_finance', 'manage_customers', 'manage_suppliers'],
             ],
             [
                 'label'      => 'Reports',
@@ -186,25 +186,25 @@ final class FinanceNavigation
     {
         $entries = [
             ['Chart of Accounts', 'finance.coa.index', 'finance/coa*',
-                FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING, ['manage_chart_of_accounts', 'view_chart_of_accounts']],
+                FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING, ['view_finance']],
             ['Journal Entries', 'finance.journals.index', 'finance/journals*',
-                FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING, ['propose_manual_journal', 'approve_journal', 'view_journals']],
+                FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING, ['view_finance', 'propose_manual_journal', 'approve_journal']],
             ['Trial Balance', 'finance.trial-balance', 'finance/trial-balance*',
-                FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING, ['view_financial_reports']],
+                FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING, ['view_finance']],
             ['Bank Statements', 'finance.bank-statements.index', 'finance/bank-statements*',
-                FeatureCatalog::FINANCE_BANK_RECONCILIATION, ['manage_bank_statements', 'view_bank_statements']],
+                FeatureCatalog::FINANCE_BANK_RECONCILIATION, ['import_bank_statement', 'reconcile_bank_statement']],
             ['Bank Reconciliation', 'finance.bank-reconciliation.index', 'finance/bank-reconciliation*',
-                FeatureCatalog::FINANCE_BANK_RECONCILIATION, ['manage_bank_reconciliation']],
+                FeatureCatalog::FINANCE_BANK_RECONCILIATION, ['reconcile_bank_statement', 'import_bank_statement']],
             ['Ageing', 'finance.ageing.index', 'finance/ageing*',
-                FeatureCatalog::FINANCE_ADVANCED_AP, ['view_ageing_reports', 'view_financial_reports']],
+                FeatureCatalog::FINANCE_ADVANCED_AP, ['view_finance']],
             ['Vendor Invoices', 'finance.vendor-invoices.index', 'finance/vendor-invoices*',
-                FeatureCatalog::FINANCE_ADVANCED_AP, ['manage_vendor_invoices', 'view_vendor_invoices']],
+                FeatureCatalog::FINANCE_ADVANCED_AP, ['view_finance', 'create_purchase_request_vendor_invoice']],
             ['Payment Runs', 'finance.payment-runs.index', 'finance/payment-runs*',
-                FeatureCatalog::FINANCE_ADVANCED_AP, ['manage_payment_runs']],
+                FeatureCatalog::FINANCE_ADVANCED_AP, ['view_finance']],
             ['Supplier Statements', 'finance.supplier-statements.index', 'finance/supplier-statements*',
-                FeatureCatalog::FINANCE_ADVANCED_AP, ['view_supplier_statements']],
+                FeatureCatalog::FINANCE_ADVANCED_AP, ['manage_supplier_statements', 'view_finance']],
             ['WHT Certificates', 'finance.wht-certificates.index', 'finance/wht-certificates*',
-                FeatureCatalog::FINANCE_WHT, ['manage_wht_certificates', 'view_wht_certificates']],
+                FeatureCatalog::FINANCE_WHT, ['manage_wht_certificates', 'view_finance']],
             // `view_period_close`, because that is what both index routes
             // require. Asking for the manage permission hid the screens from a
             // farm manager who may read them — the same defect as the phantom
@@ -223,7 +223,7 @@ final class FinanceNavigation
             ['Investor Cap Table', 'finance.investors.cap-table', 'finance/investors/cap-table*',
                 FeatureCatalog::FINANCE_INVESTOR_MANAGEMENT, ['manage_investors', 'view_investors']],
             ['Allocate Investor Profit', 'finance.investors.allocate.form', 'finance/investors/allocate*',
-                FeatureCatalog::FINANCE_INVESTOR_MANAGEMENT, ['manage_investors']],
+                FeatureCatalog::FINANCE_INVESTOR_MANAGEMENT, ['view_investors', 'manage_investors']],
             // `finance.costing.index` does not exist and never did — the real
             // routes are costing.group-pools.*, costing.opening-pig-inventory.*
             // and inventory.value.*. `admits()` drops entries whose route is not
@@ -241,9 +241,9 @@ final class FinanceNavigation
             ['Account Mappings', 'finance.inventory.account-mappings.index', 'finance/inventory/account-mappings*',
                 FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL, ['view_inventory_value']],
             ['GR/IR Ageing', 'finance.inventory.gr-ir-ageing.index', 'finance/inventory/gr-ir-ageing*',
-                FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL, ['view_inventory_value']],
+                FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL, ['view_gr_ir_ageing']],
             ['Biological Assets', 'finance.biological-assets.index', 'finance/biological-assets*',
-                FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL, ['view_biological_assets', 'view_financial_reports']],
+                FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL, ['view_financial_reports', 'view_finance']],
             ['Treasury', 'finance.treasury', 'finance/treasury*',
                 FeatureCatalog::FINANCE_ADVANCED_TREASURY, ['view_treasury']],
         ];

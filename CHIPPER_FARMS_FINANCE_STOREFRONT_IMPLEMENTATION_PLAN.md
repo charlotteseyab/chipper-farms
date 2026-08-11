@@ -58,7 +58,7 @@ infrastructure.
 | 15 | Responsive UX and no-dead-end audit | §46, §55 | 3–14 | COMPLETE (§46 order states; §55 viewport review and IMP-070 carried to 16) |
 | 16 | Full security and regression | §47–§49 | 1–15 | COMPLETE |
 | 17 | Local production certification | §60 | 16 | COMPLETE (§60 Mobile row not done — IMP-114) |
-| 18 | Final implementation review | §63, §64 | 17 | NOT STARTED |
+| 18 | Final implementation review | §63, §64 | 17 | COMPLETE |
 
 Phase reports live in `docs/finance-storefront-implementation/`.
 Per-item tracking lives in `CHIPPER_FARMS_FINANCE_STOREFRONT_IMPLEMENTATION_STATUS.csv`.
