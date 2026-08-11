@@ -39,6 +39,8 @@ use Illuminate\Database\Seeder;
  */
 class FarmOperationsPermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     /**
      * @return array<string, array{description: string, module: string}>
      */
@@ -191,7 +193,7 @@ class FarmOperationsPermissionsSeeder extends Seeder
             }
 
             foreach ($roleNames as $roleName) {
-                Role::firstOrCreate(['name' => $roleName])
+                $this->seededRoleOrCreate($roleName)
                     ->permissions()
                     ->syncWithoutDetaching([$permission->id]);
             }

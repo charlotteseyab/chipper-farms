@@ -27,6 +27,13 @@ class FinanceSidebarNavigationTest extends TestCase
 
         $manager = $this->makeUser('farmmanager');
 
+        // An established farm that uses period close, treasury and loans — the
+        // same reasoning Phase 14 applied to FinanceTestSetup. Advanced features
+        // default OFF for a brand-new organisation, and since Phase 16 the
+        // sidebar honours that, so a fixture asserting these entries has to say
+        // its farm uses them.
+        $this->enableAdvancedFinanceFeatures($manager);
+
         $this->actingAs($manager);
 
         $items = $this->flattenNavigationItems(NavigationHelper::sidebarSections($manager));
@@ -37,7 +44,7 @@ class FinanceSidebarNavigationTest extends TestCase
         $this->assertContains('Income Statement', $labels);
         $this->assertContains('Balance Sheet', $labels);
         $this->assertContains('Cash Flow', $labels);
-        $this->assertContains('Close', $labels);
+        $this->assertContains('Period Close', $labels);
         $this->assertContains('Year End', $labels);
         $this->assertContains('Treasury', $labels);
         $this->assertContains('Loans', $labels);
@@ -84,6 +91,8 @@ class FinanceSidebarNavigationTest extends TestCase
 
         $accountant = $this->makeUser('accountant');
 
+        $this->enableAdvancedFinanceFeatures($accountant);
+
         $this->actingAs($accountant);
 
         $items = $this->flattenNavigationItems(NavigationHelper::sidebarSections($accountant));
@@ -91,13 +100,30 @@ class FinanceSidebarNavigationTest extends TestCase
         $routes = array_column($items, 'route');
 
         $this->assertContains('Investors', $labels);
-        $this->assertContains('All Investors', $labels);
-        $this->assertContains('Cap Table', $labels);
-        $this->assertContains('Allocate Profit', $labels);
+        $this->assertContains('Investors', $labels);
+        $this->assertContains('Investor Cap Table', $labels);
+        $this->assertContains('Allocate Investor Profit', $labels);
 
         $this->assertContains('finance.investors.index', $routes);
         $this->assertContains('finance.investors.cap-table', $routes);
         $this->assertContains('finance.investors.allocate.form', $routes);
+    }
+
+    /**
+     * Switch on the advanced finance features this fixture's farm uses.
+     *
+     * Before Phase 16 the sidebar was built from hardcoded role arrays and knew
+     * nothing about organisation features, so these entries appeared for any
+     * organisation. Now that it is built by FinanceNavigation the flags decide,
+     * and a NEW organisation has the advanced ones off by default.
+     */
+    private function enableAdvancedFinanceFeatures(User $user): void
+    {
+        $features = app(\App\Services\Organizations\OrganizationFeatureService::class);
+
+        foreach (\App\Support\Features\FeatureCatalog::all() as $key => $definition) {
+            $features->enable($key, $user->organization);
+        }
     }
 
     /**

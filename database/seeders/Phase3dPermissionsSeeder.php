@@ -40,6 +40,8 @@ use Illuminate\Database\Seeder;
  */
 class Phase3dPermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         $perms = [
@@ -90,7 +92,7 @@ class Phase3dPermissionsSeeder extends Seeder
             if (! $perm) continue;
 
             foreach ($roleNames as $roleName) {
-                $role = Role::where('name', $roleName)->first();
+                $role = $this->seededRole($roleName);
                 if (! $role) continue;
                 $role->permissions()->syncWithoutDetaching([$perm->id]);
             }

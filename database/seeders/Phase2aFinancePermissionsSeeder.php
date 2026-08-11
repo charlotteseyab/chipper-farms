@@ -22,6 +22,8 @@ use Illuminate\Database\Seeder;
  */
 class Phase2aFinancePermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         $manageCustomers = Permission::firstOrCreate(
@@ -35,7 +37,7 @@ class Phase2aFinancePermissionsSeeder extends Seeder
         // Attach to admin, accountant, superuser. Manager and dataentry
         // get view-only via existing 'view_finance' permission.
         foreach (['admin', 'accountant', 'superuser'] as $roleName) {
-            $role = Role::firstOrCreate(['name' => $roleName]);
+            $role = $this->seededRoleOrCreate($roleName);
             $role->permissions()->syncWithoutDetaching([$manageCustomers->id]);
         }
     }

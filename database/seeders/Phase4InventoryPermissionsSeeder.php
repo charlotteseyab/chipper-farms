@@ -43,6 +43,8 @@ use Illuminate\Database\Seeder;
  */
 class Phase4InventoryPermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         $perms = [
@@ -97,7 +99,7 @@ class Phase4InventoryPermissionsSeeder extends Seeder
             }
 
             foreach ($roleNames as $roleName) {
-                $role = Role::where('name', $roleName)->first();
+                $role = $this->seededRole($roleName);
                 if (! $role) {
                     continue;
                 }

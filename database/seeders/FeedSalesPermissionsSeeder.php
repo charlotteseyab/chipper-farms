@@ -14,6 +14,8 @@ use Illuminate\Database\Seeder;
  */
 class FeedSalesPermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         $perms = [
@@ -38,7 +40,7 @@ class FeedSalesPermissionsSeeder extends Seeder
                 continue;
             }
             foreach ($roleNames as $roleName) {
-                $role = Role::where('name', $roleName)->first();
+                $role = $this->seededRole($roleName);
                 $role?->permissions()->syncWithoutDetaching([$perm->id]);
             }
             $this->command?->info("Feed sales: granted '{$code}' to: " . implode(', ', $roleNames));

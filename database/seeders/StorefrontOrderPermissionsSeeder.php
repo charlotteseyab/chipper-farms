@@ -16,10 +16,12 @@ use Illuminate\Database\Seeder;
  */
 class StorefrontOrderPermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         foreach (['superuser', 'admin', 'farmmanager', 'accountant', 'salesperson', 'customer'] as $roleName) {
-            Role::firstOrCreate(['name' => $roleName]);
+            $this->seededRoleOrCreate($roleName);
         }
 
         $perms = [
@@ -48,7 +50,7 @@ class StorefrontOrderPermissionsSeeder extends Seeder
                 continue;
             }
             foreach ($roleNames as $roleName) {
-                Role::where('name', $roleName)->first()?->permissions()->syncWithoutDetaching([$perm->id]);
+                $this->seededRole($roleName)?->permissions()->syncWithoutDetaching([$perm->id]);
             }
             $this->command?->info("Storefront P3: granted '{$code}' to: " . implode(', ', $roleNames));
         }

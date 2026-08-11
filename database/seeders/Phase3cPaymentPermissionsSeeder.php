@@ -28,6 +28,8 @@ use Illuminate\Database\Seeder;
  */
 class Phase3cPaymentPermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         $createPaymentPerm = Permission::firstOrCreate(
@@ -40,7 +42,7 @@ class Phase3cPaymentPermissionsSeeder extends Seeder
 
         $grants = ['admin', 'treasurer', 'superuser'];
         foreach ($grants as $roleName) {
-            $role = Role::where('name', $roleName)->first();
+            $role = $this->seededRole($roleName);
             if (! $role) continue;
             if (! $role->permissions()->where('permissions.id', $createPaymentPerm->id)->exists()) {
                 $role->permissions()->attach($createPaymentPerm->id);

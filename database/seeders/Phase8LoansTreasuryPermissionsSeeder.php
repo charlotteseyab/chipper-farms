@@ -17,6 +17,8 @@ use Illuminate\Database\Seeder;
  */
 class Phase8LoansTreasuryPermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         $perms = [
@@ -43,7 +45,7 @@ class Phase8LoansTreasuryPermissionsSeeder extends Seeder
                 continue;
             }
             foreach ($roleNames as $roleName) {
-                $role = Role::where('name', $roleName)->first();
+                $role = $this->seededRole($roleName);
                 if ($role) {
                     $role->permissions()->syncWithoutDetaching([$perm->id]);
                 }

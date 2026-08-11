@@ -34,10 +34,12 @@ use Illuminate\Database\Seeder;
  */
 class QuickExpensePermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         foreach (['superuser', 'admin', 'accountant', 'treasurer', 'farmmanager', 'dataentry'] as $roleName) {
-            Role::firstOrCreate(['name' => $roleName]);
+            $this->seededRoleOrCreate($roleName);
         }
 
         $perm = Permission::firstOrCreate(['name' => 'record_expenses'], [
@@ -48,7 +50,7 @@ class QuickExpensePermissionsSeeder extends Seeder
         ]);
 
         foreach (['superuser', 'admin', 'accountant', 'treasurer', 'farmmanager', 'dataentry'] as $roleName) {
-            Role::where('name', $roleName)->first()?->permissions()->syncWithoutDetaching([$perm->id]);
+            $this->seededRole($roleName)?->permissions()->syncWithoutDetaching([$perm->id]);
         }
 
         $this->command?->info(

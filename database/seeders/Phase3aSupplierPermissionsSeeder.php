@@ -22,6 +22,8 @@ use Illuminate\Database\Seeder;
  */
 class Phase3aSupplierPermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         $perm = Permission::firstOrCreate(
@@ -35,7 +37,7 @@ class Phase3aSupplierPermissionsSeeder extends Seeder
         $rolesGetPerm = ['admin', 'accountant', 'superuser'];
 
         foreach ($rolesGetPerm as $roleName) {
-            $role = Role::where('name', $roleName)->first();
+            $role = $this->seededRole($roleName);
             if (! $role) continue;
             if (! $role->permissions()->where('permissions.id', $perm->id)->exists()) {
                 $role->permissions()->attach($perm->id);

@@ -40,6 +40,8 @@ use Illuminate\Database\Seeder;
  */
 class FinancePermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         $permissions = $this->definitions();
@@ -133,7 +135,7 @@ class FinancePermissionsSeeder extends Seeder
 
     private function attachToRole(string $roleName, array $permissionNames, array $permissionLookup): void
     {
-        $role = Role::firstOrCreate(['name' => $roleName]);
+        $role = $this->seededRoleOrCreate($roleName);
 
         $ids = collect($permissionNames)
             ->map(fn ($n) => $permissionLookup[$n]?->id ?? null)

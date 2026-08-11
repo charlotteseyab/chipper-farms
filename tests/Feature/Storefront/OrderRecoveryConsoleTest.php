@@ -295,18 +295,15 @@ class OrderRecoveryConsoleTest extends StorefrontTestCase
             'finance_posting_status' => 'failed',
         ]);
 
-        // 403, not 404 — `AdminOrderController::assertSameOrg()` has answered
-        // 403 for every action in this controller since it was written, and the
-        // retry follows it rather than diverging.
-        //
-        // Recorded as IMP-112: elsewhere in this programme a cross-tenant miss
-        // answers 404 so another farm's records stay undiscoverable (prompt
-        // §118). Changing it here would alter every action on this controller
-        // and belongs in its own change with its own tests, not smuggled into a
-        // UX phase.
+        // 404, not 403. Phase 15 recorded the inconsistency as IMP-112 and left
+        // it alone rather than changing every action on the controller during a
+        // UX phase; Phase 16 made the change where it belongs, with the security
+        // matrices. Another farm's order is now indistinguishable from an order
+        // that never existed, which matters because storefront references are
+        // sequential and easy to guess.
         $this->actingAs($this->makeUser('admin'))
             ->post(route('storefront.admin.orders.retry-finance', $foreign))
-            ->assertForbidden();
+            ->assertNotFound();
 
         $this->assertSame('failed', $foreign->fresh()->finance_posting_status);
     }

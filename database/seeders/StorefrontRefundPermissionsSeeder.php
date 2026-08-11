@@ -17,10 +17,12 @@ use Illuminate\Database\Seeder;
  */
 class StorefrontRefundPermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         foreach (['superuser', 'admin', 'salesperson'] as $roleName) {
-            Role::firstOrCreate(['name' => $roleName]);
+            $this->seededRoleOrCreate($roleName);
         }
 
         $perm = Permission::firstOrCreate(['name' => 'refund_storefront_orders'], [
@@ -30,7 +32,7 @@ class StorefrontRefundPermissionsSeeder extends Seeder
         ]);
 
         foreach (['admin', 'superuser'] as $roleName) {
-            Role::where('name', $roleName)->first()?->permissions()->syncWithoutDetaching([$perm->id]);
+            $this->seededRole($roleName)?->permissions()->syncWithoutDetaching([$perm->id]);
         }
 
         $this->command?->info("Storefront P6: granted 'refund_storefront_orders' to: admin, superuser (NOT salesperson).");

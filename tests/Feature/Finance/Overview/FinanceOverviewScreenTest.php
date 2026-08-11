@@ -123,11 +123,31 @@ class FinanceOverviewScreenTest extends TestCase
             'payload' => [], 'status' => DomainEvent::STATUS_FAILED, 'occurred_at' => now(),
         ]);
 
-        // Has finance access but not the dashboard permission the item requires.
+        // Someone inside the finance module who cannot touch the ledger. The
+        // bookkeeping card is theirs to see — a failed posting means the books
+        // are incomplete, which is finance's business.
         $this->actingAs($this->user(['view_finance']))
             ->get(route('finance.overview'))
             ->assertOk()
-            ->assertDontSee('bookkeeping', false);
+            ->assertSee('bookkeeping', false);
+
+        $this->flushSession();
+
+        // The filtering itself, exercised against a card whose permission this
+        // viewer genuinely lacks. `view_finance` gets them through the door;
+        // confirming cash on storefront orders is somebody else's job, so that
+        // card stays off their screen.
+        //
+        // This test used to make the assertion above in reverse, against
+        // `view_finance_dashboard` — a permission no seeder creates. It passed
+        // because NOBODY holds it, so it proved nothing about filtering and hid
+        // the fact that both outbox cards were invisible to every user except
+        // superuser. Phase 16 pointed those cards at `view_finance`, the
+        // permission the route itself enforces.
+        $this->actingAs($this->user(['view_finance']))
+            ->get(route('finance.overview'))
+            ->assertOk()
+            ->assertDontSee('waiting for payment to be confirmed', false);
     }
 
     public function test_overview_is_refused_without_finance_access(): void

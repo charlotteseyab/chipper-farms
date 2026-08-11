@@ -125,6 +125,20 @@ class StorefrontSettings
         return self::features()->usable(FeatureCatalog::STOREFRONT_QUOTES, $organizationId ?? self::organizationId());
     }
 
+    /**
+     * Whether the farm offers customer accounts (Phase 16).
+     *
+     * Governs account self-service only. A customer's order history stays
+     * reachable either way — see `EnsureCustomerAccountsEnabled`.
+     */
+    public static function customerAccountsEnabled(?int $organizationId = null): bool
+    {
+        return self::features()->usable(
+            FeatureCatalog::STOREFRONT_CUSTOMER_ACCOUNTS,
+            $organizationId ?? self::organizationId(),
+        );
+    }
+
     /* ------------------------------------------------------------------ */
     /* Values — answered by storefront_settings                           */
     /* ------------------------------------------------------------------ */

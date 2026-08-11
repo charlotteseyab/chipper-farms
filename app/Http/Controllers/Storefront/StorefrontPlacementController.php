@@ -89,7 +89,9 @@ class StorefrontPlacementController extends Controller
     {
         $orgId = $this->currentOrganization->requireId();
 
-        abort_unless((int) $placement->organization_id === $orgId, 403);
+        // 404, not 403 (Phase 16, IMP-112): another farm's rows should be
+        // indistinguishable from rows that never existed.
+        abort_unless((int) $placement->organization_id === $orgId, 404);
 
         // Keep an empty slot row so the slot remains listed in the manager;
         // only clear the pinned listing if this was an empty seed row delete.

@@ -44,6 +44,11 @@ return Application::configure(basePath: dirname(__DIR__))
             // and because a closed shop answers 503 with a page rather than
             // 404 — its visitors are the public, with no other way in.
             'storefront.open' => \App\Http\Middleware\EnsureStorefrontOpen::class,
+            // Customer account self-service (Phase 16). Same 503-and-a-page
+            // reasoning as 'storefront.open': the visitor is a customer, and
+            // their ORDER HISTORY is deliberately left ungated so switching the
+            // feature off never strands someone's record of what they bought.
+            'storefront.accounts' => \App\Http\Middleware\EnsureCustomerAccountsEnabled::class,
         ]);
 
         // Paystack posts server-to-server webhooks with no CSRF token; the

@@ -25,6 +25,8 @@ use Illuminate\Database\Seeder;
  */
 class Phase2dPermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         $createRefund = Permission::firstOrCreate(
@@ -55,7 +57,7 @@ class Phase2dPermissionsSeeder extends Seeder
             if (! $perm) continue;
 
             foreach ($roleNames as $roleName) {
-                $role = Role::where('name', $roleName)->first();
+                $role = $this->seededRole($roleName);
                 if (! $role) continue;
                 if (! $role->permissions()->where('permissions.id', $perm->id)->exists()) {
                     $role->permissions()->attach($perm->id);

@@ -20,6 +20,8 @@ use Illuminate\Database\Seeder;
  */
 class Phase6ReportingClosePermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         $perms = [
@@ -66,7 +68,7 @@ class Phase6ReportingClosePermissionsSeeder extends Seeder
             }
 
             foreach ($roleNames as $roleName) {
-                $role = Role::where('name', $roleName)->first();
+                $role = $this->seededRole($roleName);
                 if (! $role) {
                     continue;
                 }

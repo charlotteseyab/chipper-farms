@@ -29,6 +29,8 @@ use Illuminate\Database\Seeder;
  */
 class Phase2bInvoicePermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         $perms = [
@@ -51,7 +53,7 @@ class Phase2bInvoicePermissionsSeeder extends Seeder
         }
 
         foreach (['admin', 'accountant', 'superuser'] as $roleName) {
-            $role = Role::firstOrCreate(['name' => $roleName]);
+            $role = $this->seededRoleOrCreate($roleName);
             $role->permissions()->syncWithoutDetaching([
                 $created['create_invoice']->id,
                 $created['post_invoice']->id,

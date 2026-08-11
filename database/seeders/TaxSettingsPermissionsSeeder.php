@@ -20,10 +20,12 @@ use Illuminate\Database\Seeder;
  */
 class TaxSettingsPermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         foreach (['superuser', 'admin', 'accountant'] as $roleName) {
-            Role::firstOrCreate(['name' => $roleName]);
+            $this->seededRoleOrCreate($roleName);
         }
 
         $perm = Permission::firstOrCreate(['name' => 'manage_tax_settings'], [
@@ -34,7 +36,7 @@ class TaxSettingsPermissionsSeeder extends Seeder
         ]);
 
         foreach (['superuser', 'admin', 'accountant'] as $roleName) {
-            Role::where('name', $roleName)->first()?->permissions()->syncWithoutDetaching([$perm->id]);
+            $this->seededRole($roleName)?->permissions()->syncWithoutDetaching([$perm->id]);
         }
 
         $this->command?->info("Phase 2: granted 'manage_tax_settings' to admin, superuser, accountant.");

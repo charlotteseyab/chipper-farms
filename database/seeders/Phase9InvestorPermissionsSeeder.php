@@ -15,6 +15,8 @@ use Illuminate\Database\Seeder;
  */
 class Phase9InvestorPermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         $perms = [
@@ -39,7 +41,7 @@ class Phase9InvestorPermissionsSeeder extends Seeder
                 continue;
             }
             foreach ($roleNames as $roleName) {
-                $role = Role::where('name', $roleName)->first();
+                $role = $this->seededRole($roleName);
                 $role?->permissions()->syncWithoutDetaching([$perm->id]);
             }
             $this->command?->info("Phase 9: granted '{$code}' to: " . implode(', ', $roleNames));

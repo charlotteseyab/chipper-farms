@@ -421,10 +421,20 @@ class VendorInvoiceControllerTest extends TestCase
 
     protected function makeUser(string $roleName): User
     {
-        $role = Role::firstOrCreate(['name' => $roleName]);
+        // Normalised the way the application normalises it. 'manager' and
+        // 'farmmanager' are one product role stored under two row names, and
+        // `User::syncRoleFields()` has always resolved the former to the latter
+        // — so a fixture that attaches a user to the raw 'manager' row builds a
+        // user the application itself cannot produce.
+        //
+        // Phase 16 made the permission seeders normalise too (they had settled
+        // into three different conventions, which is how farm managers ended up
+        // locked out of the finance overview). This fixture has to agree with
+        // them, or it tests a role nobody can hold.
+        $role = Role::firstOrCreate(['name' => User::normalizeRoleName($roleName) ?? $roleName]);
         return User::forceCreate([
             'name' => ucfirst($roleName), 'email' => $roleName . '_' . uniqid() . '@e.com',
-            'password' => bcrypt('x'), 'role' => $roleName, 'role_id' => $role->id,
+            'password' => bcrypt('x'), 'role' => $role->name, 'role_id' => $role->id,
             'organization_id' => $this->org->id,
         ]);
     }

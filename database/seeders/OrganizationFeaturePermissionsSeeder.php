@@ -27,10 +27,12 @@ use Illuminate\Database\Seeder;
  */
 class OrganizationFeaturePermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         foreach (['superuser', 'admin'] as $roleName) {
-            Role::firstOrCreate(['name' => $roleName]);
+            $this->seededRoleOrCreate($roleName);
         }
 
         $perm = Permission::firstOrCreate(['name' => 'manage_feature_flags'], [
@@ -41,7 +43,7 @@ class OrganizationFeaturePermissionsSeeder extends Seeder
         ]);
 
         foreach (['admin', 'superuser'] as $roleName) {
-            Role::where('name', $roleName)->first()?->permissions()->syncWithoutDetaching([$perm->id]);
+            $this->seededRole($roleName)?->permissions()->syncWithoutDetaching([$perm->id]);
         }
 
         $this->command?->info(

@@ -1619,14 +1619,21 @@ Route::middleware($protectedMiddleware)->group(function () {
 */
 Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified'])
     ->prefix('account')->name('storefront.account.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'dashboard'])->name('dashboard');
-        Route::get('/profile', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'profile'])->name('profile');
-        Route::get('/addresses', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'addresses'])->name('addresses');
-        Route::post('/addresses', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'storeAddress'])->name('addresses.store');
-        // Phase 2 — saved items, quotes, favourite toggle.
-        Route::get('/saved', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'savedItems'])->name('saved');
-        Route::get('/quotes', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'quotes'])->name('quotes');
-        Route::post('/favourites/{listing}/toggle', [\App\Http\Controllers\Storefront\FavouriteController::class, 'toggle'])->name('favourites.toggle');
+        // Account SELF-SERVICE, gated on storefront.customer_accounts (Phase 16,
+        // parked by Phase 14). Order history below is deliberately NOT in this
+        // group: a person's record of what they bought is theirs, and a farm
+        // switching off a convenience feature is not a reason to take it away.
+        // Same rule EnsureStorefrontOpen already applies when the shop closes.
+        Route::middleware('storefront.accounts')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'dashboard'])->name('dashboard');
+            Route::get('/profile', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'profile'])->name('profile');
+            Route::get('/addresses', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'addresses'])->name('addresses');
+            Route::post('/addresses', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'storeAddress'])->name('addresses.store');
+            // Phase 2 — saved items, quotes, favourite toggle.
+            Route::get('/saved', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'savedItems'])->name('saved');
+            Route::get('/quotes', [\App\Http\Controllers\Storefront\CustomerAccountController::class, 'quotes'])->name('quotes');
+            Route::post('/favourites/{listing}/toggle', [\App\Http\Controllers\Storefront\FavouriteController::class, 'toggle'])->name('favourites.toggle');
+        });
 
         // Phase 9 — cart and checkout MOVED to the public shop routes, because
         // §17 lists guest checkout as essential scope and a cart behind a login

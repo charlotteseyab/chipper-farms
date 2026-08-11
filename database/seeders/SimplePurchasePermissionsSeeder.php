@@ -28,10 +28,12 @@ use Illuminate\Database\Seeder;
  */
 class SimplePurchasePermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         foreach (['superuser', 'admin', 'accountant', 'treasurer', 'farmmanager'] as $roleName) {
-            Role::firstOrCreate(['name' => $roleName]);
+            $this->seededRoleOrCreate($roleName);
         }
 
         $perm = Permission::firstOrCreate(['name' => 'record_purchases'], [
@@ -42,7 +44,7 @@ class SimplePurchasePermissionsSeeder extends Seeder
         ]);
 
         foreach (['superuser', 'admin', 'accountant', 'treasurer', 'farmmanager'] as $roleName) {
-            Role::where('name', $roleName)->first()?->permissions()->syncWithoutDetaching([$perm->id]);
+            $this->seededRole($roleName)?->permissions()->syncWithoutDetaching([$perm->id]);
         }
 
         $this->command?->info(

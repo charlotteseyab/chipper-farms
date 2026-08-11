@@ -148,7 +148,7 @@ class NeedsAttentionService
                 . 'its finance posting did not, so the ledger is incomplete. Fix the cause, then replay '
                 . 'the event — posting is idempotent, so a replay cannot double-post.',
             'route'      => null,
-            'permission' => 'view_finance_dashboard',
+            'permission' => 'view_finance',
         ];
     }
 
@@ -187,7 +187,7 @@ class NeedsAttentionService
                 . 'A worker most likely stopped mid-flight. These do not retry by themselves because '
                 . 'nothing has errored — the stale-claim recovery job releases them.',
             'route'      => null,
-            'permission' => 'view_finance_dashboard',
+            'permission' => 'view_finance',
         ];
     }
 

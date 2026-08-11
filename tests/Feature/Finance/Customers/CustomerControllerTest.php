@@ -134,12 +134,17 @@ class CustomerControllerTest extends TestCase
 
     protected function makeUser(string $roleName): User
     {
-        $role = Role::firstOrCreate(['name' => $roleName]);
+        // Normalised as the application normalises it: 'manager' and
+        // 'farmmanager' are one product role under two row names, and since
+        // Phase 16 the permission seeders grant to the row a user can actually
+        // hold. A fixture on the raw 'manager' row builds a user the
+        // application cannot produce.
+        $role = Role::firstOrCreate(['name' => User::normalizeRoleName($roleName) ?? $roleName]);
         return User::forceCreate([
             'name'            => ucfirst($roleName),
             'email'           => $roleName . '_' . uniqid() . '@example.com',
             'password'        => bcrypt('x'),
-            'role'            => $roleName,
+            'role'            => $role->name,
             'role_id'         => $role->id,
             'organization_id' => $this->org->id,
         ]);

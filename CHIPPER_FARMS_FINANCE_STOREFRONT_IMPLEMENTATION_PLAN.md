@@ -56,7 +56,7 @@ infrastructure.
 | 13b | Return screen + withdrawal field | §43, §35 | 13 | COMPLETE |
 | 14 | Advanced feature gating | §16, §18 | 1, 3–13 | COMPLETE |
 | 15 | Responsive UX and no-dead-end audit | §46, §55 | 3–14 | COMPLETE (§46 order states; §55 viewport review and IMP-070 carried to 16) |
-| 16 | Full security and regression | §47–§49 | 1–15 | NOT STARTED |
+| 16 | Full security and regression | §47–§49 | 1–15 | COMPLETE |
 | 17 | Local production certification | §60 | 16 | NOT STARTED |
 | 18 | Final implementation review | §63, §64 | 17 | NOT STARTED |
 

@@ -25,10 +25,12 @@ use Illuminate\Database\Seeder;
  */
 class SalesReturnPermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         foreach (['superuser', 'admin', 'accountant'] as $roleName) {
-            Role::firstOrCreate(['name' => $roleName]);
+            $this->seededRoleOrCreate($roleName);
         }
 
         $permission = Permission::firstOrCreate(['name' => 'record_sales_returns'], [
@@ -39,7 +41,7 @@ class SalesReturnPermissionsSeeder extends Seeder
         ]);
 
         foreach (['superuser', 'admin', 'accountant'] as $roleName) {
-            Role::where('name', $roleName)->first()?->permissions()->syncWithoutDetaching([$permission->id]);
+            $this->seededRole($roleName)?->permissions()->syncWithoutDetaching([$permission->id]);
         }
 
         $this->command?->info("Returns: granted 'record_sales_returns' to admin, superuser, accountant.");

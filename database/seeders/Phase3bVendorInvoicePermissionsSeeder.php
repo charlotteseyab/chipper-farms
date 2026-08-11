@@ -39,6 +39,8 @@ use Illuminate\Database\Seeder;
  */
 class Phase3bVendorInvoicePermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         $createPerm = Permission::firstOrCreate(
@@ -68,7 +70,7 @@ class Phase3bVendorInvoicePermissionsSeeder extends Seeder
         // Role grants
         $createGrants = ['admin', 'accountant', 'treasurer', 'superuser'];
         foreach ($createGrants as $roleName) {
-            $role = Role::where('name', $roleName)->first();
+            $role = $this->seededRole($roleName);
             if (! $role) continue;
             if (! $role->permissions()->where('permissions.id', $createPerm->id)->exists()) {
                 $role->permissions()->attach($createPerm->id);
@@ -77,7 +79,7 @@ class Phase3bVendorInvoicePermissionsSeeder extends Seeder
 
         $approveGrants = ['admin', 'treasurer', 'superuser'];
         foreach ($approveGrants as $roleName) {
-            $role = Role::where('name', $roleName)->first();
+            $role = $this->seededRole($roleName);
             if (! $role) continue;
             if (! $role->permissions()->where('permissions.id', $approvePerm->id)->exists()) {
                 $role->permissions()->attach($approvePerm->id);
@@ -86,7 +88,7 @@ class Phase3bVendorInvoicePermissionsSeeder extends Seeder
 
         $prScopedCreateGrants = ['manager', 'farmmanager'];
         foreach ($prScopedCreateGrants as $roleName) {
-            $role = Role::where('name', $roleName)->first();
+            $role = $this->seededRole($roleName);
             if (! $role) continue;
             if (! $role->permissions()->where('permissions.id', $prScopedCreatePerm->id)->exists()) {
                 $role->permissions()->attach($prScopedCreatePerm->id);

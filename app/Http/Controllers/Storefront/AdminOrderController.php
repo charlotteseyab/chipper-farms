@@ -278,8 +278,20 @@ class AdminOrderController extends Controller
         abort_unless(request()->user()->hasPermission('confirm_storefront_orders'), 403);
     }
 
+    /**
+     * 404, not 403 (Phase 16, IMP-112).
+     *
+     * This answered 403 until Phase 16, which told a prober that the order
+     * exists and belongs to someone else. Another farm's records should be
+     * indistinguishable from records that were never there — the reference
+     * itself is information, and storefront references are sequential and easy
+     * to guess.
+     *
+     * A 403 is the right answer when the resource IS yours and you may not do
+     * this to it; that is the permission layer's job, and it still answers 403.
+     */
     protected function assertSameOrg(StorefrontOrder $order): void
     {
-        abort_unless((int) $order->organization_id === $this->currentOrganization->requireId(), 403);
+        abort_unless((int) $order->organization_id === $this->currentOrganization->requireId(), 404);
     }
 }

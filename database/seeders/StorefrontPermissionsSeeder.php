@@ -25,6 +25,8 @@ use Illuminate\Database\Seeder;
  */
 class StorefrontPermissionsSeeder extends Seeder
 {
+    use \Database\Seeders\Concerns\NormalizesSeededRoleNames;
+
     public function run(): void
     {
         // 1. Ensure every role referenced below exists. The DatabaseSeeder
@@ -33,7 +35,7 @@ class StorefrontPermissionsSeeder extends Seeder
         //    present yet — otherwise grants are silently skipped on a fresh
         //    install.
         foreach (['superuser', 'admin', 'farmmanager', 'accountant', 'salesperson', 'customer'] as $roleName) {
-            Role::firstOrCreate(['name' => $roleName]);
+            $this->seededRoleOrCreate($roleName);
         }
 
         // 2. Storefront permissions (Phase 1 surface; later phases extend).
@@ -65,9 +67,10 @@ class StorefrontPermissionsSeeder extends Seeder
             'view_storefront_reports'      => ['admin', 'superuser', 'salesperson', 'accountant', 'manager'],
         ];
 
-        // 'manager' is stored as 'farmmanager' in this system.
-        $roleAlias = ['manager' => 'farmmanager'];
-
+        // 'manager' is stored as 'farmmanager' in this system. This seeder was
+        // the only one that knew, via a local alias map; Phase 16 made that the
+        // shared rule (NormalizesSeededRoleNames) after the divergence between
+        // the two role rows locked farm managers out of the finance overview.
         foreach ($assignments as $code => $roleNames) {
             $perm = Permission::where('name', $code)->first();
             if (! $perm) {
@@ -75,8 +78,7 @@ class StorefrontPermissionsSeeder extends Seeder
             }
 
             foreach ($roleNames as $roleName) {
-                $name = $roleAlias[$roleName] ?? $roleName;
-                $role = Role::where('name', $name)->first();
+                $role = $this->seededRole($roleName);
                 $role?->permissions()->syncWithoutDetaching([$perm->id]);
             }
 

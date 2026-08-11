@@ -3,6 +3,7 @@
 namespace App\Helpers;
 
 use App\Models\User;
+use App\Support\Features\FinanceNavigation;
 
 class NavigationHelper
 {
@@ -132,244 +133,19 @@ class NavigationHelper
             ],
             [
                 'title' => 'Finance',
-                'items' => array_values(array_filter([
-                    self::link('Dashboard', 'finance.dashboard', 'finance', 'fa-solid fa-chart-line', ['superuser', 'admin', 'accountant', 'treasurer', 'farmmanager', 'dataentry']),
-                    self::link('Customers', 'finance.customers.index', 'finance/customers*', 'fa-solid fa-address-book', ['superuser', 'admin', 'accountant']),
-                    self::link('Invoices', 'finance.invoices.index', 'finance/invoices*', 'fa-solid fa-file-invoice', ['superuser', 'admin', 'accountant']),
-                    self::link('Suppliers', 'finance.suppliers.index', 'finance/suppliers*', 'fa-solid fa-truck-fast', ['superuser', 'admin', 'accountant']),
-                    self::link('Vendor Invoices', 'finance.vendor-invoices.index', 'finance/vendor-invoices*', 'fa-solid fa-file-invoice-dollar', ['superuser', 'admin', 'accountant', 'treasurer']),
-                    self::link('Payments', 'finance.payments.index', 'finance/payments*', 'fa-solid fa-money-bill-transfer', ['superuser', 'admin', 'accountant', 'treasurer']),
-                    self::link('Payment Runs', 'finance.payment-runs.index', 'finance/payment-runs*', 'fa-solid fa-money-check-dollar', ['superuser', 'admin', 'accountant', 'treasurer']),
-                    self::link('Chart of Accounts', 'finance.coa.index', 'finance/coa*', 'fa-solid fa-list-ol', ['superuser', 'admin', 'accountant']),
-                    [
-                        'label' => 'AR Ageing',
-                        'route' => 'finance.ageing.index',
-                        'icon'  => 'fa-solid fa-chart-line',
-                        'roles' => ['superuser', 'admin', 'accountant'],
-                    ],
-                    [
-                        'label' => 'Refunds',
-                        'route' => 'finance.refunds.index',
-                        'icon'  => 'fa-solid fa-rotate-left',
-                        'roles' => ['superuser', 'admin', 'accountant'],
-                    ],
-                    [
-                        'label' => 'Receipts',
-                        'route' => 'finance.receipts.index',
-                        'icon'  => 'fa-solid fa-cash-register',
-                        'roles' => ['superuser', 'admin', 'accountant', 'farmmanager'],
-                    ],
-                    self::link('Journal Entries', 'finance.journals.index', 'finance/journals*', 'fa-solid fa-book', ['superuser', 'admin', 'accountant']),
-                    self::link('Trial Balance', 'finance.trial-balance', 'finance/trial-balance*', 'fa-solid fa-scale-balanced', ['superuser', 'admin', 'accountant', 'farmmanager']),
-                    self::permissionGroup('Reports', 'fa-solid fa-chart-column', 'finance/reports*', [
-                        self::permissionLink(
-                            'Income Statement',
-                            'finance.reports.income-statement',
-                            'finance/reports/income-statement*',
-                            'fa-solid fa-chart-line',
-                            'view_financial_reports',
-                        ),
-                        self::permissionLink(
-                            'Balance Sheet',
-                            'finance.reports.balance-sheet',
-                            'finance/reports/balance-sheet*',
-                            'fa-solid fa-scale-balanced',
-                            'view_financial_reports',
-                        ),
-                        self::permissionLink(
-                            'Cash Flow',
-                            'finance.reports.cash-flow',
-                            'finance/reports/cash-flow*',
-                            'fa-solid fa-money-bill-trend-up',
-                            'view_financial_reports',
-                        ),
-                    ]),
-                    self::permissionLink(
-                        'Close',
-                        'finance.close.index',
-                        'finance/close*',
-                        'fa-solid fa-lock',
-                        'view_period_close',
-                    ),
-                    self::permissionLink(
-                        'Year End',
-                        'finance.year-end.index',
-                        'finance/year-end*',
-                        'fa-solid fa-calendar-check',
-                        'view_period_close',
-                    ),
-                    self::permissionLink(
-                        'Treasury',
-                        'finance.treasury',
-                        'finance/treasury*',
-                        'fa-solid fa-building-columns',
-                        'view_treasury',
-                    ),
-                    self::permissionLink(
-                        'Loans',
-                        'finance.loans.index',
-                        'finance/loans',
-                        'fa-solid fa-hand-holding-dollar',
-                        'view_loans',
-                    ),
-                    self::permissionLink(
-                        'Reclassification',
-                        'finance.loans.reclassification',
-                        'finance/loans/reclassification*',
-                        'fa-solid fa-right-left',
-                        'view_loans',
-                    ),
-                    self::permissionGroup('Investors', 'fa-solid fa-people-group', 'finance/investors*', [
-                        self::permissionLink(
-                            'All Investors',
-                            'finance.investors.index',
-                            'finance/investors',
-                            'fa-solid fa-users',
-                            'view_investors',
-                        ),
-                        self::permissionLink(
-                            'Cap Table',
-                            'finance.investors.cap-table',
-                            'finance/investors/cap-table*',
-                            'fa-solid fa-table-cells',
-                            'view_investors',
-                        ),
-                        self::permissionLink(
-                            'Allocate Profit',
-                            'finance.investors.allocate.form',
-                            'finance/investors/allocate*',
-                            'fa-solid fa-chart-pie',
-                            'manage_investors',
-                        ),
-                    ]),
-                    self::permissionGroup('Inventory & Costing', 'fa-solid fa-boxes-stacked', [
-                        'finance/inventory*',
-                        'finance/procurement*',
-                        'finance/feed/issues*',
-                        'finance/costing*',
-                        'finance/biological-assets*',
-                        'finance/feed-sales*',
-                    ], [
-                        self::permissionLink(
-                            'Inventory',
-                            'finance.inventory.value.index',
-                            'finance/inventory/value*',
-                            'fa-solid fa-warehouse',
-                            'view_inventory_value',
-                        ),
-                        self::permissionLink(
-                            'Account Mappings',
-                            'finance.inventory.account-mappings.index',
-                            'finance/inventory/account-mappings*',
-                            'fa-solid fa-code-branch',
-                            'view_inventory_value',
-                        ),
-                        self::permissionLink(
-                            'Opening Balances',
-                            'finance.inventory.opening-balances.index',
-                            'finance/inventory/opening-balances*',
-                            'fa-solid fa-scale-unbalanced-flip',
-                            'view_inventory_value',
-                        ),
-                        self::permissionLink(
-                            'GR/IR Ageing',
-                            'finance.inventory.gr-ir-ageing.index',
-                            'finance/inventory/gr-ir-ageing*',
-                            'fa-solid fa-clock',
-                            'view_gr_ir_ageing',
-                        ),
-                        self::permissionLink(
-                            'Purchase Receiving',
-                            'purchase-requests.index',
-                            ['purchase-requests*', 'finance/procurement*'],
-                            'fa-solid fa-truck-ramp-box',
-                            'receive_against_pr',
-                        ),
-                        self::permissionLink(
-                            'Feed Issues',
-                            'finance.feed.issues.index',
-                            'finance/feed/issues*',
-                            'fa-solid fa-bowl-food',
-                            ['view_group_pools', 'manage_feed_issues'],
-                        ),
-                        self::permissionLink(
-                            'Group Cost Pools',
-                            'finance.costing.group-pools.index',
-                            'finance/costing/group-pools*',
-                            'fa-solid fa-layer-group',
-                            'view_group_pools',
-                        ),
-                        self::permissionLink(
-                            'Opening Pig Inventory',
-                            'finance.costing.opening-pig-inventory.index',
-                            'finance/costing/opening-pig-inventory*',
-                            'fa-solid fa-piggy-bank',
-                            'view_group_pools',
-                        ),
-                        self::permissionLink(
-                            'Mortality Write-offs',
-                            'finance.costing.mortality-writeoffs.index',
-                            'finance/costing/mortality-writeoffs*',
-                            'fa-solid fa-file-circle-minus',
-                            'manage_pig_mortality',
-                        ),
-                        self::permissionLink(
-                            'Biological Assets',
-                            'finance.biological-assets.index',
-                            'finance/biological-assets*',
-                            'fa-solid fa-chart-area',
-                            'view_financial_reports',
-                        ),
-                        self::permissionLink(
-                            'Feed Sales',
-                            'finance.feed-sales.index',
-                            'finance/feed-sales*',
-                            'fa-solid fa-sack-dollar',
-                            'view_feed_sales',
-                        ),
-                    ]),
-                    [
-                        'label' => 'AP Ageing',
-                        'route' => 'finance.ageing.ap',
-                        'icon'  => 'fa-solid fa-clock-rotate-left',
-                        'permissions' => ['admin', 'accountant', 'superuser'],
-                        // OR if using fine-grained permission strings:
-                        'permission' => 'view_ap_ageing',
-                    ],
-                    [
-                        'label' => 'Supplier Statements',
-                        'route' => 'finance.supplier-statements.index',
-                        'icon'  => 'fa-solid fa-file-invoice',
-                        'permissions' => ['admin', 'accountant', 'superuser'],
-                        'permission' => 'manage_supplier_statements',
-                    ],
-                    [
-                        'label' => 'WHT Certificates',
-                        'route' => 'finance.wht-certificates.index',
-                        'icon'  => 'fa-solid fa-certificate',
-                        'permissions' => ['admin', 'accountant', 'superuser'],
-                        'permission' => 'manage_wht_certificates',
-                    ],
-
-                    [
-                        'label' => 'Bank Accounts',
-                        'route' => 'finance.bank-accounts.index',
-                        'icon'  => 'fa-solid fa-building-columns',
-                        'permission' => 'view_bank_accounts',
-                    ],
-                    [
-                        'label' => 'Bank Statements',
-                        'route' => 'finance.bank-statements.index',
-                        'icon'  => 'fa-solid fa-file-csv',
-                        'permission' => 'import_bank_statement',
-                    ],
-                    [
-                        'label' => 'Bank Reconciliation',
-                        'route' => 'finance.bank-reconciliation.index',
-                        'icon'  => 'fa-solid fa-scale-balanced',
-                        'permission' => 'reconcile_bank_statement',
-                    ],
-                ])),
+                // Phase 16 (IMP-070). This section used to be ~240 lines of
+                // hardcoded role arrays built right here, while
+                // FinanceNavigation — the feature-and-permission-aware builder
+                // Phase 3 wrote for exactly this job — was referenced by nothing
+                // but its own tests.
+                //
+                // The consequence was not cosmetic. The menu decided what to
+                // show from the user's ROLE and knew nothing about organisation
+                // feature flags, so after Phase 14 gated the advanced surfaces a
+                // farm on Essentials was still offered Vendor Invoices and Chart
+                // of Accounts in its sidebar, and got a 404 for clicking them.
+                // That is the §46 dead end, created by the navigation itself.
+                'items' => self::financeItems($user),
             ],
             [
                 'title' => 'System Settings',
@@ -568,6 +344,61 @@ class NavigationHelper
             $user->isTreasurer() || $user->isAccountant() => ['finance*'],
             default => ['dashboard'],
         };
+    }
+
+    /**
+     * The Finance section, delegated to the builder that knows the rules.
+     *
+     * `FinanceNavigation::build()` admits an entry only when the organisation's
+     * feature is on, the user holds the permission, and the route exists. This
+     * method does nothing but translate its shape into the one the sidebar
+     * partial renders — the decisions stay in one place.
+     *
+     * Showing a link is not granting access. Every route here is independently
+     * guarded by `feature:` and `permission:` middleware, and it stays that way:
+     * a menu that hides an entry protects nothing on its own.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function financeItems(?User $user): array
+    {
+        if ($user === null) {
+            return [];
+        }
+
+        $items = [];
+
+        foreach (FinanceNavigation::build($user) as $entry) {
+            $children = [];
+
+            foreach ($entry['children'] ?? [] as $child) {
+                $children[] = [
+                    'type'            => 'link',
+                    'label'           => $child['label'],
+                    'route'           => $child['route'],
+                    'active_patterns' => [$child['active']],
+                    'icon'            => 'fa-solid fa-angle-right',
+                ];
+            }
+
+            $items[] = $children === []
+                ? [
+                    'type'            => 'link',
+                    'label'           => $entry['label'],
+                    'route'           => $entry['route'],
+                    'active_patterns' => [$entry['active']],
+                    'icon'            => $entry['icon'],
+                ]
+                : [
+                    'type'            => 'group',
+                    'label'           => $entry['label'],
+                    'icon'            => $entry['icon'],
+                    'active_patterns' => [$entry['active']],
+                    'children'        => $children,
+                ];
+        }
+
+        return $items;
     }
 
     private static function link(string $label, string $route, array|string $activePatterns, string $icon, array $roles): ?array
