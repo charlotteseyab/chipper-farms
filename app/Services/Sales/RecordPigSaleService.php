@@ -48,6 +48,38 @@ class RecordPigSaleService
         $organizationId = $this->currentOrganization->requireId();
 
         return DB::transaction(function () use ($pig, $actor, $data, $organizationId) {
+            // THE ANIMAL IS LOCKED BEFORE ANYTHING ELSE.
+            //
+            // Without this, two paths could sell the same pig at the same
+            // moment: a farm-gate sale racing a storefront approval, two staff
+            // on the same record, an import overlapping either. Both would read
+            // an unsold animal, both would write, and `pig_sales` — the ledger
+            // the whole system treats as the truth — would carry the same pig
+            // twice.
+            //
+            // That is not theoretical. It was found by racing the two paths as
+            // real processes: both succeeded and produced two sales for one
+            // animal. Every sequential test passed throughout, because each call
+            // saw the previous one's committed work.
+            //
+            // Locking here rather than in the callers is deliberate: this
+            // service is the single place a pig sale is created, so one guard
+            // covers every path that will ever exist.
+            $locked = PigManagement::withTrashed()
+                ->whereKey($pig->getKey())
+                ->lockForUpdate()
+                ->first();
+
+            if ($locked === null) {
+                throw new \RuntimeException('This pig no longer exists and cannot be sold.');
+            }
+
+            // Re-read under the lock. A pig sold a moment ago is soft-deleted
+            // and already carries a sale; either is proof the race was lost.
+            if ($locked->trashed() || $locked->sales()->exists()) {
+                throw new \RuntimeException('This pig has already been sold.');
+            }
+
             // Normalise weight.
             if (isset($data['sale_weight'])) {
                 $data['sale_weight'] = round((float) $data['sale_weight'], 2);
