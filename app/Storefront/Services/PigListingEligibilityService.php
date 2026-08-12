@@ -65,7 +65,19 @@ class PigListingEligibilityService
     /**
      * @return array{eligible: bool, blockers: list<string>, cautions: list<string>}
      */
-    public function check(PigManagement $pig, ?string $pricingBasis = null, ?int $organizationId = null): array
+    /**
+     * @param  int|null  $ignoreListingId
+     *   A listing whose own pool membership should NOT count as "already
+     *   listed". Selling three head out of a pool asks whether each animal may
+     *   be sold THROUGH that listing — and every one of them is, by design,
+     *   already in it. Without this the pool would block its own sales.
+     */
+    public function check(
+        PigManagement $pig,
+        ?string $pricingBasis = null,
+        ?int $organizationId = null,
+        ?int $ignoreListingId = null,
+    ): array
     {
         $blockers = [];
         $cautions = [];
@@ -85,7 +97,7 @@ class PigListingEligibilityService
         }
 
         // --- not already actively listed ---------------------------------
-        if ($this->hasActiveListing($pig, $organizationId)) {
+        if ($this->hasActiveListing($pig, $organizationId, $ignoreListingId)) {
             $blockers[] = 'This pig is already on the shop. Edit the existing listing instead of creating a second one.';
         }
 
@@ -190,18 +202,52 @@ class PigListingEligibilityService
         return false;
     }
 
-    protected function hasActiveListing(PigManagement $pig, ?int $organizationId): bool
+    /**
+     * Is this pig already spoken for by the shop?
+     *
+     * TWO SHAPES, ONE QUESTION
+     * ------------------------
+     * A pig-backed listing used to mean exactly one animal, named by
+     * `source_type`/`source_id`. It can now also mean a POOL, with membership
+     * in `storefront_listing_pigs`. Both must answer this question or the same
+     * animal could be offered twice — once as a single listing and once inside
+     * a pool — and be sold twice.
+     *
+     * Kept as one method rather than two so "already listed" has a single
+     * definition. A second, parallel notion of listedness is exactly how the
+     * two would drift apart.
+     */
+    protected function hasActiveListing(PigManagement $pig, ?int $organizationId, ?int $ignoreListingId = null): bool
     {
-        return StorefrontListing::query()
+        $liveStatuses = [
+            StorefrontListing::STATUS_DRAFT,
+            StorefrontListing::STATUS_PUBLISHED,
+            StorefrontListing::STATUS_UNPUBLISHED,
+            StorefrontListing::STATUS_RESERVED,
+        ];
+
+        // Shape 1 — the legacy single-pig listing.
+        $singleListed = StorefrontListing::query()
             ->when($organizationId !== null, fn ($q) => $q->where('organization_id', $organizationId))
+            ->when($ignoreListingId !== null, fn ($q) => $q->where('id', '!=', $ignoreListingId))
             ->where('source_type', PigManagement::class)
             ->where('source_id', $pig->getKey())
-            ->whereIn('status', [
-                StorefrontListing::STATUS_DRAFT,
-                StorefrontListing::STATUS_PUBLISHED,
-                StorefrontListing::STATUS_UNPUBLISHED,
-                StorefrontListing::STATUS_RESERVED,
-            ])
+            ->whereIn('status', $liveStatuses)
+            ->exists();
+
+        if ($singleListed) {
+            return true;
+        }
+
+        // Shape 2 — a member of a live listing's pig pool.
+        return \App\Models\Storefront\StorefrontListingPig::query()
+            ->where('pig_id', $pig->getKey())
+            ->when($ignoreListingId !== null, fn ($q) => $q->where('storefront_listing_id', '!=', $ignoreListingId))
+            ->whereIn('status', \App\Models\Storefront\StorefrontListingPig::ACTIVE_STATUSES)
+            ->whereHas('listing', function ($q) use ($organizationId, $liveStatuses) {
+                $q->whereIn('status', $liveStatuses)
+                    ->when($organizationId !== null, fn ($qq) => $qq->where('organization_id', $organizationId));
+            })
             ->exists();
     }
 

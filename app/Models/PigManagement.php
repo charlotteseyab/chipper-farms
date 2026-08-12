@@ -487,6 +487,36 @@ class PigManagement extends Model
         return $this->hasMany(PigDeath::class, 'pig_id');
     }
 
+    /**
+     * Storefront listing pools this pig belongs to, in any state.
+     *
+     * A pig may appear in several rows over its life — pulled from one listing,
+     * added to another — but may be ACTIVE in only one at a time. That
+     * invariant lives in `StorefrontPigPoolService` under a row lock, because
+     * MySQL and MariaDB have no partial unique indexes.
+     */
+    public function storefrontListingLinks(): HasMany
+    {
+        return $this->hasMany(\App\Models\Storefront\StorefrontListingPig::class, 'pig_id');
+    }
+
+    /**
+     * The one pool row that currently speaks for this pig, if any.
+     */
+    public function activeStorefrontListingLink()
+    {
+        return $this->hasOne(\App\Models\Storefront\StorefrontListingPig::class, 'pig_id')
+            ->whereIn('status', \App\Models\Storefront\StorefrontListingPig::ACTIVE_STATUSES);
+    }
+
+    /**
+     * Storefront order allocations naming this pig.
+     */
+    public function storefrontPigAllocations(): HasMany
+    {
+        return $this->hasMany(\App\Models\Storefront\StorefrontOrderItemPigAllocation::class, 'pig_id');
+    }
+
     // Scopes for availability
     public function scopeAvailableForBreeding($query)
     {

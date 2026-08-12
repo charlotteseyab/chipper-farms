@@ -158,6 +158,52 @@ class StorefrontListing extends Model
         return $this->morphTo(__FUNCTION__, 'source_type', 'source_id');
     }
 
+    /**
+     * Every pig ever linked to this listing, in any state.
+     *
+     * A pig-backed listing used to mean one animal, named by
+     * `source_type`/`source_id`. It can now mean a pool: "Market-ready live
+     * pigs — 5 head", from which an approver picks the exact animals when an
+     * order is confirmed. `source_id` is still populated for single-pig
+     * listings so nothing that reads it had to change.
+     */
+    public function listingPigs(): HasMany
+    {
+        return $this->hasMany(StorefrontListingPig::class, 'storefront_listing_id');
+    }
+
+    /**
+     * Pool rows still on offer to a buyer.
+     *
+     * Excludes `allocated`: once an approver has committed an animal to an
+     * order it is spoken for, even though its sale is not written yet.
+     */
+    public function availableListingPigs(): HasMany
+    {
+        return $this->listingPigs()->whereIn('status', StorefrontListingPig::SELLABLE_STATUSES);
+    }
+
+    public function allocatedListingPigs(): HasMany
+    {
+        return $this->listingPigs()->where('status', StorefrontListingPig::STATUS_ALLOCATED);
+    }
+
+    public function soldListingPigs(): HasMany
+    {
+        return $this->listingPigs()->where('status', StorefrontListingPig::STATUS_SOLD);
+    }
+
+    /**
+     * Whether this listing draws from a pig pool at all.
+     *
+     * A pig-backed listing with no pool rows is a pre-existing single-pig
+     * listing and keeps its old behaviour; the two must not be confused.
+     */
+    public function usesPigPool(): bool
+    {
+        return $this->listingPigs()->exists();
+    }
+
     public function media(): HasMany
     {
         return $this->hasMany(StorefrontListingMedia::class, 'listing_id')->orderBy('sort_order');
