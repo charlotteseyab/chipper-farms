@@ -178,7 +178,7 @@ class WeightAlert extends Model
     /**
      * Acknowledge this alert
      */
-    public function acknowledge(User $user, string $notes = null): bool
+    public function acknowledge(User $user, ?string $notes = null): bool
     {
         return $this->update([
             'acknowledged' => true,

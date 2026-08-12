@@ -122,7 +122,9 @@ class MobileViewportTest extends DuskTestCase
             'finance expenses'   => '/finance/expenses',
             'money in'           => '/finance/money-in',
             'contacts'           => '/finance/contacts',
-            'storefront orders'  => '/storefront/orders',
+            'storefront listings'=> '/storefront-admin/listings',
+            'storefront orders'  => '/storefront-admin/orders',
+            'public shop'        => '/shop/browse',
             'all stock'          => '/all-stocks',
             'sales'              => '/sales',
         ];

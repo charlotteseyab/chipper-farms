@@ -3,7 +3,10 @@
 namespace App\Helpers;
 
 use App\Models\User;
+use App\Services\Organizations\OrganizationFeatureService;
+use App\Support\Features\FeatureCatalog;
 use App\Support\Features\FinanceNavigation;
+use Illuminate\Support\Facades\Route;
 
 class NavigationHelper
 {
@@ -131,6 +134,7 @@ class NavigationHelper
                     self::link('Planning Reports', 'planning-reports.index', 'planning-reports*', 'fa-solid fa-chart-column', $allRoles),
                 ])),
             ],
+            self::storefrontSection($user),
             [
                 'title' => 'Finance',
                 // Phase 16 (IMP-070). This section used to be ~240 lines of
@@ -153,6 +157,7 @@ class NavigationHelper
                     self::link('General Settings', 'settings.general', 'settings/general-settings*', 'fa-solid fa-sliders', $adminRoles),
                     self::link('Breeding Setup', 'settings.setup', 'settings/setup*', 'fa-solid fa-gear', $adminRoles),
                     self::link('Email Settings', 'settings.email', 'settings/email*', 'fa-solid fa-envelope', $adminRoles),
+                    self::link('Modules & Features', 'settings.modules', 'settings/modules*', 'fa-solid fa-toggle-on', ['superuser']),
                     self::link('System Reports', 'settings.reports', 'settings/reports*', 'fa-solid fa-file-lines', $adminRoles),
                     self::link('Activity Log', 'settings.activity-log', 'settings/activity-log*', 'fa-solid fa-clock-rotate-left', ['superuser']),
                     self::link('User Management', 'settings.users', 'settings/users*', 'fa-solid fa-users-gear', ['superuser']),
@@ -401,9 +406,101 @@ class NavigationHelper
         return $items;
     }
 
+    /**
+     * Storefront back-office navigation, built from route existence, permissions
+     * and the feature flags that materially change available workflows.
+     *
+     * @return array{title:string, items:list<array<string, mixed>>}|null
+     */
+    private static function storefrontSection(User $user): ?array
+    {
+        $items = array_values(array_filter([
+            self::permissionLinkFor($user, 'Overview', 'storefront.admin.dashboard', 'storefront-admin', 'fa-solid fa-store', 'view_storefront_dashboard'),
+            self::permissionLinkFor($user, 'Listings', 'storefront.admin.listings.index', 'storefront-admin/listings*', 'fa-solid fa-tags', 'view_storefront_listings'),
+            self::permissionLinkFor($user, 'Push to Storefront', 'storefront.admin.push.create', 'storefront-admin/push*', 'fa-solid fa-arrow-up-right-from-square', 'push_to_storefront'),
+            self::permissionLinkFor($user, 'Orders', 'storefront.admin.orders.index', 'storefront-admin/orders*', 'fa-solid fa-receipt', 'view_storefront_orders'),
+            self::storefrontQuotesLink($user),
+            self::permissionLinkFor($user, 'Placements', 'storefront.admin.placements.index', 'storefront-admin/placements*', 'fa-solid fa-star', 'manage_storefront_placements'),
+            self::permissionLinkFor($user, 'Reports', 'storefront.admin.reports.sales', 'storefront-admin/reports*', 'fa-solid fa-chart-column', 'view_storefront_reports'),
+            self::permissionLinkFor($user, 'Settings', 'storefront.admin.settings.index', 'storefront-admin/settings*', 'fa-solid fa-sliders', 'manage_storefront_settings'),
+            self::storefrontShopLink($user),
+        ]));
+
+        if ($items === []) {
+            return null;
+        }
+
+        return [
+            'title' => 'Storefront',
+            'items' => $items,
+        ];
+    }
+
+    private static function storefrontQuotesLink(User $user): ?array
+    {
+        if (! app(OrganizationFeatureService::class)->usable(FeatureCatalog::STOREFRONT_QUOTES)) {
+            return null;
+        }
+
+        return self::permissionLinkFor(
+            $user,
+            'Quotes',
+            'storefront.admin.quotes.index',
+            'storefront-admin/quotes*',
+            'fa-solid fa-file-signature',
+            'view_storefront_quotes',
+        );
+    }
+
+    private static function storefrontShopLink(User $user): ?array
+    {
+        $storefrontPermissions = [
+            'view_storefront_dashboard',
+            'view_storefront_listings',
+            'push_to_storefront',
+            'view_storefront_orders',
+            'view_storefront_quotes',
+            'view_storefront_reports',
+            'manage_storefront_settings',
+        ];
+
+        if (! Route::has('storefront.home') || ! $user->hasAnyPermission($storefrontPermissions)) {
+            return null;
+        }
+
+        return [
+            'type' => 'link',
+            'label' => 'View Store',
+            'route' => 'storefront.home',
+            'active_patterns' => ['shop*'],
+            'icon' => 'fa-solid fa-cart-shopping',
+        ];
+    }
+
     private static function link(string $label, string $route, array|string $activePatterns, string $icon, array $roles): ?array
     {
         if (! self::currentUserHasAnyRole($roles)) {
+            return null;
+        }
+
+        return [
+            'type' => 'link',
+            'label' => $label,
+            'route' => $route,
+            'active_patterns' => (array) $activePatterns,
+            'icon' => $icon,
+        ];
+    }
+
+    private static function permissionLinkFor(
+        User $user,
+        string $label,
+        string $route,
+        array|string $activePatterns,
+        string $icon,
+        array|string $permissions,
+    ): ?array {
+        if (! Route::has($route) || ! $user->hasAnyPermission($permissions)) {
             return null;
         }
 

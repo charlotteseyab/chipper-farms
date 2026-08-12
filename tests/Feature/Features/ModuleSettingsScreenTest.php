@@ -17,7 +17,7 @@ use Tests\TestCase;
 /**
  * Settings → Modules & Features screen — Phase 1 (prompt §15).
  *
- * The screen is the only way an administrator changes module configuration, so
+ * The screen is the only way a superuser changes module configuration, so
  * two things must hold: it is reachable only by someone entitled to reshape the
  * product for everyone else, and it cannot be used to lock that person out.
  */
@@ -49,9 +49,9 @@ class ModuleSettingsScreenTest extends TestCase
         return app(OrganizationFeatureService::class);
     }
 
-    protected function user(bool $canManage): User
+    protected function user(bool $canManage, string $roleName = 'staff'): User
     {
-        $role = Role::create(['name' => 'r_' . uniqid()]);
+        $role = Role::create(['name' => $roleName . '_' . uniqid()]);
 
         if ($canManage) {
             $role->permissions()->attach(
@@ -61,20 +61,38 @@ class ModuleSettingsScreenTest extends TestCase
 
         return User::forceCreate([
             'name' => 'U', 'email' => 'u_' . uniqid() . '@example.com',
-            'password' => bcrypt('x'), 'role' => $role->name, 'role_id' => $role->id,
+            'password' => bcrypt('x'), 'role' => $roleName, 'role_id' => $role->id,
+            'organization_id' => $this->org->id, 'active_status' => true,
+        ]);
+    }
+
+    protected function superuser(): User
+    {
+        $role = Role::firstOrCreate(['name' => 'superuser']);
+
+        return User::forceCreate([
+            'name' => 'Superuser', 'email' => 'super_' . uniqid() . '@example.com',
+            'password' => bcrypt('x'), 'role' => 'superuser', 'role_id' => $role->id,
             'organization_id' => $this->org->id, 'active_status' => true,
         ]);
     }
 
     /* ------------------------------------------------------------------ */
 
-    public function test_screen_renders_for_an_authorised_administrator(): void
+    public function test_screen_renders_for_a_superuser(): void
     {
-        $this->actingAs($this->user(true))
+        $this->actingAs($this->superuser())
             ->get(route('settings.modules'))
             ->assertOk()
             ->assertSee('Modules')
             ->assertSee('Record Expense');
+    }
+
+    public function test_screen_is_refused_for_admin_even_with_the_permission(): void
+    {
+        $this->actingAs($this->user(true, 'admin'))
+            ->get(route('settings.modules'))
+            ->assertForbidden();
     }
 
     public function test_screen_is_refused_without_the_permission(): void
@@ -86,7 +104,7 @@ class ModuleSettingsScreenTest extends TestCase
 
     public function test_toggling_a_feature_persists(): void
     {
-        $admin = $this->user(true);
+        $admin = $this->superuser();
 
         $this->actingAs($admin)
             ->put(route('settings.modules.update'), [
@@ -116,9 +134,24 @@ class ModuleSettingsScreenTest extends TestCase
         );
     }
 
+    public function test_toggling_is_refused_for_admin_even_with_the_permission(): void
+    {
+        $this->actingAs($this->user(true, 'admin'))
+            ->put(route('settings.modules.update'), [
+                'feature_key' => FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING,
+                'enabled'     => 1,
+            ])
+            ->assertForbidden();
+
+        $this->service()->forget();
+        $this->assertFalse(
+            $this->service()->enabled(FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING)
+        );
+    }
+
     public function test_an_unknown_feature_key_is_rejected_by_validation(): void
     {
-        $this->actingAs($this->user(true))
+        $this->actingAs($this->superuser())
             ->put(route('settings.modules.update'), [
                 'feature_key' => 'finance.not_real',
                 'enabled'     => 1,
@@ -128,7 +161,7 @@ class ModuleSettingsScreenTest extends TestCase
 
     public function test_applying_a_preset_from_the_screen_works(): void
     {
-        $this->actingAs($this->user(true))
+        $this->actingAs($this->superuser())
             ->post(route('settings.modules.preset'), ['preset' => ModulePreset::ESSENTIALS])
             ->assertRedirect(route('settings.modules'));
 
@@ -136,9 +169,16 @@ class ModuleSettingsScreenTest extends TestCase
         $this->assertTrue($this->service()->enabled(FeatureCatalog::FINANCE_QUICK_EXPENSE));
     }
 
+    public function test_applying_a_preset_is_refused_for_admin_even_with_the_permission(): void
+    {
+        $this->actingAs($this->user(true, 'admin'))
+            ->post(route('settings.modules.preset'), ['preset' => ModulePreset::ESSENTIALS])
+            ->assertForbidden();
+    }
+
     public function test_an_unknown_preset_is_rejected_by_validation(): void
     {
-        $this->actingAs($this->user(true))
+        $this->actingAs($this->superuser())
             ->post(route('settings.modules.preset'), ['preset' => 'nope'])
             ->assertSessionHasErrors('preset');
     }
@@ -149,7 +189,7 @@ class ModuleSettingsScreenTest extends TestCase
      */
     public function test_the_screen_stays_reachable_after_an_exclusive_reset(): void
     {
-        $admin = $this->user(true);
+        $admin = $this->superuser();
 
         $this->actingAs($admin)
             ->post(route('settings.modules.preset'), [
@@ -169,7 +209,7 @@ class ModuleSettingsScreenTest extends TestCase
     {
         $this->service()->enable(FeatureCatalog::FINANCE_WHT);
 
-        $this->actingAs($this->user(true))
+        $this->actingAs($this->superuser())
             ->get(route('settings.modules'))
             ->assertOk()
             ->assertSee('will also switch off', false);

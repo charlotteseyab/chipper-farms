@@ -17,9 +17,12 @@ use Illuminate\View\View;
  * Settings → Modules & Features (Phase 1, prompt §15).
  *
  * Every action here is guarded by `permission:manage_feature_flags` in the route
- * definition. The controller deliberately does not consult feature flags to
- * decide whether the user may act — a flag layer that gated its own settings
- * screen could lock an administrator out of the switch that turns it back on.
+ * definition AND an explicit superuser check in this controller. Module flags
+ * change the product surface for everyone in the organisation, so QA-001 keeps
+ * the screen narrower than the seeded permission alone. The controller
+ * deliberately does not consult feature flags to decide whether the user may
+ * act — a flag layer that gated its own settings screen could lock a superuser
+ * out of the switch that turns it back on.
  */
 class ModuleFeatureController extends Controller
 {
@@ -29,8 +32,10 @@ class ModuleFeatureController extends Controller
     ) {
     }
 
-    public function index(): View
+    public function index(Request $request): View
     {
+        $this->authorizeSuperuser($request);
+
         $organization = $this->currentOrganization->get();
 
         $state   = $this->features->map();
@@ -68,6 +73,8 @@ class ModuleFeatureController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
+        $this->authorizeSuperuser($request);
+
         $validated = $request->validate([
             'feature_key' => ['required', 'string', Rule::in(FeatureCatalog::keys())],
             'enabled'     => ['required', 'boolean'],
@@ -104,6 +111,8 @@ class ModuleFeatureController extends Controller
 
     public function applyPreset(Request $request): RedirectResponse
     {
+        $this->authorizeSuperuser($request);
+
         $validated = $request->validate([
             'preset'    => ['required', 'string', Rule::in(ModulePreset::codes())],
             'exclusive' => ['sometimes', 'boolean'],
@@ -147,5 +156,10 @@ class ModuleFeatureController extends Controller
         $last = array_pop($labels);
 
         return implode(', ', $labels) . ' and ' . $last;
+    }
+
+    protected function authorizeSuperuser(Request $request): void
+    {
+        abort_unless($request->user()?->isSuperuser(), 403);
     }
 }
