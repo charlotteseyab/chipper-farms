@@ -138,15 +138,15 @@ hidden button is not a control.
 
 | Suite | Result |
 | --- | --- |
-| Default (SQLite) | **1838 tests, 5620 assertions**, 0 failures |
-| MariaDB 11.4.2 | **1838 tests, 5630 assertions**, 0 failures |
+| Default (SQLite) | **1842 tests, 5627 assertions**, 0 failures |
+| MariaDB 11.4.2 | **1842 tests, 5637 assertions**, 0 failures |
 | Concurrency (MariaDB 11.4.2) | **19 tests, 324 assertions**, 0 failures |
 | Browser (Chromium 126) | **5 tests, 16 assertions**, 0 failures |
 | `npm run build` | **green** — 57 modules, built in 14.43s |
 | Migration reversibility | 212 up / 211 down / 211 up, 0 failures |
 
-New feature tests: 47 across seven files, covering all twenty numbered
-requirements in the brief.
+New feature tests: 51 across eight files, covering all twenty numbered
+requirements in the brief, plus `PigLocalIdTest` for the defect in §7.7.
 
 ---
 
@@ -208,13 +208,47 @@ the test green, because the soft-delete on the same row blocks anyway. The
 docblock now says what was measured. **The discriminating control for the lock is
 probabilistic — 2 failures in 3 runs — the same limitation as IMP-084.**
 
+### 7.7 A pre-existing defect I diagnosed wrongly, then fixed
+
+While fixturing the concurrency tests, pig creation failed with a unique
+violation on `pigs_local_id_unique`. I reported it as a multi-tenant bug — an
+"organisation-scoped `max()+1` against a global unique index" — and said it
+needed a migration and a renumbering decision.
+
+**That diagnosis was wrong in both halves.** `BelongsToOrganization` adds no read
+scope, so `max()` was already global. And no second farm is required.
+
+The real cause is soft deletes. A sold pig is soft-deleted by
+`RecordPigSaleService`, but its row keeps occupying the unique index, and
+`max()` cannot see soft-deleted rows:
+
+```
+pigs 1, 2, 3 exist → sell pig 3 → max() returns 2 → next pig gets 3 → collision
+```
+
+So **one farm, ordinary use**: sell your most recently added animal and you can
+no longer add another one. The failure is a raw integrity-constraint error at
+the moment someone records a new pig. It was reachable long before this feature
+and became easy to hit here only because selling animals is this flow's normal
+case.
+
+The fix is `withTrashed()` when reading the maximum, plus a short probe loop so
+two concurrent creates that read the same maximum resolve rather than one of
+them erroring. No migration and no renumbering: existing numbers are already
+globally unique and stay exactly as they are.
+
+`PigLocalIdTest` covers it in four tests. Removing `withTrashed()` reproduces
+the production error verbatim.
+
+---
+
 ---
 
 ## 8. Remaining risks
 
 | Risk | Detail |
 | --- | --- |
-| **`local_id` collides across farms** (pre-existing) | `pigs_management.local_id` is generated as an organisation-scoped `max()+1`, but `pigs_local_id_unique` is a **global** unique index on that column alone. The moment a second farm exists, pig creation fails. Not this feature's defect and **not fixed here** — it needs a migration and a renumbering decision. Fixtures set `local_id` explicitly to work around it |
+| ~~`local_id` collides across farms~~ | **FIXED, and the original diagnosis was wrong — see §7.7** |
 | Lock control is probabilistic | §7.6. The outcome tests are deterministic; the isolation of the lock line is not |
 | Weightless pool sales | A pooled line is priced per head, so `sale_weight`/`price_per_kg` are null unless the line carries a weight. Correct for fixed-price sales, but pig sales reports that assume a weight will show blanks for these |
 | Pool size and the picker | The selector renders every eligible animal with no pagination. Fine for tens; a farm with hundreds of Standard Stock will want search server-side |
@@ -234,7 +268,10 @@ browser flow verified, and all five gates green.
 
 **STOREFRONT PIG-SALE FLOW COMPLETE — READY FOR HUMAN SMOKE TEST**
 
-Two things to carry into that smoke test: this flow does not fix the pre-existing
-`local_id` collision, so **do not exercise it with a second organisation** until
-that is repaired; and the queue worker must be running, or approval will create
-the sales while finance posting sits unprocessed.
+One thing to carry into that smoke test: **the queue worker must be running**,
+or approval will create the sales while finance posting sits unprocessed.
+
+The `local_id` collision that this report originally flagged as a blocker is
+fixed (§7.7). It was never a multi-tenant problem — it was soft deletes, and it
+would have bitten any farm that sold its newest pig, with or without this
+feature.

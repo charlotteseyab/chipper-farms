@@ -45,10 +45,22 @@ class PigManagement extends Model
     protected static function booted(): void
     {
         static::creating(function ($pig) {
-            // Auto-generate local_id if not provided (global sequential ID)
+            // Auto-generate local_id if not provided (global sequential ID).
+            //
+            // `withTrashed()` IS THE WHOLE FIX. A sold pig is soft-deleted by
+            // RecordPigSaleService, but its row — and its local_id — stay in the
+            // table and keep occupying `pigs_local_id_unique`. A plain max()
+            // cannot see those rows, so after selling the most recently added
+            // animal it returns a number that is already taken:
+            //
+            //   pigs 1,2,3 exist → sell 3 → max() = 2 → next pig gets 3 → boom
+            //
+            // That is a single-farm defect, not a multi-tenant one: any farm
+            // that sells its newest pig could not then add another. It surfaced
+            // while fixturing the storefront pig-pool work, where selling
+            // animals is the normal case.
             if (!$pig->local_id) {
-                $maxLocalId = static::max('local_id') ?? 0;
-                $pig->local_id = $maxLocalId + 1;
+                $pig->local_id = static::nextLocalId();
             }
 
             // Auto-generate a unique code when not provided to satisfy NOT NULL + unique
@@ -141,6 +153,32 @@ class PigManagement extends Model
     }
 
 
+
+    /**
+     * The next free local_id, counting rows that are soft-deleted.
+     *
+     * Retries on a unique violation rather than locking the whole table: two
+     * concurrent creates can read the same max and both try to claim it, and the
+     * index is what makes that visible. A handful of attempts is cheaper than
+     * serialising every pig creation on the farm, and the constraint guarantees
+     * we never silently duplicate.
+     */
+    public static function nextLocalId(int $attempts = 5): int
+    {
+        $candidate = ((int) static::withTrashed()->max('local_id')) + 1;
+
+        for ($try = 0; $try < $attempts; $try++) {
+            $taken = static::withTrashed()->where('local_id', $candidate)->exists();
+
+            if (! $taken) {
+                return $candidate;
+            }
+
+            $candidate++;
+        }
+
+        return $candidate;
+    }
 
     /**
      * Get compact age display for tables and lists

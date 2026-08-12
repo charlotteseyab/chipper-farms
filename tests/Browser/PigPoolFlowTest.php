@@ -102,8 +102,8 @@ class PigPoolFlowTest extends DuskTestCase
         for ($i = 0; $i < $count; $i++) {
             $pigs[] = PigManagement::create([
                 'organization_id' => $org->id,
-                // Explicit: local_id is generated per organisation but its
-                // unique index is global (recorded in the report).
+                // Explicit only to keep this suite off the shared sequence;
+                // the soft-delete defect it once worked around is fixed.
                 'local_id'        => random_int(1_000_000, 99_999_999),
                 'ear_tag_number'  => 'DUSK-' . $this->suffix() . '-' . $i,
                 'breed'           => 'Large White',

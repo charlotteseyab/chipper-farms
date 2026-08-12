@@ -89,12 +89,13 @@ class PigAllocationConcurrencyTest extends ConcurrencyTestCase
         'published_at' => now(),
     ]);
 
-    // local_id is set explicitly to dodge a PRE-EXISTING application bug:
-    // PigManagement generates it as max(local_id)+1 through an
-    // organisation-scoped model, but `pigs_local_id_unique` is a GLOBAL unique
-    // index on that column alone. The moment a second farm exists the generated
-    // value collides. Recorded rather than fixed here — it is not this feature's
-    // defect, and repairing it means a migration and a renumbering decision.
+    // local_id is set explicitly so these fixtures never contend on the global
+    // `pigs_local_id_unique` sequence while several workers create animals.
+    //
+    // It originally worked around a real defect — max() could not see
+    // soft-deleted pigs, so selling the newest animal made the next creation
+    // collide. That is fixed in PigManagement::nextLocalId(); the explicit
+    // value is kept only to keep this suite independent of the sequence.
     \$pig = App\\Models\\PigManagement::create([
         'organization_id' => \$org->id,
         'local_id' => random_int(1000000, 99999999),
