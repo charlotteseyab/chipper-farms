@@ -314,6 +314,21 @@ class StorefrontPigPoolService
      */
     public function markPigSoldDirectly(PigManagement $pig, PigSale $sale, ?User $actor = null): void
     {
+        // If an approver committed this animal to an order, the sale is NOT a
+        // direct one — it is that order being approved, and
+        // `StorefrontPigAllocationService` is mid-flight and will set the pool
+        // row itself with the right order and reason. Standing aside here stops
+        // a storefront sale being labelled "sold at the gate" and stops the two
+        // services fighting over the same row.
+        $allocated = \App\Models\Storefront\StorefrontOrderItemPigAllocation::query()
+            ->where('pig_id', $pig->getKey())
+            ->whereIn('status', \App\Models\Storefront\StorefrontOrderItemPigAllocation::ACTIVE_STATUSES)
+            ->exists();
+
+        if ($allocated) {
+            return;
+        }
+
         $rows = StorefrontListingPig::query()
             ->where('pig_id', $pig->getKey())
             ->whereIn('status', StorefrontListingPig::ACTIVE_STATUSES)

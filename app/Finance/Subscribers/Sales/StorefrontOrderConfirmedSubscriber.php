@@ -214,6 +214,29 @@ class StorefrontOrderConfirmedSubscriber extends Subscriber
      */
     protected function routePigLine($item, User $actor, string $paymentStatus, ?string $paymentMethod, ?string $buyerName, ?int $counterpartyId, ?StorefrontOrder $order = null, string $lineTax = '0.00'): ?string
     {
+        // A POOLED line was already sold, animal by animal, at approval.
+        //
+        // `StorefrontPigAllocationService` calls `RecordPigSaleService` once per
+        // selected pig and each of those dispatches its own `PigSaleRecorded`,
+        // so finance has already posted. There is nothing left for this
+        // subscriber to do, and trying would be the duplicate sale the whole
+        // design exists to prevent.
+        //
+        // Returning null rather than a deferral reason matters: a pooled line
+        // is HANDLED, not skipped. Reporting it as deferred would put a false
+        // problem on the order's finance panel and in Needs Attention — the
+        // "skipped is not an error" confusion Phase 15 removed.
+        if ($this->soldByAllocation($item)) {
+            return null;
+        }
+
+        // A pooled line that reaches confirmation with no sold allocations has
+        // not been through approval. That IS a real deferral: staff must pick
+        // the animals, and the line must not be silently dropped.
+        if ($this->requiresPigSelection($item)) {
+            return 'pig_awaiting_pig_selection';
+        }
+
         if ($item->source_type !== PigManagement::class || $item->source_id === null) {
             return 'pig_source_missing';
         }
@@ -272,6 +295,37 @@ class StorefrontOrderConfirmedSubscriber extends Subscriber
         ])->save();
 
         return null;
+    }
+
+    /**
+     * Did approval already sell this line's animals?
+     *
+     * Read from the allocations rather than `posted_sale_id`, because that
+     * column holds one id and a pooled line produces several sales.
+     */
+    protected function soldByAllocation($item): bool
+    {
+        return \App\Models\Storefront\StorefrontOrderItemPigAllocation::query()
+            ->where('storefront_order_item_id', $item->id)
+            ->where('status', \App\Models\Storefront\StorefrontOrderItemPigAllocation::STATUS_SOLD)
+            ->exists();
+    }
+
+    /**
+     * Is this a line whose listing draws from a pig pool?
+     *
+     * A legacy single-pig line has no pool and keeps the old path below
+     * untouched, which is what stops this change reaching existing orders.
+     */
+    protected function requiresPigSelection($item): bool
+    {
+        if ($item->listing_id === null) {
+            return false;
+        }
+
+        return \App\Models\Storefront\StorefrontListingPig::query()
+            ->where('storefront_listing_id', $item->listing_id)
+            ->exists();
     }
 
     /**

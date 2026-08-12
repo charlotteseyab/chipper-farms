@@ -115,6 +115,21 @@ class RecordPigSaleService
                 'new_values' => $sale->only(['sale_date', 'sale_weight', 'weight_type', 'price_per_kg', 'sale_price', 'buyer_name', 'payment_status']),
             ]);
 
+            // A sold pig can no longer be offered by the shop.
+            //
+            // Here rather than in the controller so EVERY path that records a
+            // sale — the /sales form, an import, a console command — keeps the
+            // storefront honest. A farm that sells an animal at the gate must
+            // not have to remember the shop was also advertising it; the next
+            // buyer would otherwise reach approval and find nothing to allocate.
+            //
+            // Inside this transaction: if the sale rolls back, so does the
+            // storefront's view of it. The pool service stands aside when the
+            // animal is already allocated to an order, because that sale is an
+            // approval rather than a direct one.
+            app(\App\Storefront\Services\StorefrontPigPoolService::class)
+                ->markPigSoldDirectly($pig, $sale, $actor);
+
             // Phase 0.4: dispatch the domain event inside this same transaction.
             // If anything below this rolls back, so does the outbox row.
             $this->dispatcher->dispatch(new PigSaleRecorded(

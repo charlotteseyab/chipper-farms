@@ -137,7 +137,21 @@ class OrderService
 
             $from = $locked->status;
 
+            // A pooled pig line cannot be confirmed until an approver has
+            // chosen the exact animals. Refusing here rather than deferring is
+            // deliberate: confirmation is the moment stock moves and money is
+            // owed, and confirming an order nobody can fulfil creates a
+            // customer promise the farm cannot keep.
+            $this->assertPigSelectionComplete($locked);
+
             $this->applyInventoryEffect($locked, reserve: true, actor: $actor);
+
+            // Sell the chosen animals INSIDE the confirmation transaction, so
+            // the sales and the confirmation stand or fall together. The
+            // service is idempotent — only allocations still active are sold —
+            // so a double-clicked Confirm produces one set of sales.
+            app(\App\Storefront\Services\StorefrontPigAllocationService::class)
+                ->approveAllocationsForOrder($locked, $actor);
 
             // Phase 10 (§37) — "convert hold to reserved/sold_out using current
             // locked confirmation logic". The stock has now actually moved, so
@@ -283,6 +297,13 @@ class OrderService
             if ($this->hadInventoryReserved($from)) {
                 $this->applyInventoryEffect($order, reserve: false, actor: $actor);
             }
+
+            // Give any chosen-but-unsold animals back to the shop. Allocations
+            // already SOLD are deliberately untouched: cancelling an order does
+            // not un-sell a pig. Reversing a completed sale is a credit note's
+            // job, not a status change.
+            app(\App\Storefront\Services\StorefrontPigAllocationService::class)
+                ->releaseOrderAllocations($order, $actor, $reason ?: 'Order cancelled.');
 
             // Phase 10 (§37) — "staff cancel: release hold". Scoped to still-
             // active holds, so cancelling an order that was already confirmed
@@ -624,6 +645,38 @@ class OrderService
      * doing here because Phase 3 already demonstrated this codebase can deadlock
      * under real contention.
      */
+    /**
+     * Every pooled pig line must have its animals chosen before confirmation.
+     *
+     * Legacy single-pig lines and product lines are untouched: only a line
+     * whose listing carries a pool is asked this question.
+     */
+    protected function assertPigSelectionComplete(StorefrontOrder $order): void
+    {
+        $allocations = app(\App\Storefront\Services\StorefrontPigAllocationService::class);
+
+        $order->loadMissing('items');
+
+        foreach ($order->items as $item) {
+            if (! $allocations->requiresPigSelection($item)) {
+                continue;
+            }
+
+            $outstanding = $allocations->outstandingFor($item);
+
+            if ($outstanding > 0) {
+                $required = (int) round((float) $item->quantity);
+
+                throw new InvalidOrderTransitionException(sprintf(
+                    'Select the exact pigs for "%s" before confirming: %d of %d chosen.',
+                    $item->description,
+                    $required - $outstanding,
+                    $required,
+                ));
+            }
+        }
+    }
+
     protected function applyInventoryEffect(StorefrontOrder $order, bool $reserve, User $actor): void
     {
         $order->loadMissing('items');
