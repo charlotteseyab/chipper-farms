@@ -80,7 +80,7 @@ class StorefrontPigPoolService
         // animal may be offered. Asking it per pig is a few queries each, which
         // is acceptable for a staff-facing picker and is the price of not
         // reimplementing the withdrawal and health rules here.
-        return $candidates->filter(function (PigManagement $pig) use ($organizationId) {
+        return $candidates->filter(function (PigManagement $pig) use ($organizationId, $listing) {
             $verdict = $this->eligibility->check(
                 $pig,
                 null,

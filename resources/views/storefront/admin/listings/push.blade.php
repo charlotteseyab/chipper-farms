@@ -127,6 +127,74 @@
                         <span class="text-slate-600">Currency</span>
                         <input type="text" name="currency_code" value="{{ old('currency_code', 'GHS') }}" maxlength="3" class="mt-1 w-full rounded-xl border-slate-300 text-sm">
                     </label>
+                    {{--
+                        Building a POOL of Standard Stock.
+
+                        A pig listing used to mean one animal, reached from that
+                        animal's page with ?pig=. A farm more often wants to
+                        advertise "market-ready live pigs — 5 head" and decide
+                        which five when an order comes in. Both shapes are
+                        supported; this block is the second one, and appears only
+                        when the wizard is not already pinned to a single animal.
+
+                        The quantity below is derived from what is ticked here.
+                        Availability follows the animals, because a pig sold at
+                        the farm gate has changed what the shop can offer and the
+                        number must not disagree with the herd.
+                    --}}
+                    @if($poolCandidates->isNotEmpty())
+                        <div class="sm:col-span-2 rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                             data-pig-pool>
+                            <p class="text-sm font-semibold text-slate-800">
+                                Standard Stock for this listing
+                            </p>
+                            <p class="mt-1 text-xs text-slate-500">
+                                Tick the animals this listing may draw from. Only Standard Stock that is
+                                unsold, alive, out of any medication withdrawal and not already on the shop
+                                is shown. Leave it empty for a listing that is not backed by specific pigs.
+                            </p>
+
+                            <input type="search"
+                                   data-pig-pool-filter
+                                   placeholder="Filter by ear tag, breed or sex…"
+                                   class="mt-3 w-full rounded-xl border-slate-300 text-sm">
+
+                            <div class="mt-2 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
+                                @foreach($poolCandidates as $candidate)
+                                    <label class="flex items-start gap-3 p-3 text-sm cursor-pointer hover:bg-slate-50"
+                                           data-pig-row
+                                           data-pig-search="{{ strtolower(trim(($candidate->ear_tag_number ?? '') . ' ' . ($candidate->breed ?? '') . ' ' . ($candidate->gender ?? ''))) }}">
+                                        <input type="checkbox"
+                                               name="pool_pig_ids[]"
+                                               value="{{ $candidate->id }}"
+                                               data-pig-checkbox
+                                               @checked(in_array((string) $candidate->id, (array) old('pool_pig_ids', []), true))
+                                               class="mt-1 rounded border-slate-300">
+                                        <span class="min-w-0">
+                                            <span class="font-medium text-slate-800">
+                                                {{ $candidate->ear_tag_number ?: ('Pig #' . $candidate->id) }}
+                                            </span>
+                                            <span class="block text-xs text-slate-500">
+                                                {{ $candidate->breed ?: 'Breed not recorded' }}
+                                                · {{ $candidate->gender ?: 'sex not recorded' }}
+                                                @if($candidate->date_of_birth)
+                                                    · {{ \Carbon\Carbon::parse($candidate->date_of_birth)->age }} yr
+                                                @endif
+                                                @if($candidate->current_weight)
+                                                    · {{ rtrim(rtrim((string) $candidate->current_weight, '0'), '.') }} kg
+                                                @endif
+                                            </span>
+                                        </span>
+                                    </label>
+                                @endforeach
+                            </div>
+
+                            <p class="mt-2 text-xs text-slate-600">
+                                <span data-pig-pool-count>0</span> selected — this becomes the listing quantity.
+                            </p>
+                        </div>
+                    @endif
+
                     <label class="block text-sm">
                         <span class="text-slate-600">Quantity available</span>
                         <input type="number" step="0.0001" name="quantity_available" value="{{ old('quantity_available', $prefill['quantity_available'] ?? 1) }}" class="mt-1 w-full rounded-xl border-slate-300 text-sm">
@@ -171,4 +239,49 @@
             </div>
         </form>
     </div>
+
+{{--
+    Counting, filtering and keeping the quantity honest.
+
+    Plain JS rather than a component because this page has no build-time
+    JS of its own, and the form works without any of it: the server derives
+    the real quantity from the pigs actually attached, so a browser with
+    this script disabled still produces a correct listing.
+--}}
+<script>
+(function () {
+    var pool = document.querySelector('[data-pig-pool]');
+    if (!pool) { return; }
+
+    var boxes    = pool.querySelectorAll('[data-pig-checkbox]');
+    var counter  = pool.querySelector('[data-pig-pool-count]');
+    var filter   = pool.querySelector('[data-pig-pool-filter]');
+    var quantity = document.querySelector('input[name="quantity_available"]');
+
+    function refresh() {
+        var selected = 0;
+        boxes.forEach(function (box) { if (box.checked) { selected++; } });
+        if (counter) { counter.textContent = String(selected); }
+        // The server recomputes this from the attached animals; setting it
+        // here just stops the form showing a number that contradicts the
+        // ticks in front of the user.
+        if (quantity && selected > 0) { quantity.value = selected; }
+    }
+
+    boxes.forEach(function (box) { box.addEventListener('change', refresh); });
+
+    if (filter) {
+        filter.addEventListener('input', function () {
+            var needle = filter.value.toLowerCase().trim();
+            pool.querySelectorAll('[data-pig-row]').forEach(function (row) {
+                var hay = row.getAttribute('data-pig-search') || '';
+                row.style.display = (needle === '' || hay.indexOf(needle) !== -1) ? '' : 'none';
+            });
+        });
+    }
+
+    refresh();
+})();
+</script>
+
 </x-app-layout>

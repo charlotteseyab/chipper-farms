@@ -78,7 +78,19 @@ class PushToStorefrontController extends Controller
             ->where('organization_id', $orgId)
             ->active()->ordered()->get();
 
+        // Standard Stock this farm could pool into a pig-backed listing.
+        //
+        // Offered whenever the wizard is NOT already pinned to one animal via
+        // ?pig=. That is the difference between the two shapes a pig listing
+        // can take: "this animal", which existed before, and "any N of these",
+        // which is what a pool is.
+        $poolCandidates = $source === null
+            ? app(\App\Storefront\Services\StorefrontPigPoolService::class)
+                ->eligibleStandardPigsForListing($orgId)
+            : collect();
+
         return view('storefront.admin.listings.push', [
+            'poolCandidates' => $poolCandidates,
             'source'      => $source,
             'sourceType'  => $source ? $source::class : null,
             'sourceId'    => $source?->getKey(),
@@ -114,6 +126,25 @@ class PushToStorefrontController extends Controller
             return back()->withInput()
                 ->with('error', 'This pig cannot be listed for sale.')
                 ->with('eligibility_blockers', $e->reasons);
+        }
+
+        // Attach the chosen Standard Stock, which also derives the listing's
+        // public quantity from the animals rather than trusting the number
+        // typed into the form.
+        $poolPigIds = array_filter(array_map('intval', (array) $request->input('pool_pig_ids', [])));
+
+        if ($poolPigIds !== []) {
+            try {
+                app(\App\Storefront\Services\StorefrontPigPoolService::class)
+                    ->attachPigs($listing, $poolPigIds, $request->user());
+            } catch (\App\Storefront\Services\Exceptions\InventoryConflictException $e) {
+                // The listing exists but holds no animals. Say so plainly and
+                // send the user to it, rather than losing the work or leaving
+                // them believing a pool was built.
+                return redirect()
+                    ->route('storefront.admin.listings.show', $listing)
+                    ->with('error', "Listing {$listing->reference} was created, but the pigs could not be added: {$e->getMessage()}");
+            }
         }
 
         return redirect()

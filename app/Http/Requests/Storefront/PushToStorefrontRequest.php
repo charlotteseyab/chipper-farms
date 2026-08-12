@@ -42,6 +42,13 @@ class PushToStorefrontRequest extends FormRequest
             'fixed_price'   => ['nullable', 'numeric', 'min:0', 'max:99999999'],
             'currency_code' => ['nullable', 'string', 'size:3'],
 
+            // Standard Stock pooled into a pig-backed listing. Existence is
+            // checked here; whether each animal may actually be SOLD is
+            // PigListingEligibilityService's decision, made in the pool service
+            // where it applies to every path rather than just this form.
+            'pool_pig_ids'   => ['nullable', 'array'],
+            'pool_pig_ids.*' => ['integer', 'exists:pigs_management,id'],
+
             'quantity_available' => ['required', 'numeric', 'min:0', 'max:99999999'],
             'quantity_unit'      => ['nullable', 'string', 'max:20'],
             'estimated_weight_kg'=> ['nullable', 'numeric', 'min:0', 'max:99999999'],
