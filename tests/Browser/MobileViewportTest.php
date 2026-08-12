@@ -155,6 +155,7 @@ class MobileViewportTest extends DuskTestCase
                     'return (function () {
                         var docWidth = document.documentElement.clientWidth;
                         var culprits = [];
+                        var scrollable = [];
 
                         function hasScrollableAncestor(el) {
                             for (var p = el.parentElement; p && p !== document.body; p = p.parentElement) {
@@ -168,21 +169,26 @@ class MobileViewportTest extends DuskTestCase
 
                         document.querySelectorAll("body *").forEach(function (el) {
                             var extra = Math.round(el.getBoundingClientRect().right - docWidth);
-                            if (extra > 4 && !hasScrollableAncestor(el)) {
-                                culprits.push(
-                                    (el.tagName || "?").toLowerCase()
+                            if (extra > 4) {
+                                var label = (el.tagName || "?").toLowerCase()
                                     + (typeof el.className === "string" && el.className
                                         ? "." + el.className.trim().split(/\\s+/).slice(0, 3).join(".")
                                         : "")
-                                    + " (+" + extra + "px)"
-                                );
+                                    + " (+" + extra + "px)";
+
+                                if (hasScrollableAncestor(el)) {
+                                    scrollable.push(label);
+                                } else {
+                                    culprits.push(label);
+                                }
                             }
                         });
 
                         return {
                             scrollWidth: document.documentElement.scrollWidth,
                             clientWidth: docWidth,
-                            culprits: culprits.slice(0, 4)
+                            culprits: culprits.slice(0, 4),
+                            scrollable: scrollable.slice(0, 4)
                         };
                     })();'
                 ])[0];
@@ -195,7 +201,9 @@ class MobileViewportTest extends DuskTestCase
                         $label,
                         $path,
                         $overflow,
-                        $metrics['culprits'] ? implode(', ', $metrics['culprits']) : 'no unclipped element found',
+                        $metrics['culprits']
+                            ? implode(', ', $metrics['culprits'])
+                            : 'scroll-contained: ' . implode(', ', $metrics['scrollable'] ?? []),
                     );
                 }
             }

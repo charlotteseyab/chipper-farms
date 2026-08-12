@@ -189,7 +189,7 @@ scratch database). Rebuilt with `migrate:fresh --seed`.
 Two independent guards now:
 
 1. **`DuskTestCase` refuses to start** unless the connected database is
-   `chipper_farms_dusk`. Verified to refuse `chipper-farms` by name.
+   `chipper_farms_upgrade_test`. Verified to refuse `chipper-farms` by name.
 2. **`MobileViewportTest` no longer uses `DatabaseMigrations`.** It only reads
    pages to measure layout; it never needed a pristine database per test.
    Removing the trait removes the destructive step altogether, which is better
@@ -232,7 +232,7 @@ Tests: 1789, Assertions: 5312, Skipped: 13         # 0 failures, 0 errors
 $ CF_CONCURRENCY_DB_* … ./vendor/bin/phpunit -c phpunit.concurrency.xml
 OK (15 tests, 270 assertions)                      # MariaDB 11.4.2
 
-$ DB_DATABASE=chipper_farms_dusk php artisan dusk --filter MobileViewportTest
+$ DB_DATABASE=chipper_farms_upgrade_test php artisan dusk --filter MobileViewportTest
 PASS — 8 screens at 390×844                        # Chromium 126
 
 $ bash scripts/testing/run-mariadb-tests.sh        # MariaDB 11.4.2, port 3399

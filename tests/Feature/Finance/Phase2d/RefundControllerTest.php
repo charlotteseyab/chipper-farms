@@ -29,9 +29,10 @@ class RefundControllerTest extends TestCase
     {
         parent::setUp();
 
-        if (! \Illuminate\Support\Facades\Route::has('finance.refunds.index')) {
-            $this->markTestSkipped('Phase 2d routes not registered. Apply WEB_PHP_PHASE2D_ROUTES_PATCH.md.');
-        }
+        $this->assertTrue(
+            \Illuminate\Support\Facades\Route::has('finance.refunds.index'),
+            'Required finance.refunds.index route is not registered.'
+        );
 
         $this->setUpFinanceFixtures();
 

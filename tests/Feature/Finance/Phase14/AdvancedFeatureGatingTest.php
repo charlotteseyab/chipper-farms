@@ -77,9 +77,7 @@ class AdvancedFeatureGatingTest extends TestCase
         string $feature,
         string $route,
     ): void {
-        if (! RouteFacade::has($route)) {
-            $this->markTestSkipped("Route {$route} is not registered.");
-        }
+        $this->assertTrue(RouteFacade::has($route), "Required route {$route} is not registered.");
 
         // On: reachable (or at least not hidden — permission is a separate
         // matter and is asserted below).
@@ -116,9 +114,7 @@ class AdvancedFeatureGatingTest extends TestCase
         string $feature,
         string $route,
     ): void {
-        if (! RouteFacade::has($route)) {
-            $this->markTestSkipped("Route {$route} is not registered.");
-        }
+        $this->assertTrue(RouteFacade::has($route), "Required route {$route} is not registered.");
 
         // Feature ON for the organisation, but the user holds nothing.
         $this->app->make(OrganizationFeatureService::class)->enable($feature, $this->org);

@@ -9,6 +9,8 @@
             max-width: 1550px;
             margin: 0 auto;
             padding: 0 16px;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .allstock-hero{
@@ -107,6 +109,7 @@
             border-radius: 28px;
             box-shadow: 0 14px 34px rgba(15,23,42,.06);
             overflow: hidden;
+            max-width: 100%;
         }
 
         .allstock-card-head{
@@ -259,6 +262,8 @@
 
         .allstock-table-wrap{
             overflow-x: auto;
+            max-width: 100%;
+            width: 100%;
         }
 
         .allstock-table{

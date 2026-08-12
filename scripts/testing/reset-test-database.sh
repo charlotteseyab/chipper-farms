@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ -f .env.testing.mariadb.local ]]; then
+if [[ "${CF_SKIP_MARIADB_LOCAL_ENV:-}" != "yes" && -f .env.testing.mariadb.local ]]; then
   set -a
   source .env.testing.mariadb.local
   set +a

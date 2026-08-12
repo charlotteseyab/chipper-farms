@@ -36,9 +36,10 @@ class PaymentRunControllerTest extends TestCase
     {
         parent::setUp();
 
-        if (! \Illuminate\Support\Facades\Route::has('finance.payment-runs.index')) {
-            $this->markTestSkipped('Phase 3c routes not registered. Apply WEB_PHP_PHASE3C_ROUTES_PATCH.md.');
-        }
+        $this->assertTrue(
+            \Illuminate\Support\Facades\Route::has('finance.payment-runs.index'),
+            'Required finance.payment-runs.index route is not registered.'
+        );
 
         $this->setUpFinanceFixtures();
 

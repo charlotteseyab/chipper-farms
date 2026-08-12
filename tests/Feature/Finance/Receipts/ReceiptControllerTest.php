@@ -31,9 +31,10 @@ class ReceiptControllerTest extends TestCase
     {
         parent::setUp();
 
-        if (! \Illuminate\Support\Facades\Route::has('finance.receipts.index')) {
-            $this->markTestSkipped('Phase 2c routes not registered. Apply WEB_PHP_RECEIPTS_ROUTES_PATCH.md.');
-        }
+        $this->assertTrue(
+            \Illuminate\Support\Facades\Route::has('finance.receipts.index'),
+            'Required finance.receipts.index route is not registered.'
+        );
 
         $this->setUpFinanceFixtures();
 

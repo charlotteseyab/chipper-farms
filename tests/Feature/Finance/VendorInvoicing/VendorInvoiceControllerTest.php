@@ -34,9 +34,10 @@ class VendorInvoiceControllerTest extends TestCase
     {
         parent::setUp();
 
-        if (! \Illuminate\Support\Facades\Route::has('finance.vendor-invoices.index')) {
-            $this->markTestSkipped('Phase 3b routes not registered. Apply WEB_PHP_PHASE3B_ROUTES_PATCH.md.');
-        }
+        $this->assertTrue(
+            \Illuminate\Support\Facades\Route::has('finance.vendor-invoices.index'),
+            'Required finance.vendor-invoices.index route is not registered.'
+        );
 
         $this->setUpFinanceFixtures();
 

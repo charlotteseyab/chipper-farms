@@ -46,9 +46,10 @@ class AgeingControllerTest extends TestCase
 
     public function test_ar_ageing_index_route_renders(): void
     {
-        if (! Route::has('finance.ageing.index')) {
-            $this->markTestSkipped('finance.ageing.index route not registered (apply WEB_PHP patch).');
-        }
+        $this->assertTrue(
+            Route::has('finance.ageing.index'),
+            'Required finance.ageing.index route is not registered.'
+        );
 
         $resp = $this->actingAs($this->user)->get(route('finance.ageing.index'));
         $resp->assertOk();
@@ -56,9 +57,10 @@ class AgeingControllerTest extends TestCase
 
     public function test_ap_ageing_route_requires_perm(): void
     {
-        if (! Route::has('finance.ageing.ap')) {
-            $this->markTestSkipped('finance.ageing.ap route not registered (apply WEB_PHP patch).');
-        }
+        $this->assertTrue(
+            Route::has('finance.ageing.ap'),
+            'Required finance.ageing.ap route is not registered.'
+        );
 
         // Admin user (has perm) should get 200.
         $resp = $this->actingAs($this->user)->get(route('finance.ageing.ap'));
@@ -79,9 +81,10 @@ class AgeingControllerTest extends TestCase
 
     public function test_ap_export_streams_csv(): void
     {
-        if (! Route::has('finance.ageing.export-ap')) {
-            $this->markTestSkipped('finance.ageing.export-ap route not registered.');
-        }
+        $this->assertTrue(
+            Route::has('finance.ageing.export-ap'),
+            'Required finance.ageing.export-ap route is not registered.'
+        );
 
         $resp = $this->actingAs($this->user)->get(route('finance.ageing.export-ap'));
         $resp->assertOk();

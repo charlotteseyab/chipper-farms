@@ -49,11 +49,16 @@ class PaymentService
         array $rawResponse,
         ?User $actor = null,
     ): StorefrontOrderPayment {
-        if ($payment->status === StorefrontOrderPayment::STATUS_VERIFIED) {
-            return $payment; // already verified — idempotent.
-        }
-
         return DB::transaction(function () use ($payment, $rawResponse, $actor) {
+            $payment = StorefrontOrderPayment::query()
+                ->whereKey($payment->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($payment->status === StorefrontOrderPayment::STATUS_VERIFIED) {
+                return $payment; // already verified - idempotent.
+            }
+
             $payment->forceFill([
                 'status'       => StorefrontOrderPayment::STATUS_VERIFIED,
                 'raw_response' => $rawResponse,

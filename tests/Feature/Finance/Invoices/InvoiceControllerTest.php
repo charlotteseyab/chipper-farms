@@ -14,9 +14,8 @@ use Tests\Feature\Finance\FinanceTestSetup;
 use Tests\TestCase;
 
 /**
- * HTTP-level smoke tests. Skipped if Phase 2b routes haven't been
- * wired up yet (tests run before the route patch is applied during
- * staged deployment).
+ * HTTP-level smoke tests. Route registration is required; missing routes are
+ * production regressions.
  */
 class InvoiceControllerTest extends TestCase
 {
@@ -31,9 +30,10 @@ class InvoiceControllerTest extends TestCase
     {
         parent::setUp();
 
-        if (! \Illuminate\Support\Facades\Route::has('finance.invoices.index')) {
-            $this->markTestSkipped('Phase 2b routes not registered. Apply WEB_PHP_INVOICES_ROUTES_PATCH.md.');
-        }
+        $this->assertTrue(
+            \Illuminate\Support\Facades\Route::has('finance.invoices.index'),
+            'Required finance.invoices.index route is not registered.'
+        );
 
         $this->setUpFinanceFixtures();
 

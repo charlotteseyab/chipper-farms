@@ -19,8 +19,7 @@ use Tests\TestCase;
  *   - import_bank_statement (clerical) is NOT enough for reconciliation
  *   - view_bank_accounts vs manage_bank_accounts split is honoured
  *
- * Uses Route::has guard so tests skip cleanly until WEB_PHP_PHASE3E_ROUTES_PATCH
- * is applied.
+ * Route registration is required; missing routes are production regressions.
  */
 class BankReconciliationControllerTest extends TestCase
 {
@@ -37,9 +36,10 @@ class BankReconciliationControllerTest extends TestCase
     {
         parent::setUp();
 
-        if (! Route::has('finance.bank-reconciliation.index')) {
-            $this->markTestSkipped('Phase 3e routes not yet registered. Apply WEB_PHP_PHASE3E_ROUTES_PATCH.md.');
-        }
+        $this->assertTrue(
+            Route::has('finance.bank-reconciliation.index'),
+            'Required finance.bank-reconciliation.index route is not registered.'
+        );
 
         $this->setUpFinanceFixtures();
         $this->seed(Phase3ePermissionsSeeder::class);

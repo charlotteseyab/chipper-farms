@@ -26,8 +26,7 @@ use Tests\TestCase;
  *   - Receipt allocations whose parent receipt is in that recon cannot be reversed.
  *   - Statement lines in that recon cannot be unmatched.
  *
- * Tests that consult patches not yet applied use Route::has-style
- * markTestSkipped guards.
+     * Missing lock dependencies are production regressions and fail directly.
  */
 class BankReconciliationLockTest extends TestCase
 {
@@ -206,10 +205,10 @@ class BankReconciliationLockTest extends TestCase
 
     public function test_payment_allocation_reverse_blocked_when_recon_locked(): void
     {
-        // This tests the patch in PATCH_PAYMENT_ALLOCATION_SERVICE_3E.md.
-        // If the patch isn't applied yet, mark skipped.
         $reflection = new \ReflectionClass(\App\Services\Finance\Payments\PaymentAllocationService::class);
         $ctor = $reflection->getConstructor();
+        $this->assertNotNull($ctor, 'PaymentAllocationService must expose its dependencies through the constructor.');
+
         $params = $ctor ? $ctor->getParameters() : [];
         $hasBankRecDep = false;
         foreach ($params as $p) {
@@ -220,12 +219,10 @@ class BankReconciliationLockTest extends TestCase
             }
         }
 
-        if (! $hasBankRecDep) {
-            $this->markTestSkipped(
-                'PaymentAllocationService not yet patched with BankReconciliationService dependency '
-                . '(see PATCH_PAYMENT_ALLOCATION_SERVICE_3E.md). Apply the patch and rerun.'
-            );
-        }
+        $this->assertTrue(
+            $hasBankRecDep,
+            'PaymentAllocationService must consult BankReconciliationService before reversing allocations.'
+        );
 
         // If patched, we'd test here. Smoke-test the lock query path.
         $ctx = $this->setUpReconciledPaymentScenario();

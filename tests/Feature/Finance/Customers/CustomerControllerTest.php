@@ -19,8 +19,7 @@ use Tests\TestCase;
  * by middleware, so these tests assert HTTP-level behaviour using
  * different authenticated roles.
  *
- * NOTE: Requires the routes patch from Phase 2a to be applied. Tests
- * skipped if the route isn't registered.
+ * Route registration is required; missing routes are production regressions.
  */
 class CustomerControllerTest extends TestCase
 {
@@ -35,9 +34,10 @@ class CustomerControllerTest extends TestCase
     {
         parent::setUp();
 
-        if (! \Illuminate\Support\Facades\Route::has('finance.customers.index')) {
-            $this->markTestSkipped('Phase 2a routes not registered. Apply WEB_PHP_CUSTOMERS_ROUTES_PATCH.md.');
-        }
+        $this->assertTrue(
+            \Illuminate\Support\Facades\Route::has('finance.customers.index'),
+            'Required finance.customers.index route is not registered.'
+        );
 
         $this->org = Organization::create(['slug' => 'cf', 'name' => 'CF']);
         $this->app->make(CurrentOrganization::class)->bind($this->org);

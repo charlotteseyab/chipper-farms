@@ -35,14 +35,14 @@ abstract class DuskTestCase extends BaseTestCase
      *
      * To run these tests:
      *
-     *   mysql -e "CREATE DATABASE IF NOT EXISTS chipper_farms_dusk"
+     *   mysql -e "CREATE DATABASE IF NOT EXISTS chipper_farms_upgrade_test"
      *   php artisan serve --port=8899 --env=dusk.local   # or an .env.dusk.local
-     *   DB_DATABASE=chipper_farms_dusk php artisan dusk
+     *   DB_DATABASE=chipper_farms_upgrade_test php artisan dusk
      *
      * The served application must use the same database, or the browser will be
      * looking at one database while the test truncates another.
      */
-    protected const ALLOWED_DATABASES = ['chipper_farms_dusk'];
+    protected const ALLOWED_DATABASES = ['chipper_farms_upgrade_test'];
 
     protected function setUp(): void
     {

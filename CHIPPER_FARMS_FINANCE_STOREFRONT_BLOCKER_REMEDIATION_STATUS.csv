@@ -1,0 +1,11 @@
+phase,status,summary,evidence
+00,complete,"Baseline classified; stale cache was the default-suite failure root cause.","Current php artisan test: 1776 passed, 13 skipped, 5451 assertions"
+01,complete,"Cache and environment guards remediated in test scripts.","scripts/testing/run-production-cache-tests.sh and MariaDB helper patches"
+02,complete,"Obsolete finance route/service skip guards converted to hard assertions.","Focused finance slice: 146 passed, 433 assertions"
+03,complete,"Node high vulnerabilities remediated without force.","npm audit fix; npm audit --audit-level=low found 0 vulnerabilities"
+04,complete,"Production-cache MariaDB suite passed after invalid overlapping attempt was discarded; current cached storefront/payment slice also passed.","Full: 1789 tests, 5461 assertions, 7 skipped; current slice: 37 tests, 117 assertions"
+05,complete,"Full non-cached MariaDB gate passed.","1789 tests, 5461 assertions, 7 skipped, 11:56.054"
+06,complete,"Concurrency gate passed.","15 tests, 270 assertions"
+07,complete,"Browser/Dusk certification against approved DB completed after mobile overflow remediation.","MobileViewportTest passed against chipper_farms_upgrade_test"
+08,pending,"Paystack external sandbox certification.","Credentials/webhook endpoint unavailable locally"
+09,complete,"Final remediation deliverables consolidated for external certification handoff.","Report, evidence, issue register, and checklist updated"

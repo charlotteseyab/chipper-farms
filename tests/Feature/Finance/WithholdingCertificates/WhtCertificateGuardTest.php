@@ -22,14 +22,12 @@ use Tests\TestCase;
  * certificate covers the allocation.
  *
  * The test focuses on the truth source for the guard:
- * `WhtCertificateService::issuedCertificatesCovering(allocation)`. The
- * PATCH_PAYMENT_ALLOCATION_SERVICE_3D patch wires this into
- * PaymentAllocationService::reverse() with a thrown exception when the
- * return is non-empty.
+     * `WhtCertificateService::issuedCertificatesCovering(allocation)`.
+     * PaymentAllocationService::reverse() must consult it before allowing a
+     * reversal.
  *
- * In addition: end-to-end check that PaymentAllocationService::reverse()
- * throws when the dependency is wired AND a covering issued cert exists,
- * subject to the patch being applied (markTestSkipped if it isn't).
+     * In addition: end-to-end check that PaymentAllocationService::reverse()
+     * throws when the dependency is wired AND a covering issued cert exists.
  */
 class WhtCertificateGuardTest extends TestCase
 {
@@ -131,15 +129,11 @@ class WhtCertificateGuardTest extends TestCase
     public function test_payment_allocation_service_reverse_throws_when_locked(): void
     {
         $patServiceClass = \App\Services\Finance\Payments\PaymentAllocationService::class;
-        if (! class_exists($patServiceClass)) {
-            $this->markTestSkipped('PaymentAllocationService not present.');
-        }
+        $this->assertTrue(class_exists($patServiceClass), 'PaymentAllocationService must be present.');
 
-        // Inspect ctor to see if WhtCertificateService is injected.
         $ctor = (new \ReflectionClass($patServiceClass))->getConstructor();
-        if (! $ctor) {
-            $this->markTestSkipped('PaymentAllocationService has no ctor — patch not applied.');
-        }
+        $this->assertNotNull($ctor, 'PaymentAllocationService must expose its dependencies through the constructor.');
+
         $hasWht = false;
         foreach ($ctor->getParameters() as $p) {
             $type = $p->getType();
@@ -148,12 +142,7 @@ class WhtCertificateGuardTest extends TestCase
                 $hasWht = true; break;
             }
         }
-        if (! $hasWht) {
-            $this->markTestSkipped(
-                'PATCH_PAYMENT_ALLOCATION_SERVICE_3D not applied. ' .
-                'Apply it so reverse() consults the WHT guard, then re-run.'
-            );
-        }
+        $this->assertTrue($hasWht, 'PaymentAllocationService must consult WhtCertificateService before reversing allocations.');
 
         $alloc = $this->makeAllocationScenario();
         $cert = $this->service->generateDraft($this->supplier, 'quarter', 2026, 4, $this->user);
@@ -175,23 +164,20 @@ class WhtCertificateGuardTest extends TestCase
     public function test_payment_allocation_service_reverse_succeeds_after_void(): void
     {
         $patServiceClass = \App\Services\Finance\Payments\PaymentAllocationService::class;
-        if (! class_exists($patServiceClass)) {
-            $this->markTestSkipped('PaymentAllocationService not present.');
-        }
+        $this->assertTrue(class_exists($patServiceClass), 'PaymentAllocationService must be present.');
+
         $ctor = (new \ReflectionClass($patServiceClass))->getConstructor();
+        $this->assertNotNull($ctor, 'PaymentAllocationService must expose its dependencies through the constructor.');
+
         $hasWht = false;
-        if ($ctor) {
-            foreach ($ctor->getParameters() as $p) {
-                $type = $p->getType();
-                if ($type && method_exists($type, 'getName')
-                    && $type->getName() === WhtCertificateService::class) {
-                    $hasWht = true; break;
-                }
+        foreach ($ctor->getParameters() as $p) {
+            $type = $p->getType();
+            if ($type && method_exists($type, 'getName')
+                && $type->getName() === WhtCertificateService::class) {
+                $hasWht = true; break;
             }
         }
-        if (! $hasWht) {
-            $this->markTestSkipped('PATCH_PAYMENT_ALLOCATION_SERVICE_3D not applied.');
-        }
+        $this->assertTrue($hasWht, 'PaymentAllocationService must consult WhtCertificateService before reversing allocations.');
 
         $alloc = $this->makeAllocationScenario();
         $cert = $this->service->generateDraft($this->supplier, 'quarter', 2026, 4, $this->user);

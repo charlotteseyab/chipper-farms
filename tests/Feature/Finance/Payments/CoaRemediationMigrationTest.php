@@ -278,10 +278,7 @@ class CoaRemediationMigrationTest extends TestCase
         $migrationPath = database_path('migrations');
         $files = glob($migrationPath . '/*remediate_coa_account_codes*');
 
-        if (empty($files)) {
-            $this->markTestSkipped('Remediation migration file not found in database/migrations');
-            return;
-        }
+        $this->assertNotEmpty($files, 'Remediation migration file not found in database/migrations.');
 
         $migration = require $files[0];
         $migration->up();

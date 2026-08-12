@@ -24,9 +24,10 @@ class SupplierStatementControllerTest extends TestCase
     {
         parent::setUp();
 
-        if (! Route::has('finance.supplier-statements.index')) {
-            $this->markTestSkipped('Phase 3d routes not registered. Apply WEB_PHP_PHASE3D_ROUTES_PATCH.md.');
-        }
+        $this->assertTrue(
+            Route::has('finance.supplier-statements.index'),
+            'Required finance.supplier-statements.index route is not registered.'
+        );
 
         $this->setUpFinanceFixtures();
         $this->seed(Phase3dPermissionsSeeder::class);

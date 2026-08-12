@@ -46,9 +46,10 @@ class WhtCertificateControllerTest extends TestCase
     {
         parent::setUp();
 
-        if (! Route::has('finance.wht-certificates.index')) {
-            $this->markTestSkipped('Phase 3d routes not registered. Apply WEB_PHP_PHASE3D_ROUTES_PATCH.md.');
-        }
+        $this->assertTrue(
+            Route::has('finance.wht-certificates.index'),
+            'Required finance.wht-certificates.index route is not registered.'
+        );
 
         $this->setUpFinanceFixtures();
         foreach (['accountant', 'treasurer', 'manager', 'admin', 'superuser'] as $roleName) {
