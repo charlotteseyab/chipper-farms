@@ -43,7 +43,37 @@ class PigSaleController extends Controller
             }
         }
 
-        return view('pigs.sale', compact('pig'));
+        // Is the shop currently offering this animal?
+        //
+        // Selling here is still allowed — a farm-gate sale is a real sale and
+        // must not be blocked by the shop — but the person doing it should know
+        // the listing exists, because the animal will disappear from it the
+        // moment they save. Silence would make the shop look broken later.
+        //
+        // An animal already COMMITTED to a storefront order is different: a
+        // customer has been promised it. That is refused below rather than
+        // warned about.
+        $listingLink = \App\Models\Storefront\StorefrontListingPig::query()
+            ->where('pig_id', $pig->getKey())
+            ->whereIn('status', \App\Models\Storefront\StorefrontListingPig::ACTIVE_STATUSES)
+            ->with('listing')
+            ->first();
+
+        $allocatedTo = \App\Models\Storefront\StorefrontOrderItemPigAllocation::query()
+            ->where('pig_id', $pig->getKey())
+            ->whereIn('status', \App\Models\Storefront\StorefrontOrderItemPigAllocation::ACTIVE_STATUSES)
+            ->with('order')
+            ->first();
+
+        if ($allocatedTo !== null) {
+            return back()->withErrors(['sale' => sprintf(
+                'This pig is committed to storefront order %s. Release or cancel that order before '
+                . 'selling the animal directly, or the customer will be promised a pig that is gone.',
+                $allocatedTo->order?->reference ?? ('#' . $allocatedTo->storefront_order_id),
+            )]);
+        }
+
+        return view('pigs.sale', compact('pig') + ['storefrontListingLink' => $listingLink]);
     }
 
     public function record(RecordPigSaleRequest $request, RecordPigSaleService $service, $id)

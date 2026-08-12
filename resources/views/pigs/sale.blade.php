@@ -68,6 +68,31 @@
             </div>
         </div>
 
+        {{--
+            This animal is currently on the shop.
+
+            The sale is still allowed — a farm-gate sale is a real sale — but
+            whoever is recording it should know the listing exists, because the
+            pig will leave it the moment this form is saved. Finding out later,
+            from a shop that quietly has one fewer animal, is worse.
+
+            A pig already COMMITTED to an order never reaches this page: the
+            controller refuses, because a customer has been promised it.
+        --}}
+        @isset($storefrontListingLink)
+            @if($storefrontListingLink)
+                <div class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <p class="font-semibold text-amber-900">This pig is on the shop</p>
+                    <p class="mt-1 text-sm text-amber-800">
+                        It is part of the storefront listing
+                        <strong>{{ $storefrontListingLink->listing?->title ?? ('#' . $storefrontListingLink->storefront_listing_id) }}</strong>.
+                        Recording this sale removes it from that listing and reduces what the shop
+                        can offer. Nobody has ordered this animal yet, so the sale is safe to make.
+                    </p>
+                </div>
+            @endif
+        @endisset
+
         <!-- Sale Form -->
         <form method="POST" action="{{ route('pigs.record-sale', $pig->id) }}" class="space-y-8">
             @csrf

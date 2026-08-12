@@ -90,6 +90,25 @@ class AdminStorefrontController extends Controller
         return view('storefront.admin.listings.show', [
             'listing'         => $listing,
             'sourceAvailable' => $this->availability->isSourceAvailable($listing),
+            // The pig pool behind this listing, if it has one. Ordered so the
+            // animals still on offer come first and the ones that have left —
+            // sold through the shop, sold at the gate, pulled out — read as
+            // history below them.
+            // Sorted in PHP, not SQL: MySQL's FIELD() does not exist on
+            // SQLite, and the default test suite runs there. A pool is a
+            // handful of rows, so ordering them in memory costs nothing and
+            // behaves identically on both engines.
+            'listingPigs'     => \App\Models\Storefront\StorefrontListingPig::query()
+                ->where('storefront_listing_id', $listing->getKey())
+                ->with(['pig', 'allocatedOrder'])
+                ->orderBy('id')
+                ->get()
+                ->sortBy(fn ($row) => array_search(
+                    $row->status,
+                    ['available', 'held', 'allocated', 'sold', 'removed'],
+                    true,
+                ) ?: 0)
+                ->values(),
         ]);
     }
 

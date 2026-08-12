@@ -65,4 +65,89 @@
             </div>
         </div>
     </div>
+
+        {{--
+            The animals behind this listing.
+
+            A pooled listing's quantity is not a number someone typed — it is a
+            count of these rows. Showing them is what makes the number
+            accountable: when a farm asks "why does the shop say 3?", this is
+            the answer, animal by animal, including the ones that have left and
+            why.
+        --}}
+        @if($listingPigs->isNotEmpty())
+            <div class="mt-6 rounded-2xl bg-white border border-slate-200 p-5">
+                <div class="flex items-center justify-between gap-3 flex-wrap">
+                    <h2 class="font-semibold text-slate-700">Pigs in this listing</h2>
+                    <p class="text-sm text-slate-500">
+                        {{ $listingPigs->where('status', 'available')->count() }} available
+                        · {{ $listingPigs->where('status', 'allocated')->count() }} committed to orders
+                        · {{ $listingPigs->where('status', 'sold')->count() }} sold
+                    </p>
+                </div>
+
+                <div class="mt-3 overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="text-left text-xs uppercase tracking-wide text-slate-400">
+                            <tr>
+                                <th class="py-2">Pig</th>
+                                <th class="py-2">Breed / sex</th>
+                                <th class="py-2">Status</th>
+                                <th class="py-2">Detail</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            @foreach($listingPigs as $row)
+                                @php
+                                    $tone = match ($row->status) {
+                                        'available' => 'bg-emerald-100 text-emerald-800',
+                                        'allocated' => 'bg-amber-100 text-amber-800',
+                                        'held'      => 'bg-sky-100 text-sky-800',
+                                        'sold'      => 'bg-slate-200 text-slate-700',
+                                        default     => 'bg-rose-100 text-rose-800',
+                                    };
+                                @endphp
+                                <tr>
+                                    <td class="py-2 font-medium text-slate-800">
+                                        {{ $row->pig?->ear_tag_number ?: ('Pig #' . $row->pig_id) }}
+                                    </td>
+                                    <td class="py-2 text-slate-500">
+                                        {{ $row->pig?->breed ?: '—' }}
+                                        @if($row->pig?->gender) · {{ $row->pig->gender }} @endif
+                                    </td>
+                                    <td class="py-2">
+                                        <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium {{ $tone }}">
+                                            {{ str_replace('_', ' ', $row->status) }}
+                                        </span>
+                                    </td>
+                                    <td class="py-2 text-slate-500 text-xs">
+                                        @if($row->status === 'allocated' && $row->allocatedOrder)
+                                            Committed to order {{ $row->allocatedOrder->reference }}
+                                        @elseif($row->status === 'sold')
+                                            {{-- A directive needs a word boundary: "Sold@if" is not
+                                                 parsed as one, which leaves a stray @endif and breaks
+                                                 the whole if/elseif chain. --}}
+                                            Sold
+                                            @if($row->pig_sale_id)
+                                                · sale #{{ $row->pig_sale_id }}
+                                            @endif
+                                        @elseif($row->removal_reason)
+                                            {{ $row->removal_reason }}
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <p class="mt-3 text-xs text-slate-500">
+                    The quantity shown in the shop is the number still available here. Selling a pig
+                    directly from Sales removes it from this listing automatically.
+                </p>
+            </div>
+        @endif
+
 </x-app-layout>
