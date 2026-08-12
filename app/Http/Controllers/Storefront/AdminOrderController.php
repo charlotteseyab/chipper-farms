@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
 use App\Models\Storefront\StorefrontOrder;
+use App\Models\Storefront\StorefrontOrderItem;
 use App\Storefront\Services\Exceptions\InvalidOrderTransitionException;
 use App\Storefront\Services\OrderService;
 use App\Storefront\Services\PaystackService;
@@ -73,7 +74,107 @@ class AdminOrderController extends Controller
                 ->where('order_id', $order->id)
                 ->with('listing')
                 ->get(),
+            // Pig-backed lines that need exact animals choosing before this
+            // order can be confirmed. Empty for every product line and for
+            // legacy single-pig listings, so the panel simply does not appear.
+            'pigSelection' => $this->pigSelectionFor($order),
         ]);
+    }
+
+    /**
+     * What the approver has to decide, per pooled line.
+     *
+     * Returns the line, how many animals it needs, which are already chosen,
+     * and the pool it may choose from — everything the panel needs to render
+     * without asking the view to run queries.
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected function pigSelectionFor(StorefrontOrder $order): array
+    {
+        $allocations = app(\App\Storefront\Services\StorefrontPigAllocationService::class);
+
+        $panels = [];
+
+        foreach ($order->items as $item) {
+            if (! $allocations->requiresPigSelection($item)) {
+                continue;
+            }
+
+            $required = (int) round((float) $item->quantity);
+
+            $chosen = \App\Models\Storefront\StorefrontOrderItemPigAllocation::query()
+                ->where('storefront_order_item_id', $item->id)
+                ->whereIn('status', \App\Models\Storefront\StorefrontOrderItemPigAllocation::ACTIVE_STATUSES)
+                ->pluck('pig_id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+            $sold = \App\Models\Storefront\StorefrontOrderItemPigAllocation::query()
+                ->where('storefront_order_item_id', $item->id)
+                ->where('status', \App\Models\Storefront\StorefrontOrderItemPigAllocation::STATUS_SOLD)
+                ->with('pig')
+                ->get();
+
+            // The animals this line may still draw from: whatever is on offer
+            // in the pool, plus the ones already chosen for THIS line so the
+            // approver can see and un-tick them.
+            $candidates = \App\Models\Storefront\StorefrontListingPig::query()
+                ->where('storefront_listing_id', $item->listing_id)
+                ->where(function ($q) use ($chosen) {
+                    $q->whereIn('status', \App\Models\Storefront\StorefrontListingPig::SELLABLE_STATUSES)
+                        ->orWhereIn('pig_id', $chosen ?: [0]);
+                })
+                ->with('pig')
+                ->get()
+                ->filter(fn ($row) => $row->pig !== null && ! $row->pig->trashed())
+                ->values();
+
+            $panels[] = [
+                'item'       => $item,
+                'required'   => $required,
+                'chosen'     => $chosen,
+                'outstanding'=> $allocations->outstandingFor($item),
+                'candidates' => $candidates,
+                'sold'       => $sold,
+            ];
+        }
+
+        return $panels;
+    }
+
+    /**
+     * Record which animals fulfil a line.
+     *
+     * Selection only — nothing is sold here. The sale happens at confirmation,
+     * so an approver can change their mind, and so the irreversible step
+     * re-validates against state that may have moved since.
+     */
+    public function selectPigs(Request $request, StorefrontOrder $order, StorefrontOrderItem $item): RedirectResponse
+    {
+        $this->assertSameOrg($order);
+
+        if ((int) $item->order_id !== (int) $order->getKey()) {
+            abort(404);
+        }
+
+        $pigIds = array_map('intval', (array) $request->input('pig_ids', []));
+
+        try {
+            app(\App\Storefront\Services\StorefrontPigAllocationService::class)
+                ->selectForOrderItem($item, $pigIds, $request->user());
+        } catch (\App\Storefront\Services\Exceptions\InventoryConflictException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        $this->orders->recordEvent(
+            order: $order,
+            type: 'system',
+            note: sprintf('%d pig(s) selected for "%s".', count($pigIds), $item->description),
+            actorId: $request->user()->id,
+        );
+
+        return back()->with('success', 'Pigs selected. Confirm the order to complete the sale.');
     }
 
     /**

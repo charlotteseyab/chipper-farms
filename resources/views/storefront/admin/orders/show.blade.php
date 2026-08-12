@@ -206,6 +206,122 @@
                     </div>
                 @endif
 
+                {{--
+                    Choosing the exact animals for a pooled pig line.
+
+                    A listing can advertise "5 head" without promising which
+                    five. Somebody has to decide, and it has to be a person: the
+                    animals differ in weight, age and condition, and the customer
+                    is buying livestock rather than units of stock.
+
+                    The panel appears only for lines whose listing carries a
+                    pool. Product lines and legacy single-pig listings never see
+                    it.
+
+                    Reading the panel follows view_storefront_orders, like the
+                    rest of this page. SELECTING is a POST inside the
+                    manage_storefront_orders route group, so the permission is
+                    enforced by middleware and not by whether this form renders.
+                --}}
+                @foreach($pigSelection as $panel)
+                    @php
+                        $line        = $panel['item'];
+                        $outstanding = $panel['outstanding'];
+                        $ready       = $outstanding === 0;
+                        $soldAlready = $panel['sold']->isNotEmpty();
+                    @endphp
+
+                    <div class="rounded-2xl border p-5 {{ $ready ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50' }}">
+                        <p class="font-semibold text-slate-800">
+                            {{ $soldAlready ? 'Pigs sold for' : 'Choose the pigs for' }} “{{ $line->description }}”
+                        </p>
+
+                        @if($soldAlready)
+                            {{-- Terminal state: these animals are gone. Shown so
+                                 the order can be traced to /sales, not edited. --}}
+                            <p class="mt-1 text-sm text-slate-600">
+                                Sold at approval. These animals are recorded in Sales.
+                            </p>
+                            <ul class="mt-2 space-y-1 text-sm text-slate-700">
+                                @foreach($panel['sold'] as $allocation)
+                                    <li>
+                                        {{ $allocation->pig?->ear_tag_number ?? ('Pig #' . $allocation->pig_id) }}
+                                        @if($allocation->pig_sale_id)
+                                            <span class="text-slate-400">· sale #{{ $allocation->pig_sale_id }}</span>
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @else
+                            <p class="mt-1 text-sm text-slate-600">
+                                This order asks for <strong>{{ $panel['required'] }}</strong> head.
+                                @if($ready)
+                                    All chosen — confirming the order will sell exactly these animals.
+                                @else
+                                    <strong>{{ $outstanding }}</strong> still to choose. The order cannot be
+                                    confirmed until the count matches.
+                                @endif
+                            </p>
+
+                            @if($panel['candidates']->isEmpty())
+                                <p class="mt-3 text-sm text-rose-700">
+                                    No animals are available in this listing’s pool. Add pigs to the listing,
+                                    or cancel this order.
+                                </p>
+                            @else
+                                @can('manage_storefront_orders')
+                                    <form method="POST"
+                                          action="{{ route('storefront.admin.orders.select-pigs', [$order, $line]) }}"
+                                          class="mt-3">
+                                        @csrf
+
+                                        <div class="max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
+                                            @foreach($panel['candidates'] as $poolRow)
+                                                @php $pig = $poolRow->pig; @endphp
+                                                <label class="flex items-start gap-3 p-3 text-sm cursor-pointer hover:bg-slate-50">
+                                                    <input type="checkbox"
+                                                           name="pig_ids[]"
+                                                           value="{{ $pig->id }}"
+                                                           @checked(in_array((int) $pig->id, $panel['chosen'], true))
+                                                           class="mt-1 rounded border-slate-300">
+                                                    <span class="min-w-0">
+                                                        <span class="font-medium text-slate-800">
+                                                            {{ $pig->ear_tag_number ?: ('Pig #' . $pig->id) }}
+                                                        </span>
+                                                        <span class="block text-xs text-slate-500">
+                                                            {{ $pig->breed ?: 'Breed not recorded' }}
+                                                            · {{ $pig->gender ?: 'sex not recorded' }}
+                                                            @if($pig->date_of_birth)
+                                                                · {{ \Carbon\Carbon::parse($pig->date_of_birth)->age }} yr
+                                                            @endif
+                                                            @if($pig->current_weight)
+                                                                · {{ rtrim(rtrim((string) $pig->current_weight, '0'), '.') }} kg
+                                                            @endif
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            @endforeach
+                                        </div>
+
+                                        <button type="submit"
+                                                class="mt-3 px-4 py-2 rounded-xl bg-slate-800 text-white text-sm">
+                                            Save selection
+                                        </button>
+                                        <span class="ml-2 text-xs text-slate-500">
+                                            Nothing is sold until you confirm the order.
+                                        </span>
+                                    </form>
+                                @else
+                                    <p class="mt-3 text-sm text-slate-500">
+                                        You can see what this order needs, but choosing the animals needs
+                                        permission to manage orders.
+                                    </p>
+                                @endcan
+                            @endif
+                        @endif
+                    </div>
+                @endforeach
+
                 {{-- §46: held listings need a visible expire/release/confirm path. --}}
                 @if($liveHolds->isNotEmpty())
                     <div class="rounded-2xl border border-slate-200 bg-white p-5">

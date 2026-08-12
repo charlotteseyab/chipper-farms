@@ -1577,6 +1577,10 @@ Route::middleware($protectedMiddleware)->group(function () {
             // posting downstream is idempotency-keyed so a replay of work that
             // already succeeded writes no second journal.
             Route::post('/orders/{order}/retry-finance', [\App\Http\Controllers\Storefront\AdminOrderController::class, 'retryFinancePosting'])->name('orders.retry-finance');
+            // Choosing the exact animals for a pooled pig line. Inside the
+            // manage_storefront_orders group, so the permission is enforced by
+            // middleware rather than by whether the panel happens to render.
+            Route::post('/orders/{order}/items/{item}/select-pigs', [\App\Http\Controllers\Storefront\AdminOrderController::class, 'selectPigs'])->name('orders.select-pigs');
         });
 
         // Reports (Phase 5).
