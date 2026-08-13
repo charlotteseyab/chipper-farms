@@ -4,8 +4,10 @@ namespace App\Storefront\Services;
 
 use App\Models\PigManagement;
 use App\Models\PigSale;
+use App\Models\Storefront\StorefrontInventoryHold;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontListingPig;
+use App\Models\Storefront\StorefrontOrderItemPigAllocation;
 use App\Models\User;
 use App\Storefront\Services\Exceptions\InventoryConflictException;
 use App\Support\CurrentOrganization;
@@ -43,6 +45,7 @@ class StorefrontPigPoolService
     public function __construct(
         protected PigListingEligibilityService $eligibility,
         protected CurrentOrganization $currentOrganization,
+        protected StorefrontPigPricingService $pricing,
     ) {
     }
 
@@ -57,9 +60,78 @@ class StorefrontPigPoolService
      *
      * @return Collection<int, PigManagement>
      */
+    /**
+     * Candidates for a source category, optionally filtered by a search term.
+     *
+     * WHY CATEGORY RATHER THAN KIND
+     * -----------------------------
+     * Staff think in terms of the stock they keep — breeding animals, standard
+     * stock, piglets — not in terms of a listing "kind". The category chooses
+     * both which animals are offered and what kind of listing results, so the
+     * person publishing never has to know the mapping.
+     *
+     * `manual` returns nothing by design: a manual listing is not backed by any
+     * animal, and offering a picker for it would invite staff to link stock the
+     * listing will not actually sell.
+     *
+     * The search is deliberately server-side. The browser filters the rendered
+     * rows for feedback, but a farm with hundreds of animals must be able to
+     * find one without every row being on the page first.
+     *
+     * @return Collection<int, PigManagement>
+     */
+    public function candidatesForCategory(
+        int $organizationId,
+        string $category,
+        ?StorefrontListing $listing = null,
+        ?string $search = null,
+    ): Collection {
+        if ($category === StorefrontPigPricingService::CATEGORY_MANUAL) {
+            return collect();
+        }
+
+        // Piglets have no per-animal record — farrowing and weaning carry litter
+        // COUNTS. They are materialised as real pigs only when a manager
+        // approves a sale, so there is nothing to pick from here yet.
+        if ($category === StorefrontPigPricingService::CATEGORY_PIGLETS) {
+            return collect();
+        }
+
+        $stockType = $category === StorefrontPigPricingService::CATEGORY_BREEDING
+            ? 'breeding'
+            : 'standard';
+
+        return $this->eligiblePigsForListing($organizationId, $listing, $stockType, $search);
+    }
+
+    /**
+     * The listing kind a category produces.
+     */
+    public function kindForCategory(string $category): string
+    {
+        return match ($category) {
+            StorefrontPigPricingService::CATEGORY_BREEDING => StorefrontListing::KIND_BREEDING_STOCK,
+            StorefrontPigPricingService::CATEGORY_PIGLETS  => StorefrontListing::KIND_PIGLET_LOT,
+            StorefrontPigPricingService::CATEGORY_STANDARD => StorefrontListing::KIND_LIVE_PIG,
+            default => StorefrontListing::KIND_LIVE_PIG,
+        };
+    }
+
     public function eligibleStandardPigsForListing(
         int $organizationId,
         ?StorefrontListing $listing = null,
+    ): Collection {
+        return $this->eligiblePigsForListing($organizationId, $listing, 'standard');
+    }
+
+    /**
+     * @return Collection<int, PigManagement>
+     */
+    public function eligiblePigsForListing(
+        int $organizationId,
+        ?StorefrontListing $listing = null,
+        string $stockType = 'standard',
+        ?string $search = null,
     ): Collection {
         $alreadyPooledElsewhere = StorefrontListingPig::query()
             ->whereIn('status', StorefrontListingPig::ACTIVE_STATUSES)
@@ -69,10 +141,26 @@ class StorefrontPigPoolService
 
         $candidates = PigManagement::query()
             ->where('organization_id', $organizationId)
-            ->where('stock_type', 'standard')
+            ->where('stock_type', $stockType)
             ->whereDoesntHave('sales')
             ->whereDoesntHave('deaths')
             ->when($alreadyPooledElsewhere !== [], fn ($q) => $q->whereNotIn('id', $alreadyPooledElsewhere))
+            // Searched in SQL so a farm with hundreds of animals can find one
+            // without every row being rendered first.
+            ->when($search !== null && trim($search) !== '', function ($q) use ($search) {
+                $term = '%' . trim($search) . '%';
+
+                $q->where(function ($inner) use ($term) {
+                    $inner->where('ear_tag_number', 'like', $term)
+                        ->orWhere('code', 'like', $term)
+                        ->orWhere('local_id', 'like', $term)
+                        ->orWhere('breed', 'like', $term)
+                        ->orWhere('gender', 'like', $term);
+                });
+            })
+            // The picker shows each animal's latest weight and its estimated
+            // value, so load it here rather than querying per row.
+            ->with('latestWeight')
             ->orderBy('ear_tag_number')
             ->get();
 
@@ -256,9 +344,32 @@ class StorefrontPigPoolService
      */
     public function availableCount(StorefrontListing $listing): int
     {
+        $organizationId = (int) $listing->organization_id;
+
         return StorefrontListingPig::query()
             ->where('storefront_listing_id', $listing->getKey())
             ->whereIn('status', StorefrontListingPig::SELLABLE_STATUSES)
+            ->with('pig')
+            ->get()
+            ->filter(function (StorefrontListingPig $row) use ($listing, $organizationId): bool {
+                $pig = $row->pig;
+
+                if (! $pig instanceof PigManagement) {
+                    return false;
+                }
+
+                if ($pig->trashed()
+                    || (int) $pig->organization_id !== $organizationId
+                    || $pig->stock_type !== 'standard'
+                    || $pig->sales()->exists()
+                    || $pig->deaths()->exists()) {
+                    return false;
+                }
+
+                $verdict = $this->eligibility->check($pig, null, $organizationId, (int) $listing->getKey());
+
+                return ($verdict['eligible'] ?? false) === true;
+            })
             ->count();
     }
 
@@ -289,15 +400,94 @@ class StorefrontPigPoolService
 
         $listing->quantity_available = (string) $available;
 
-        if ($available === 0 && $listing->status === StorefrontListing::STATUS_PUBLISHED) {
+        if ($available === 0 && in_array($listing->status, [
+            StorefrontListing::STATUS_PUBLISHED,
+            StorefrontListing::STATUS_RESERVED,
+        ], true)) {
             $listing->status = StorefrontListing::STATUS_SOLD_OUT;
-        } elseif ($available > 0 && $listing->status === StorefrontListing::STATUS_SOLD_OUT) {
+        } elseif ($available > 0 && in_array($listing->status, [
+            StorefrontListing::STATUS_SOLD_OUT,
+            StorefrontListing::STATUS_RESERVED,
+        ], true)) {
+            // Pooled listings are commercial stock pools, not single animals.
+            // `reserved` is a legacy single-pig state and should not hide a
+            // pool while unsold, sellable pigs remain. Deliberate staff states
+            // such as draft/unpublished/archived are left alone.
             $listing->status = StorefrontListing::STATUS_PUBLISHED;
         }
 
         $listing->save();
 
+        // Keep the money in step with the animals. Head count, total weight,
+        // price range and carcass capacity are all derived from the pool, so
+        // every change to it — attach, remove, sale, release — has to refresh
+        // them or the shop starts quoting figures the herd cannot back.
+        $this->pricing->refreshListingSnapshot($listing);
+
         return $listing;
+    }
+
+    /**
+     * Guard a non-storefront sale before `RecordPigSaleService` writes it.
+     *
+     * This is the server-side counterpart to the sale-form warning. The shop
+     * does not veto ordinary farm-gate sales, but it must not let a direct sale
+     * consume stock already promised by checkout holds or exact allocations.
+     */
+    public function assertPigMayBeSoldDirectly(PigManagement $pig): void
+    {
+        $allocated = StorefrontOrderItemPigAllocation::query()
+            ->where('pig_id', $pig->getKey())
+            ->whereIn('status', StorefrontOrderItemPigAllocation::ACTIVE_STATUSES)
+            ->lockForUpdate()
+            ->with('order')
+            ->first();
+
+        if ($allocated !== null) {
+            throw new InventoryConflictException(sprintf(
+                'This pig is committed to storefront order %s. Release or cancel that order before selling it directly.',
+                $allocated->order?->reference ?? ('#' . $allocated->storefront_order_id),
+            ));
+        }
+
+        $rows = StorefrontListingPig::query()
+            ->where('pig_id', $pig->getKey())
+            ->whereIn('status', StorefrontListingPig::ACTIVE_STATUSES)
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($rows as $row) {
+            if (! in_array($row->status, StorefrontListingPig::SELLABLE_STATUSES, true)) {
+                throw new InventoryConflictException("{$this->label($pig)} is committed on the storefront and cannot be sold directly.");
+            }
+
+            $listing = StorefrontListing::query()
+                ->whereKey($row->storefront_listing_id)
+                ->lockForUpdate()
+                ->first();
+
+            if ($listing === null) {
+                continue;
+            }
+
+            $availableAfterThisSale = max(0, $this->availableCount($listing) - 1);
+            $liveHolds = StorefrontInventoryHold::query()
+                ->where('listing_id', $listing->getKey())
+                ->live()
+                ->lockForUpdate()
+                ->pluck('quantity')
+                ->reduce(fn (string $carry, $quantity) => bcadd($carry, (string) $quantity, 4), '0');
+
+            if (bccomp((string) $availableAfterThisSale, $liveHolds, 4) < 0) {
+                throw new InventoryConflictException(sprintf(
+                    '%s cannot be sold directly because storefront customers already hold %s head from "%s".',
+                    $this->label($pig),
+                    rtrim(rtrim($liveHolds, '0'), '.') ?: '0',
+                    $listing->title,
+                ));
+            }
+        }
     }
 
     /**

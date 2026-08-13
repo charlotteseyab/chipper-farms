@@ -52,9 +52,9 @@ class PigPoolCreationScreenTest extends StorefrontTestCase
     protected function listingPayload(array $pigIds): array
     {
         return [
-            'kind'               => StorefrontListing::KIND_LIVE_PIG,
-            'sale_mode'          => StorefrontListing::MODE_FIXED,
-            'pricing_basis'      => StorefrontListing::BASIS_FIXED,
+            // Staff pick a CATEGORY; kind, sale mode and pricing basis are
+            // derived from it, so the form no longer asks for them.
+            'source_category'    => \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_STANDARD,
             'title'              => 'Market-ready live pigs',
             'fixed_price'        => 900,
             'currency_code'      => 'GHS',
@@ -168,9 +168,10 @@ class PigPoolCreationScreenTest extends StorefrontTestCase
     {
         $this->actingAs($this->makeUser('admin'))
             ->post(route('storefront.admin.push.store'), [
+                // No animal backs this one — that is what 'manual' means, and
+                // it is every feed, manure and service listing in the shop.
+                'source_category'    => \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_MANUAL,
                 'kind'               => StorefrontListing::KIND_FEED,
-                'sale_mode'          => StorefrontListing::MODE_FIXED,
-                'pricing_basis'      => StorefrontListing::BASIS_FIXED,
                 'title'              => 'A bag of feed',
                 'fixed_price'        => 50,
                 'currency_code'      => 'GHS',

@@ -78,19 +78,67 @@ class PushToStorefrontController extends Controller
             ->where('organization_id', $orgId)
             ->active()->ordered()->get();
 
-        // Standard Stock this farm could pool into a pig-backed listing.
+        // WHICH STOCK THIS LISTING DRAWS FROM
         //
-        // Offered whenever the wizard is NOT already pinned to one animal via
-        // ?pig=. That is the difference between the two shapes a pig listing
-        // can take: "this animal", which existed before, and "any N of these",
-        // which is what a pool is.
+        // Staff choose a source CATEGORY — breeding stock, standard stock,
+        // piglets, or manual — and that decides both the animals on offer and
+        // the resulting listing kind. Nobody publishing a listing should have
+        // to know that "standard stock" means kind `live_pig`.
+        //
+        // Offered whenever the wizard is not already pinned to one animal via
+        // ?pig=, which is the older "this exact animal" shape and still works.
+        $pricing  = app(\App\Storefront\Services\StorefrontPigPricingService::class);
+        $pool     = app(\App\Storefront\Services\StorefrontPigPoolService::class);
+
+        $category = $request->string('source_category')->toString()
+            ?: ($sourceKind === StorefrontListing::KIND_BREEDING_STOCK
+                ? \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_BREEDING
+                : \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_STANDARD);
+
+        $search = $request->string('stock_search')->toString() ?: null;
+
         $poolCandidates = $source === null
-            ? app(\App\Storefront\Services\StorefrontPigPoolService::class)
-                ->eligibleStandardPigsForListing($orgId)
+            ? $pool->candidatesForCategory($orgId, $category, null, $search)
             : collect();
 
         return view('storefront.admin.listings.push', [
-            'poolCandidates' => $poolCandidates,
+            'poolCandidates'  => $poolCandidates,
+            'sourceCategory'  => $category,
+            'stockSearch'     => $search,
+            // The farm's own rates, shown so staff can see what the listing
+            // will be priced from rather than typing a number themselves.
+            'livePricePerKg'    => $pricing->livePricePerKg(),
+            'carcassPricePerKg' => $pricing->carcassPricePerKg(),
+            // Everything the selector displays is computed here. The browser
+            // mirrors it for feedback; these are the numbers that count.
+            'poolSummary'     => $pricing->summarise($poolCandidates),
+            // Per-animal weight and value, computed HERE. The row markup needs
+            // both, and a Blade template calling a pricing service once per row
+            // is how N+1 queries and float arithmetic get into a view.
+            'poolRows'        => $poolCandidates->mapWithKeys(fn ($pig) => [
+                $pig->getKey() => [
+                    'weight' => $pricing->latestWeightKg($pig),
+                    'value'  => $pricing->liveValueOf($pig),
+                ],
+            ]),
+            'categoryOptions' => [
+                \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_BREEDING => [
+                    'label' => 'Breeding Stock',
+                    'hint'  => 'Sows, boars and gilts held for breeding.',
+                ],
+                \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_STANDARD => [
+                    'label' => 'Standard Stock',
+                    'hint'  => 'Grow-out and market-ready animals.',
+                ],
+                \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_PIGLETS => [
+                    'label' => 'Piglets',
+                    'hint'  => 'Sold by the litter; animals are created on approval.',
+                ],
+                \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_MANUAL => [
+                    'label' => 'Manual Entry',
+                    'hint'  => 'Feed, manure, services — nothing from the herd.',
+                ],
+            ],
             'source'      => $source,
             'sourceType'  => $source ? $source::class : null,
             'sourceId'    => $source?->getKey(),
@@ -133,10 +181,21 @@ class PushToStorefrontController extends Controller
         // typed into the form.
         $poolPigIds = array_filter(array_map('intval', (array) $request->input('pool_pig_ids', [])));
 
+        // Record which stock this listing draws from, so the shop and the
+        // manager screens know how to treat it later.
+        $listing->forceFill([
+            'source_category' => $request->input('source_category'),
+        ])->save();
+
         if ($poolPigIds !== []) {
             try {
                 app(\App\Storefront\Services\StorefrontPigPoolService::class)
                     ->attachPigs($listing, $poolPigIds, $request->user());
+
+                // Price the listing from the farm's setup rates and the
+                // animals' latest weights. Derived, never typed.
+                app(\App\Storefront\Services\StorefrontPigPricingService::class)
+                    ->refreshListingSnapshot($listing->fresh());
             } catch (\App\Storefront\Services\Exceptions\InventoryConflictException $e) {
                 // The listing exists but holds no animals. Say so plainly and
                 // send the user to it, rather than losing the work or leaving

@@ -26,6 +26,18 @@ class PushToStorefrontRequest extends FormRequest
     public function rules(): array
     {
         return [
+            // The staff-facing choice. Kind, sale mode and pricing basis are
+            // DERIVED from it in prepareForValidation(), so the person
+            // publishing never picks between "live_pig" and "breeding_stock" or
+            // has to understand a pricing basis. The columns still exist and are
+            // still populated, so nothing downstream changed.
+            'source_category' => ['required', Rule::in([
+                \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_BREEDING,
+                \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_STANDARD,
+                \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_PIGLETS,
+                \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_MANUAL,
+            ])],
+
             'kind'          => ['required', Rule::in(StorefrontListing::KINDS)],
             'sale_mode'     => ['required', Rule::in(StorefrontListing::MODES)],
             'pricing_basis' => ['required', Rule::in(StorefrontListing::BASES)],
@@ -98,6 +110,19 @@ class PushToStorefrontRequest extends FormRequest
         });
     }
 
+    /**
+     * Normalise the form, and fill in the technical fields from the category.
+     *
+     * The push page no longer asks for sale mode, pricing basis, unit price,
+     * currency or price per kilo. Those columns still exist — every existing
+     * listing, order and report reads them — so they are DERIVED here rather
+     * than removed, which keeps the form honest without a schema change that
+     * would break the rest of the shop.
+     *
+     * A stock-backed listing is priced from the farm's setup rates, so
+     * `fixed_price` is not a number staff type. Manual listings keep an
+     * editable amount, because there is no animal to price from.
+     */
     protected function prepareForValidation(): void
     {
         // Normalise checkbox booleans which arrive as "on"/absent from forms.
@@ -106,6 +131,84 @@ class PushToStorefrontRequest extends FormRequest
             'delivery_allowed' => $this->boolean('delivery_allowed'),
             'publish_now'      => $this->boolean('publish_now'),
         ]);
+
+        $category = (string) $this->input('source_category', '');
+
+        if ($category === '') {
+            return;
+        }
+
+        $pool = app(\App\Storefront\Services\StorefrontPigPoolService::class);
+
+        $merge = [
+            'kind'          => $this->input('kind') ?: $pool->kindForCategory($category),
+            'sale_mode'     => $this->input('sale_mode') ?: StorefrontListing::MODE_FIXED,
+            'pricing_basis' => $this->input('pricing_basis') ?: StorefrontListing::BASIS_FIXED,
+            'currency_code' => $this->input('currency_code') ?: 'GHS',
+        ];
+
+        // A stock-backed listing's quantity is the number of animals ticked;
+        // whatever was typed is ignored. A form claiming 99 head with two pigs
+        // selected must produce a listing of 2.
+        $selected = array_filter((array) $this->input('pool_pig_ids', []));
+
+        if ($category !== \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_MANUAL && $selected !== []) {
+            $merge['quantity_available'] = count($selected);
+            $merge['quantity_unit']      = $this->input('quantity_unit') ?: 'head';
+        }
+
+        if ($this->input('quantity_available') === null || $this->input('quantity_available') === '') {
+            $merge['quantity_available'] = $merge['quantity_available'] ?? 0;
+        }
+
+        // THE PRICE OF A STOCK-BACKED LISTING IS NOT TYPED, IT IS WEIGHED.
+        //
+        // Staff have no price field for these, so one is derived from the
+        // animals at the farm's own live rate. It is the DEAREST animal in the
+        // pool, not the average: `fixed_price` is the legacy single-number
+        // column, a buyer of a pooled listing may receive any animal in it, and
+        // of the two ways to be wrong, overcharging is visible and refundable
+        // while undercharging silently sells the farm's stock below its rate.
+        //
+        // The real money for these listings is per-animal — actual weight ×
+        // actual rate, computed when the pigs are chosen — and this column is
+        // the floor under any path that has not been moved onto it yet.
+        if ($category !== \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_MANUAL && $selected !== []) {
+            $dearest = $this->dearestSelectedPigPrice($selected);
+
+            if ($dearest !== null) {
+                $merge['fixed_price'] = $dearest;
+            }
+        }
+
+        if ($this->input('fixed_price') === null || $this->input('fixed_price') === '') {
+            $merge['fixed_price'] = $merge['fixed_price'] ?? 0;
+        }
+
+        $this->merge($merge);
+    }
+
+    /**
+     * The highest live value among the ticked animals, or null if none of them
+     * has a weight to price from.
+     *
+     * Scoped to the current organisation: the pool service refuses another
+     * farm's animals outright, and this must not read their weights on the way
+     * to that refusal.
+     *
+     * @param  array<int, mixed>  $pigIds
+     */
+    protected function dearestSelectedPigPrice(array $pigIds): ?string
+    {
+        $pricing = app(\App\Storefront\Services\StorefrontPigPricingService::class);
+
+        $pigs = \App\Models\PigManagement::query()
+            ->whereKey(array_map('intval', $pigIds))
+            ->where('organization_id', app(\App\Support\CurrentOrganization::class)->requireId())
+            ->with('latestWeight')
+            ->get();
+
+        return $pricing->summarise($pigs)['max_estimated_price'];
     }
 
     /**
