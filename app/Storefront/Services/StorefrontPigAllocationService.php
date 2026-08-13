@@ -47,6 +47,7 @@ class StorefrontPigAllocationService
         protected RecordPigSaleService $pigSales,
         protected StorefrontPigPoolService $pool,
         protected PigListingEligibilityService $eligibility,
+        protected StorefrontPigPricingService $pricing,
     ) {
     }
 
@@ -57,15 +58,146 @@ class StorefrontPigAllocationService
      * — `source_id` naming one animal, no pool — is NOT one of these and keeps
      * its old path through the finance subscriber untouched.
      */
+    /**
+     * WHERE A LINE IS IN ITS FULFILMENT.
+     *
+     *   not_applicable   nothing to choose — a bag of feed
+     *   needs_selection  a manager still has to say which animals
+     *   ready            the animals are chosen and can be approved
+     *   conflict         chosen, but something about them no longer holds
+     *   sold             approved; real sales exist in /sales
+     *
+     * A screen showing a manager ten order lines needs to know which of them
+     * are waiting on them and which are waiting on nothing, and "conflict" has
+     * to be visible BEFORE they press approve — an animal that died or was sold
+     * at the gate since selection is not something to discover mid-transaction.
+     */
+    public const STATE_NOT_APPLICABLE  = 'not_applicable';
+    public const STATE_NEEDS_SELECTION = 'needs_selection';
+    public const STATE_READY           = 'ready';
+    public const STATE_CONFLICT        = 'conflict';
+    public const STATE_SOLD            = 'sold';
+
     public function requiresPigSelection(StorefrontOrderItem $item): bool
     {
         if ($item->listing_id === null) {
             return false;
         }
 
+        // A manual line — feed, manure, a service — has no animals behind it
+        // whatever the listing it came from happens to hold.
+        if ($item->purchase_type === StorefrontPigPricingService::PURCHASE_MANUAL) {
+            return false;
+        }
+
         return StorefrontListingPig::query()
             ->where('storefront_listing_id', $item->listing_id)
             ->exists();
+    }
+
+    /**
+     * The state of one line, as a manager needs to see it.
+     */
+    public function fulfilmentState(StorefrontOrderItem $item): string
+    {
+        if (! $this->requiresPigSelection($item)) {
+            return self::STATE_NOT_APPLICABLE;
+        }
+
+        $active = StorefrontOrderItemPigAllocation::query()
+            ->where('storefront_order_item_id', $item->getKey())
+            ->whereIn('status', StorefrontOrderItemPigAllocation::ACTIVE_STATUSES)
+            ->get();
+
+        $soldCount = StorefrontOrderItemPigAllocation::query()
+            ->where('storefront_order_item_id', $item->getKey())
+            ->where('status', StorefrontOrderItemPigAllocation::STATUS_SOLD)
+            ->count();
+
+        if ($active->isEmpty()) {
+            return $soldCount > 0 ? self::STATE_SOLD : self::STATE_NEEDS_SELECTION;
+        }
+
+        if (! $this->selectionIsComplete($item, $active->count())) {
+            return self::STATE_NEEDS_SELECTION;
+        }
+
+        // Re-checked now rather than trusted. A selection can be days old.
+        $errors = $this->validateSelection($item, $active->pluck('pig_id')->map('intval')->all());
+
+        return $errors === [] ? self::STATE_READY : self::STATE_CONFLICT;
+    }
+
+    /**
+     * Why a line is in conflict, in the words a manager can act on.
+     *
+     * @return list<string>
+     */
+    public function fulfilmentProblems(StorefrontOrderItem $item): array
+    {
+        $pigIds = StorefrontOrderItemPigAllocation::query()
+            ->where('storefront_order_item_id', $item->getKey())
+            ->whereIn('status', StorefrontOrderItemPigAllocation::ACTIVE_STATUSES)
+            ->pluck('pig_id')->map('intval')->all();
+
+        return $pigIds === [] ? [] : $this->validateSelection($item, $pigIds);
+    }
+
+    /**
+     * Kilograms this line has asked for, or null if it is not sold by weight.
+     */
+    public function requestedKgFor(StorefrontOrderItem $item): ?string
+    {
+        if ($item->purchase_type !== StorefrontPigPricingService::PURCHASE_CARCASS) {
+            return null;
+        }
+
+        return $item->requested_kg === null ? null : bcadd((string) $item->requested_kg, '0', 4);
+    }
+
+    /**
+     * Live weight of the animals currently chosen for this line.
+     */
+    public function selectedKgFor(StorefrontOrderItem $item): string
+    {
+        $pigIds = StorefrontOrderItemPigAllocation::query()
+            ->where('storefront_order_item_id', $item->getKey())
+            ->whereIn('status', StorefrontOrderItemPigAllocation::ACTIVE_STATUSES)
+            ->pluck('pig_id')->map('intval')->all();
+
+        if ($pigIds === []) {
+            return '0.0000';
+        }
+
+        $total = '0.0000';
+
+        foreach (PigManagement::withTrashed()->whereKey($pigIds)->with('latestWeight')->get() as $pig) {
+            $total = bcadd($total, $this->pricing->latestWeightKg($pig) ?? '0', 4);
+        }
+
+        return $total;
+    }
+
+    /**
+     * Is this line's selection finished?
+     *
+     * A LIVE or quantity line is satisfied by a COUNT: the buyer asked for
+     * three animals and three are chosen.
+     *
+     * A CARCASS line is satisfied by WEIGHT: the buyer asked for 150 kg, and
+     * however many animals it takes to cover that is however many it takes.
+     * Counting head there would refuse a correct selection of two heavy pigs
+     * and accept a wrong one of a single light pig.
+     */
+    protected function selectionIsComplete(StorefrontOrderItem $item, int $selectedCount): bool
+    {
+        $requestedKg = $this->requestedKgFor($item);
+
+        if ($requestedKg !== null) {
+            return bccomp($this->selectedKgFor($item), $requestedKg, 4) >= 0;
+        }
+
+        return $selectedCount >= (int) round((float) $item->quantity);
     }
 
     /**
@@ -98,7 +230,19 @@ class StorefrontPigAllocationService
         $pigIds  = array_values(array_unique(array_map('intval', $pigIds)));
         $required = (int) round((float) $item->quantity);
 
-        if (count($pigIds) !== $required) {
+        // A CARCASS line is measured in kilograms, not head. "Select exactly
+        // one pig" is the wrong question when the buyer asked for 150 kg: it
+        // would refuse two correct animals and accept one that is short.
+        $requestedKg = $this->requestedKgFor($item);
+
+        if ($requestedKg !== null) {
+            if ($pigIds === []) {
+                $errors[] = sprintf(
+                    'Choose animals covering %s kg for this line.',
+                    rtrim(rtrim($requestedKg, '0'), '.'),
+                );
+            }
+        } elseif (count($pigIds) !== $required) {
             $errors[] = sprintf(
                 'Select exactly %d pig%s for this line — %d selected.',
                 $required,
@@ -188,7 +332,7 @@ class StorefrontPigAllocationService
      * @param  list<int>  $pigIds
      * @return Collection<int, StorefrontOrderItemPigAllocation>
      */
-    public function selectForOrderItem(StorefrontOrderItem $item, array $pigIds, User $actor): Collection
+    public function selectForOrderItem(StorefrontOrderItem $item, array $pigIds, ?User $actor): Collection
     {
         $pigIds = array_values(array_unique(array_map('intval', $pigIds)));
 
@@ -230,7 +374,10 @@ class StorefrontPigAllocationService
                     'storefront_listing_id'     => $item->listing_id,
                     'storefront_listing_pig_id' => $poolRow?->getKey(),
                     'pig_id'                    => $pigId,
-                    'selected_by_user_id'       => $actor->getKey(),
+                    // Null for a guest: the buyer chose, and there is no staff
+                    // account to name. A placeholder here would be a lie in the
+                    // audit trail.
+                    'selected_by_user_id'       => $actor?->getKey(),
                     'selected_at'               => now(),
                     'status'                    => StorefrontOrderItemPigAllocation::STATUS_SELECTED,
                     'release_reason'            => null,
@@ -258,6 +405,68 @@ class StorefrontPigAllocationService
 
             return $rows;
         });
+    }
+
+    /**
+     * Carry a LIVE line's customer choice onto the order.
+     *
+     * On a live purchase the buyer already picked the animals, by name, and
+     * paid for those animals' weights. There is nothing for a manager to
+     * choose, and asking them to choose would let them substitute a different
+     * pig than the one that was bought and priced.
+     *
+     * So the allocation is created at the moment the order is placed, marked
+     * `customer_selected` so an approver can see it was not their decision, and
+     * the pool rows move to `allocated` — which takes them out of the sellable
+     * pool immediately, so a second buyer cannot be shown an animal the first
+     * has already paid for.
+     *
+     * Idempotent: called again for the same order, `selectForOrderItem()`
+     * replaces the line's selection with the identical set.
+     *
+     * @return Collection<int, StorefrontOrderItemPigAllocation>
+     */
+    public function adoptCustomerSelections(StorefrontOrder $order, ?User $actor = null): Collection
+    {
+        $order->loadMissing('items');
+
+        $adopted = collect();
+
+        foreach ($order->items as $item) {
+            if ($item->purchase_type !== StorefrontPigPricingService::PURCHASE_LIVE) {
+                continue;
+            }
+
+            $rowIds = array_map('intval', (array) ($item->selected_listing_pig_ids ?? []));
+
+            if ($rowIds === []) {
+                continue;
+            }
+
+            $pigIds = StorefrontListingPig::query()
+                ->whereKey($rowIds)
+                ->where('storefront_listing_id', $item->listing_id)
+                ->pluck('pig_id')
+                ->map('intval')
+                ->all();
+
+            if ($pigIds === []) {
+                continue;
+            }
+
+            foreach ($this->selectForOrderItem($item, $pigIds, $actor) as $allocation) {
+                // The customer chose this, not staff. It changes what a manager
+                // may substitute and what the audit trail has to explain.
+                $allocation->forceFill([
+                    'customer_selected' => true,
+                    'purchase_type'     => StorefrontPigPricingService::PURCHASE_LIVE,
+                ])->save();
+
+                $adopted->push($allocation);
+            }
+        }
+
+        return $adopted;
     }
 
     /**
@@ -439,7 +648,7 @@ class StorefrontPigAllocationService
 
     /* ------------------------------------------------------------------ */
 
-    protected function releaseItemAllocations(StorefrontOrderItem $item, User $actor, string $reason): void
+    protected function releaseItemAllocations(StorefrontOrderItem $item, ?User $actor, string $reason): void
     {
         $existing = StorefrontOrderItemPigAllocation::query()
             ->where('storefront_order_item_id', $item->getKey())

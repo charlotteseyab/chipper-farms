@@ -137,6 +137,17 @@ class AdminOrderController extends Controller
                 'outstanding'=> $allocations->outstandingFor($item),
                 'candidates' => $candidates,
                 'sold'       => $sold,
+                // WHAT THIS LINE IS WAITING FOR.
+                //
+                // A live line was chosen by the buyer and needs nothing. A
+                // carcass line is measured in kilograms, so "3 of 5 chosen"
+                // would be the wrong progress to show — it is "180 of 200 kg".
+                // And a conflict has to be visible BEFORE approve is pressed.
+                'state'        => $allocations->fulfilmentState($item),
+                'problems'     => $allocations->fulfilmentProblems($item),
+                'requested_kg' => $allocations->requestedKgFor($item),
+                'selected_kg'  => $allocations->selectedKgFor($item),
+                'customer_chose' => $item->purchase_type === \App\Storefront\Services\StorefrontPigPricingService::PURCHASE_LIVE,
             ];
         }
 

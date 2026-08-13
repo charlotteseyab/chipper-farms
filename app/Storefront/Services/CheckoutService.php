@@ -10,6 +10,7 @@ use App\Models\Storefront\StorefrontOrder;
 use App\Models\Storefront\StorefrontOrderItem;
 use App\Models\User;
 use App\Storefront\Services\Exceptions\CheckoutException;
+use App\Storefront\Services\StorefrontPigAllocationService;
 use App\Storefront\Services\StorefrontPigPricingService;
 use App\Storefront\Support\CartOwner;
 use App\Storefront\Support\CheckoutData;
@@ -40,6 +41,7 @@ class CheckoutService
         protected OrderService $orders,
         protected HoldService $holds,
         protected StorefrontTaxService $tax,
+        protected StorefrontPigAllocationService $allocations,
     ) {
     }
 
@@ -245,6 +247,12 @@ class CheckoutService
             // without its holds. Insufficient stock raises
             // InventoryConflictException, which rolls the order back.
             $this->holds->placeForOrder($order->load('items'));
+
+            // A LIVE line names the animals the buyer chose and paid for. They
+            // are committed to the order here, in the same transaction, so no
+            // window exists in which the order exists and its animals are still
+            // on offer to somebody else.
+            $this->allocations->adoptCustomerSelections($order, $owner->user);
 
             $this->orders->recordEvent(
                 $order,

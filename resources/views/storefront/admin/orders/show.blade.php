@@ -227,14 +227,49 @@
                     @php
                         $line        = $panel['item'];
                         $outstanding = $panel['outstanding'];
-                        $ready       = $outstanding === 0;
+                        $state       = $panel['state'];
+                        $ready       = $state === \App\Storefront\Services\StorefrontPigAllocationService::STATE_READY;
+                        $conflict    = $state === \App\Storefront\Services\StorefrontPigAllocationService::STATE_CONFLICT;
                         $soldAlready = $panel['sold']->isNotEmpty();
+                        $byWeight    = $panel['requested_kg'] !== null;
                     @endphp
 
-                    <div class="rounded-2xl border p-5 {{ $ready ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50' }}">
+                    <div @class([
+                        'rounded-2xl border p-5',
+                        'border-rose-300 bg-rose-50'       => $conflict,
+                        'border-emerald-200 bg-emerald-50' => $ready && ! $conflict,
+                        'border-amber-200 bg-amber-50'     => ! $ready && ! $conflict,
+                    ])>
                         <p class="font-semibold text-slate-800">
                             {{ $soldAlready ? 'Pigs sold for' : 'Choose the pigs for' }} “{{ $line->description }}”
                         </p>
+
+                        {{--
+                            A conflict is something that changed AFTER the
+                            animals were chosen — one died, or was sold at the
+                            gate. It is shown here rather than raised during
+                            approval, because a manager finding out mid-sale
+                            has already committed the rest of the order.
+                        --}}
+                        @if($conflict)
+                            <div class="mt-2 rounded-xl border border-rose-300 bg-white p-3 text-sm text-rose-800">
+                                <p class="font-semibold">This selection can no longer be sold.</p>
+                                <ul class="mt-1 list-disc list-inside space-y-0.5">
+                                    @foreach($panel['problems'] as $problem)
+                                        <li>{{ $problem }}</li>
+                                    @endforeach
+                                </ul>
+                                <p class="mt-1 text-xs">Choose different animals below before approving.</p>
+                            </div>
+                        @endif
+
+                        @if($panel['customer_chose'] && ! $soldAlready)
+                            <p class="mt-2 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
+                                The customer chose these animals themselves and paid for their
+                                weights. Nothing needs picking — changing them would deliver a
+                                different animal than the one that was bought.
+                            </p>
+                        @endif
 
                         @if($soldAlready)
                             {{-- Terminal state: these animals are gone. Shown so
@@ -254,12 +289,30 @@
                             </ul>
                         @else
                             <p class="mt-1 text-sm text-slate-600">
-                                This order asks for <strong>{{ $panel['required'] }}</strong> head.
-                                @if($ready)
-                                    All chosen — confirming the order will sell exactly these animals.
+                                @if($byWeight)
+                                    {{--
+                                        A carcass order is kilograms. Progress in
+                                        head would read "1 of 1 chosen" while the
+                                        delivery was 30 kg short.
+                                    --}}
+                                    This order asks for
+                                    <strong>{{ rtrim(rtrim($panel['requested_kg'], '0'), '.') }} kg</strong>
+                                    of carcass weight.
+                                    Chosen so far: <strong>{{ rtrim(rtrim($panel['selected_kg'], '0'), '.') }} kg</strong>.
+                                    @if($ready)
+                                        Covered — confirming the order will sell exactly these animals.
+                                    @else
+                                        Choose enough animals to cover it; the order cannot be confirmed
+                                        until the weight is met.
+                                    @endif
                                 @else
-                                    <strong>{{ $outstanding }}</strong> still to choose. The order cannot be
-                                    confirmed until the count matches.
+                                    This order asks for <strong>{{ $panel['required'] }}</strong> head.
+                                    @if($ready)
+                                        All chosen — confirming the order will sell exactly these animals.
+                                    @else
+                                        <strong>{{ $outstanding }}</strong> still to choose. The order cannot be
+                                        confirmed until the count matches.
+                                    @endif
                                 @endif
                             </p>
 
