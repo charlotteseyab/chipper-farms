@@ -263,7 +263,22 @@ class CheckoutService
             );
 
             return $order->load('items');
-        });
+        // RETRIED ON DEADLOCK.
+        //
+        // Checkout locks an order-number sequence and then the listings it is
+        // buying from. Several buyers checking out at the same moment can
+        // deadlock on that sequence — MariaDB detects the cycle and kills one
+        // transaction, which is exactly what it is supposed to do.
+        //
+        // A deadlock is a TRANSIENT serialisation failure, not a decision about
+        // stock: nothing was written, and the same attempt a moment later
+        // succeeds. Retrying is the documented response to it, and the
+        // alternative is showing a buyer an error for something no human did
+        // wrong. Genuine refusals — no stock, no capacity — are ordinary
+        // exceptions and are NOT retried.
+        //
+        // Found by the concurrency suite driving four simultaneous checkouts.
+        }, attempts: 3);
     }
 
     /**

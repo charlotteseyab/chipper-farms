@@ -46,8 +46,8 @@ use Illuminate\Support\Facades\DB;
  *
  * WHAT THESE ROWS ARE HONEST ABOUT
  * --------------------------------
- * Their `acquisition_source` says they were materialised at the point of sale
- * and names the order, and their ear tag is derived from that order rather than
+ * Their `acquisition_source` marks them as point-of-sale piglets and names the
+ * order, and their ear tag is derived from that order rather than
  * invented to look like a real one. Nobody tagged or sexed these animals;
  * pretending otherwise in the herd record would be worse than saying plainly
  * where they came from.
@@ -188,9 +188,14 @@ class StorefrontPigletMaterialisationService
             // otherwise today, which is when this animal became a record.
             'date_of_birth'  => now()->toDateString(),
             // `pigs_management` has no notes column; `acquisition_source` is
-            // the field that already means "where this animal came from", and
-            // that is exactly what needs recording here.
-            'acquisition_source'  => mb_substr("Piglet materialised at point of sale — storefront order {$reference}", 0, 190),
+            // the field that already means "where this animal came from".
+            //
+            // It is 50 characters, so the sentence this used to hold does not
+            // fit. SQLite accepted it silently and MariaDB refused it — the
+            // gate caught what every feature test had waved through. What
+            // survives is the marker and the order it came from; the full
+            // explanation lives in the allocation snapshot, which is JSON.
+            'acquisition_source'  => mb_substr("point-of-sale piglet {$reference}", 0, 50),
             'acquisition_date'    => now()->toDateString(),
         ]);
     }

@@ -151,9 +151,23 @@ class HoldService
     /**
      * Kilograms reserved must fit what the animals can actually deliver.
      *
-     * Counted apart from head, because they are different units. The capacity
-     * is the live weight of the animals still on offer; anything another
-     * checkout is holding in kilograms comes off it first.
+     * HEAD AND KILOGRAMS ARE COUNTED APART, BUT THEY COME OUT OF ONE HERD.
+     * ------------------------------------------------------------------
+     * This is the join between the two units, and it was missing. Each check
+     * used to police only its own kind: the head check counted animals, the
+     * kilogram check counted meat, and neither knew what the other had
+     * promised. Two carcass buyers could take 100 kg each from a 200 kg pool
+     * while a third buyer walked off with one of the two animals — 200 kg
+     * promised, 100 kg left to cut. Every individual check said yes.
+     *
+     * So capacity here is what the pool can deliver AFTER the animals other
+     * buyers have named are taken out of it. An animal spoken for live is not
+     * available to be cut for meat, whichever order it belongs to and whichever
+     * of the two happened first.
+     *
+     * Computed live rather than read from `carcass_capacity_kg`: that column is
+     * a snapshot for display, written when the pool changes, and a checkout
+     * decides on what is true now.
      *
      * @param  array<string, array<string, mixed>>  $byType
      */
@@ -165,12 +179,21 @@ class HoldService
             return;
         }
 
-        $capacity = $listing->carcass_capacity_kg === null
-            ? '0.0000'
-            : bcadd((string) $listing->carcass_capacity_kg, '0', 4);
+        $pricing = app(StorefrontPigPricingService::class);
+
+        $capacity = $pricing->carcassCapacityKg($listing);
+
+        // Animals other buyers have named, and the ones this very order is
+        // naming: all of them are meat that can no longer be cut for anybody.
+        $claimedKg = bcadd(
+            $this->liveClaimedKg($listing, excludingOrderId: $order->getKey()),
+            $this->weightOfListingPigs($byType[StorefrontInventoryHold::TYPE_EXACT_PIGS]['listing_pig_ids'] ?? []),
+            4,
+        );
 
         $spokenFor = $this->carcassKgHeld($listing, excludingOrderId: $order->getKey());
-        $available = bcsub($capacity, $spokenFor, 4);
+
+        $available = bcsub(bcsub($capacity, $claimedKg, 4), $spokenFor, 4);
 
         if (bccomp($kg, $available, 4) > 0) {
             throw new InventoryConflictException(sprintf(
@@ -182,7 +205,61 @@ class HoldService
     }
 
     /**
-     * What the shop may still sell of this listing.
+     * Live weight of the animals other orders have named on this listing.
+     *
+     * Their pool rows may still read `available` — a hold is placed before the
+     * allocation is written — so the holds are the authority here, not the pool
+     * row status.
+     */
+    protected function liveClaimedKg(StorefrontListing $listing, ?int $excludingOrderId = null): string
+    {
+        $rowIds = StorefrontInventoryHold::query()
+            ->where('listing_id', $listing->getKey())
+            ->where('hold_type', StorefrontInventoryHold::TYPE_EXACT_PIGS)
+            ->when($excludingOrderId !== null, fn ($q) => $q->where('order_id', '!=', $excludingOrderId))
+            ->live()
+            ->pluck('selected_listing_pig_ids')
+            ->flatMap(fn ($ids) => (array) $ids)
+            ->map('intval')
+            ->unique()
+            ->all();
+
+        return $this->weightOfListingPigs($rowIds);
+    }
+
+    /**
+     * @param  array<int, mixed>  $listingPigIds
+     */
+    protected function weightOfListingPigs(array $listingPigIds): string
+    {
+        $ids = array_values(array_unique(array_map('intval', $listingPigIds)));
+
+        if ($ids === []) {
+            return '0.0000';
+        }
+
+        $pricing = app(StorefrontPigPricingService::class);
+
+        $total = '0.0000';
+
+        $rows = \App\Models\Storefront\StorefrontListingPig::query()
+            ->whereKey($ids)
+            ->with('pig.latestWeight')
+            ->get();
+
+        foreach ($rows as $row) {
+            if ($row->pig === null) {
+                continue;
+            }
+
+            $total = bcadd($total, $pricing->latestWeightKg($row->pig) ?? '0', 4);
+        }
+
+        return $total;
+    }
+
+    /**
+     * What the shop may still sell of this listing, in HEAD.
      *
      * `quantity_available` minus every live hold. Call this — never the column
      * — anywhere stock is offered to a buyer.

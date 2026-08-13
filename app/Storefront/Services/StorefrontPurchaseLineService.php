@@ -73,6 +73,20 @@ class StorefrontPurchaseLineService
         $rate = $this->liveRate($listing);
 
         return DB::transaction(function () use ($owner, $listing, $ids, $rate) {
+            // LISTING FIRST, THEN THE ANIMALS. THE ORDER IS THE POINT.
+            //
+            // Inserting a cart row takes a shared lock on the listing it
+            // references, and checkout locks the listing before it locks pool
+            // rows. Taking the pool rows first here therefore inverts the order
+            // against a checkout running alongside: that transaction holds the
+            // listing and wants an animal, this one holds the animal and wants
+            // the listing. MariaDB breaks the cycle by killing one of them, and
+            // a buyer sees a deadlock instead of a basket.
+            //
+            // Found by the concurrency suite, which is the only place it can be
+            // found — one process at a time never inverts anything.
+            $this->lockListing($listing);
+
             // Locked, because between reading "available" and writing the cart
             // line another buyer can take the same animal. The cart is not the
             // authoritative reservation — the hold at checkout is — but handing
@@ -114,6 +128,10 @@ class StorefrontPurchaseLineService
         $rate        = $this->carcassRate($listing);
 
         return DB::transaction(function () use ($owner, $listing, $requestedKg, $rate) {
+            // Same lock order as the live path, for the same reason: this
+            // transaction is about to insert a row referencing the listing.
+            $this->lockListing($listing);
+
             $remaining = $this->carcassKgAvailable($listing);
 
             if (bccomp($requestedKg, $remaining, 4) > 0) {
@@ -159,8 +177,11 @@ class StorefrontPurchaseLineService
      */
     public function carcassKgAvailable(StorefrontListing $listing): string
     {
-        $capacity = $this->pricing->refreshListingSnapshot($listing->fresh())->carcass_capacity_kg;
-        $capacity = $capacity === null ? '0.0000' : bcadd((string) $capacity, '0', 4);
+        // Computed, not re-snapshotted. Writing the listing row here would put
+        // an exclusive lock inside a transaction that is also inserting a cart
+        // row referencing that listing — which deadlocks two buyers against
+        // each other, as the concurrency suite demonstrated.
+        $capacity = $this->pricing->carcassCapacityKg($listing);
 
         $spokenFor = $this->holds->carcassKgHeld($listing);
 
@@ -170,6 +191,21 @@ class StorefrontPurchaseLineService
     }
 
     /* ------------------------------------------------------------------ */
+
+    /**
+     * Take the listing lock this transaction is going to need anyway.
+     *
+     * Every path that touches a pool takes the listing first and its animals
+     * second. Doing it explicitly at the top — rather than implicitly, later,
+     * through a foreign key — is what keeps that order true.
+     */
+    protected function lockListing(StorefrontListing $listing): void
+    {
+        StorefrontListing::query()
+            ->whereKey($listing->getKey())
+            ->lockForUpdate()
+            ->first();
+    }
 
     protected function liveLineFor(
         StorefrontCart $cart,

@@ -167,6 +167,33 @@ class StorefrontPigPricingService
     }
 
     /**
+     * Carcass capacity, WITHOUT writing anything.
+     *
+     * `refreshListingSnapshot()` recomputes this and saves it, which is right
+     * when the pool changes and wrong when somebody is merely asking what is
+     * available. A read that writes takes an exclusive lock on the listing row,
+     * and doing that inside a cart transaction — which also inserts a row
+     * referencing that listing, taking a shared lock on it — deadlocks two
+     * buyers against each other. A real one, found by the concurrency suite.
+     *
+     * So this computes the same number and saves nothing. The stored snapshot
+     * stays the thing the shop DISPLAYS; this is the thing it decides on.
+     */
+    public function carcassCapacityKg(StorefrontListing $listing): string
+    {
+        $pigs = StorefrontListingPig::query()
+            ->where('storefront_listing_id', $listing->getKey())
+            ->whereIn('status', StorefrontListingPig::SELLABLE_STATUSES)
+            ->with('pig.latestWeight')
+            ->get()
+            ->map(fn ($row) => $row->pig)
+            ->filter()
+            ->values();
+
+        return $this->summarise($pigs)['total_weight_kg'];
+    }
+
+    /**
      * Write the current picture onto the listing.
      *
      * Called whenever the pool changes — attach, remove, sale, release — so the

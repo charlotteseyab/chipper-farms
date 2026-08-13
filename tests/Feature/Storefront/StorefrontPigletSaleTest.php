@@ -148,8 +148,13 @@ class StorefrontPigletSaleTest extends StorefrontTestCase
         $this->assertStringContainsString($order->reference, (string) $pig->ear_tag_number);
         // `acquisition_source` is where the herd records where an animal came
         // from, and there is no notes column to put it in instead.
-        $this->assertStringContainsString('point of sale', (string) $pig->acquisition_source);
+        $this->assertStringContainsString('point-of-sale piglet', (string) $pig->acquisition_source);
         $this->assertStringContainsString($order->reference, (string) $pig->acquisition_source);
+
+        // The column is 50 characters wide. SQLite does not enforce that and
+        // MariaDB does, so the length is asserted here rather than left for a
+        // production insert to discover.
+        $this->assertLessThanOrEqual(50, mb_strlen((string) $pig->acquisition_source));
         // Nobody sexed these animals, and the record must not claim otherwise.
         $this->assertSame('unknown', $pig->gender);
     }
