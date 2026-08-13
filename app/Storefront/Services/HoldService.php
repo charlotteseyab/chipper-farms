@@ -146,6 +146,33 @@ class HoldService
     }
 
     /**
+     * Kilograms of carcass weight already spoken for on this listing.
+     *
+     * Head and kilograms are counted SEPARATELY and deliberately. A carcass
+     * hold reserves weight, not animals: 400 kg might be four pigs or six, and
+     * which ones is a fulfilment decision nobody has made yet. Adding that 400
+     * to a column that counts head would claim the listing had four hundred
+     * animals spoken for, and subtracting head from kilograms is worse.
+     */
+    public function carcassKgHeld(StorefrontListing $listing, ?int $excludingOrderId = null): string
+    {
+        $held = StorefrontInventoryHold::query()
+            ->where('listing_id', $listing->getKey())
+            ->where('hold_type', StorefrontInventoryHold::TYPE_CARCASS_KG)
+            ->when($excludingOrderId !== null, fn ($q) => $q->where('order_id', '!=', $excludingOrderId))
+            ->live()
+            ->pluck('requested_kg');
+
+        $total = '0.0000';
+
+        foreach ($held as $kg) {
+            $total = bcadd($total, (string) ($kg ?? '0'), 4);
+        }
+
+        return $total;
+    }
+
+    /**
      * Consume an order's holds — the stock has actually moved.
      *
      * Called by `OrderService::confirm()` inside the confirmation transaction,

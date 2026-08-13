@@ -28,6 +28,23 @@ class StorefrontInventoryHold extends Model
 
     protected $table = 'storefront_inventory_holds';
 
+    /**
+     * WHAT A HOLD RESERVES.
+     *
+     *   quantity   → head. The original and the default: N of a thing.
+     *   exact_pigs → these specific animals, chosen by the buyer.
+     *   carcass_kg → kilograms of meat; which animals cover it is decided later.
+     *
+     * They are counted apart because they are different units. Netting
+     * kilograms off a head count is how a shop sells four hundred pigs when it
+     * meant four hundred kilograms.
+     */
+    public const TYPE_QUANTITY   = 'quantity';
+    public const TYPE_EXACT_PIGS = 'exact_pigs';
+    public const TYPE_CARCASS_KG = 'carcass_kg';
+
+    public const TYPES = [self::TYPE_QUANTITY, self::TYPE_EXACT_PIGS, self::TYPE_CARCASS_KG];
+
     public const STATUS_ACTIVE   = 'active';
     public const STATUS_CONSUMED = 'consumed';
     public const STATUS_RELEASED = 'released';
@@ -38,6 +55,9 @@ class StorefrontInventoryHold extends Model
         'listing_id',
         'order_id',
         'quantity',
+        'hold_type',
+        'requested_kg',
+        'selected_listing_pig_ids',
         'status',
         'expires_at',
         'resolved_at',
@@ -47,8 +67,10 @@ class StorefrontInventoryHold extends Model
     protected function casts(): array
     {
         return [
-            'expires_at'  => 'datetime',
-            'resolved_at' => 'datetime',
+            'expires_at'               => 'datetime',
+            'resolved_at'              => 'datetime',
+            'requested_kg'             => 'decimal:4',
+            'selected_listing_pig_ids' => 'array',
         ];
     }
 

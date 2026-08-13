@@ -16,6 +16,14 @@ class StorefrontOrderItem extends Model
         'organization_id', 'order_id', 'listing_id',
         'source_type', 'source_id', 'posted_sale_type', 'posted_sale_id', 'kind', 'description',
         'quantity', 'quantity_unit', 'price_basis', 'unit_price', 'line_total', 'weight_kg',
+        // Carried across from the cart line unchanged. An invoice has to be
+        // able to explain itself years later, which means the rate, the weight
+        // and the animals it was worked out from live on the ORDER, not in a
+        // lookup against settings that have since moved on.
+        'purchase_type', 'source_category', 'requested_kg',
+        'price_per_kg_snapshot', 'line_weight_kg',
+        'selected_listing_pig_ids', 'selected_pig_weight_snapshot',
+        'calculation_snapshot',
     ];
 
     protected function casts(): array
@@ -25,6 +33,12 @@ class StorefrontOrderItem extends Model
             'unit_price' => 'decimal:2',
             'line_total' => 'decimal:2',
             'weight_kg'  => 'decimal:4',
+            'requested_kg'                 => 'decimal:4',
+            'price_per_kg_snapshot'        => 'decimal:4',
+            'line_weight_kg'               => 'decimal:4',
+            'selected_listing_pig_ids'     => 'array',
+            'selected_pig_weight_snapshot' => 'array',
+            'calculation_snapshot'         => 'array',
         ];
     }
 

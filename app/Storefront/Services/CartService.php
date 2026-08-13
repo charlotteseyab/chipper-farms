@@ -104,6 +104,22 @@ class CartService
     {
         $this->assertOwned($owner, $item);
 
+        // A PIG LINE HAS NO QUANTITY TO CHANGE.
+        //
+        // A live line is one named animal; setting it to 5 would charge five
+        // times for a pig the farm can only deliver once. A carcass line's size
+        // is its kilograms, which is checked against the listing's capacity
+        // when it is added — moving it here would bypass that check entirely.
+        // Either change is made by removing the line and choosing again.
+        if (in_array($item->purchase_type, [
+            StorefrontPigPricingService::PURCHASE_LIVE,
+            StorefrontPigPricingService::PURCHASE_CARCASS,
+        ], true)) {
+            throw new CartException(
+                'This line is for a specific animal or weight. Remove it and choose again to change it.',
+            );
+        }
+
         if (bccomp($quantity, '0', 4) <= 0) {
             $item->delete();
             return $item;

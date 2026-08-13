@@ -1680,6 +1680,9 @@ Route::prefix('shop')->name('storefront.')->group(function () {
         */
         Route::get('/cart',                [\App\Http\Controllers\Storefront\CartController::class, 'index'])->name('cart.index');
         Route::post('/cart/add/{listing}', [\App\Http\Controllers\Storefront\CartController::class, 'add'])->name('cart.add');
+        // Buying a pig live or by carcass weight. Separate from cart.add
+        // because it takes animals or kilograms, not a count of things.
+        Route::post('/cart/add-pigs/{listing}', [\App\Http\Controllers\Storefront\CartController::class, 'addPigs'])->name('cart.add-pigs');
         Route::patch('/cart/items/{item}', [\App\Http\Controllers\Storefront\CartController::class, 'update'])->name('cart.update');
         Route::delete('/cart/items/{item}',[\App\Http\Controllers\Storefront\CartController::class, 'remove'])->name('cart.remove');
 

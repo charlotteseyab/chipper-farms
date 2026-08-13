@@ -178,10 +178,72 @@ class StorefrontController extends Controller
         }
 
         return view('storefront.public.detail', [
-            'listing'    => $listing,
-            'detail'     => $presenter->present($listing),
-            'favourited' => $favourited,
+            'listing'     => $listing,
+            'detail'      => $presenter->present($listing),
+            'favourited'  => $favourited,
+            // What this listing can be bought as. Null for anything not backed
+            // by animals — a bag of feed has neither a live weight nor a
+            // carcass to sell.
+            'pigPurchase' => $this->pigPurchaseOptions($listing),
         ]);
+    }
+
+    /**
+     * The two ways a pig listing can be bought, priced on the server.
+     *
+     * LIVE lists the animals still available with the weight each one actually
+     * carries and what that comes to at the listing's snapshotted rate. Buyers
+     * are choosing between real animals, so they are shown real weights rather
+     * than an average that describes none of them.
+     *
+     * CARCASS offers kilograms up to what the pool can physically deliver, less
+     * anything another checkout is already holding.
+     *
+     * Returns null when the listing is not backed by animals.
+     *
+     * @return array<string, mixed>|null
+     */
+    protected function pigPurchaseOptions(StorefrontListing $listing): ?array
+    {
+        if (! $listing->usesPigPool()) {
+            return null;
+        }
+
+        $pricing = app(\App\Storefront\Services\StorefrontPigPricingService::class);
+        $lines   = app(\App\Storefront\Services\StorefrontPurchaseLineService::class);
+
+        $liveRate    = $listing->live_price_per_kg_snapshot;
+        $carcassRate = $listing->carcass_price_per_kg_snapshot;
+
+        $animals = \App\Models\Storefront\StorefrontListingPig::query()
+            ->where('storefront_listing_id', $listing->getKey())
+            ->whereIn('status', \App\Models\Storefront\StorefrontListingPig::SELLABLE_STATUSES)
+            ->with('pig.latestWeight')
+            ->get()
+            ->map(function ($row) use ($pricing, $liveRate) {
+                $pig    = $row->pig;
+                $weight = $pig === null ? null : $pricing->latestWeightKg($pig);
+
+                return [
+                    'row_id'  => $row->getKey(),
+                    'ear_tag' => $pig?->ear_tag_number ?: ('Pig #' . $row->pig_id),
+                    'breed'   => $pig?->breed,
+                    'weight'  => $weight,
+                    // An animal with no weight cannot be priced, and is offered
+                    // as "ask us" rather than quietly sold for nothing.
+                    'price'   => $weight === null || $liveRate === null
+                        ? null
+                        : bcmul($weight, (string) $liveRate, 2),
+                ];
+            })
+            ->values();
+
+        return [
+            'live_rate'            => $liveRate,
+            'carcass_rate'         => $carcassRate,
+            'animals'              => $animals,
+            'carcass_kg_available' => $lines->carcassKgAvailable($listing),
+        ];
     }
 
     /**

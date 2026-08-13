@@ -7,6 +7,8 @@ use App\Models\Storefront\StorefrontCartItem;
 use App\Models\Storefront\StorefrontListing;
 use App\Storefront\Services\CartService;
 use App\Storefront\Services\Exceptions\CartException;
+use App\Storefront\Services\StorefrontPigPricingService;
+use App\Storefront\Services\StorefrontPurchaseLineService;
 use App\Storefront\Support\CartOwnerResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -37,6 +39,7 @@ class CartController extends Controller
     public function __construct(
         protected CartService $cart,
         protected CartOwnerResolver $owners,
+        protected StorefrontPurchaseLineService $purchaseLines,
     ) {
     }
 
@@ -70,6 +73,58 @@ class CartController extends Controller
         }
 
         return redirect()->route('storefront.cart.index')->with('success', 'Added to cart.');
+    }
+
+    /**
+     * Buy a pig: either these animals, or this many kilograms of meat.
+     *
+     * TWO DIFFERENT PURCHASES, ONE ENTRY POINT
+     * ----------------------------------------
+     * A live purchase names the animals the buyer picked. A carcass purchase
+     * names a weight and leaves the choice of animal to the farm. They arrive
+     * through the same form because they are the same decision — "how do you
+     * want to buy this?" — and the shape of what follows depends on the answer.
+     *
+     * Nothing here works out a price. The service does that from the listing's
+     * snapshotted rates and the animals' recorded weights, on the server, and
+     * whatever the browser thinks the total is never reaches the database.
+     */
+    public function addPigs(Request $request, StorefrontListing $listing): RedirectResponse
+    {
+        $validated = $request->validate([
+            'purchase_type'    => ['required', 'in:live,carcass'],
+            'listing_pig_ids'  => ['required_if:purchase_type,live', 'array'],
+            'listing_pig_ids.*'=> ['integer'],
+            'requested_kg'     => ['required_if:purchase_type,carcass', 'nullable', 'numeric', 'min:0.0001', 'max:99999999'],
+        ]);
+
+        $owner = $this->owners->currentOrCreate($request);
+
+        try {
+            if ($validated['purchase_type'] === StorefrontPigPricingService::PURCHASE_LIVE) {
+                $lines = $this->purchaseLines->addLiveLines(
+                    $owner,
+                    $listing,
+                    $validated['listing_pig_ids'] ?? [],
+                );
+
+                $message = $lines->count() === 1
+                    ? 'Added to cart.'
+                    : $lines->count() . ' animals added to cart.';
+            } else {
+                $this->purchaseLines->addCarcassLine(
+                    $owner,
+                    $listing,
+                    (string) $validated['requested_kg'],
+                );
+
+                $message = 'Added to cart.';
+            }
+        } catch (CartException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('storefront.cart.index')->with('success', $message);
     }
 
     public function update(Request $request, StorefrontCartItem $item): RedirectResponse

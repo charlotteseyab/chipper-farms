@@ -20,14 +20,49 @@
                             <tr class="border-t border-slate-100">
                                 <td class="px-5 py-3">
                                     <a href="{{ route('storefront.listing', $item->listing->slug) }}" class="text-slate-800 hover:underline">{{ $item->listing->title }}</a>
+                                    {{--
+                                        A pig line is a specific animal or a
+                                        weight of meat, and saying only the
+                                        listing title would leave a basket of
+                                        four identical-looking rows at four
+                                        different prices.
+                                    --}}
+                                    @if($item->purchase_type === 'live')
+                                        @php($chosen = collect($item->selected_pig_weight_snapshot ?? [])->first())
+                                        <span class="block text-xs text-slate-500">
+                                            Live animal{{ $chosen ? ' · ' . $chosen['ear_tag'] : '' }}
+                                            @if($chosen) · {{ rtrim(rtrim($chosen['kg'], '0'), '.') }} kg @endif
+                                            @if($item->price_per_kg_snapshot)
+                                                at GHS {{ number_format((float) $item->price_per_kg_snapshot, 2) }}/kg
+                                            @endif
+                                        </span>
+                                    @elseif($item->purchase_type === 'carcass')
+                                        <span class="block text-xs text-slate-500">
+                                            Carcass weight · {{ rtrim(rtrim((string) $item->requested_kg, '0'), '.') }} kg
+                                            @if($item->price_per_kg_snapshot)
+                                                at GHS {{ number_format((float) $item->price_per_kg_snapshot, 2) }}/kg
+                                            @endif
+                                        </span>
+                                    @endif
                                 </td>
                                 <td class="px-5 py-3">GHS {{ number_format((float)$item->price_snapshot, 2) }}</td>
                                 <td class="px-5 py-3">
-                                    <form method="POST" action="{{ route('storefront.cart.update', $item) }}" class="flex items-center gap-2">
-                                        @csrf @method('PATCH')
-                                        <input type="number" step="0.0001" name="quantity" value="{{ rtrim(rtrim((string)$item->quantity,'0'),'.') }}" class="w-20 rounded-lg border-slate-300 text-sm">
-                                        <button class="text-slate-500 text-xs hover:underline">Update</button>
-                                    </form>
+                                    @if($item->purchase_type === 'live')
+                                        {{--
+                                            One animal is one animal. A quantity
+                                            box here would let a buyer set 5 and
+                                            sell the same pig five times.
+                                        --}}
+                                        <span class="text-slate-500">1</span>
+                                    @elseif($item->purchase_type === 'carcass')
+                                        <span class="text-slate-500">{{ rtrim(rtrim((string) $item->requested_kg, '0'), '.') }} kg</span>
+                                    @else
+                                        <form method="POST" action="{{ route('storefront.cart.update', $item) }}" class="flex items-center gap-2">
+                                            @csrf @method('PATCH')
+                                            <input type="number" step="0.0001" name="quantity" value="{{ rtrim(rtrim((string)$item->quantity,'0'),'.') }}" class="w-20 rounded-lg border-slate-300 text-sm">
+                                            <button class="text-slate-500 text-xs hover:underline">Update</button>
+                                        </form>
+                                    @endif
                                 </td>
                                 <td class="px-5 py-3 font-medium">GHS {{ number_format((float)$item->lineTotal(), 2) }}</td>
                                 <td class="px-5 py-3 text-right">
