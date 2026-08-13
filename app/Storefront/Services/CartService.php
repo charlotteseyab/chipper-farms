@@ -96,6 +96,11 @@ class CartService
                 'quantity'        => $quantity,
                 'price_snapshot'  => $unitPrice,
                 'price_basis'     => $listing->pricing_basis,
+                // Which stock this came from, carried so the order line knows.
+                // A piglet line looks exactly like a bag of feed at this point
+                // — bought by the head, no animals behind it — and the only
+                // thing that tells them apart downstream is this column.
+                'source_category' => $listing->source_category,
             ]);
         });
     }

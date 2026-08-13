@@ -734,16 +734,45 @@ class OrderService
                 continue;
             }
 
-            $outstanding = $allocations->outstandingFor($item);
+            // Asked as a STATE, not a head count.
+            //
+            // A carcass line's quantity is 1, so counting head would call a
+            // single 120 kg animal a complete selection against a 150 kg order
+            // — a short delivery the system had already confirmed. The state
+            // knows which unit the line is measured in.
+            $state = $allocations->fulfilmentState($item);
 
-            if ($outstanding > 0) {
-                $required = (int) round((float) $item->quantity);
+            if ($state === \App\Storefront\Services\StorefrontPigAllocationService::STATE_NEEDS_SELECTION) {
+                $requestedKg = $allocations->requestedKgFor($item);
+
+                if ($requestedKg !== null) {
+                    throw new InvalidOrderTransitionException(sprintf(
+                        'Choose animals covering %s kg for "%s" before confirming: %s kg chosen.',
+                        rtrim(rtrim($requestedKg, '0'), '.'),
+                        $item->description,
+                        rtrim(rtrim($allocations->selectedKgFor($item), '0'), '.'),
+                    ));
+                }
+
+                $required    = (int) round((float) $item->quantity);
+                $outstanding = $allocations->outstandingFor($item);
 
                 throw new InvalidOrderTransitionException(sprintf(
                     'Select the exact pigs for "%s" before confirming: %d of %d chosen.',
                     $item->description,
                     $required - $outstanding,
                     $required,
+                ));
+            }
+
+            // A selection that can no longer be sold is not a selection. It
+            // must be fixed before the order is confirmed, not discovered while
+            // the animals are being sold.
+            if ($state === \App\Storefront\Services\StorefrontPigAllocationService::STATE_CONFLICT) {
+                throw new InvalidOrderTransitionException(sprintf(
+                    'The animals chosen for "%s" can no longer be sold. %s',
+                    $item->description,
+                    implode(' ', $allocations->fulfilmentProblems($item)),
                 ));
             }
         }

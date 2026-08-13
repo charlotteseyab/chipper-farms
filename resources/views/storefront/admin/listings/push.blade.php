@@ -314,14 +314,18 @@
                 @endif
 
                 <div class="grid md:grid-cols-3 gap-4">
-                    @if($isManual)
+                    @if($isManual || $isPiglet)
                         {{--
-                            A manual listing has no animal to price it, so a price
-                            is typed here and nowhere else. Currency follows the
-                            farm's configuration rather than being asked for.
+                            No animal to weigh, so the price is typed here and
+                            nowhere else. Currency follows the farm's
+                            configuration rather than being asked for.
+
+                            Piglets are here for the same reason as a bag of
+                            feed: there is nothing on the scale. A farm prices a
+                            weaner by the head, not by the kilo.
                         --}}
                         <label class="block text-sm">
-                            <span class="text-slate-600">Price</span>
+                            <span class="text-slate-600">{{ $isPiglet ? 'Price per piglet' : 'Price' }}</span>
                             <input type="number" step="0.01" name="fixed_price" value="{{ old('fixed_price') }}" class="mt-1 w-full rounded-xl border-slate-300 text-sm">
                         </label>
                     @endif

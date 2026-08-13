@@ -460,7 +460,10 @@ class CheckoutService
     protected function purchaseSnapshotOf(StorefrontCartItem $item): array
     {
         if ($item->purchase_type === null) {
-            return [];
+            // An ordinary line still has to say which stock it came from: it is
+            // what tells a piglet lot apart from a bag of feed after the cart
+            // is gone.
+            return $item->source_category === null ? [] : ['source_category' => $item->source_category];
         }
 
         return [

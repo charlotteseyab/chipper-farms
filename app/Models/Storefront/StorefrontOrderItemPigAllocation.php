@@ -70,13 +70,27 @@ class StorefrontOrderItemPigAllocation extends Model
         'approved_at',
         'status',
         'release_reason',
+        // How the animal on this line was bought, what it weighed, what it was
+        // worth, and whether the CUSTOMER chose it or the farm did. The last
+        // one changes what a manager may substitute.
+        'purchase_type',
+        'allocated_live_weight_kg',
+        'allocated_carcass_weight_kg',
+        'allocated_sale_amount',
+        'customer_selected',
+        'allocation_snapshot',
     ];
 
     protected function casts(): array
     {
         return [
-            'selected_at' => 'datetime',
-            'approved_at' => 'datetime',
+            'selected_at'                 => 'datetime',
+            'approved_at'                 => 'datetime',
+            'allocated_live_weight_kg'    => 'decimal:4',
+            'allocated_carcass_weight_kg' => 'decimal:4',
+            'allocated_sale_amount'       => 'decimal:2',
+            'customer_selected'           => 'boolean',
+            'allocation_snapshot'         => 'array',
         ];
     }
 

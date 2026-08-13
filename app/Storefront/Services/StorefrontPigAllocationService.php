@@ -48,6 +48,7 @@ class StorefrontPigAllocationService
         protected StorefrontPigPoolService $pool,
         protected PigListingEligibilityService $eligibility,
         protected StorefrontPigPricingService $pricing,
+        protected StorefrontPigletMaterialisationService $piglets,
     ) {
     }
 
@@ -100,6 +101,15 @@ class StorefrontPigAllocationService
      */
     public function fulfilmentState(StorefrontOrderItem $item): string
     {
+        // A piglet line has no animals to choose between — they do not exist
+        // yet. It is ready the moment it is ordered, and sold once approval has
+        // created and sold them.
+        if ($this->piglets->appliesTo($item)) {
+            return $this->piglets->outstandingFor($item) === 0
+                ? self::STATE_SOLD
+                : self::STATE_READY;
+        }
+
         if (! $this->requiresPigSelection($item)) {
             return self::STATE_NOT_APPLICABLE;
         }
@@ -490,6 +500,22 @@ class StorefrontPigAllocationService
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            // PIGLETS BECOME ANIMALS HERE.
+            //
+            // A farm does not keep individual records for suckling piglets, so
+            // a piglet line has nothing to allocate until now. The records are
+            // created inside this transaction, immediately before being sold
+            // through the same service as every other animal — which is the
+            // whole point: no second way to sell a pig.
+            //
+            // Idempotent, so a retried approval does not put a second litter of
+            // phantom animals in the herd.
+            $lockedOrder->loadMissing('items');
+
+            foreach ($lockedOrder->items as $orderItem) {
+                $this->piglets->materialiseFor($orderItem, $actor);
+            }
+
             $allocations = StorefrontOrderItemPigAllocation::query()
                 ->where('storefront_order_id', $lockedOrder->getKey())
                 ->whereIn('status', StorefrontOrderItemPigAllocation::ACTIVE_STATUSES)
@@ -531,7 +557,16 @@ class StorefrontPigAllocationService
 
                 // Re-validate at the moment of sale. The selection may be old,
                 // and an animal can die or be sold at the gate in between.
-                $errors = $this->validateSelection($item, [(int) $allocation->pig_id]);
+                //
+                // A MATERIALISED piglet is the exception, and not an excuse: its
+                // record was created seconds ago inside THIS transaction, it is
+                // in no listing pool by design, and nothing about it can have
+                // changed since. Running the pool checks against it would fail
+                // on "not part of this listing" — a true statement about a
+                // question that does not apply.
+                $errors = ($allocation->allocation_snapshot['materialised'] ?? false) === true
+                    ? []
+                    : $this->validateSelection($item, [(int) $allocation->pig_id]);
 
                 // The count message is expected here — this checks ONE animal
                 // against a line that may need several — so only real
