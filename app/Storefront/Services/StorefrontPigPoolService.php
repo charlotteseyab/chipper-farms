@@ -487,6 +487,59 @@ class StorefrontPigPoolService
                     $listing->title,
                 ));
             }
+
+            $this->assertCarcassPromisesSurvive($pig, $listing);
+        }
+    }
+
+    /**
+     * KILOGRAMS PROMISED, NOT HEAD.
+     *
+     * A carcass hold names no animals — that is the point of it. A buyer asked
+     * for 150 kg and which pigs cover it is a decision nobody has made yet.
+     * That makes it invisible to every check above, which counts animals.
+     *
+     * So selling a pig at the gate can silently break a promise: two 100 kg
+     * animals back a 150 kg order, one walks out of the yard, and the listing
+     * can now deliver 100 of the 150 kilograms somebody has already paid for.
+     * Nothing would have complained until the order came to be fulfilled.
+     *
+     * The check is the same shape as the head one, in the other unit: what this
+     * listing could still deliver after the sale, against what it has already
+     * promised in kilograms.
+     */
+    protected function assertCarcassPromisesSurvive(PigManagement $pig, StorefrontListing $listing): void
+    {
+        $promisedKg = StorefrontInventoryHold::query()
+            ->where('listing_id', $listing->getKey())
+            ->where('hold_type', StorefrontInventoryHold::TYPE_CARCASS_KG)
+            ->live()
+            ->lockForUpdate()
+            ->pluck('requested_kg')
+            ->reduce(fn (string $carry, $kg) => bcadd($carry, (string) ($kg ?? '0'), 4), '0.0000');
+
+        if (bccomp($promisedKg, '0', 4) <= 0) {
+            return;
+        }
+
+        $capacity = $listing->carcass_capacity_kg === null
+            ? '0.0000'
+            : bcadd((string) $listing->carcass_capacity_kg, '0', 4);
+
+        // What this animal was contributing to that capacity.
+        $thisAnimal = app(StorefrontPigPricingService::class)->latestWeightKg($pig) ?? '0';
+
+        $remaining = bcsub($capacity, $thisAnimal, 4);
+
+        if (bccomp($remaining, $promisedKg, 4) < 0) {
+            throw new InventoryConflictException(sprintf(
+                '%s cannot be sold directly because storefront customers have already paid for %s kg from "%s", ' .
+                'and only %s kg would be left. Cancel or reduce that order first.',
+                $this->label($pig),
+                rtrim(rtrim($promisedKg, '0'), '.'),
+                $listing->title,
+                rtrim(rtrim(bccomp($remaining, '0', 4) < 0 ? '0' : $remaining, '0'), '.') ?: '0',
+            ));
         }
     }
 
