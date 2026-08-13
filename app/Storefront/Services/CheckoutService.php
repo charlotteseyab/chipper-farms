@@ -4,11 +4,13 @@ namespace App\Storefront\Services;
 
 use App\Models\CounterpartyAddress;
 use App\Models\Storefront\StorefrontCart;
+use App\Models\Storefront\StorefrontCartItem;
 use App\Models\Storefront\StorefrontDeliveryZone;
 use App\Models\Storefront\StorefrontOrder;
 use App\Models\Storefront\StorefrontOrderItem;
 use App\Models\User;
 use App\Storefront\Services\Exceptions\CheckoutException;
+use App\Storefront\Services\StorefrontPigPricingService;
 use App\Storefront\Support\CartOwner;
 use App\Storefront\Support\CheckoutData;
 use App\Storefront\Support\StorefrontCatalog;
@@ -100,8 +102,24 @@ class CheckoutService
                 // holds. One authority, and it is the one holding the lock.
 
                 // Re-price from the listing now (authoritative), not the snapshot.
-                $unitPrice = $this->cartService->effectiveUnitPrice($listing);
-                $lineTotal = bcmul($unitPrice, (string) $item->quantity, 2);
+                //
+                // EXCEPT for a pig line, where the snapshot IS the
+                // authoritative price. The listing carries one number for a
+                // pool that can contain a 78 kg animal and a 124 kg one;
+                // re-pricing a named animal from it would charge the wrong
+                // amount for a specific pig the buyer chose, and re-pricing a
+                // carcass request from it would charge a per-head figure for
+                // kilograms. The line already holds the rate, the weight and
+                // the arithmetic that produced its total, all computed on the
+                // server when the animal was chosen.
+                if ($this->isPigLine($item)) {
+                    $unitPrice = (string) $item->price_snapshot;
+                    $lineTotal = bcmul($unitPrice, (string) $item->quantity, 2);
+                } else {
+                    $unitPrice = $this->cartService->effectiveUnitPrice($listing);
+                    $lineTotal = bcmul($unitPrice, (string) $item->quantity, 2);
+                }
+
                 $subtotal  = bcadd($subtotal, $lineTotal, 2);
 
                 // Accumulate delivery fee (once per listing that charges one)
@@ -118,6 +136,9 @@ class CheckoutService
                     'quantity'   => (string) $item->quantity,
                     'unit_price' => $unitPrice,
                     'line_total' => $lineTotal,
+                    // Carried across intact. An invoice has to explain itself
+                    // years later without looking up settings that have moved.
+                    'cart_item'  => $item,
                 ];
             }
 
@@ -212,7 +233,7 @@ class CheckoutService
                     'unit_price'      => $draft['unit_price'],
                     'line_total'      => $draft['line_total'],
                     'weight_kg'       => $listing->estimated_weight_kg,
-                ]);
+                ] + $this->purchaseSnapshotOf($draft['cart_item']));
             }
 
             // Convert the cart.
@@ -407,4 +428,43 @@ class CheckoutService
     {
         return app(StorefrontReferenceAllocator::class)->orderReference($organizationId);
     }
+
+    /**
+     * Is this line an animal, or a weight of meat?
+     */
+    protected function isPigLine(StorefrontCartItem $item): bool
+    {
+        return in_array($item->purchase_type, [
+            StorefrontPigPricingService::PURCHASE_LIVE,
+            StorefrontPigPricingService::PURCHASE_CARCASS,
+        ], true);
+    }
+
+    /**
+     * Everything about how a cart line was priced, copied onto the order line.
+     *
+     * Copied rather than referenced: the cart is converted and eventually
+     * cleared, and an order that could only explain its own prices by reading a
+     * basket that no longer exists cannot explain them at all.
+     *
+     * @return array<string, mixed>
+     */
+    protected function purchaseSnapshotOf(StorefrontCartItem $item): array
+    {
+        if ($item->purchase_type === null) {
+            return [];
+        }
+
+        return [
+            'purchase_type'                => $item->purchase_type,
+            'source_category'              => $item->source_category,
+            'requested_kg'                 => $item->requested_kg,
+            'price_per_kg_snapshot'        => $item->price_per_kg_snapshot,
+            'line_weight_kg'               => $item->line_weight_kg,
+            'selected_listing_pig_ids'     => $item->selected_listing_pig_ids,
+            'selected_pig_weight_snapshot' => $item->selected_pig_weight_snapshot,
+            'calculation_snapshot'         => $item->calculation_snapshot,
+        ];
+    }
+
 }

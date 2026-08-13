@@ -5,6 +5,7 @@ namespace App\Storefront\Services;
 use App\Models\Storefront\StorefrontInventoryHold;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontOrder;
+use App\Models\Storefront\StorefrontOrderItem;
 use App\Storefront\Services\Exceptions\InventoryConflictException;
 use App\Storefront\Support\StorefrontSettings;
 
@@ -62,16 +63,16 @@ class HoldService
     {
         $order->loadMissing('items');
 
-        $quantities = $this->quantitiesByListing($order);
+        $reservations = $this->reservationsByListing($order);
 
-        if ($quantities === []) {
+        if ($reservations === []) {
             return [];
         }
 
         $expiresAt = $this->expiryFor($order);
         $holds     = [];
 
-        foreach ($quantities as $listingId => $quantity) {
+        foreach ($reservations as $listingId => $byType) {
             // Lock first, read second. Reading availability before taking the
             // lock is the classic check-then-act race: both transactions see
             // "one left" and both proceed.
@@ -86,33 +87,98 @@ class HoldService
                 );
             }
 
-            $available = $this->availableToSell($listing, excludingOrderId: $order->getKey());
+            // Head first, then kilograms. Both are checked under the same lock
+            // and in a fixed order, so two checkouts contending for the same
+            // listing queue rather than deadlock.
+            $this->assertHeadAvailable($listing, $order, $byType);
+            $this->assertCarcassKgAvailable($listing, $order, $byType);
 
-            if (bccomp($quantity, $available, 4) > 0) {
-                throw new InventoryConflictException(sprintf(
-                    '"%s" — only %s left. Someone else is checking out with the rest right now.',
-                    $listing->title,
-                    $this->trim($available),
-                ));
+            foreach ($byType as $type => $reservation) {
+                // updateOrCreate against the unique (order_id, listing_id,
+                // hold_type) key: a retried checkout for the same order updates
+                // its own hold rather than claiming the stock a second time.
+                $holds[] = StorefrontInventoryHold::updateOrCreate(
+                    ['order_id' => $order->getKey(), 'listing_id' => $listingId, 'hold_type' => $type],
+                    [
+                        'organization_id'          => $order->organization_id,
+                        'quantity'                 => $reservation['quantity'],
+                        'requested_kg'             => $reservation['requested_kg'],
+                        'selected_listing_pig_ids' => $reservation['listing_pig_ids'] ?: null,
+                        'status'                   => StorefrontInventoryHold::STATUS_ACTIVE,
+                        'expires_at'               => $expiresAt,
+                        'resolved_at'              => null,
+                        'resolution_reason'        => null,
+                    ],
+                );
             }
-
-            // updateOrCreate against the unique (order_id, listing_id) key: a
-            // retried checkout for the same order updates its own hold rather
-            // than claiming the stock a second time.
-            $holds[] = StorefrontInventoryHold::updateOrCreate(
-                ['order_id' => $order->getKey(), 'listing_id' => $listingId],
-                [
-                    'organization_id' => $order->organization_id,
-                    'quantity'        => $quantity,
-                    'status'          => StorefrontInventoryHold::STATUS_ACTIVE,
-                    'expires_at'      => $expiresAt,
-                    'resolved_at'     => null,
-                    'resolution_reason' => null,
-                ],
-            );
         }
 
         return $holds;
+    }
+
+    /**
+     * Head reserved across every kind of hold must fit what is left.
+     *
+     * A carcass hold reserves no head — which animals cover it has not been
+     * decided — so it contributes nothing here and is checked in kilograms
+     * instead.
+     *
+     * @param  array<string, array<string, mixed>>  $byType
+     */
+    protected function assertHeadAvailable(StorefrontListing $listing, StorefrontOrder $order, array $byType): void
+    {
+        $head = '0.0000';
+
+        foreach ($byType as $reservation) {
+            $head = bcadd($head, $reservation['quantity'], 4);
+        }
+
+        if (bccomp($head, '0', 4) <= 0) {
+            return;
+        }
+
+        $available = $this->availableToSell($listing, excludingOrderId: $order->getKey());
+
+        if (bccomp($head, $available, 4) > 0) {
+            throw new InventoryConflictException(sprintf(
+                '"%s" — only %s left. Someone else is checking out with the rest right now.',
+                $listing->title,
+                $this->trim($available),
+            ));
+        }
+    }
+
+    /**
+     * Kilograms reserved must fit what the animals can actually deliver.
+     *
+     * Counted apart from head, because they are different units. The capacity
+     * is the live weight of the animals still on offer; anything another
+     * checkout is holding in kilograms comes off it first.
+     *
+     * @param  array<string, array<string, mixed>>  $byType
+     */
+    protected function assertCarcassKgAvailable(StorefrontListing $listing, StorefrontOrder $order, array $byType): void
+    {
+        $kg = $byType[StorefrontInventoryHold::TYPE_CARCASS_KG]['requested_kg'] ?? null;
+
+        if ($kg === null || bccomp($kg, '0', 4) <= 0) {
+            return;
+        }
+
+        $capacity = $listing->carcass_capacity_kg === null
+            ? '0.0000'
+            : bcadd((string) $listing->carcass_capacity_kg, '0', 4);
+
+        $spokenFor = $this->carcassKgHeld($listing, excludingOrderId: $order->getKey());
+        $available = bcsub($capacity, $spokenFor, 4);
+
+        if (bccomp($kg, $available, 4) > 0) {
+            throw new InventoryConflictException(sprintf(
+                '"%s" — only %s kg left. Someone else is checking out with the rest right now.',
+                $listing->title,
+                $this->trim(bccomp($available, '0', 4) < 0 ? '0' : $available),
+            ));
+        }
     }
 
     /**
@@ -268,13 +334,20 @@ class HoldService
     }
 
     /**
-     * Order lines aggregated per listing, ascending by listing id.
+     * Order lines aggregated per listing AND per kind of hold.
      *
-     * @return array<int, string>
+     * The three kinds reserve different things and cannot be added together:
+     * two named animals plus fifty kilograms is not "fifty-two" of anything.
+     * They are kept apart here and checked in their own units.
+     *
+     * Ascending by listing id, which is the lock ordering every caller relies
+     * on to avoid deadlocking against another checkout.
+     *
+     * @return array<int, array<string, array<string, mixed>>>
      */
-    protected function quantitiesByListing(StorefrontOrder $order): array
+    protected function reservationsByListing(StorefrontOrder $order): array
     {
-        $quantities = [];
+        $reservations = [];
 
         foreach ($order->items as $item) {
             if ($item->listing_id === null) {
@@ -282,16 +355,58 @@ class HoldService
             }
 
             $listingId = (int) $item->listing_id;
-            $quantities[$listingId] = bcadd(
-                $quantities[$listingId] ?? '0',
-                (string) $item->quantity,
-                4,
-            );
+            $type      = $this->holdTypeFor($item);
+
+            $reservations[$listingId][$type] ??= [
+                'quantity'        => '0.0000',
+                'requested_kg'    => null,
+                'listing_pig_ids' => [],
+            ];
+
+            $bucket = &$reservations[$listingId][$type];
+
+            if ($type === StorefrontInventoryHold::TYPE_CARCASS_KG) {
+                // Kilograms, and NO head: which animals will cover this has not
+                // been decided yet, so reserving one of them would be a guess.
+                $bucket['requested_kg'] = bcadd(
+                    $bucket['requested_kg'] ?? '0',
+                    (string) ($item->requested_kg ?? '0'),
+                    4,
+                );
+            } else {
+                $bucket['quantity'] = bcadd($bucket['quantity'], (string) $item->quantity, 4);
+            }
+
+            if ($type === StorefrontInventoryHold::TYPE_EXACT_PIGS) {
+                foreach ((array) ($item->selected_listing_pig_ids ?? []) as $rowId) {
+                    $bucket['listing_pig_ids'][] = (int) $rowId;
+                }
+
+                $bucket['listing_pig_ids'] = array_values(array_unique($bucket['listing_pig_ids']));
+            }
+
+            unset($bucket);
         }
 
-        ksort($quantities, SORT_NUMERIC);
+        ksort($reservations, SORT_NUMERIC);
 
-        return $quantities;
+        foreach ($reservations as &$byType) {
+            ksort($byType);
+        }
+
+        return $reservations;
+    }
+
+    /**
+     * Which kind of hold an order line needs.
+     */
+    protected function holdTypeFor(StorefrontOrderItem $item): string
+    {
+        return match ($item->purchase_type) {
+            StorefrontPigPricingService::PURCHASE_LIVE    => StorefrontInventoryHold::TYPE_EXACT_PIGS,
+            StorefrontPigPricingService::PURCHASE_CARCASS => StorefrontInventoryHold::TYPE_CARCASS_KG,
+            default                                       => StorefrontInventoryHold::TYPE_QUANTITY,
+        };
     }
 
     protected function trim(string $decimal): string
