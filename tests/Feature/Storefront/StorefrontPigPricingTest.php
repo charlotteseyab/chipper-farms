@@ -96,6 +96,49 @@ class StorefrontPigPricingTest extends StorefrontTestCase
         $this->assertSame('2895.00', $this->pricing()->liveValueOf($pig->fresh()));
     }
 
+    /**
+     * Two weights on the same day: the later record is the correction.
+     *
+     * Ordering by `weigh_date` alone left this undefined, and the two engines
+     * disagreed — SQLite returned the newer row, MariaDB the older one, so the
+     * same animal was priced differently depending on where the code ran. A pig
+     * re-weighed after a misread scale was being priced off the misreading.
+     */
+    public function test_a_second_weight_on_the_same_day_is_the_one_that_counts(): void
+    {
+        // TWO animals, and the correction written LAST.
+        //
+        // The shape matters. Eager loading fetches every weight for the whole
+        // set in one query, and with the dates tied the engine returns them in
+        // primary-key order — so the correction, written after the second
+        // animal's first weighing, sits behind the reading it corrects. A
+        // single pig with two adjacent rows did NOT reproduce this: the test
+        // passed with the tie-break removed, which is how I found out it was
+        // proving nothing.
+        $corrected = $this->pricedPig();
+        $other     = $this->pricedPig();
+
+        $this->weigh($corrected, 90.0, daysAgo: 0);
+        $this->weigh($other, 110.0, daysAgo: 0);
+        // The scale was misread; re-weighed the same day.
+        $this->weigh($corrected, 96.0, daysAgo: 0);
+
+        // Read through the EAGER-LOADED relation, which is the path the pricing
+        // service actually takes — it loads `with('latestWeight')` for a whole
+        // pool at once.
+        $loaded = PigManagement::query()
+            ->with('latestWeight')
+            ->whereKey([$corrected->getKey(), $other->getKey()])
+            ->get()
+            ->keyBy('id');
+
+        $this->assertSame(
+            '96.0000',
+            $this->pricing()->latestWeightKg($loaded[$corrected->getKey()]),
+            'A correction recorded the same day must win over the reading it corrects.',
+        );
+    }
+
     public function test_the_cache_is_used_only_when_the_animal_has_never_been_weighed(): void
     {
         $pig = $this->pricedPig(cacheWeight: 72);

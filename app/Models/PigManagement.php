@@ -480,9 +480,26 @@ class PigManagement extends Model
         return $this->hasMany(WeightAlert::class, 'pig_id');
     }
 
+    /**
+     * The most recent weight recorded for this animal.
+     *
+     * TIE-BROKEN ON id, AND IT MATTERS.
+     *
+     * Ordering by `weigh_date` alone leaves two weights recorded on the SAME
+     * day in an undefined order — which one wins is whatever the engine feels
+     * like returning. SQLite happened to give the later row and MariaDB the
+     * earlier one, so a pig re-weighed the same day was priced off the reading
+     * that was being corrected. Nothing caught it until the same test ran on
+     * both engines.
+     *
+     * A second weight on the same day IS the correction, so the later-recorded
+     * row wins.
+     */
     public function latestWeight()
     {
-        return $this->hasOne(PigWeight::class, 'pig_id')->latest('weigh_date');
+        return $this->hasOne(PigWeight::class, 'pig_id')
+            ->orderByDesc('weigh_date')
+            ->orderByDesc('id');
     }
 
     public function purchaseStockIntake(): BelongsTo
