@@ -76,6 +76,7 @@ class OrderService
         protected \App\Services\Sales\UpdatePigSalePaymentStatusService $pigPayment,
         protected \App\Services\Sales\UpdateFeedSalePaymentStatusService $feedPayment,
         protected HoldService $holds,
+        protected StorefrontPigPoolService $pigPools,
     ) {
     }
 
@@ -487,6 +488,18 @@ class OrderService
         $blockers = [];
 
         foreach ($order->items as $item) {
+            $allocationSales = $this->allocationSalesForItem($item);
+
+            if ($allocationSales->isNotEmpty()) {
+                foreach ($allocationSales as $allocation) {
+                    if ($allocation->pig_sale_id === null || \App\Models\PigSale::find($allocation->pig_sale_id) === null) {
+                        $blockers[] = "line #{$item->id} has a pooled pig allocation without a reachable sale";
+                    }
+                }
+
+                continue;
+            }
+
             if ($item->posted_sale_id === null || $item->posted_sale_type === null) {
                 $blockers[] = "line #{$item->id} has no posted sale yet (finance posting may still be in flight)";
                 continue;
@@ -520,6 +533,32 @@ class OrderService
         $unpaid = [];
 
         foreach ($order->items as $item) {
+            $allocationSales = $this->allocationSalesForItem($item);
+
+            if ($allocationSales->isNotEmpty()) {
+                foreach ($allocationSales as $allocation) {
+                    $sale = $allocation->pig_sale_id !== null
+                        ? \App\Models\PigSale::find($allocation->pig_sale_id)
+                        : null;
+
+                    if ($sale === null) {
+                        $unpaid[] = "line #{$item->id} has a pooled pig sale that no longer exists";
+                        continue;
+                    }
+
+                    if ($sale->payment_status !== 'paid') {
+                        $unpaid[] = sprintf(
+                            'line #%d: PigSale#%d is still %s',
+                            $item->id,
+                            $sale->id,
+                            (string) $sale->payment_status,
+                        );
+                    }
+                }
+
+                continue;
+            }
+
             if ($item->posted_sale_id === null || $item->posted_sale_type === null) {
                 $unpaid[] = "line #{$item->id} has no posted sale";
                 continue;
@@ -566,6 +605,22 @@ class OrderService
     protected function settleCodPayments(StorefrontOrder $order, User $actor): void
     {
         foreach ($order->items as $item) {
+            $allocationSales = $this->allocationSalesForItem($item);
+
+            if ($allocationSales->isNotEmpty()) {
+                foreach ($allocationSales as $allocation) {
+                    $sale = $allocation->pig_sale_id !== null
+                        ? \App\Models\PigSale::find($allocation->pig_sale_id)
+                        : null;
+
+                    if ($sale && $sale->payment_status !== 'paid') {
+                        $this->pigPayment->execute($sale, $actor, 'paid');
+                    }
+                }
+
+                continue;
+            }
+
             if ($item->posted_sale_id === null || $item->posted_sale_type === null) {
                 continue;
             }
@@ -584,6 +639,15 @@ class OrderService
         }
     }
 
+    protected function allocationSalesForItem(StorefrontOrderItem $item): \Illuminate\Support\Collection
+    {
+        return \App\Models\Storefront\StorefrontOrderItemPigAllocation::query()
+            ->where('storefront_order_item_id', $item->getKey())
+            ->where('status', \App\Models\Storefront\StorefrontOrderItemPigAllocation::STATUS_SOLD)
+            ->orderBy('id')
+            ->get();
+    }
+
     protected function markListingsSoldOut(StorefrontOrder $order, User $actor): void
     {
         foreach ($order->items as $item) {
@@ -594,8 +658,16 @@ class OrderService
             if ($listing === null) {
                 continue;
             }
-            if (in_array($listing->status, [StorefrontListing::STATUS_RESERVED, StorefrontListing::STATUS_PUBLISHED], true)
-                && $this->isPigBacked($listing)) {
+            if (! $this->isPigBacked($listing)) {
+                continue;
+            }
+
+            if ($listing->usesPigPool()) {
+                $this->pigPools->syncListingAvailability($listing, $actor);
+                continue;
+            }
+
+            if (in_array($listing->status, [StorefrontListing::STATUS_RESERVED, StorefrontListing::STATUS_PUBLISHED], true)) {
                 $this->listingService->transitionTo($listing, StorefrontListing::STATUS_SOLD_OUT, $actor);
             }
         }
@@ -725,7 +797,12 @@ class OrderService
                 continue;
             }
 
-            if ($this->isPigBacked($listing)) {
+            if ($this->isPigBacked($listing) && $listing->usesPigPool()) {
+                // A pooled pig listing is not one reserved animal. Exact
+                // allocations and checkout holds control commitments; the
+                // listing stays public while the pool still has sellable pigs.
+                $this->pigPools->syncListingAvailability($listing, $actor);
+            } elseif ($this->isPigBacked($listing)) {
                 $this->reservePigListing($listing, $reserve, $actor);
             } else {
                 $this->adjustProductQuantity($listing, $quantity, $reserve, $actor);

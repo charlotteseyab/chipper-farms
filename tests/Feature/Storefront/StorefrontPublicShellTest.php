@@ -29,9 +29,10 @@ class StorefrontPublicShellTest extends StorefrontTestCase
             ->assertOk()
             ->assertSee('Chipper Farms')
             ->assertSee('Chipper Farms logo')
+            ->assertSee('Shop')
             ->assertSee('Shop all')
             ->assertSee('Cart')
-            ->assertSee('Sign in')
+            ->assertSee('Sign In')
             ->assertSee('Starter feed bundle')
             ->assertDontSee('storefront-admin')
             ->assertDontSee('Modules & Features');

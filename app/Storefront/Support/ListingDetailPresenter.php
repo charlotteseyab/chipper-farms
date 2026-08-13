@@ -60,6 +60,14 @@ class ListingDetailPresenter
      */
     protected function pigAttributes(StorefrontListing $listing): array
     {
+        if ($listing->usesPigPool()) {
+            return [
+                'pool_size'       => $listing->listingPigs()->count(),
+                'available_head'  => $listing->availableListingPigs()->count(),
+                'sold_head'       => $listing->soldListingPigs()->count(),
+            ];
+        }
+
         $pig = $this->availability->resolveSource($listing);
 
         if (! $pig instanceof Model) {

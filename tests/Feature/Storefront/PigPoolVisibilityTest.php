@@ -7,6 +7,7 @@ use App\Models\PigSale;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontOrder;
 use App\Models\Storefront\StorefrontOrderItem;
+use App\Storefront\Services\Exceptions\InventoryConflictException;
 use App\Storefront\Services\StorefrontPigAllocationService;
 use App\Storefront\Services\StorefrontPigPoolService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -63,6 +64,7 @@ class PigPoolVisibilityTest extends StorefrontTestCase
             'pricing_basis'      => StorefrontListing::BASIS_FIXED,
             'fixed_price'        => '900.00',
             'quantity_available' => '0',
+            'quantity_unit'      => 'head',
         ]);
 
         $pigs = $this->makeStandardPigs($size);
@@ -208,6 +210,53 @@ class PigPoolVisibilityTest extends StorefrontTestCase
             0,
             PigSale::where('pig_id', $pigs[0]->id)->count(),
             'A pig promised to a customer must not be sellable at the gate.',
+        );
+    }
+
+    public function test_the_sale_service_refuses_an_allocated_storefront_pig_even_if_the_form_is_bypassed(): void
+    {
+        [$listing, $pigs] = $this->pooledListing(2);
+        $staff = $this->makeUser('admin');
+
+        $order = StorefrontOrder::create([
+            'organization_id'   => $this->org->id,
+            'reference'         => 'SO-VIS-BYPASS',
+            'status'            => StorefrontOrder::STATUS_PENDING_CONFIRMATION,
+            'payment_status'    => StorefrontOrder::PAY_COD,
+            'payment_method'    => StorefrontOrder::METHOD_COD,
+            'fulfilment_method' => StorefrontOrder::FULFIL_PICKUP,
+            'subtotal' => '900.00', 'delivery_fee' => '0.00', 'total' => '900.00',
+            'currency_code' => 'GHS', 'placed_at' => now(),
+        ]);
+
+        $item = StorefrontOrderItem::create([
+            'organization_id' => $this->org->id,
+            'order_id'        => $order->id,
+            'listing_id'      => $listing->id,
+            'kind'            => StorefrontListing::KIND_LIVE_PIG,
+            'description'     => 'Market-ready live pigs',
+            'quantity'        => '1',
+            'quantity_unit'   => 'head',
+            'price_basis'     => 'fixed',
+            'unit_price'      => '900.00',
+            'line_total'      => '900.00',
+        ]);
+
+        $this->app->make(StorefrontPigAllocationService::class)
+            ->selectForOrderItem($item, [$pigs[0]->id], $staff);
+
+        $this->expectException(InventoryConflictException::class);
+
+        $this->app->make(\App\Services\Sales\RecordPigSaleService::class)->execute(
+            $pigs[0],
+            $staff,
+            [
+                'sale_date'   => now()->toDateString(),
+                'sale_price'  => 900,
+                'weight_type' => 'live',
+                'sale_weight' => 90,
+                'buyer_name'  => 'Bypass buyer',
+            ],
         );
     }
 

@@ -92,6 +92,13 @@ class RecordPigSaleService
             // re-price from settings. Default behaviour (operations-recorded
             // sales) is unchanged.
             $explicitPrice = ($data['price_source'] ?? null) === 'explicit';
+            $storefrontAllocationId = $data['storefront_allocation_id'] ?? null;
+            unset($data['storefront_allocation_id']);
+
+            if ($storefrontAllocationId === null) {
+                app(\App\Storefront\Services\StorefrontPigPoolService::class)
+                    ->assertPigMayBeSoldDirectly($locked);
+            }
 
             if (! $explicitPrice) {
                 if (($data['weight_type'] ?? null) === 'live') {

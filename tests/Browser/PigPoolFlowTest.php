@@ -136,6 +136,7 @@ class PigPoolFlowTest extends DuskTestCase
             'pricing_basis'      => StorefrontListing::BASIS_FIXED,
             'fixed_price'        => '900.00',
             'quantity_available' => '0',
+            'quantity_unit'      => 'head',
             'status'             => StorefrontListing::STATUS_PUBLISHED,
             'published_at'       => now(),
         ]);
@@ -171,6 +172,38 @@ class PigPoolFlowTest extends DuskTestCase
         ]);
 
         return [$listing, $order, $item, $pigs];
+    }
+
+    protected function orderForListing(Organization $org, StorefrontListing $listing, int $quantity): array
+    {
+        $suffix = $this->suffix();
+
+        $order = StorefrontOrder::create([
+            'organization_id'   => $org->id,
+            'reference'         => 'SO-DUSK-' . $suffix,
+            'status'            => StorefrontOrder::STATUS_PENDING_CONFIRMATION,
+            'payment_status'    => StorefrontOrder::PAY_COD,
+            'payment_method'    => StorefrontOrder::METHOD_COD,
+            'fulfilment_method' => StorefrontOrder::FULFIL_PICKUP,
+            'subtotal' => (900 * $quantity) . '.00', 'delivery_fee' => '0.00',
+            'total' => (900 * $quantity) . '.00',
+            'currency_code' => 'GHS', 'placed_at' => now(),
+        ]);
+
+        $item = StorefrontOrderItem::create([
+            'organization_id' => $org->id,
+            'order_id'        => $order->id,
+            'listing_id'      => $listing->id,
+            'kind'            => StorefrontListing::KIND_LIVE_PIG,
+            'description'     => $listing->title,
+            'quantity'        => (string) $quantity,
+            'quantity_unit'   => 'head',
+            'price_basis'     => 'fixed',
+            'unit_price'      => '900.00',
+            'line_total'      => (900 * $quantity) . '.00',
+        ]);
+
+        return [$order, $item];
     }
 
     /* ================================================================== */
@@ -256,9 +289,7 @@ class PigPoolFlowTest extends DuskTestCase
 
             // 3. /sales shows the created sales.
             $browser->visit('/sales')
-                ->waitForText('Sales')
-                ->assertSee($chosenTags[0])
-                ->assertSee($chosenTags[1]);
+                ->waitForText('Sales');
 
             // 4. And the animals are no longer active Standard Stock.
             $browser->visit('/standard-stocks')
@@ -270,6 +301,80 @@ class PigPoolFlowTest extends DuskTestCase
         $this->assertSame(2, PigSale::whereIn('pig_id', [$pigs[0]->id, $pigs[1]->id])->count());
         $this->assertSoftDeleted('pigs_management', ['id' => $pigs[0]->id]);
         $this->assertNull(PigManagement::find($pigs[2]->id)?->deleted_at, 'The unchosen animal must be untouched.');
+
+        $sales = PigSale::whereIn('pig_id', [$pigs[0]->id, $pigs[1]->id])
+            ->orderBy('id')
+            ->get();
+
+        $this->browse(function (Browser $browser) use ($sales, $chosenTags) {
+            foreach ($sales as $index => $sale) {
+                $browser->visit('/sales/' . $sale->id)
+                    ->waitForText('Pig Information')
+                    ->assertSee($chosenTags[$index]);
+            }
+        });
+    }
+
+    /**
+     * A pooled listing stays commercially live after a partial sale, survives
+     * fulfilment of that first order, then closes only when the final linked
+     * pigs are sold.
+     */
+    public function test_partial_pool_sale_stays_public_until_the_final_pigs_are_sold(): void
+    {
+        $org   = $this->organisation();
+        $staff = $this->admin($org);
+
+        [$listing, $order, , $pigs] = $this->pooledOrder($org, $staff, poolSize: 5, quantity: 3);
+
+        $this->browse(function (Browser $browser) use ($staff, $listing, $order, $pigs) {
+            $browser->resize(1400, 1800)
+                ->visit('/shop/browse')
+                ->waitForText($listing->title)
+                ->assertSee($listing->title)
+                ->visit('/shop/listing/' . $listing->slug)
+                ->waitForText('5 head available')
+                ->assertSee('5 head available')
+                ->loginAs($staff)
+                ->visit('/storefront-admin/orders/' . $order->id)
+                ->waitForText('Choose the pigs for')
+                ->check('input[value="' . $pigs[0]->id . '"]')
+                ->check('input[value="' . $pigs[1]->id . '"]')
+                ->check('input[value="' . $pigs[2]->id . '"]')
+                ->press('Save selection')
+                ->waitForText('Pigs selected', 15)
+                ->press('Confirm order')
+                ->waitForText('Pigs sold for', 20)
+                ->visit('/shop/listing/' . $listing->slug)
+                ->waitForText('2 head available')
+                ->assertSee('2 head available');
+        });
+
+        $this->assertSame(StorefrontListing::STATUS_PUBLISHED, $listing->fresh()->status);
+        $this->assertSame(3, PigSale::whereIn('pig_id', [$pigs[0]->id, $pigs[1]->id, $pigs[2]->id])->count());
+
+        app(\App\Storefront\Services\OrderService::class)->markReadyOrDispatched($order->fresh(), $staff);
+        app(\App\Storefront\Services\OrderService::class)->complete($order->fresh(), $staff);
+
+        $this->browse(function (Browser $browser) use ($listing) {
+            $browser->visit('/shop/listing/' . $listing->slug)
+                ->waitForText('2 head available')
+                ->assertSee('2 head available');
+        });
+
+        [$finalOrder, $finalItem] = $this->orderForListing($org, $listing->fresh(), 2);
+        app(\App\Storefront\Services\StorefrontPigAllocationService::class)
+            ->selectForOrderItem($finalItem, [$pigs[3]->id, $pigs[4]->id], $staff);
+        app(\App\Storefront\Services\OrderService::class)->confirm($finalOrder, $staff);
+
+        $this->assertSame(StorefrontListing::STATUS_SOLD_OUT, $listing->fresh()->status);
+        $this->assertSame(5, PigSale::whereIn('pig_id', array_column($pigs, 'id'))->count());
+
+        $this->browse(function (Browser $browser) use ($listing) {
+            $browser->visit('/shop/browse')
+                ->pause(500)
+                ->assertDontSee($listing->title);
+        });
     }
 
     /**

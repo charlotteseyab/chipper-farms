@@ -3,7 +3,9 @@
 namespace Tests\Feature\Storefront;
 
 use App\Models\PigManagement;
+use App\Models\PigDeath;
 use App\Models\PigSale;
+use App\Models\Storefront\StorefrontInventoryHold;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontListingPig;
 use App\Models\Storefront\StorefrontOrder;
@@ -77,6 +79,7 @@ class PigPoolAllocationTest extends StorefrontTestCase
             'pricing_basis'      => StorefrontListing::BASIS_FIXED,
             'fixed_price'        => '900.00',
             'quantity_available' => '0',
+            'quantity_unit'      => 'head',
         ]);
     }
 
@@ -399,6 +402,122 @@ class PigPoolAllocationTest extends StorefrontTestCase
         $poolRow = StorefrontListingPig::where('pig_id', $pigs[0]->id)->first();
         $this->assertSame(StorefrontListingPig::STATUS_SOLD, $poolRow->status);
         $this->assertSame($sale->id, $poolRow->pig_sale_id);
+    }
+
+    public function test_storefront_and_direct_sales_keep_a_partial_pool_published_until_the_last_pig_is_sold(): void
+    {
+        $listing = $this->pigListing();
+        $pigs    = $this->makeStandardPigs(5);
+        $staff   = $this->makeUser('admin');
+        $this->pool()->attachPigs($listing, array_column($pigs, 'id'), $staff);
+
+        [$order, $item] = $this->orderFor($listing, 3);
+        $this->allocations()->selectForOrderItem($item, [$pigs[0]->id, $pigs[1]->id, $pigs[2]->id], $staff);
+        $this->allocations()->approveAllocationsForOrder($order, $staff);
+
+        $directSale = $this->app->make(\App\Services\Sales\RecordPigSaleService::class)->execute(
+            $pigs[3],
+            $staff,
+            [
+                'sale_date'   => now()->toDateString(),
+                'sale_price'  => 900,
+                'weight_type' => 'live',
+                'sale_weight' => 90,
+                'buyer_name'  => 'Walk-in buyer',
+            ],
+        );
+
+        $listing->refresh();
+
+        $this->assertNotNull($directSale->id);
+        $this->assertSame(4, PigSale::whereIn('pig_id', array_column($pigs, 'id'))->count());
+        $this->assertSame(1, $this->pool()->availableCount($listing));
+        $this->assertSame('1.0000', (string) $listing->quantity_available);
+        $this->assertSame(StorefrontListing::STATUS_PUBLISHED, $listing->status);
+        $this->assertTrue($listing->isOrderable());
+        $this->assertNull(PigManagement::find($pigs[4]->id)?->deleted_at);
+
+        $this->app->make(\App\Services\Sales\RecordPigSaleService::class)->execute(
+            $pigs[4],
+            $staff,
+            [
+                'sale_date'   => now()->toDateString(),
+                'sale_price'  => 900,
+                'weight_type' => 'live',
+                'sale_weight' => 90,
+                'buyer_name'  => 'Final walk-in buyer',
+            ],
+        );
+
+        $listing->refresh();
+
+        $this->assertSame(5, PigSale::whereIn('pig_id', array_column($pigs, 'id'))->count());
+        $this->assertSame(0, $this->pool()->availableCount($listing));
+        $this->assertSame(StorefrontListing::STATUS_SOLD_OUT, $listing->status);
+        $this->assertFalse($listing->isOrderable());
+    }
+
+    public function test_stale_pool_rows_do_not_keep_dead_pigs_publicly_available(): void
+    {
+        $listing = $this->pigListing();
+        $pigs    = $this->makeStandardPigs(2);
+        $staff   = $this->makeUser('admin');
+        $this->pool()->attachPigs($listing, array_column($pigs, 'id'), $staff);
+
+        PigDeath::create([
+            'organization_id' => $this->org->id,
+            'pig_id'          => $pigs[0]->id,
+            'death_date'      => now()->toDateString(),
+            'death_cause'     => 'disease',
+            'recorded_by'     => $staff->id,
+        ]);
+
+        $this->pool()->syncListingAvailability($listing->fresh(), $staff);
+        $listing->refresh();
+
+        $this->assertSame(1, $this->pool()->availableCount($listing));
+        $this->assertSame('1.0000', (string) $listing->quantity_available);
+        $this->assertSame(StorefrontListing::STATUS_PUBLISHED, $listing->status);
+        $this->assertTrue($listing->isOrderable());
+
+        [$order, $item] = $this->orderFor($listing, 1);
+
+        $this->expectException(InventoryConflictException::class);
+
+        $this->allocations()->selectForOrderItem($item, [$pigs[0]->id], $staff);
+    }
+
+    public function test_a_direct_sale_cannot_consume_pigs_already_covered_by_active_storefront_holds(): void
+    {
+        $listing = $this->pigListing();
+        $pigs    = $this->makeStandardPigs(3);
+        $staff   = $this->makeUser('admin');
+        $this->pool()->attachPigs($listing, array_column($pigs, 'id'), $staff);
+
+        [$order] = $this->orderFor($listing, 3);
+
+        StorefrontInventoryHold::create([
+            'organization_id' => $this->org->id,
+            'listing_id'      => $listing->id,
+            'order_id'        => $order->id,
+            'quantity'        => '3.0000',
+            'status'          => StorefrontInventoryHold::STATUS_ACTIVE,
+            'expires_at'      => null,
+        ]);
+
+        $this->expectException(InventoryConflictException::class);
+
+        $this->app->make(\App\Services\Sales\RecordPigSaleService::class)->execute(
+            $pigs[0],
+            $staff,
+            [
+                'sale_date'   => now()->toDateString(),
+                'sale_price'  => 900,
+                'weight_type' => 'live',
+                'sale_weight' => 90,
+                'buyer_name'  => 'Walk-in buyer',
+            ],
+        );
     }
 
     /* ================================================================== */

@@ -341,7 +341,7 @@ class StorefrontPigAllocationService
                 $sale = $this->pigSales->execute(
                     $pig,
                     $actor,
-                    $this->saleDataFor($item, $pig, $lockedOrder, $sharePrice, $shareTax),
+                    $this->saleDataFor($item, $pig, $lockedOrder, $allocation, $sharePrice, $shareTax),
                 );
 
                 $allocation->pig_sale_id         = $sale->getKey();
@@ -506,6 +506,7 @@ class StorefrontPigAllocationService
         StorefrontOrderItem $item,
         PigManagement $pig,
         StorefrontOrder $order,
+        StorefrontOrderItemPigAllocation $allocation,
         string $sharePrice,
         string $shareOfLineTax,
     ): array {
@@ -539,6 +540,7 @@ class StorefrontPigAllocationService
             'buyer_name'     => $order->ship_to_name ?: ($order->counterparty?->name ?? null),
             'customer_id'    => $order->counterparty_id,
             'notes'          => "Storefront order {$order->reference}.",
+            'storefront_allocation_id' => $allocation->getKey(),
         ];
     }
 

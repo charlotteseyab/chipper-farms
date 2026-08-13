@@ -93,7 +93,11 @@ class PigSaleController extends Controller
             }
         }
 
-        $service->execute($pig, $request->user(), $request->validated());
+        try {
+            $service->execute($pig, $request->user(), $request->validated());
+        } catch (\App\Storefront\Services\Exceptions\InventoryConflictException $exception) {
+            return back()->withInput()->withErrors(['sale' => $exception->getMessage()]);
+        }
 
         return redirect()->route('sales.index')
             ->with('success', "Sale of pig {$pig->code} recorded successfully!");

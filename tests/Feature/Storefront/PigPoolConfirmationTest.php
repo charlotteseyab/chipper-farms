@@ -83,6 +83,7 @@ class PigPoolConfirmationTest extends StorefrontTestCase
             'pricing_basis'      => StorefrontListing::BASIS_FIXED,
             'fixed_price'        => '900.00',
             'quantity_available' => '0',
+            'quantity_unit'      => 'head',
         ]);
 
         $pigs  = $this->makeStandardPigs($poolSize);
@@ -118,6 +119,38 @@ class PigPoolConfirmationTest extends StorefrontTestCase
         ]);
 
         return [$order, $item, $listing, $pigs];
+    }
+
+    protected function orderForExistingListing(StorefrontListing $listing, int $quantity, string $suffix = ''): array
+    {
+        $order = StorefrontOrder::create([
+            'organization_id'   => $this->org->id,
+            'reference'         => 'SO-POOL-NEXT-' . strtoupper(uniqid()) . $suffix,
+            'status'            => StorefrontOrder::STATUS_PENDING_CONFIRMATION,
+            'payment_status'    => StorefrontOrder::PAY_COD,
+            'payment_method'    => StorefrontOrder::METHOD_COD,
+            'fulfilment_method' => StorefrontOrder::FULFIL_PICKUP,
+            'subtotal'          => (900 * $quantity) . '.00',
+            'delivery_fee'      => '0.00',
+            'total'             => (900 * $quantity) . '.00',
+            'currency_code'     => 'GHS',
+            'placed_at'         => now(),
+        ]);
+
+        $item = StorefrontOrderItem::create([
+            'organization_id' => $this->org->id,
+            'order_id'        => $order->id,
+            'listing_id'      => $listing->id,
+            'kind'            => StorefrontListing::KIND_LIVE_PIG,
+            'description'     => $listing->title,
+            'quantity'        => (string) $quantity,
+            'quantity_unit'   => 'head',
+            'price_basis'     => 'fixed',
+            'unit_price'      => '900.00',
+            'line_total'      => (900 * $quantity) . '.00',
+        ]);
+
+        return [$order, $item];
     }
 
     /* ================================================================== */
@@ -175,6 +208,83 @@ class PigPoolConfirmationTest extends StorefrontTestCase
         // The animals nobody chose are still on the farm.
         $this->assertNotNull(PigManagement::find($pigs[3]->id));
         $this->assertNotNull(PigManagement::find($pigs[4]->id));
+    }
+
+    public function test_partial_pooled_confirmation_keeps_remaining_pigs_public_and_orderable(): void
+    {
+        [$order, $item, $listing, $pigs] = $this->pooledOrder(poolSize: 5, quantity: 3);
+
+        $staff  = $this->makeUser('admin');
+        $chosen = [$pigs[0]->id, $pigs[1]->id, $pigs[2]->id];
+
+        $this->allocations()->selectForOrderItem($item, $chosen, $staff);
+        $this->orders()->confirm($order, $staff);
+
+        $listing->refresh();
+
+        $this->assertSame(3, PigSale::whereIn('pig_id', $chosen)->count());
+        $this->assertSame(2, $this->pool()->availableCount($listing));
+        $this->assertSame('2.0000', (string) $listing->quantity_available);
+        $this->assertSame(StorefrontListing::STATUS_PUBLISHED, $listing->status);
+        $this->assertTrue($listing->isOrderable());
+        $this->assertSame(1, StorefrontListing::visible()->whereKey($listing->id)->count());
+
+        $this->get(route('storefront.shop'))
+            ->assertOk()
+            ->assertSee($listing->title);
+
+        $this->get(route('storefront.listing', $listing->slug))
+            ->assertOk()
+            ->assertSee('2 head available')
+            ->assertDontSee('Source record no longer available');
+
+        [$nextOrder, $nextItem] = $this->orderForExistingListing($listing, 2);
+        $this->allocations()->selectForOrderItem($nextItem, [$pigs[3]->id, $pigs[4]->id], $staff);
+
+        $this->assertSame(0, $this->allocations()->outstandingFor($nextItem));
+        $this->assertSame(StorefrontOrder::STATUS_PENDING_CONFIRMATION, $nextOrder->status);
+    }
+
+    public function test_completing_a_partial_pooled_order_does_not_close_the_remaining_pool(): void
+    {
+        [$order, $item, $listing, $pigs] = $this->pooledOrder(poolSize: 5, quantity: 3);
+
+        $staff = $this->makeUser('admin');
+        $this->allocations()->selectForOrderItem($item, [$pigs[0]->id, $pigs[1]->id, $pigs[2]->id], $staff);
+        $this->orders()->confirm($order, $staff);
+
+        $this->orders()->markReadyOrDispatched($order->fresh(), $staff);
+        $this->orders()->complete($order->fresh(), $staff);
+
+        $listing->refresh();
+
+        $this->assertSame(2, $this->pool()->availableCount($listing));
+        $this->assertSame('2.0000', (string) $listing->quantity_available);
+        $this->assertSame(StorefrontListing::STATUS_PUBLISHED, $listing->status);
+        $this->assertTrue($listing->isOrderable());
+        $this->assertSame(1, StorefrontListing::visible()->whereKey($listing->id)->count());
+    }
+
+    public function test_the_listing_sells_out_only_after_the_final_pool_pigs_are_sold(): void
+    {
+        [$order, $item, $listing, $pigs] = $this->pooledOrder(poolSize: 5, quantity: 3);
+
+        $staff = $this->makeUser('admin');
+        $this->allocations()->selectForOrderItem($item, [$pigs[0]->id, $pigs[1]->id, $pigs[2]->id], $staff);
+        $this->orders()->confirm($order, $staff);
+
+        [$finalOrder, $finalItem] = $this->orderForExistingListing($listing->fresh(), 2, '-FINAL');
+        $this->allocations()->selectForOrderItem($finalItem, [$pigs[3]->id, $pigs[4]->id], $staff);
+        $this->orders()->confirm($finalOrder, $staff);
+
+        $listing->refresh();
+
+        $this->assertSame(5, PigSale::whereIn('pig_id', array_column($pigs, 'id'))->count());
+        $this->assertSame(0, $this->pool()->availableCount($listing));
+        $this->assertSame('0.0000', (string) $listing->quantity_available);
+        $this->assertSame(StorefrontListing::STATUS_SOLD_OUT, $listing->status);
+        $this->assertFalse($listing->isOrderable());
+        $this->assertSame(0, StorefrontListing::visible()->whereKey($listing->id)->count());
     }
 
     /**

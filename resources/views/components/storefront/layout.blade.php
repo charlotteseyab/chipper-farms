@@ -30,79 +30,405 @@
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+    <style>
+        :root{
+            --green-900:#124534;
+            --green-800:#155A43;
+            --green-700:#1C6C51;
+            --green-600:#218c6a;
+            --green-100:#eaf6f1;
+            --green-50:#f6fbf8;
+            --text-main:#10221a;
+            --text-soft:#5f6f68;
+            --line:#dfeee7;
+            --white:#ffffff;
+            --shadow-sm:0 8px 24px rgba(16,34,26,.06);
+            --shadow-md:0 18px 40px rgba(16,34,26,.10);
+            --shadow-lg:0 28px 70px rgba(16,34,26,.14);
+        }
+
+        html{
+            scroll-behavior:smooth;
+        }
+
+        body{
+            min-height:100vh;
+            display:flex;
+            flex-direction:column;
+            font-family:Figtree, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background:linear-gradient(180deg, #f8fcfa 0%, #ffffff 100%);
+            color:var(--text-main);
+        }
+
+        .container-wrap{
+            max-width:1200px;
+            margin:0 auto;
+            padding:0 20px;
+        }
+
+        .top-nav{
+            position:sticky;
+            top:0;
+            z-index:50;
+            border-bottom:1px solid rgba(223,238,231,.85);
+            background:rgba(255,255,255,.92);
+            backdrop-filter:blur(10px);
+            -webkit-backdrop-filter:blur(10px);
+        }
+
+        .nav-link{
+            position:relative;
+            color:var(--green-700);
+            font-weight:600;
+            transition:.25s ease;
+            text-decoration:none;
+        }
+
+        .nav-link:hover,
+        .nav-link:focus{
+            color:var(--green-900);
+            outline:none;
+        }
+
+        .nav-link::after{
+            content:"";
+            position:absolute;
+            left:0;
+            bottom:-8px;
+            width:0;
+            height:2px;
+            border-radius:999px;
+            background:linear-gradient(90deg, var(--green-700), var(--green-600));
+            transition:width .25s ease;
+        }
+
+        .nav-link:hover::after,
+        .nav-link:focus::after{
+            width:100%;
+        }
+
+        .shop-nav{
+            position:relative;
+            display:flex;
+            align-items:center;
+        }
+
+        .shop-menu-button{
+            display:inline-flex;
+            align-items:center;
+            gap:7px;
+            border:0;
+            background:transparent;
+            cursor:pointer;
+            font:inherit;
+            padding:0;
+        }
+
+        .shop-menu-button svg{
+            width:14px;
+            height:14px;
+            transition:transform .2s ease;
+        }
+
+        .shop-nav:hover .shop-menu-button svg,
+        .shop-nav:focus-within .shop-menu-button svg{
+            transform:rotate(180deg);
+        }
+
+        .shop-dropdown{
+            position:absolute;
+            top:calc(100% + 18px);
+            left:50%;
+            min-width:220px;
+            transform:translateX(-50%) translateY(8px);
+            opacity:0;
+            visibility:hidden;
+            pointer-events:none;
+            background:#fff;
+            border:1px solid var(--line);
+            border-radius:18px;
+            box-shadow:var(--shadow-lg);
+            padding:10px;
+            transition:.22s ease;
+        }
+
+        .shop-nav:hover .shop-dropdown,
+        .shop-nav:focus-within .shop-dropdown{
+            opacity:1;
+            visibility:visible;
+            pointer-events:auto;
+            transform:translateX(-50%) translateY(0);
+        }
+
+        .shop-dropdown::before{
+            content:"";
+            position:absolute;
+            left:0;
+            right:0;
+            top:-18px;
+            height:18px;
+        }
+
+        .shop-dropdown a{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:16px;
+            border-radius:12px;
+            padding:10px 12px;
+            color:var(--green-800);
+            font-weight:700;
+            text-decoration:none;
+            white-space:nowrap;
+            transition:.2s ease;
+        }
+
+        .shop-dropdown a:hover,
+        .shop-dropdown a:focus{
+            background:var(--green-50);
+            color:var(--green-900);
+            outline:none;
+        }
+
+        .btn-primary{
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            gap:.6rem;
+            background:linear-gradient(135deg, var(--green-700), var(--green-600));
+            color:#fff;
+            border:none;
+            border-radius:14px;
+            padding:12px 20px;
+            font-weight:700;
+            box-shadow:0 14px 30px rgba(28,108,81,.22);
+            transition:.28s ease;
+            text-decoration:none;
+        }
+
+        .btn-primary:hover,
+        .btn-primary:focus{
+            transform:translateY(-2px);
+            box-shadow:0 20px 38px rgba(28,108,81,.28);
+            outline:none;
+        }
+
+        .shop-page-bg{
+            position:relative;
+            overflow:hidden;
+            background:
+                radial-gradient(circle at top left, rgba(33,140,106,.10), transparent 34%),
+                radial-gradient(circle at bottom right, rgba(28,108,81,.08), transparent 32%),
+                linear-gradient(135deg, #f7fcf9 0%, #f2faf6 45%, #ffffff 100%);
+        }
+
+        .shop-page-bg::before{
+            content:"";
+            position:absolute;
+            inset:0;
+            background-image:
+                linear-gradient(rgba(28,108,81,.025) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(28,108,81,.025) 1px, transparent 1px);
+            background-size:40px 40px;
+            pointer-events:none;
+        }
+
+        .shop-content{
+            position:relative;
+            z-index:1;
+            flex:1;
+        }
+
+        .big-footer{
+            background:linear-gradient(180deg, #103327 0%, #0c291f 100%);
+            color:#d6ece2;
+            margin-top:0;
+        }
+
+        .footer-grid{
+            display:grid;
+            grid-template-columns:1.2fr .8fr .8fr .9fr;
+            gap:34px;
+        }
+
+        .footer-brand{
+            max-width:360px;
+        }
+
+        .footer-title{
+            font-size:1rem;
+            font-weight:800;
+            color:#fff;
+            margin-bottom:14px;
+        }
+
+        .footer-text{
+            color:#cde6dc;
+            line-height:1.9;
+            font-size:.95rem;
+        }
+
+        .footer-list{
+            display:grid;
+            gap:10px;
+        }
+
+        .footer-link{
+            color:#d4ece2;
+            text-decoration:none;
+            transition:.25s ease;
+        }
+
+        .footer-link:hover,
+        .footer-link:focus{
+            color:#fff;
+            transform:translateX(2px);
+            outline:none;
+        }
+
+        .footer-bottom{
+            border-top:1px solid rgba(255,255,255,.10);
+            margin-top:34px;
+            padding-top:22px;
+            display:flex;
+            flex-direction:column;
+            gap:10px;
+        }
+
+        @media (max-width:1024px){
+            .footer-grid{
+                grid-template-columns:1fr;
+            }
+        }
+
+        @media (max-width:768px){
+            .top-nav .desktop-nav{
+                display:none;
+            }
+
+            .container-wrap{
+                padding:0 16px;
+            }
+        }
+    </style>
 </head>
-<body class="flex min-h-screen flex-col bg-slate-100 font-sans text-slate-900 antialiased">
-    <header class="sticky top-0 z-20 border-b border-slate-200 bg-white">
-        <div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between gap-4">
-            <a href="{{ route('storefront.home') }}" class="flex min-w-0 items-center gap-3">
-                <img src="{{ asset('images/chipper-farms-logo.jpg') }}" alt="{{ $appName }} logo" class="h-11 w-11 rounded-2xl border border-emerald-100 bg-white object-cover shadow-sm">
-                <span class="min-w-0">
-                    <span class="block truncate text-base font-semibold text-slate-900">{{ $appName }}</span>
-                    <span class="block truncate text-xs font-medium text-emerald-700">{{ $storeName }}</span>
-                </span>
-            </a>
-            <div class="flex shrink-0 items-center gap-2 text-sm">
-                {{-- Phase 9: the cart is for everyone. It sat inside @auth, which
-                     meant a guest could not see the basket they were allowed to
-                     fill — the link and the capability disagreed. --}}
-                <a href="{{ route('storefront.cart.index') }}" class="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50">Cart</a>
-                @auth
-                    @if($customerAccountsEnabled)
-                        <a href="{{ route('storefront.account.dashboard') }}" class="hidden rounded-lg border border-slate-300 px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50 sm:inline-flex">My account</a>
-                    @endif
-                    <a href="{{ route('storefront.account.orders.index') }}" class="inline-flex rounded-lg bg-[#1C6C51] px-3 py-2 font-semibold text-white hover:bg-[#185941]">My orders</a>
-                @else
-                    <a href="{{ route('login') }}" class="inline-flex rounded-lg bg-[#1C6C51] px-3 py-2 font-semibold text-white hover:bg-[#185941]">Sign in</a>
-                @endauth
-            </div>
-            </div>
+<body class="antialiased">
+    <nav class="top-nav">
+        <div class="container-wrap">
+            <div class="flex items-center justify-between py-4">
+                <a href="{{ url('/') }}" class="flex items-center gap-3">
+                    <img src="{{ asset('images/chipper-farms-logo.jpg') }}" alt="{{ $appName }} logo" class="h-11 w-auto rounded-xl border border-green-100 shadow-sm">
+                </a>
 
-            <nav class="flex items-center gap-2 overflow-x-auto text-sm font-semibold text-slate-600">
-                <a href="{{ route('storefront.shop') }}" class="whitespace-nowrap rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900">Shop all</a>
-                @foreach($navKinds as $navKind)
-                    <a href="{{ route('storefront.shop', ['kind' => $navKind]) }}" class="whitespace-nowrap rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900">{{ $kindLabels[$navKind] ?? $navKind }}</a>
-                @endforeach
-            </nav>
+                <div class="desktop-nav flex items-center gap-8">
+                    <a href="{{ url('/#home') }}" class="nav-link">Home</a>
+                    <div class="shop-nav">
+                        <button type="button" class="nav-link shop-menu-button" aria-haspopup="true" aria-expanded="false">
+                            Shop
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div class="shop-dropdown" role="menu">
+                            <a href="{{ route('storefront.shop') }}" role="menuitem">Shop all</a>
+                            @foreach($navKinds as $navKind)
+                                <a href="{{ route('storefront.shop', ['kind' => $navKind]) }}" role="menuitem">{{ $kindLabels[$navKind] ?? $navKind }}</a>
+                            @endforeach
+                            @if(StorefrontSettings::quotesEnabled())
+                                <a href="{{ route('storefront.quote.create') }}" role="menuitem">Request a quote</a>
+                            @endif
+                            <a href="{{ route('storefront.cart.index') }}" role="menuitem">Cart</a>
+                        </div>
+                    </div>
+                    <a href="{{ url('/#about') }}" class="nav-link">About</a>
+                    <a href="{{ url('/#features') }}" class="nav-link">Features</a>
+                    <a href="{{ url('/#contact') }}" class="nav-link">Contact</a>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    @auth
+                        @if($customerAccountsEnabled)
+                            <a href="{{ route('storefront.account.dashboard') }}" class="hidden nav-link sm:inline-flex">My account</a>
+                        @endif
+                        <a href="{{ route('storefront.account.orders.index') }}" class="btn-primary">My orders</a>
+                    @else
+                        <a href="{{ route('login') }}" class="btn-primary">Sign In</a>
+                    @endauth
+                </div>
+            </div>
         </div>
-    </header>
+    </nav>
 
-    <main class="flex-1">
+    <main class="shop-page-bg shop-content">
         @if(session('success'))
-            <div class="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8"><div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{{ session('success') }}</div></div>
+            <div class="container-wrap pt-4"><div class="rounded-2xl border border-emerald-200 bg-white/90 px-4 py-3 text-sm font-semibold text-[var(--green-700)] shadow-sm">{{ session('success') }}</div></div>
         @endif
         @if(session('error'))
-            <div class="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8"><div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ session('error') }}</div></div>
+            <div class="container-wrap pt-4"><div class="rounded-2xl border border-red-200 bg-white/90 px-4 py-3 text-sm font-semibold text-red-700 shadow-sm">{{ session('error') }}</div></div>
         @endif
 
         {{ $slot }}
     </main>
 
-    <footer class="mt-12 border-t border-slate-200 bg-white">
-        <div class="mx-auto grid max-w-7xl gap-6 px-4 py-8 text-sm text-slate-600 sm:px-6 md:grid-cols-3 lg:px-8">
-            <div>
-                <p class="mb-2 font-semibold text-slate-900">{{ $appName }}</p>
-                <p>{{ $storeName }} handles public browsing, checkout and quote requests through the same farm system.</p>
+    <footer class="big-footer">
+        <div class="container-wrap py-16 md:py-20">
+            <div class="footer-grid">
+                <div class="footer-brand mt-6">
+                    <div class="flex items-center gap-3 mb-5">
+                        <img src="{{ asset('images/chipper-farms-logo.jpg') }}" alt="{{ $appName }} logo" class="h-12 w-auto rounded-xl border border-white/10">
+                    </div>
+
+                    <p class="footer-text">
+                        {{ $storeName }} is part of the Chipper Farms platform, connecting public ordering with the same operational records, stock controls, and finance workflows used by the farm team.
+                    </p>
+                </div>
+
+                <div>
+                    <h3 class="footer-title mt-6">Navigation</h3>
+                    <div class="footer-list">
+                        <a href="{{ url('/#home') }}" class="footer-link">Home</a>
+                        <a href="{{ route('storefront.shop') }}" class="footer-link">Shop</a>
+                        <a href="{{ url('/#about') }}" class="footer-link">About</a>
+                        <a href="{{ url('/#features') }}" class="footer-link">Features</a>
+                        <a href="{{ url('/#contact') }}" class="footer-link">Contact</a>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="footer-title mt-6">Shop</h3>
+                    <div class="footer-list">
+                        <a href="{{ route('storefront.shop') }}" class="footer-link">Shop all</a>
+                        @foreach(array_slice($navKinds, 0, 4) as $navKind)
+                            <a href="{{ route('storefront.shop', ['kind' => $navKind]) }}" class="footer-link">{{ $kindLabels[$navKind] ?? $navKind }}</a>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="footer-title mt-6">Contact</h3>
+                    <div class="footer-list">
+                        @if(StorefrontSettings::supportEmail())
+                            <a href="mailto:{{ StorefrontSettings::supportEmail() }}" class="footer-link">{{ StorefrontSettings::supportEmail() }}</a>
+                        @else
+                            <a href="mailto:support@chipperfarms.com" class="footer-link">support@chipperfarms.com</a>
+                        @endif
+                        @if(StorefrontSettings::supportPhone())
+                            <a href="tel:{{ preg_replace('/\s+/', '', StorefrontSettings::supportPhone()) }}" class="footer-link">{{ StorefrontSettings::supportPhone() }}</a>
+                        @else
+                            <a href="tel:+233244853386" class="footer-link">+233 24 485 3386</a>
+                        @endif
+                        <span class="text-sm text-green-200">{{ StorefrontSettings::pickupAddress() ?: 'Accra, Ghana' }}</span>
+                    </div>
+                </div>
             </div>
-            <div>
-                <p class="mb-2 font-semibold text-slate-900">Ordering</p>
-                <ul class="space-y-1">
-                    <li>Browse &amp; place an order or request a quote</li>
-                    <li>We confirm availability before acceptance</li>
-                    <li>Pay by Paystack or cash on delivery</li>
-                </ul>
+
+            <div class="footer-bottom">
+                <div class="flex flex-col gap-3 text-sm text-green-200 md:flex-row md:items-center md:justify-between">
+                    <div>&copy; {{ date('Y') }} Chipper Farms. Powered by Innosol Limited All rights reserved.</div>
+                    <div>Built for efficient pig farm operations and smarter farm management.</div>
+                </div>
             </div>
-            <div>
-                <p class="mb-2 font-semibold text-slate-900">Contact</p>
-                <ul class="space-y-1">
-                    @if(StorefrontSettings::supportPhone())<li>Phone: {{ StorefrontSettings::supportPhone() }}</li>@endif
-                    @if(StorefrontSettings::supportEmail())<li>Email: {{ StorefrontSettings::supportEmail() }}</li>@endif
-                    @if(StorefrontSettings::pickupAddress())<li>Pickup: {{ StorefrontSettings::pickupAddress() }}</li>@endif
-                </ul>
-            </div>
-        </div>
-        <div class="border-t border-slate-200 py-4 text-center text-xs text-slate-500">
-            &copy; {{ date('Y') }} {{ $storeName }}. Powered by Innosol Ghana Limited.
         </div>
     </footer>
 </body>
