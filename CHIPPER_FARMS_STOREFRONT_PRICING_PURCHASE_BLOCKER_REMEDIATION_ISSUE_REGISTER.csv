@@ -1,0 +1,8 @@
+id,severity,status,summary,resolution
+CF-SPP-P0-001,P0,closed,Breeding stock pool rejected by standard-only attach/availability,Pool stock type now derives from source category/listing kind
+CF-SPP-P0-002,P0,closed,Live/carcass PigSale payload ignored purchase snapshots,Allocation approval now persists commercial allocation data and sale payload uses purchase_type/snapshots
+CF-SPP-P0-003,P0,closed,Manual storefront lines skipped finance,Manual lines now post via Finance InvoiceService/InvoicePostingService
+CF-SPP-P1-001,P1,closed,Hidden push fields were forgeable,Stock-backed push request overwrites technical fields server-side
+CF-SPP-P1-002,P1,closed,Empty stock-backed listing could leave a shell listing,Validation refuses empty standard/breeding pools and controller wraps create+attach atomically
+CF-SPP-P2-001,P2,closed,Stock search missed identifiers and weight,Server and client search metadata expanded
+

@@ -3,15 +3,18 @@
 namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
+use App\Models\FeedSale;
 use App\Models\Finance\Invoice;
 use App\Models\PaymentMethod;
 use App\Models\Finance\Receipt;
+use App\Models\PigSale;
 use App\Services\Finance\Allocations\AllocationService;
 use App\Services\Finance\Receipts\ReceiptService;
 use App\Support\CurrentOrganization;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -76,15 +79,6 @@ class MoneyInController extends Controller
             ->limit(50)
             ->get();
 
-        $recentReceipts = Receipt::query()
-            ->where('organization_id', $organizationId)
-            ->where('status', Receipt::STATUS_POSTED)
-            ->with(['counterparty', 'paymentMethod'])
-            ->orderByDesc('receipt_date')
-            ->orderByDesc('id')
-            ->limit(15)
-            ->get();
-
         // Totals in bcmath from the same rows the lists show, so the headline
         // figure and the list underneath it cannot disagree.
         $owed = '0.00';
@@ -93,19 +87,12 @@ class MoneyInController extends Controller
         }
 
         $monthStart = CarbonImmutable::today()->startOfMonth();
-        $receivedThisMonth = '0.00';
-        $thisMonth = Receipt::query()
-            ->where('organization_id', $organizationId)
-            ->where('status', Receipt::STATUS_POSTED)
-            ->where('receipt_date', '>=', $monthStart->toDateString())
-            ->pluck('amount');
-        foreach ($thisMonth as $amount) {
-            $receivedThisMonth = bcadd($receivedThisMonth, (string) $amount, 2);
-        }
+        $receivedThisMonth = $this->sumMoneyInSince($organizationId, $monthStart->toDateString());
+        $recentMoneyIn = $this->recentMoneyIn($organizationId);
 
         return view('finance.money-in.index', [
             'awaitingPayment'   => $awaitingPayment,
-            'recentReceipts'    => $recentReceipts,
+            'recentMoneyIn'     => $recentMoneyIn,
             'owed'              => $owed,
             'receivedThisMonth' => $receivedThisMonth,
             // Cash-equivalent instruments only, organisation-scoped — the same
@@ -122,6 +109,151 @@ class MoneyInController extends Controller
                 ->get(),
             'canRecord' => $request->user()?->hasPermission('create_receipt') ?? false,
         ]);
+    }
+
+    /**
+     * Money-in is broader than receipts: direct paid sales and posted cash
+     * invoices move cash immediately and may never create a receipt row.
+     */
+    protected function recentMoneyIn(int $organizationId): Collection
+    {
+        $receipts = Receipt::query()
+            ->where('organization_id', $organizationId)
+            ->where('status', Receipt::STATUS_POSTED)
+            ->with(['counterparty', 'paymentMethod'])
+            ->orderByDesc('receipt_date')
+            ->orderByDesc('id')
+            ->limit(15)
+            ->get()
+            ->map(fn (Receipt $receipt) => [
+                'type' => 'Receipt',
+                'name' => $receipt->counterparty?->name ?? 'Customer receipt',
+                'reference' => $receipt->receipt_number,
+                'date' => $receipt->receipt_date,
+                'method' => $receipt->paymentMethod?->name,
+                'amount' => (string) $receipt->amount,
+                'href' => route('finance.receipts.show', $receipt),
+            ]);
+
+        $cashInvoices = Invoice::query()
+            ->where('organization_id', $organizationId)
+            ->posted()
+            ->where('is_cash_invoice', true)
+            ->with(['counterparty', 'paymentMethod'])
+            ->orderByDesc('invoice_date')
+            ->orderByDesc('id')
+            ->limit(15)
+            ->get()
+            ->map(fn (Invoice $invoice) => [
+                'type' => 'Cash sale',
+                'name' => $invoice->counterparty?->name ?? 'Cash customer',
+                'reference' => $invoice->invoice_number,
+                'date' => $invoice->invoice_date,
+                'method' => $invoice->paymentMethod?->name,
+                'amount' => (string) $invoice->total,
+                'href' => route('finance.invoices.show', $invoice),
+            ]);
+
+        $pigSales = PigSale::query()
+            ->where('organization_id', $organizationId)
+            ->where('payment_status', 'paid')
+            ->where('is_posted', true)
+            ->whereNull('invoice_id')
+            ->with(['customer', 'paymentMethodRef'])
+            ->orderByDesc('sale_date')
+            ->orderByDesc('id')
+            ->limit(15)
+            ->get()
+            ->map(fn (PigSale $sale) => [
+                'type' => 'Pig sale',
+                'name' => $sale->customer?->name ?: ($sale->buyer_name ?: 'Pig sale customer'),
+                'reference' => $sale->document_number ?: ('Sale #' . $sale->id),
+                'date' => $sale->sale_date,
+                'method' => $sale->paymentMethodRef?->name ?: $this->displayPaymentMethod($sale->payment_method),
+                'amount' => (string) $sale->sale_price,
+                'href' => route('sales.show', $sale->id),
+            ]);
+
+        $feedSales = FeedSale::query()
+            ->where('organization_id', $organizationId)
+            ->where('payment_status', FeedSale::PAYMENT_PAID)
+            ->where('revenue_posting_status', FeedSale::POST_POSTED)
+            ->with('counterparty')
+            ->orderByDesc('sale_date')
+            ->orderByDesc('id')
+            ->limit(15)
+            ->get()
+            ->map(fn (FeedSale $sale) => [
+                'type' => 'Feed sale',
+                'name' => $sale->counterparty?->name ?: ($sale->buyer_name ?: 'Feed sale customer'),
+                'reference' => 'Feed Sale #' . $sale->id,
+                'date' => $sale->sale_date,
+                'method' => $this->displayPaymentMethod($sale->payment_method),
+                'amount' => bcadd((string) $sale->sale_total, (string) ($sale->tax_amount ?? '0'), 2),
+                'href' => null,
+            ]);
+
+        return $receipts
+            ->concat($cashInvoices)
+            ->concat($pigSales)
+            ->concat($feedSales)
+            ->sortByDesc(fn (array $item) => optional($item['date'])->format('Y-m-d') . ' ' . $item['reference'])
+            ->values()
+            ->take(15);
+    }
+
+    protected function sumMoneyInSince(int $organizationId, string $startDate): string
+    {
+        $total = '0.00';
+
+        foreach ([
+            Receipt::query()
+                ->where('organization_id', $organizationId)
+                ->where('status', Receipt::STATUS_POSTED)
+                ->where('receipt_date', '>=', $startDate)
+                ->pluck('amount'),
+
+            Invoice::query()
+                ->where('organization_id', $organizationId)
+                ->posted()
+                ->where('is_cash_invoice', true)
+                ->where('invoice_date', '>=', $startDate)
+                ->pluck('total'),
+
+            PigSale::query()
+                ->where('organization_id', $organizationId)
+                ->where('payment_status', 'paid')
+                ->where('is_posted', true)
+                ->whereNull('invoice_id')
+                ->where('sale_date', '>=', $startDate)
+                ->pluck('sale_price'),
+        ] as $amounts) {
+            foreach ($amounts as $amount) {
+                $total = bcadd($total, (string) $amount, 2);
+            }
+        }
+
+        $feedSales = FeedSale::query()
+            ->where('organization_id', $organizationId)
+            ->where('payment_status', FeedSale::PAYMENT_PAID)
+            ->where('revenue_posting_status', FeedSale::POST_POSTED)
+            ->where('sale_date', '>=', $startDate)
+            ->get(['sale_total', 'tax_amount']);
+
+        foreach ($feedSales as $sale) {
+            $total = bcadd($total, bcadd((string) $sale->sale_total, (string) ($sale->tax_amount ?? '0'), 2), 2);
+        }
+
+        return $total;
+    }
+
+    protected function displayPaymentMethod(?string $method): ?string
+    {
+        if ($method === null || trim($method) === '') {
+            return null;
+        }
+
+        return str((string) $method)->replace(['_', '-'], ' ')->title()->toString();
     }
 
     /**

@@ -3,9 +3,11 @@
 namespace Tests\Feature\Storefront;
 
 use App\Models\Counterparty;
+use App\Models\Storefront\StorefrontBuyer;
 use App\Models\Storefront\StorefrontCart;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontOrder;
+use App\Models\User;
 use App\Storefront\Services\CartService;
 use App\Storefront\Services\CheckoutService;
 use App\Storefront\Services\Exceptions\CheckoutException;
@@ -468,6 +470,41 @@ class GuestCheckoutTest extends StorefrontTestCase
         $order = $this->placeGuestOrder(['guest_email' => 'ama@example.com']);
 
         $this->assertSame($existing->id, $order->counterparty_id);
+    }
+
+    public function test_a_guest_creates_a_buyer_account_from_the_order_not_a_staff_user(): void
+    {
+        $order = $this->placeGuestOrder(['guest_email' => 'ama@example.com']);
+
+        $this->get(route('storefront.order.track', [
+            'reference' => $order->reference,
+            'token'     => $order->guest_claim_token,
+        ]))
+            ->assertOk()
+            ->assertSee('Create buyer account')
+            ->assertDontSee('Only a superuser');
+
+        $this->post(route('storefront.buyer.register.from-order.store', [
+            'reference' => $order->reference,
+            'token'     => $order->guest_claim_token,
+        ]), [
+            'name'                  => 'Ama Mensah',
+            'email'                 => 'ama@example.com',
+            'phone'                 => '0244000000',
+            'password'              => 'buyer-secret',
+            'password_confirmation' => 'buyer-secret',
+        ])->assertRedirect();
+
+        $buyer = StorefrontBuyer::first();
+
+        $this->assertNotNull($buyer);
+        $this->assertSame('ama@example.com', $buyer->email);
+        $this->assertSame($order->counterparty_id, $buyer->counterparty_id);
+        $this->assertSame(0, User::where('email', 'ama@example.com')->count());
+
+        $order->refresh();
+        $this->assertSame($buyer->id, $order->storefront_buyer_id);
+        $this->assertNull($order->guest_claim_token);
     }
 
     /* ---------------------------------------------------------------- */

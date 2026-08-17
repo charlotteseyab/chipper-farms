@@ -7,11 +7,13 @@ use App\Finance\Drafts\JournalDraft;
 use App\Finance\Drafts\JournalLineDraft;
 use App\Finance\Posting\PostingEngine;
 use App\Models\Finance\Account;
+use App\Models\Finance\BankAccount;
 use App\Models\Finance\JournalPosting;
 use App\Models\Finance\SimplePurchase;
 use App\Models\Finance\SimplePurchaseLine;
 use App\Models\RawMaterial;
 use App\Models\User;
+use App\Services\Finance\Cash\MoneyAccountService;
 use App\Services\Inventory\ReceiveRawMaterialService;
 use App\Services\Numbering\NumberingService;
 use App\Support\CurrentOrganization;
@@ -61,6 +63,7 @@ class RecordSimplePurchaseService
         protected PostingEngine $postingEngine,
         protected NumberingService $numbering,
         protected ReceiveRawMaterialService $receiver,
+        protected MoneyAccountService $moneyAccounts,
         protected CurrentOrganization $currentOrganization,
     ) {
     }
@@ -71,6 +74,7 @@ class RecordSimplePurchaseService
      *   supplier_id?: ?int,
      *   supplier_invoice_reference?: ?string,
      *   settlement?: string,
+     *   money_account_id?: ?int,
      *   payment_method_key?: ?string,
      *   external_reference?: ?string,
      *   notes?: ?string,
@@ -132,6 +136,8 @@ class RecordSimplePurchaseService
                 'supplier_id'                => $input['supplier_id'] ?? null,
                 'supplier_invoice_reference' => $input['supplier_invoice_reference'] ?? null,
                 'settlement'                 => $settlement,
+                'money_account_id'           => $settlement === SimplePurchase::SETTLEMENT_PAID_NOW
+                                                ? ($input['money_account_id'] ?? null) : null,
                 'payment_method_key'         => $input['payment_method_key'] ?? null,
                 'external_reference'         => $input['external_reference'] ?? null,
                 'subtotal'                   => $subtotal,
@@ -387,6 +393,10 @@ class RecordSimplePurchaseService
         }
 
         if ($settlement === SimplePurchase::SETTLEMENT_PAID_NOW) {
+            if (! empty($input['money_account_id'])) {
+                return;
+            }
+
             $method = $input['payment_method_key'] ?? null;
 
             if ($method !== null && config("expense_categories.payment_accounts.{$method}") === null) {
@@ -403,6 +413,22 @@ class RecordSimplePurchaseService
                 'expense_categories.payment_accounts.'
                 . ($input['payment_method_key'] ?? 'cash') . '.account'
             );
+
+        if ($settlement === SimplePurchase::SETTLEMENT_PAID_NOW && ! empty($input['money_account_id'])) {
+            $moneyAccount = BankAccount::query()->find((int) $input['money_account_id']);
+            if ($moneyAccount && in_array($moneyAccount->account_kind, [
+                BankAccount::KIND_BANK,
+                BankAccount::KIND_MOMO,
+                BankAccount::KIND_GATEWAY,
+            ], true) && trim((string) ($input['external_reference'] ?? '')) === '') {
+                throw new \InvalidArgumentException(
+                    "{$moneyAccount->displayName()} needs its transaction reference, so it can be matched "
+                    . 'against the statement later.'
+                );
+            }
+
+            return $this->moneyAccounts->accountForMoneyAccount((int) $input['money_account_id'], $organizationId);
+        }
 
         $account = $this->findAccount($code, $organizationId);
 
@@ -452,6 +478,7 @@ class RecordSimplePurchaseService
             $input['purchase_date'] ?? '',
             $input['supplier_id'] ?? '',
             $input['supplier_invoice_reference'] ?? '',
+            $input['money_account_id'] ?? '',
             $input['lines'] ?? [],
         ]));
     }

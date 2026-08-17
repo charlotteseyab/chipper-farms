@@ -5,6 +5,7 @@ namespace App\Storefront\Services;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontListingMedia;
 use App\Models\User;
+use App\Storefront\Services\Exceptions\InventoryConflictException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -30,15 +31,29 @@ class ListingEditorService
     ];
 
     /**
-     * @param  array<string,mixed>  $data  Validated subset of EDITABLE.
+     * @param  array<string,mixed>  $data  Validated subset of EDITABLE, plus
+     *                                     optional pool_pig_ids for stock-backed listings.
+     *
+     * @throws InventoryConflictException
      */
     public function update(StorefrontListing $listing, array $data, User $actor): StorefrontListing
     {
         $payload = array_intersect_key($data, array_flip(self::EDITABLE));
+        if (array_key_exists('currency_code', $payload) && blank($payload['currency_code'])) {
+            $payload['currency_code'] = $listing->currency_code ?: 'GHS';
+        }
         $payload['updated_by_user_id'] = $actor->id;
 
-        return DB::transaction(function () use ($listing, $payload) {
+        return DB::transaction(function () use ($listing, $payload, $data, $actor) {
             $listing->fill($payload)->save();
+
+            if (($data['pool_pig_ids_present'] ?? false) === true) {
+                app(StorefrontPigPoolService::class)->syncPigs(
+                    $listing,
+                    array_filter(array_map('intval', (array) ($data['pool_pig_ids'] ?? []))),
+                    $actor,
+                );
+            }
 
             return $listing->refresh();
         });

@@ -48,6 +48,7 @@ class QuickExpense extends Model
         'total_amount',
         'currency_code',
         'settlement',
+        'money_account_id',
         'payment_method_key',
         'payment_account_code',
         'external_reference',
@@ -96,6 +97,11 @@ class QuickExpense extends Model
     public function recordedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recorded_by_user_id');
+    }
+
+    public function moneyAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class, 'money_account_id');
     }
 
     /**

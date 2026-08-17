@@ -42,7 +42,7 @@ class ListingDetailPresenter
                 'notes'        => $listing->fulfilment_notes,
             ],
             'quantity'         => $listing->quantity_available,
-            'quantity_unit'    => $listing->quantity_unit,
+            'quantity_unit'    => $listing->displayQuantityUnit((string) $listing->quantity_available),
             'attributes'       => [],
         ];
 
@@ -63,8 +63,8 @@ class ListingDetailPresenter
         if ($listing->usesPigPool()) {
             return [
                 'pool_size'       => $listing->listingPigs()->count(),
-                'available_head'  => $listing->availableListingPigs()->count(),
-                'sold_head'       => $listing->soldListingPigs()->count(),
+                'available_stock' => $listing->availableListingPigs()->count(),
+                'sold_stock'      => $listing->soldListingPigs()->count(),
             ];
         }
 

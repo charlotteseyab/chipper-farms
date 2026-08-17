@@ -228,6 +228,7 @@ class PigSaleRecordedSubscriber extends Subscriber
             'bank'         => 'BANK_MAIN',
             'mobile_money' => 'MOMO_MTN',
             'momo'         => 'MOMO_MTN',
+            'paystack'     => 'PAYSTACK_CLEARING',
         ];
         $rawMethod = strtolower((string) ($sale->payment_method ?? ''));
         if (isset($legacyMap[$rawMethod])) {

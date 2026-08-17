@@ -201,6 +201,7 @@ class FeedSaleRevenueSubscriber extends Subscriber
             $legacyMap = [
                 'cash' => 'CASH_ON_HAND', 'bank' => 'BANK_MAIN',
                 'mobile_money' => 'MOMO_MTN', 'momo' => 'MOMO_MTN',
+                'paystack' => 'PAYSTACK_CLEARING',
             ];
             if (isset($legacyMap[$raw])) {
                 try {

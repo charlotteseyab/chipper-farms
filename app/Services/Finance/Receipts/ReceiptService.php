@@ -105,6 +105,7 @@ class ReceiptService
                 'amount'             => $amount,
                 'allocated_amount'   => '0',
                 'payment_method_id'  => $paymentMethod->id,
+                'source_account_id'  => $extras['source_account_id'] ?? null,
                 'external_reference' => $extras['external_reference'] ?? null,
                 'reference_type'     => $extras['reference_type'] ?? $this->inferReferenceType($paymentMethod),
                 'status'             => Receipt::STATUS_DRAFT,
@@ -186,7 +187,7 @@ class ReceiptService
         PaymentMethod $paymentMethod,
         Counterparty $customer,
     ): JournalBatchDraft {
-        $cashAccountId = $this->resolveCashAccountId($paymentMethod);
+        $cashAccountId = $this->resolveCashAccountId($paymentMethod, $receipt);
         $arAccountId   = $this->resolveArAccountId($customer);
 
         $description = sprintf(
@@ -250,8 +251,12 @@ class ReceiptService
         );
     }
 
-    protected function resolveCashAccountId(PaymentMethod $paymentMethod): int
+    protected function resolveCashAccountId(PaymentMethod $paymentMethod, ?Receipt $receipt = null): int
     {
+        if ($receipt?->source_account_id) {
+            return (int) $receipt->source_account_id;
+        }
+
         if ($paymentMethod->gl_account_hint) {
             try {
                 return $this->accountResolver->byHint($paymentMethod->gl_account_hint)->id;

@@ -76,6 +76,10 @@ class PushToStorefrontRequest extends FormRequest
             'available_from'  => ['nullable', 'date'],
             'available_until' => ['nullable', 'date', 'after_or_equal:available_from'],
 
+            'image'     => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'media_url' => ['nullable', 'url', 'max:500'],
+            'alt_text'  => ['nullable', 'string', 'max:200'],
+
             'publish_now' => ['boolean'],
         ];
     }
@@ -106,6 +110,22 @@ class PushToStorefrontRequest extends FormRequest
             // Delivery fee only meaningful when delivery is allowed.
             if (! $this->boolean('delivery_allowed') && $this->input('delivery_fee') !== null && $this->input('delivery_fee') !== '') {
                 $v->errors()->add('delivery_fee', 'Delivery fee can only be set when delivery is allowed.');
+            }
+
+            $category = (string) $this->input('source_category', '');
+
+            if (in_array($category, [
+                \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_BREEDING,
+                \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_STANDARD,
+            ], true) && array_filter((array) $this->input('pool_pig_ids', [])) === []) {
+                $v->errors()->add('pool_pig_ids', 'Select at least one pig for this stock-backed listing.');
+            }
+
+            if ($category === \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_MANUAL
+                && in_array($this->input('kind'), array_merge(StorefrontListing::PIG_BACKED_KINDS, [
+                    StorefrontListing::KIND_PIGLET_LOT,
+                ]), true)) {
+                $v->errors()->add('kind', 'Manual listings cannot use pig-backed listing kinds.');
             }
         });
     }
@@ -140,19 +160,34 @@ class PushToStorefrontRequest extends FormRequest
 
         $pool = app(\App\Storefront\Services\StorefrontPigPoolService::class);
 
-        $merge = [
-            'kind'          => $this->input('kind') ?: $pool->kindForCategory($category),
-            'sale_mode'     => $this->input('sale_mode') ?: StorefrontListing::MODE_FIXED,
-            'pricing_basis' => $this->input('pricing_basis') ?: StorefrontListing::BASIS_FIXED,
-            'currency_code' => $this->input('currency_code') ?: 'GHS',
-        ];
+        $manual = $category === \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_MANUAL;
+
+        $merge = $manual
+            ? [
+                'kind'          => $this->input('kind') ?: StorefrontListing::KIND_SERVICE,
+                'sale_mode'     => $this->input('sale_mode') ?: StorefrontListing::MODE_FIXED,
+                'pricing_basis' => $this->input('pricing_basis') ?: StorefrontListing::BASIS_FIXED,
+                'currency_code' => $this->input('currency_code') ?: 'GHS',
+            ]
+            : [
+                'kind'          => $pool->kindForCategory($category),
+                'sale_mode'     => StorefrontListing::MODE_FIXED,
+                'pricing_basis' => StorefrontListing::BASIS_FIXED,
+                'currency_code' => 'GHS',
+            ];
 
         // A stock-backed listing's quantity is the number of animals ticked;
         // whatever was typed is ignored. A form claiming 99 head with two pigs
         // selected must produce a listing of 2.
         $selected = array_filter((array) $this->input('pool_pig_ids', []));
 
-        if ($category !== \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_MANUAL && $selected !== []) {
+        if (! $manual && (
+            in_array($category, [
+                \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_BREEDING,
+                \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_STANDARD,
+            ], true)
+            || $selected !== []
+        )) {
             $merge['quantity_available'] = count($selected);
             $merge['quantity_unit']      = $this->input('quantity_unit') ?: 'head';
         }
@@ -173,7 +208,7 @@ class PushToStorefrontRequest extends FormRequest
         // The real money for these listings is per-animal — actual weight ×
         // actual rate, computed when the pigs are chosen — and this column is
         // the floor under any path that has not been moved onto it yet.
-        if ($category !== \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_MANUAL && $selected !== []) {
+        if (! $manual && $selected !== []) {
             $dearest = $this->dearestSelectedPigPrice($selected);
 
             if ($dearest !== null) {

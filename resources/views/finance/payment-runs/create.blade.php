@@ -34,27 +34,36 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Default pay from</label>
+                <select name="money_account_id" class="w-full rounded-xl border-slate-200 text-sm">
+                    <option value="">Choose per line later</option>
+                    @foreach($moneyAccounts as $account)
+                        <option value="{{ $account->id }}" @selected((int) old('money_account_id') === $account->id)>
+                            {{ $account->displayName() }} · {{ $account->account?->code }}
+                        </option>
+                    @endforeach
+                </select>
+                <p class="text-xs text-slate-500 mt-1">
+                    Lines without a per-line override use this money account.
+                    @if($moneyAccounts->isEmpty())
+                        Set up a money account under Cash, Bank & MoMo first.
+                    @endif
+                </p>
+            </div>
+
+            <details class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+                <summary class="cursor-pointer font-medium text-slate-700">Advanced posting override</summary>
+                <div class="mt-4">
                     <label class="block text-sm font-medium text-slate-700 mb-1">Default payment method</label>
                     <select name="default_payment_method_id" class="w-full rounded-xl border-slate-200 text-sm">
-                        <option value="">— none —</option>
+                        <option value="">Use money account type</option>
                         @foreach($methods as $m)
                             <option value="{{ $m->id }}" @selected(old('default_payment_method_id') == $m->id)>{{ $m->name }} ({{ $m->code }})</option>
                         @endforeach
                     </select>
-                    <p class="text-xs text-slate-500 mt-1">Lines without a per-line override use this method.</p>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Default source GL account</label>
-                    <select name="default_source_account_id" class="w-full rounded-xl border-slate-200 text-sm">
-                        <option value="">Use method hint</option>
-                        @foreach($cashAccounts as $a)
-                            <option value="{{ $a->id }}" @selected(old('default_source_account_id') == $a->id)>{{ $a->code }} — {{ $a->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-            </div>
+            </details>
 
             <div>
                 <label class="block text-sm font-medium text-slate-700 mb-1">Description</label>

@@ -93,6 +93,7 @@ class AdminOrderController extends Controller
     protected function pigSelectionFor(StorefrontOrder $order): array
     {
         $allocations = app(\App\Storefront\Services\StorefrontPigAllocationService::class);
+        $pricing     = app(\App\Storefront\Services\StorefrontPigPricingService::class);
 
         $panels = [];
 
@@ -113,7 +114,7 @@ class AdminOrderController extends Controller
             $sold = \App\Models\Storefront\StorefrontOrderItemPigAllocation::query()
                 ->where('storefront_order_item_id', $item->id)
                 ->where('status', \App\Models\Storefront\StorefrontOrderItemPigAllocation::STATUS_SOLD)
-                ->with('pig')
+                ->with(['pig', 'pigSale'])
                 ->get();
 
             // The animals this line may still draw from: whatever is on offer
@@ -125,10 +126,47 @@ class AdminOrderController extends Controller
                     $q->whereIn('status', \App\Models\Storefront\StorefrontListingPig::SELLABLE_STATUSES)
                         ->orWhereIn('pig_id', $chosen ?: [0]);
                 })
-                ->with('pig')
+                ->with('pig.latestWeight')
                 ->get()
                 ->filter(fn ($row) => $row->pig !== null && ! $row->pig->trashed())
                 ->values();
+
+            $expectedLiveSelections = $allocations->expectedLiveSelectionsFor($item);
+            $expectedWeights = collect($expectedLiveSelections)->pluck('kg')->values()->all();
+            $candidateMeta = $candidates->mapWithKeys(function ($row) use ($item, $pricing, $expectedLiveSelections, $expectedWeights, $chosen) {
+                $pig = $row->pig;
+                $weight = $pig ? $pricing->latestWeightKg($pig) : null;
+                $isChosen = $pig !== null && in_array((int) $pig->getKey(), $chosen, true);
+                $selectable = true;
+                $reason = null;
+
+                if ($item->purchase_type === \App\Storefront\Services\StorefrontPigPricingService::PURCHASE_LIVE
+                    && $expectedLiveSelections !== []) {
+                    $selectable = $isChosen
+                        || collect($expectedLiveSelections)->contains(fn ($expected) => (
+                            ((int) ($expected['row_id'] ?? 0) === (int) $row->getKey())
+                            || ($pig !== null && (int) ($expected['pig_id'] ?? 0) === (int) $pig->getKey())
+                            || ($weight !== null && bccomp($weight, (string) $expected['kg'], 4) === 0)
+                        ));
+
+                    if (! $selectable) {
+                        $reason = $weight === null
+                            ? 'No weight recorded for this pig.'
+                            : 'Customer paid for ' . collect($expectedWeights)
+                                ->map(fn ($kg) => rtrim(rtrim((string) $kg, '0'), '.') . ' kg')
+                                ->unique()
+                                ->implode(' or ') . '.';
+                    }
+                }
+
+                return [
+                    $row->getKey() => [
+                        'weight'     => $weight,
+                        'selectable' => $selectable,
+                        'reason'     => $reason,
+                    ],
+                ];
+            });
 
             $panels[] = [
                 'item'       => $item,
@@ -148,6 +186,11 @@ class AdminOrderController extends Controller
                 'requested_kg' => $allocations->requestedKgFor($item),
                 'selected_kg'  => $allocations->selectedKgFor($item),
                 'customer_chose' => $item->purchase_type === \App\Storefront\Services\StorefrontPigPricingService::PURCHASE_LIVE,
+                'expected_live_selections' => $expectedLiveSelections,
+                'candidate_meta' => $candidateMeta,
+                'selection_limit' => $item->purchase_type === \App\Storefront\Services\StorefrontPigPricingService::PURCHASE_LIVE
+                    ? $required
+                    : null,
             ];
         }
 

@@ -76,18 +76,21 @@
                 </fieldset>
 
                 <div>
-                    <label for="payment_method_key" class="block text-sm font-medium text-slate-700">Paid from</label>
-                    <select id="payment_method_key" name="payment_method_key"
+                    <label for="money_account_id" class="block text-sm font-medium text-slate-700">Paid from</label>
+                    <select id="money_account_id" name="money_account_id"
                             class="mt-1 w-full rounded-xl border-slate-300 text-sm shadow-sm focus:border-slate-500 focus:ring-slate-500">
-                        @foreach ($paymentAccounts as $key => $account)
-                            <option value="{{ $key }}" @selected(old('payment_method_key', 'cash') === $key)>
-                                {{ $account['label'] }}
+                        <option value="">Choose a money account...</option>
+                        @foreach ($moneyAccounts as $account)
+                            <option value="{{ $account->id }}" @selected((int) old('money_account_id') === $account->id)>
+                                {{ $account->displayName() }} · {{ $account->account?->code }}
                             </option>
                         @endforeach
                     </select>
                     <p class="mt-1 text-xs text-slate-500">
-                        Bank and mobile money payments need their transaction reference below, so they
-                        can be matched against the statement later.
+                        Bank, mobile money, and gateway payments need their transaction reference below.
+                        @if ($moneyAccounts->isEmpty())
+                            Set up a money account under Cash, Bank & MoMo before recording paid-now expenses.
+                        @endif
                     </p>
                 </div>
 

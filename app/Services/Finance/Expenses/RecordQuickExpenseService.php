@@ -7,10 +7,12 @@ use App\Finance\Drafts\JournalDraft;
 use App\Finance\Drafts\JournalLineDraft;
 use App\Finance\Posting\PostingEngine;
 use App\Models\Finance\Account;
+use App\Models\Finance\BankAccount;
 use App\Models\Finance\JournalPosting;
 use App\Models\Finance\QuickExpense;
 use App\Models\User;
 use App\Services\Numbering\NumberingService;
+use App\Services\Finance\Cash\MoneyAccountService;
 use App\Services\Finance\Tax\TaxCalculation;
 use App\Services\Finance\Tax\TaxCalculator;
 use App\Services\Finance\Tax\TaxProfileResolver;
@@ -66,6 +68,7 @@ class RecordQuickExpenseService
         protected NumberingService $numbering,
         protected TaxCalculator $taxCalculator,
         protected TaxProfileResolver $taxProfiles,
+        protected MoneyAccountService $moneyAccounts,
         protected CurrentOrganization $currentOrganization,
     ) {
     }
@@ -77,6 +80,7 @@ class RecordQuickExpenseService
      *   description: string,
      *   amount: string,
      *   settlement?: string,
+     *   money_account_id?: ?int,
      *   payment_method_key?: ?string,
      *   external_reference?: ?string,
      *   supplier_id?: ?int,
@@ -140,6 +144,8 @@ class RecordQuickExpenseService
                 'total_amount'           => $tax->grossTotal,
                 'currency_code'          => 'GHS',
                 'settlement'             => $settlement,
+                'money_account_id'       => $settlement === QuickExpense::SETTLEMENT_PAID_NOW
+                                                ? ($input['money_account_id'] ?? null) : null,
                 'payment_method_key'     => $input['payment_method_key'] ?? null,
                 'payment_account_code'   => $settlement === QuickExpense::SETTLEMENT_PAID_NOW
                                                 ? $creditAccount->code : null,
@@ -289,6 +295,10 @@ class RecordQuickExpenseService
                 . ($input['payment_method_key'] ?? 'cash') . '.account'
             );
 
+        if ($settlement === QuickExpense::SETTLEMENT_PAID_NOW && ! empty($input['money_account_id'])) {
+            return $this->moneyAccounts->accountForMoneyAccount((int) $input['money_account_id'], $organizationId);
+        }
+
         $account = $this->findAccount($code, $organizationId);
 
         if ($account === null) {
@@ -348,6 +358,10 @@ class RecordQuickExpenseService
         }
 
         if ($settlement === QuickExpense::SETTLEMENT_PAID_NOW) {
+            if (! empty($input['money_account_id'])) {
+                return;
+            }
+
             $method = $input['payment_method_key'] ?? null;
 
             if ($method !== null && config("expense_categories.payment_accounts.{$method}") === null) {
@@ -369,6 +383,22 @@ class RecordQuickExpenseService
         }
 
         $method = $input['payment_method_key'] ?? 'cash';
+
+        if (! empty($input['money_account_id'])) {
+            $moneyAccount = BankAccount::query()->find((int) $input['money_account_id']);
+            if ($moneyAccount && in_array($moneyAccount->account_kind, [
+                BankAccount::KIND_BANK,
+                BankAccount::KIND_MOMO,
+                BankAccount::KIND_GATEWAY,
+            ], true) && trim((string) ($input['external_reference'] ?? '')) === '') {
+                throw new \InvalidArgumentException(
+                    "{$moneyAccount->displayName()} needs its transaction reference, so it can be matched "
+                    . 'against the statement later.'
+                );
+            }
+
+            return;
+        }
 
         if (! in_array($method, (array) config('expense_categories.reference_required_for', []), true)) {
             return;
@@ -400,6 +430,7 @@ class RecordQuickExpenseService
             $input['category_key'] ?? '',
             $input['amount'] ?? '',
             $input['description'] ?? '',
+            $input['money_account_id'] ?? '',
             $input['payment_method_key'] ?? '',
             $input['external_reference'] ?? '',
         ]));

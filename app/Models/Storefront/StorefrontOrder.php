@@ -81,7 +81,7 @@ class StorefrontOrder extends Model
     public const FULFIL_DELIVERY = 'delivery';
 
     protected $fillable = [
-        'organization_id', 'reference', 'counterparty_id', 'customer_user_id', 'quote_id',
+        'organization_id', 'reference', 'counterparty_id', 'customer_user_id', 'storefront_buyer_id', 'quote_id',
         'guest_name', 'guest_email', 'guest_phone', 'guest_claim_token', 'claimed_at',
         'status', 'payment_status', 'payment_method', 'fulfilment_method',
         'shipping_address_id', 'ship_to_name', 'ship_to_phone',
@@ -138,6 +138,11 @@ class StorefrontOrder extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'customer_user_id');
+    }
+
+    public function storefrontBuyer(): BelongsTo
+    {
+        return $this->belongsTo(StorefrontBuyer::class, 'storefront_buyer_id');
     }
 
     public function scopeForUser(Builder $q, int $userId): Builder

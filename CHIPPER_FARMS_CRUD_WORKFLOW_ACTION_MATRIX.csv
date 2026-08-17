@@ -1,0 +1,35 @@
+Module,Entity,Index Route,View,Create,Edit,Publish/Approve,Unpublish/Reject,Archive/Delete,Restore,Reverse/Return/Refund,Other Actions,Permission,Lifecycle Complete,Status
+Settings,Module Flags,settings.modules,Yes,No,Toggle,Apply preset,Disable feature,None,None,None,Dependency cascade preview,Superuser plus manage_feature_flags,Yes,Complete
+Settings,Users,settings.users,Yes,Yes,Yes,None,Deactivate,Delete,Reactivate,None,Status update,Superuser,Yes,Complete
+Storefront,Listings,storefront.admin.listings.index,Yes,Via push,Yes,Publish,Unpublish,Archive,Terminal unavailable,None,Media primary/delete,view/manage_storefront_listings,Yes,Complete
+Storefront,Push Listing,storefront.admin.push.create,N/A,Yes,N/A,Can publish later,N/A,N/A,N/A,N/A,Validates eligible source stock,push_to_storefront,Yes,Complete
+Storefront,Orders,storefront.admin.orders.index,Yes,Checkout creates,N/A,Confirm/complete,Cancel,N/A,N/A,Refund,Dispatch/note/retry finance/verify payment,view/manage_storefront_orders,Yes,Complete
+Storefront,Quotes,storefront.admin.quotes.index,Yes,Public creates,N/A,Accept/convert,Decline,N/A,N/A,N/A,Review/quote,view/manage_storefront_quotes,Yes,Complete
+Storefront,Placements,storefront.admin.placements.index,Yes,Yes,N/A,N/A,N/A,Delete,N/A,N/A,Feature placement ordering,manage_storefront_placements,Yes,Complete
+Storefront,Settings,storefront.admin.settings.index,Yes,Delivery zone create,Yes,N/A,N/A,Delivery zone delete,N/A,N/A,Store defaults,manage_storefront_settings,Yes,Complete
+Public Shop,Cart,storefront.cart.index,Yes,Add item,Update quantity,N/A,N/A,Remove item,N/A,N/A,Checkout,Public session/customer,Yes,Complete
+Public Shop,Checkout,storefront.checkout.show,Yes,Place order,N/A,N/A,N/A,N/A,N/A,N/A,COD/Paystack flow,Public with validation,Yes,Complete
+Finance,Invoices,finance.invoices.index,Yes,Yes,Line draft,Post,Cancel,N/A,N/A,Reverse,Document download,Finance invoice permission,Yes,Complete
+Finance,Receipts,finance.receipts.index,Yes,Yes,Allocate,Approve via posting,N/A,N/A,N/A,Reverse allocation/receipt,Document download,Finance receipt permission,Yes,Complete
+Finance,Payments,finance.payments.index,Yes,Yes,Allocate/Reconcile,N/A,Unreconcile,N/A,N/A,Reverse,Auto-allocate,Finance payment permission,Yes,Complete
+Finance,Refunds,finance.refunds.index,Yes,Yes,N/A,N/A,Cancel,N/A,N/A,Refund workflow,Show refund,Finance refund permission,Yes,Complete
+Finance,Journals,finance.journals.index,Yes,Yes,Draft lines,Approve,Reject,N/A,N/A,Reverse,Store-and-approve,Finance journal permission,Yes,Complete
+Finance,Bank Reconciliation,finance.bank-reconciliation.index,Yes,Yes,Refresh/match,Reconcile,Reopen,Archive,N/A,N/A,Flag,Finance bank permission,Yes,Complete
+Finance,Payment Runs,finance.payment-runs.index,Yes,Yes,Add/remove lines,Execute,Cancel,N/A,N/A,Reverse,Show run,Finance payment-run permission,Yes,Complete
+Finance,Reports,finance.trial-balance.index,Yes,No,No,N/A,N/A,N/A,N/A,N/A,Filter/export,Finance report permission,Report lifecycle,Complete
+Pig Management,All Stocks,all-stocks.index,Yes,Yes/import,Yes,Promote to breeding,N/A,Archive/death,N/A,Sale/death workflows,Export PDF/CSV/Excel,Farm stock permission,Yes,Complete
+Pig Management,Breeding Stock,breeding-stocks.index,Yes,Yes,Yes,N/A,N/A,Delete,N/A,N/A,Export,Farm stock permission,Yes,Complete
+Pig Management,Sales,sales.index,Yes,Sale form,N/A,N/A,Abort,N/A,N/A,Payment status update,Audit/export,Farm sales permission,Yes,Complete
+Pig Management,Deaths,deaths.index,Yes,Death form,N/A,N/A,N/A,N/A,N/A,N/A,Export,Death workflow permission,Read-only record lifecycle,Complete
+Breeding,Mating,mating.index,Yes,Plan,N/A,Complete,Pregnancy check/cancel,Delete,N/A,N/A,Manage mating plan,Farm breeding permission,Yes,Complete
+Breeding,Farrowing,farrowing.index,Yes,N/A,Yes,N/A,N/A,Piglet death delete,Piglet death restore,N/A,Piglet death record,Farm breeding permission,Yes,Complete
+Breeding,Weaning,weaning.dashboard,Yes,Record weaning,Update weight/status,Complete maturity,N/A,N/A,N/A,N/A,Pending/overdue/in-progress views,Farm breeding permission,Yes,Complete
+Weights,Weights,weights.index,Yes,Yes,Yes,N/A,N/A,N/A,N/A,N/A,Audit/export/reports,Farm weight permission,Yes,Complete
+Weights,Weight Alerts,weight-alerts.index,Yes,Yes,N/A,Acknowledge,N/A,Delete,N/A,N/A,Bulk acknowledge,Farm weight permission,Yes,Complete
+Feed,Purchase Requests,purchase-requests.index,Yes,Yes,Yes,Approve,Decline,Delete,N/A,N/A,Mark paid,Farm procurement permission,Yes,Complete
+Feed,Purchase Stock Intakes,purchase-stock-intakes.index,Yes,Yes,N/A,Approve,N/A,N/A,N/A,N/A,Receive/quarantine/add to stock,Farm procurement permission,Yes,Complete
+Feed,Raw Materials,raw-materials.index,Yes,Yes,Update,N/A,N/A,N/A,N/A,N/A,Receive/adjust,Farm feed permission,Yes,Complete
+Feed,Feed Production,feed-production.index,Yes,Recipe/feed type/mix,N/A,N/A,N/A,N/A,N/A,N/A,Production mix,Farm feed permission,Yes,Complete
+Inventory,Opening Balances,finance.inventory.opening-balances.index,Yes,Yes/import,N/A,N/A,N/A,N/A,N/A,N/A,Show import,Finance inventory permission,Yes,Complete
+Inventory,Account Mappings,finance.inventory.account-mappings.index,Yes,Yes,Yes,N/A,N/A,Delete,N/A,N/A,Mapping validation,Finance inventory permission,Yes,Complete
+Audit,Audit Trail,audit-trail.index,Yes,No,No,N/A,N/A,N/A,N/A,N/A,Filter/export,Superuser,System/audit,Complete

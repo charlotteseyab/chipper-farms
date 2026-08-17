@@ -7,13 +7,16 @@ use App\Http\Requests\Storefront\PushToStorefrontRequest;
 use App\Models\PigManagement;
 use App\Models\Storefront\StorefrontCategory;
 use App\Models\Storefront\StorefrontListing;
+use App\Models\Storefront\StorefrontListingMedia;
 use App\Storefront\Services\Exceptions\DuplicateListingException;
+use App\Storefront\Services\ListingEditorService;
 use App\Storefront\Services\PushToStorefrontService;
 use App\Storefront\Support\PushToStorefrontData;
 use App\Support\CurrentOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -33,6 +36,7 @@ class PushToStorefrontController extends Controller
     public function __construct(
         protected CurrentOrganization $currentOrganization,
         protected PushToStorefrontService $pushService,
+        protected ListingEditorService $editor,
     ) {
     }
 
@@ -156,6 +160,11 @@ class PushToStorefrontController extends Controller
     {
         $this->authorize('create', StorefrontListing::class);
 
+        if (($request->hasFile('image') || $request->filled('media_url'))
+            && ! $request->user()->hasPermission('manage_storefront_media')) {
+            abort(403);
+        }
+
         if (! $request->categoryKindMatches()) {
             return back()->withInput()
                 ->with('error', 'The chosen category does not match the listing kind.');
@@ -165,8 +174,32 @@ class PushToStorefrontController extends Controller
 
         $data = PushToStorefrontData::fromArray($request->validated());
 
+        $poolPigIds = array_filter(array_map('intval', (array) $request->input('pool_pig_ids', [])));
+
         try {
-            $listing = $this->pushService->execute($source, $request->user(), $data);
+            $listing = DB::transaction(function () use ($source, $request, $data, $poolPigIds) {
+                $listing = $this->pushService->execute($source, $request->user(), $data);
+
+                // Record which stock this listing draws from, so the shop and
+                // the manager screens know how to treat it later.
+                $listing->forceFill([
+                    'source_category' => $request->input('source_category'),
+                ])->save();
+
+                if ($poolPigIds !== []) {
+                    app(\App\Storefront\Services\StorefrontPigPoolService::class)
+                        ->attachPigs($listing, $poolPigIds, $request->user());
+
+                    // Price the listing from the farm's setup rates and the
+                    // animals' latest weights. Derived, never typed.
+                    app(\App\Storefront\Services\StorefrontPigPricingService::class)
+                        ->refreshListingSnapshot($listing->fresh());
+                }
+
+                $this->attachInitialMedia($listing->fresh(), $request);
+
+                return $listing->fresh();
+            });
         } catch (DuplicateListingException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         } catch (\App\Storefront\Services\Exceptions\ListingNotEligibleException $e) {
@@ -174,41 +207,30 @@ class PushToStorefrontController extends Controller
             return back()->withInput()
                 ->with('error', 'This pig cannot be listed for sale.')
                 ->with('eligibility_blockers', $e->reasons);
-        }
-
-        // Attach the chosen Standard Stock, which also derives the listing's
-        // public quantity from the animals rather than trusting the number
-        // typed into the form.
-        $poolPigIds = array_filter(array_map('intval', (array) $request->input('pool_pig_ids', [])));
-
-        // Record which stock this listing draws from, so the shop and the
-        // manager screens know how to treat it later.
-        $listing->forceFill([
-            'source_category' => $request->input('source_category'),
-        ])->save();
-
-        if ($poolPigIds !== []) {
-            try {
-                app(\App\Storefront\Services\StorefrontPigPoolService::class)
-                    ->attachPigs($listing, $poolPigIds, $request->user());
-
-                // Price the listing from the farm's setup rates and the
-                // animals' latest weights. Derived, never typed.
-                app(\App\Storefront\Services\StorefrontPigPricingService::class)
-                    ->refreshListingSnapshot($listing->fresh());
-            } catch (\App\Storefront\Services\Exceptions\InventoryConflictException $e) {
-                // The listing exists but holds no animals. Say so plainly and
-                // send the user to it, rather than losing the work or leaving
-                // them believing a pool was built.
-                return redirect()
-                    ->route('storefront.admin.listings.show', $listing)
-                    ->with('error', "Listing {$listing->reference} was created, but the pigs could not be added: {$e->getMessage()}");
-            }
+        } catch (\App\Storefront\Services\Exceptions\InventoryConflictException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
         }
 
         return redirect()
             ->route('storefront.admin.listings.show', $listing)
             ->with('success', "Listing {$listing->reference} created" . ($listing->status === StorefrontListing::STATUS_PUBLISHED ? ' and published.' : ' as a draft.'));
+    }
+
+    protected function attachInitialMedia(StorefrontListing $listing, PushToStorefrontRequest $request): void
+    {
+        if ($request->hasFile('image')) {
+            $this->editor->addUploadedMedia($listing, $request->file('image'), $request->input('alt_text'));
+            return;
+        }
+
+        if ($url = $request->input('media_url')) {
+            $this->editor->addUrlMedia(
+                $listing,
+                $url,
+                StorefrontListingMedia::TYPE_IMAGE,
+                $request->input('alt_text')
+            );
+        }
     }
 
     /**

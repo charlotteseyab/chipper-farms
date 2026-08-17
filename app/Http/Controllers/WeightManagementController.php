@@ -66,13 +66,26 @@ class WeightManagementController extends Controller
     /**
      * Show the form for creating a new weight record
      */
-    public function create(Request $request)
+    public function create(Request $request, CurrentOrganization $currentOrganization)
     {
-        $pigs = PigManagement::orderBy('ear_tag_number')->get();
+        $organizationId = $currentOrganization->resolve()?->id;
+        $pigs = $this->availablePigsForWeights($organizationId);
         $selectedPig = null;
 
         if ($request->pig_id) {
-            $selectedPig = PigManagement::find($request->pig_id);
+            $selectedPig = PigManagement::query()
+                ->forOrganization($organizationId)
+                ->active()
+                ->find($request->pig_id);
+
+            if ($selectedPig !== null && ! $pigs->contains('id', $selectedPig->id)) {
+                $pigs->push($selectedPig);
+                $pigs = $pigs->sortBy([
+                    ['ear_tag_number', 'asc'],
+                    ['code', 'asc'],
+                    ['local_id', 'asc'],
+                ])->values();
+            }
         }
 
         return view('weights.create', compact('pigs', 'selectedPig'));
@@ -152,6 +165,18 @@ class WeightManagementController extends Controller
         $selectedPig = $weight->pig;
 
         return view('weights.edit', compact('weight', 'pigs', 'selectedPig'));
+    }
+
+    protected function availablePigsForWeights(?int $organizationId)
+    {
+        return PigManagement::query()
+            ->forOrganization($organizationId)
+            ->active()
+            ->orderByRaw('ear_tag_number is null')
+            ->orderBy('ear_tag_number')
+            ->orderBy('code')
+            ->orderBy('local_id')
+            ->get();
     }
 
     /**

@@ -2,6 +2,7 @@
     /** @var \App\Models\Storefront\StorefrontListing $listing */
     $primary = $listing->media->firstWhere('is_primary', true) ?? $listing->media->first();
     $price = $listing->displayPrice();
+    $priceRange = $listing->displayPriceRangeBounds();
 @endphp
 <a href="{{ route('storefront.listing', $listing->slug) }}" class="block bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col hover:border-slate-400 transition">
     <div class="aspect-[4/3] bg-slate-100 flex items-center justify-center overflow-hidden">
@@ -17,6 +18,15 @@
 
         @if($listing->isQuoteOnly())
             <p class="mt-2 text-sm font-medium text-amber-600">Price on request</p>
+        @elseif($priceRange)
+            <p class="mt-2 text-sm font-semibold text-slate-900">
+                @if(bccomp($priceRange['min'], $priceRange['max'], 2) === 0)
+                    {{ $listing->currency_code }} {{ number_format((float) $priceRange['min'], 2) }}
+                @else
+                    {{ $listing->currency_code }} {{ number_format((float) $priceRange['min'], 2) }} - {{ number_format((float) $priceRange['max'], 2) }}
+                @endif
+            </p>
+            <p class="mt-0.5 text-xs text-slate-500">Estimated per {{ $listing->kind === \App\Models\Storefront\StorefrontListing::KIND_PIGLET_LOT ? 'piglet' : 'pig' }}</p>
         @elseif($price !== null)
             <p class="mt-2 text-sm font-semibold text-slate-900">
                 {{ $listing->currency_code }} {{ number_format((float) $price, 2) }}

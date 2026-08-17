@@ -37,6 +37,10 @@ class UpdateListingRequest extends FormRequest
             'fixed_price'   => ['nullable', 'numeric', 'min:0', 'max:99999999'],
             'currency_code' => ['nullable', 'string', 'size:3'],
 
+            'pool_pig_ids_present' => ['boolean'],
+            'pool_pig_ids'         => ['nullable', 'array'],
+            'pool_pig_ids.*'       => ['integer', 'exists:pigs_management,id'],
+
             'quantity_available'  => ['required', 'numeric', 'min:0', 'max:99999999'],
             'quantity_unit'       => ['nullable', 'string', 'max:20'],
             'estimated_weight_kg' => ['nullable', 'numeric', 'min:0', 'max:99999999'],
@@ -50,14 +54,19 @@ class UpdateListingRequest extends FormRequest
 
             'available_from'  => ['nullable', 'date'],
             'available_until' => ['nullable', 'date', 'after_or_equal:available_from'],
+
+            'image'     => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'media_url' => ['nullable', 'url', 'max:500'],
+            'alt_text'  => ['nullable', 'string', 'max:200'],
         ];
     }
 
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'pickup_allowed'   => $this->boolean('pickup_allowed'),
-            'delivery_allowed' => $this->boolean('delivery_allowed'),
+            'pickup_allowed'        => $this->boolean('pickup_allowed'),
+            'delivery_allowed'      => $this->boolean('delivery_allowed'),
+            'pool_pig_ids_present'  => $this->boolean('pool_pig_ids_present'),
         ]);
     }
 }

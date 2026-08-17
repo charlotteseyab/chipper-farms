@@ -85,13 +85,13 @@ class PermissionMatrixTest extends TestCase
             ],
             'storefront settings' => [
                 'manage_storefront_settings',
-                ['admin', 'superuser'],
-                ['accountant', 'treasurer', 'farmmanager', 'dataentry', 'salesperson', 'customer'],
+                ['admin', 'superuser', 'farmmanager'],
+                ['accountant', 'treasurer', 'dataentry', 'salesperson', 'customer'],
             ],
             'refund orders' => [
                 'refund_storefront_orders',
-                ['admin', 'superuser'],
-                ['farmmanager', 'dataentry', 'salesperson', 'customer'],
+                ['admin', 'superuser', 'farmmanager'],
+                ['dataentry', 'salesperson', 'customer'],
             ],
             'push listing' => [
                 'push_to_storefront',
@@ -100,14 +100,14 @@ class PermissionMatrixTest extends TestCase
             ],
             'manage orders' => [
                 'manage_storefront_orders',
-                ['admin', 'superuser', 'salesperson'],
+                ['admin', 'superuser', 'salesperson', 'farmmanager'],
                 ['dataentry', 'customer'],
             ],
             // §49 names this separation explicitly: confirming an order is not
             // the same right as administering one.
             'confirm orders' => [
                 'confirm_storefront_orders',
-                ['admin', 'superuser', 'salesperson'],
+                ['admin', 'superuser', 'salesperson', 'farmmanager'],
                 ['dataentry', 'customer'],
             ],
             'view orders' => [

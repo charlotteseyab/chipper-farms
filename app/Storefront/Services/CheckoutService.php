@@ -231,7 +231,9 @@ class CheckoutService
                     'description'     => $listing->title,
                     'quantity'        => $draft['quantity'],
                     'quantity_unit'   => $listing->quantity_unit,
-                    'price_basis'     => $listing->pricing_basis,
+                    'price_basis'     => $this->isPigLine($draft['cart_item'])
+                        ? $draft['cart_item']->price_basis
+                        : $listing->pricing_basis,
                     'unit_price'      => $draft['unit_price'],
                     'line_total'      => $draft['line_total'],
                     'weight_kg'       => $listing->estimated_weight_kg,

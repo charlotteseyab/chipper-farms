@@ -1,5 +1,5 @@
 <x-app-layout>
-    <div class="max-w-4xl mx-auto py-6 px-4">
+    <div class="max-w-7xl mx-auto py-6 px-4">
         @if(session('success'))<div class="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm">{{ session('success') }}</div>@endif
         @if(session('error'))<div class="mb-4 rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ session('error') }}</div>@endif
 
@@ -16,17 +16,42 @@
             <a href="{{ route('storefront.admin.orders.index') }}" class="text-sm text-slate-500 hover:text-slate-800">← Back</a>
         </div>
 
-        <div class="grid md:grid-cols-3 gap-6">
-            <div class="md:col-span-2 space-y-4">
+        <div class="grid grid-cols-1 gap-6">
+            <div class="space-y-4">
                 <div class="rounded-2xl bg-white border border-slate-200 p-5">
                     <h2 class="font-semibold text-slate-700 mb-3">Items</h2>
                     <table class="w-full text-sm">
                         <tbody>
                             @foreach($order->items as $item)
                                 <tr class="border-b border-slate-100 last:border-0">
-                                    <td class="py-2">{{ $item->description }}</td>
-                                    <td class="py-2 text-slate-500">{{ rtrim(rtrim((string)$item->quantity,'0'),'.') }} {{ $item->quantity_unit }} × {{ number_format((float)$item->unit_price,2) }}</td>
-                                    <td class="py-2 text-right font-medium">GHS {{ number_format((float)$item->line_total,2) }}</td>
+                                    <td class="py-3 align-top">
+                                        <p class="font-medium text-slate-800">{{ $item->description }}</p>
+                                        @if($item->purchase_type)
+                                            <div class="mt-1 flex flex-wrap gap-2 text-xs text-slate-500">
+                                                @if($item->purchase_type === \App\Storefront\Services\StorefrontPigPricingService::PURCHASE_LIVE && is_array($item->selected_pig_weight_snapshot))
+                                                    @foreach($item->selected_pig_weight_snapshot as $snapshot)
+                                                        <span class="rounded-full bg-slate-100 px-2 py-1">
+                                                            {{ $snapshot['ear_tag'] ?? 'Selected pig' }}
+                                                            @if(isset($snapshot['kg']))
+                                                                · {{ rtrim(rtrim((string) $snapshot['kg'], '0'), '.') }} kg
+                                                            @endif
+                                                        </span>
+                                                    @endforeach
+                                                @elseif($item->purchase_type === \App\Storefront\Services\StorefrontPigPricingService::PURCHASE_CARCASS && $item->requested_kg)
+                                                    <span class="rounded-full bg-slate-100 px-2 py-1">
+                                                        Requested carcass: {{ rtrim(rtrim((string) $item->requested_kg, '0'), '.') }} kg
+                                                    </span>
+                                                @endif
+                                                @if($item->price_per_kg_snapshot)
+                                                    <span class="rounded-full bg-slate-100 px-2 py-1">
+                                                        GHS {{ number_format((float) $item->price_per_kg_snapshot, 2) }} / kg
+                                                    </span>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </td>
+                                    <td class="py-3 align-top text-slate-500">{{ rtrim(rtrim((string)$item->quantity,'0'),'.') }} {{ $item->displayQuantityUnit() }} × {{ number_format((float)$item->unit_price,2) }}</td>
+                                    <td class="py-3 align-top text-right font-medium">GHS {{ number_format((float)$item->line_total,2) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -37,6 +62,10 @@
                         <div class="flex justify-between font-bold text-slate-800"><span>Total</span><span>GHS {{ number_format((float)$order->total,2) }}</span></div>
                     </div>
                 </div>
+
+                @foreach($pigSelection as $panel)
+                    @include('storefront.admin.orders.partials.pig-selection-panel', ['panel' => $panel, 'order' => $order])
+                @endforeach
 
                 @if($order->fulfilment_method === \App\Models\Storefront\StorefrontOrder::FULFIL_DELIVERY)
                     <div class="rounded-2xl bg-white border border-slate-200 p-5 text-sm">
@@ -206,175 +235,6 @@
                     </div>
                 @endif
 
-                {{--
-                    Choosing the exact animals for a pooled pig line.
-
-                    A listing can advertise "5 head" without promising which
-                    five. Somebody has to decide, and it has to be a person: the
-                    animals differ in weight, age and condition, and the customer
-                    is buying livestock rather than units of stock.
-
-                    The panel appears only for lines whose listing carries a
-                    pool. Product lines and legacy single-pig listings never see
-                    it.
-
-                    Reading the panel follows view_storefront_orders, like the
-                    rest of this page. SELECTING is a POST inside the
-                    manage_storefront_orders route group, so the permission is
-                    enforced by middleware and not by whether this form renders.
-                --}}
-                @foreach($pigSelection as $panel)
-                    @php
-                        $line        = $panel['item'];
-                        $outstanding = $panel['outstanding'];
-                        $state       = $panel['state'];
-                        $ready       = $state === \App\Storefront\Services\StorefrontPigAllocationService::STATE_READY;
-                        $conflict    = $state === \App\Storefront\Services\StorefrontPigAllocationService::STATE_CONFLICT;
-                        $soldAlready = $panel['sold']->isNotEmpty();
-                        $byWeight    = $panel['requested_kg'] !== null;
-                    @endphp
-
-                    <div @class([
-                        'rounded-2xl border p-5',
-                        'border-rose-300 bg-rose-50'       => $conflict,
-                        'border-emerald-200 bg-emerald-50' => $ready && ! $conflict,
-                        'border-amber-200 bg-amber-50'     => ! $ready && ! $conflict,
-                    ])>
-                        <p class="font-semibold text-slate-800">
-                            {{ $soldAlready ? 'Pigs sold for' : 'Choose the pigs for' }} “{{ $line->description }}”
-                        </p>
-
-                        {{--
-                            A conflict is something that changed AFTER the
-                            animals were chosen — one died, or was sold at the
-                            gate. It is shown here rather than raised during
-                            approval, because a manager finding out mid-sale
-                            has already committed the rest of the order.
-                        --}}
-                        @if($conflict)
-                            <div class="mt-2 rounded-xl border border-rose-300 bg-white p-3 text-sm text-rose-800">
-                                <p class="font-semibold">This selection can no longer be sold.</p>
-                                <ul class="mt-1 list-disc list-inside space-y-0.5">
-                                    @foreach($panel['problems'] as $problem)
-                                        <li>{{ $problem }}</li>
-                                    @endforeach
-                                </ul>
-                                <p class="mt-1 text-xs">Choose different animals below before approving.</p>
-                            </div>
-                        @endif
-
-                        @if($panel['customer_chose'] && ! $soldAlready)
-                            <p class="mt-2 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">
-                                The customer chose these animals themselves and paid for their
-                                weights. Nothing needs picking — changing them would deliver a
-                                different animal than the one that was bought.
-                            </p>
-                        @endif
-
-                        @if($soldAlready)
-                            {{-- Terminal state: these animals are gone. Shown so
-                                 the order can be traced to /sales, not edited. --}}
-                            <p class="mt-1 text-sm text-slate-600">
-                                Sold at approval. These animals are recorded in Sales.
-                            </p>
-                            <ul class="mt-2 space-y-1 text-sm text-slate-700">
-                                @foreach($panel['sold'] as $allocation)
-                                    <li>
-                                        {{ $allocation->pig?->ear_tag_number ?? ('Pig #' . $allocation->pig_id) }}
-                                        @if($allocation->pig_sale_id)
-                                            <span class="text-slate-400">· sale #{{ $allocation->pig_sale_id }}</span>
-                                        @endif
-                                    </li>
-                                @endforeach
-                            </ul>
-                        @else
-                            <p class="mt-1 text-sm text-slate-600">
-                                @if($byWeight)
-                                    {{--
-                                        A carcass order is kilograms. Progress in
-                                        head would read "1 of 1 chosen" while the
-                                        delivery was 30 kg short.
-                                    --}}
-                                    This order asks for
-                                    <strong>{{ rtrim(rtrim($panel['requested_kg'], '0'), '.') }} kg</strong>
-                                    of carcass weight.
-                                    Chosen so far: <strong>{{ rtrim(rtrim($panel['selected_kg'], '0'), '.') }} kg</strong>.
-                                    @if($ready)
-                                        Covered — confirming the order will sell exactly these animals.
-                                    @else
-                                        Choose enough animals to cover it; the order cannot be confirmed
-                                        until the weight is met.
-                                    @endif
-                                @else
-                                    This order asks for <strong>{{ $panel['required'] }}</strong> head.
-                                    @if($ready)
-                                        All chosen — confirming the order will sell exactly these animals.
-                                    @else
-                                        <strong>{{ $outstanding }}</strong> still to choose. The order cannot be
-                                        confirmed until the count matches.
-                                    @endif
-                                @endif
-                            </p>
-
-                            @if($panel['candidates']->isEmpty())
-                                <p class="mt-3 text-sm text-rose-700">
-                                    No animals are available in this listing’s pool. Add pigs to the listing,
-                                    or cancel this order.
-                                </p>
-                            @else
-                                @can('manage_storefront_orders')
-                                    <form method="POST"
-                                          action="{{ route('storefront.admin.orders.select-pigs', [$order, $line]) }}"
-                                          class="mt-3">
-                                        @csrf
-
-                                        <div class="max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
-                                            @foreach($panel['candidates'] as $poolRow)
-                                                @php $pig = $poolRow->pig; @endphp
-                                                <label class="flex items-start gap-3 p-3 text-sm cursor-pointer hover:bg-slate-50">
-                                                    <input type="checkbox"
-                                                           name="pig_ids[]"
-                                                           value="{{ $pig->id }}"
-                                                           @checked(in_array((int) $pig->id, $panel['chosen'], true))
-                                                           class="mt-1 rounded border-slate-300">
-                                                    <span class="min-w-0">
-                                                        <span class="font-medium text-slate-800">
-                                                            {{ $pig->ear_tag_number ?: ('Pig #' . $pig->id) }}
-                                                        </span>
-                                                        <span class="block text-xs text-slate-500">
-                                                            {{ $pig->breed ?: 'Breed not recorded' }}
-                                                            · {{ $pig->gender ?: 'sex not recorded' }}
-                                                            @if($pig->date_of_birth)
-                                                                · {{ \Carbon\Carbon::parse($pig->date_of_birth)->age }} yr
-                                                            @endif
-                                                            @if($pig->current_weight)
-                                                                · {{ rtrim(rtrim((string) $pig->current_weight, '0'), '.') }} kg
-                                                            @endif
-                                                        </span>
-                                                    </span>
-                                                </label>
-                                            @endforeach
-                                        </div>
-
-                                        <button type="submit"
-                                                class="mt-3 px-4 py-2 rounded-xl bg-slate-800 text-white text-sm">
-                                            Save selection
-                                        </button>
-                                        <span class="ml-2 text-xs text-slate-500">
-                                            Nothing is sold until you confirm the order.
-                                        </span>
-                                    </form>
-                                @else
-                                    <p class="mt-3 text-sm text-slate-500">
-                                        You can see what this order needs, but choosing the animals needs
-                                        permission to manage orders.
-                                    </p>
-                                @endcan
-                            @endif
-                        @endif
-                    </div>
-                @endforeach
-
                 {{-- §46: held listings need a visible expire/release/confirm path. --}}
                 @if($liveHolds->isNotEmpty())
                     <div class="rounded-2xl border border-slate-200 bg-white p-5">
@@ -415,4 +275,51 @@
             </div>
         </div>
     </div>
+
+    <script>
+        (function () {
+            function bootSelectionForm(form) {
+                var limit = parseInt(form.getAttribute('data-selection-limit') || '0', 10);
+                if (!limit) { return; }
+
+                var boxes = Array.prototype.slice.call(form.querySelectorAll('[data-order-pig-checkbox]'));
+                var message = form.querySelector('[data-selection-message]');
+
+                function refresh(changed) {
+                    var checked = boxes.filter(function (box) { return box.checked; });
+
+                    if (checked.length > limit && changed) {
+                        changed.checked = false;
+                        checked = boxes.filter(function (box) { return box.checked; });
+                    }
+
+                    boxes.forEach(function (box) {
+                        if (box.checked || box.hasAttribute('data-server-disabled')) {
+                            return;
+                        }
+
+                        box.disabled = checked.length >= limit;
+                    });
+
+                    if (message) {
+                        message.textContent = checked.length >= limit
+                            ? 'Selection limit reached for this paid line.'
+                            : 'Nothing is sold until you confirm the order.';
+                    }
+                }
+
+                boxes.forEach(function (box) {
+                    if (box.disabled) {
+                        box.setAttribute('data-server-disabled', 'true');
+                    }
+
+                    box.addEventListener('change', function () { refresh(box); });
+                });
+
+                refresh(null);
+            }
+
+            document.querySelectorAll('[data-order-pig-selection]').forEach(bootSelectionForm);
+        })();
+    </script>
 </x-app-layout>

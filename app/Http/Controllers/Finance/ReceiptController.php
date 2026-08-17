@@ -9,6 +9,7 @@ use App\Models\Finance\Invoice;
 use App\Models\Finance\Receipt;
 use App\Models\Finance\ReceiptAllocation;
 use App\Models\PaymentMethod;
+use App\Services\Finance\Cash\MoneyAccountService;
 use App\Services\Finance\Allocations\AllocationService;
 use App\Services\Finance\BankReconciliation\BankReconciliationService;
 use App\Services\Finance\JournalReversalService;
@@ -112,6 +113,7 @@ class ReceiptController extends Controller
             })
             ->orderBy('name')
             ->get(['id', 'name', 'code', 'is_cash', 'is_bank', 'is_mobile_money']);
+        $moneyAccounts = app(MoneyAccountService::class)->selectable($orgId);
 
         // Optional preselection from URL: ?customer=ID
         $preselectedCustomerId = $request->get('customer');
@@ -127,6 +129,7 @@ class ReceiptController extends Controller
         return view('finance.receipts.create', compact(
             'customers',
             'paymentMethods',
+            'moneyAccounts',
             'preselectedCustomerId',
             'openInvoices',
         ));
@@ -144,7 +147,11 @@ class ReceiptController extends Controller
             'counterparty_id'    => ['required', 'integer',
                                        Rule::exists('counterparties', 'id')
                                            ->where(fn ($q) => $q->where('organization_id', $orgId))],
-            'payment_method_id'  => ['required', 'integer', 'exists:payment_methods,id'],
+            'payment_method_id'  => ['nullable', 'required_without:money_account_id', 'integer', 'exists:payment_methods,id'],
+            'money_account_id'   => ['nullable', 'required_without:payment_method_id', 'integer',
+                Rule::exists('bank_accounts', 'id')
+                    ->where(fn ($q) => $q->where('organization_id', $orgId)
+                        ->where('is_active', true))],
             'receipt_date'       => ['required', 'date'],
             'amount'             => ['required', 'numeric', 'gt:0'],
             'currency_code'      => ['required', 'string', 'size:3'],
@@ -157,7 +164,17 @@ class ReceiptController extends Controller
         ]);
 
         $customer = Counterparty::findOrFail($validated['counterparty_id']);
-        $paymentMethod = PaymentMethod::findOrFail($validated['payment_method_id']);
+        $moneyAccounts = app(MoneyAccountService::class);
+        if (empty($validated['money_account_id']) && empty($validated['payment_method_id'])) {
+            return back()->withInput()->with('error', 'Choose the money account this receipt came into.');
+        }
+
+        $paymentMethod = ! empty($validated['money_account_id'])
+            ? $moneyAccounts->paymentMethodForMoneyAccount((int) $validated['money_account_id'], $orgId)
+            : PaymentMethod::findOrFail($validated['payment_method_id']);
+        $sourceAccountId = ! empty($validated['money_account_id'])
+            ? $moneyAccounts->sourceAccountIdForMoneyAccount((int) $validated['money_account_id'], $orgId)
+            : null;
 
         try {
             $receipt = $receiptService->createPosted(
@@ -168,6 +185,7 @@ class ReceiptController extends Controller
                 createdBy:      $request->user(),
                 extras: [
                     'currency_code'      => $validated['currency_code'],
+                    'source_account_id'  => $sourceAccountId,
                     'external_reference' => $validated['external_reference'] ?? null,
                     'description'        => $validated['description'] ?? null,
                 ],

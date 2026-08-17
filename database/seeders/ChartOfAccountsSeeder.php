@@ -112,6 +112,7 @@ class ChartOfAccountsSeeder extends Seeder
             ['code' => '1060', 'name' => 'Mobile Money — MTN',               'account_type' => 'asset', 'account_subtype' => 'current_asset',     'parent_code' => '1000'],
             ['code' => '1061', 'name' => 'Mobile Money — AirtelTigo',        'account_type' => 'asset', 'account_subtype' => 'current_asset',     'parent_code' => '1000'],
             ['code' => '1062', 'name' => 'Mobile Money — Vodafone',          'account_type' => 'asset', 'account_subtype' => 'current_asset',     'parent_code' => '1000'],
+            ['code' => '1070', 'name' => 'Paystack Clearing',                'account_type' => 'asset', 'account_subtype' => 'current_asset',     'parent_code' => '1000', 'description' => 'Online card/mobile checkout receipts awaiting settlement'],
 
             // 1100-1199 Accounts Receivable
             ['code' => '1100', 'name' => 'Accounts Receivable',              'account_type' => 'asset', 'account_subtype' => 'current_asset',     'is_system' => true, 'allow_manual_journal' => false],

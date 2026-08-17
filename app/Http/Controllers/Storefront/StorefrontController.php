@@ -181,10 +181,11 @@ class StorefrontController extends Controller
             'listing'     => $listing,
             'detail'      => $presenter->present($listing),
             'favourited'  => $favourited,
+            'guestCheckoutAllowed' => StorefrontSettings::guestCheckoutEnabled($orgId),
             // What this listing can be bought as. Null for anything not backed
             // by animals — a bag of feed has neither a live weight nor a
             // carcass to sell.
-            'pigPurchase' => $this->pigPurchaseOptions($listing),
+            'pigPurchase' => $this->pigPurchaseOptions($listing, $request),
         ]);
     }
 
@@ -203,7 +204,7 @@ class StorefrontController extends Controller
      *
      * @return array<string, mixed>|null
      */
-    protected function pigPurchaseOptions(StorefrontListing $listing): ?array
+    protected function pigPurchaseOptions(StorefrontListing $listing, Request $request): ?array
     {
         if (! $listing->usesPigPool()) {
             return null;
@@ -214,13 +215,32 @@ class StorefrontController extends Controller
 
         $liveRate    = $listing->live_price_per_kg_snapshot;
         $carcassRate = $listing->carcass_price_per_kg_snapshot;
+        $animalSearch = trim($request->string('animal_q')->toString());
 
-        $animals = \App\Models\Storefront\StorefrontListingPig::query()
+        $animalQuery = \App\Models\Storefront\StorefrontListingPig::query()
             ->where('storefront_listing_id', $listing->getKey())
             ->whereIn('status', \App\Models\Storefront\StorefrontListingPig::SELLABLE_STATUSES)
             ->with('pig.latestWeight')
-            ->get()
-            ->map(function ($row) use ($pricing, $liveRate) {
+            ->when($animalSearch !== '', function ($q) use ($animalSearch) {
+                $term = '%' . $animalSearch . '%';
+
+                $q->whereHas('pig', function ($pigs) use ($term) {
+                    $pigs->where('ear_tag_number', 'like', $term)
+                        ->orWhere('code', 'like', $term)
+                        ->orWhere('local_id', 'like', $term)
+                        ->orWhere('breed', 'like', $term)
+                        ->orWhere('gender', 'like', $term)
+                        ->orWhere('current_weight_kg_cache', 'like', $term)
+                        ->orWhereHas('latestWeight', fn ($weights) => $weights->where('weight', 'like', $term));
+                });
+            })
+            ->orderBy('id');
+
+        $animals = $animalQuery
+            ->paginate(8, ['*'], 'animal_page')
+            ->withQueryString()
+            ->fragment('live-animals')
+            ->through(function ($row) use ($pricing, $liveRate) {
                 $pig    = $row->pig;
                 $weight = $pig === null ? null : $pricing->latestWeightKg($pig);
 
@@ -235,13 +255,13 @@ class StorefrontController extends Controller
                         ? null
                         : bcmul($weight, (string) $liveRate, 2),
                 ];
-            })
-            ->values();
+            });
 
         return [
             'live_rate'            => $liveRate,
             'carcass_rate'         => $carcassRate,
             'animals'              => $animals,
+            'animal_search'        => $animalSearch,
             'carcass_kg_available' => $lines->carcassKgAvailable($listing),
         ];
     }

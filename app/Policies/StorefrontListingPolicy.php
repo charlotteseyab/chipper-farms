@@ -50,6 +50,6 @@ class StorefrontListingPolicy
     public function delete(User $user, StorefrontListing $listing): bool
     {
         return $this->sameOrganization($user, $listing)
-            && $user->hasPermission('manage_storefront_listings');
+            && $user->hasPermission('delete_storefront_listings');
     }
 }

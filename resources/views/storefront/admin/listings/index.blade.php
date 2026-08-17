@@ -102,6 +102,14 @@
                                             <span class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-500" title="Archived listings are terminal in the current lifecycle.">Restore unavailable</span>
                                         @endif
                                     @endcan
+
+                                    @can('delete', $listing)
+                                        <form method="POST" action="{{ route('storefront.admin.listings.destroy', $listing) }}" onsubmit="return confirm('Delete this listing? Unsold selected pigs will be released for other listings. Sold pigs remain sales history.');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button class="rounded-lg border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50">Delete</button>
+                                        </form>
+                                    @endcan
                                 </div>
                             </td>
                         </tr>

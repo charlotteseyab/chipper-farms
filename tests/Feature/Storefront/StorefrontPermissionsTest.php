@@ -18,6 +18,7 @@ class StorefrontPermissionsTest extends StorefrontTestCase
             'view_storefront_dashboard',
             'view_storefront_listings',
             'manage_storefront_listings',
+            'delete_storefront_listings',
             'push_to_storefront',
             'manage_storefront_placements',
             'manage_storefront_settings',
@@ -62,5 +63,39 @@ class StorefrontPermissionsTest extends StorefrontTestCase
 
         $this->assertTrue($admin->hasPermission('manage_storefront_listings'));
         $this->assertTrue($admin->hasPermission('manage_storefront_settings'));
+        $this->assertFalse($admin->hasPermission('delete_storefront_listings'));
+    }
+
+    public function test_only_superuser_has_destructive_listing_delete_permission(): void
+    {
+        $this->seedStorefrontPermissions();
+
+        $this->assertTrue($this->makeUser('superuser')->hasPermission('delete_storefront_listings'));
+        $this->assertFalse($this->makeUser('admin')->hasPermission('delete_storefront_listings'));
+        $this->assertFalse($this->makeUser('farmmanager')->hasPermission('delete_storefront_listings'));
+        $this->assertFalse($this->makeUser('salesperson')->hasPermission('delete_storefront_listings'));
+    }
+
+    public function test_farm_manager_has_all_storefront_permissions(): void
+    {
+        $this->seed(\Database\Seeders\StorefrontPermissionsSeeder::class);
+        $this->seed(\Database\Seeders\StorefrontQuotePermissionsSeeder::class);
+        $this->seed(\Database\Seeders\StorefrontOrderPermissionsSeeder::class);
+        $this->seed(\Database\Seeders\StorefrontRefundPermissionsSeeder::class);
+
+        $farmManager = $this->makeUser('farmmanager');
+        $permissions = Permission::query()
+            ->where('module', 'storefront')
+            ->where('name', '!=', 'delete_storefront_listings')
+            ->pluck('name');
+
+        $this->assertNotEmpty($permissions);
+
+        foreach ($permissions as $permission) {
+            $this->assertTrue(
+                $farmManager->hasPermission($permission),
+                "Farm Manager is missing storefront permission: {$permission}"
+            );
+        }
     }
 }

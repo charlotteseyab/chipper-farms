@@ -347,14 +347,18 @@
                 </div>
 
                 <div class="flex items-center gap-3">
-                    @auth
-                        @if($customerAccountsEnabled)
-                            <a href="{{ route('storefront.account.dashboard') }}" class="hidden nav-link sm:inline-flex">My account</a>
-                        @endif
-                        <a href="{{ route('storefront.account.orders.index') }}" class="btn-primary">My orders</a>
+                    @if(session('storefront_buyer_id'))
+                        <a href="{{ route('storefront.buyer.orders.index') }}" class="btn-primary">My orders</a>
                     @else
-                        <a href="{{ route('login') }}" class="btn-primary">Sign In</a>
-                    @endauth
+                        @auth
+                            @if($customerAccountsEnabled)
+                                <a href="{{ route('storefront.account.dashboard') }}" class="hidden nav-link sm:inline-flex">My account</a>
+                            @endif
+                            <a href="{{ route('storefront.account.orders.index') }}" class="btn-primary">My orders</a>
+                        @else
+                            <a href="{{ route('storefront.buyer.login') }}" class="btn-primary">Sign In</a>
+                        @endauth
+                    @endif
                 </div>
             </div>
         </div>

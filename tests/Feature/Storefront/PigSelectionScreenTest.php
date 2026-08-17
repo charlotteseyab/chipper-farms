@@ -120,10 +120,8 @@ class PigSelectionScreenTest extends StorefrontTestCase
             ->get(route('storefront.admin.orders.show', $order))
             ->assertOk()
             ->assertSee('Choose the pigs for')
-            // The count sits inside <strong>, so the rendered text is split by
-            // markup — assert the phrase, not a string the template never emits.
-            ->assertSee('still to choose')
-            ->assertSee('This order asks for');
+            ->assertSee('Ordered')
+            ->assertSee('Selected so far');
     }
 
     public function test_the_pool_animals_are_listed_with_enough_detail_to_choose_between_them(): void

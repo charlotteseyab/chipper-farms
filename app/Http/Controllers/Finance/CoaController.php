@@ -53,6 +53,11 @@ class CoaController extends Controller
 
         $accounts = $query->paginate(50)->withQueryString();
 
+        $referenceAccounts = Account::query()
+            ->when($orgId, fn ($q) => $q->where('organization_id', $orgId))
+            ->orderBy('code')
+            ->get(['id', 'code', 'name', 'description', 'account_type', 'account_subtype', 'is_control', 'is_system', 'is_active']);
+
         $stats = [
             'total'     => Account::when($orgId, fn ($q) => $q->where('organization_id', $orgId))->count(),
             'active'    => Account::when($orgId, fn ($q) => $q->where('organization_id', $orgId))->where('is_active', true)->count(),
@@ -60,7 +65,9 @@ class CoaController extends Controller
             'control'   => Account::when($orgId, fn ($q) => $q->where('organization_id', $orgId))->where('is_control', true)->count(),
         ];
 
-        return view('finance.coa.index', compact('accounts', 'stats', 'type', 'search', 'showInactive'));
+        $postingGuide = $this->postingGuide($referenceAccounts);
+
+        return view('finance.coa.index', compact('accounts', 'stats', 'type', 'search', 'showInactive', 'referenceAccounts', 'postingGuide'));
     }
 
     public function show(Account $account, CurrentOrganization $currentOrg)
@@ -171,5 +178,37 @@ class CoaController extends Controller
         if ($orgId !== null && $account->organization_id !== null && (int) $account->organization_id !== (int) $orgId) {
             abort(403, 'Account belongs to a different organisation.');
         }
+    }
+
+    protected function postingGuide($accounts): array
+    {
+        $byCode = $accounts->keyBy('code');
+
+        $row = function (string $area, string $use, string $code, string $fallback = '') use ($byCode): array {
+            $account = $byCode->get($code);
+
+            return [
+                'area'     => $area,
+                'use'      => $use,
+                'code'     => $code,
+                'name'     => $account?->name,
+                'status'   => $account ? ($account->is_active ? 'ready' : 'inactive') : 'missing',
+                'fallback' => $fallback,
+            ];
+        };
+
+        return [
+            $row('Money in', 'Cash collected at pickup or counter sales', '1010'),
+            $row('Money in', 'Main bank deposits, bank transfers, and current Paystack fallback', '1030', 'Create a dedicated Paystack clearing account if settlement needs separate tracking.'),
+            $row('Money in', 'MTN mobile money receipts', '1060'),
+            $row('Money in', 'Receipts that could not be mapped to a real cash/bank account', '1910', 'Suspense only; reclassify after fixing payment-method setup.'),
+            $row('Receivables', 'Customer invoices from pig sales on credit', '1110'),
+            $row('Receivables', 'Customer invoices from feed sales on credit', '1120'),
+            $row('Storefront', 'Customer money received before fulfilment/confirmation', '2310'),
+            $row('Revenue', 'Pig sales revenue', '4010'),
+            $row('Revenue', 'Feed sales revenue', '4120'),
+            $row('COGS', 'Cost of pigs sold', '5110'),
+            $row('COGS', 'Feed cost of goods sold', '5100'),
+        ];
     }
 }

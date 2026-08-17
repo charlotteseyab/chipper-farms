@@ -1,0 +1,8 @@
+id,severity,post_remediation_status,evidence
+CF-SPP-P0-001,P0,closed,StorefrontPushCategoryTest breeding-stock listing and availability assertions
+CF-SPP-P0-002,P0,closed,StorefrontFulfilmentStateTest live/carcass sale payload assertions
+CF-SPP-P0-003,P0,closed,FinanceIntegrationTest manual invoice posting assertion
+CF-SPP-P1-001,P1,closed,StorefrontPushCategoryTest forged hidden field assertion
+CF-SPP-P1-002,P1,closed,StorefrontPushCategoryTest empty stock-backed refusal assertion
+CF-SPP-P2-001,P2,closed,StorefrontPushCategoryTest local ID and weight search assertions
+

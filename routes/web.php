@@ -1528,6 +1528,8 @@ Route::middleware($protectedMiddleware)->group(function () {
             Route::post('/listings/{listing}/unpublish', [\App\Http\Controllers\Storefront\AdminStorefrontController::class, 'unpublish'])->name('listings.unpublish');
             Route::post('/listings/{listing}/archive',   [\App\Http\Controllers\Storefront\AdminStorefrontController::class, 'archive'])->name('listings.archive');
         });
+        Route::delete('/listings/{listing}', [\App\Http\Controllers\Storefront\AdminStorefrontController::class, 'destroy'])
+            ->middleware('permission:delete_storefront_listings')->name('listings.destroy');
 
         // Homepage / featured placements.
         Route::middleware('permission:manage_storefront_placements')->group(function () {
@@ -1705,6 +1707,23 @@ Route::prefix('shop')->name('storefront.')->group(function () {
     Route::post('/order/{reference}/{token}/claim', [\App\Http\Controllers\Storefront\GuestOrderController::class, 'claim'])
         ->middleware(['auth:sanctum', config('jetstream.auth_session')])
         ->name('order.claim');
+
+    Route::get('/buyer/login', [\App\Http\Controllers\Storefront\BuyerAuthController::class, 'showLogin'])
+        ->name('buyer.login');
+    Route::post('/buyer/login', [\App\Http\Controllers\Storefront\BuyerAuthController::class, 'login'])
+        ->middleware('throttle:storefront-checkout')
+        ->name('buyer.login.store');
+    Route::post('/buyer/logout', [\App\Http\Controllers\Storefront\BuyerAuthController::class, 'logout'])
+        ->name('buyer.logout');
+    Route::get('/buyer/create/{reference}/{token}', [\App\Http\Controllers\Storefront\BuyerAuthController::class, 'createFromOrder'])
+        ->name('buyer.register.from-order');
+    Route::post('/buyer/create/{reference}/{token}', [\App\Http\Controllers\Storefront\BuyerAuthController::class, 'storeFromOrder'])
+        ->middleware('throttle:storefront-checkout')
+        ->name('buyer.register.from-order.store');
+    Route::get('/buyer/orders', [\App\Http\Controllers\Storefront\BuyerAuthController::class, 'orders'])
+        ->name('buyer.orders.index');
+    Route::get('/buyer/orders/{order}', [\App\Http\Controllers\Storefront\BuyerAuthController::class, 'order'])
+        ->name('buyer.orders.show');
 
     // Phase 3 — Paystack server-to-server webhook (CSRF-exempt; HMAC-verified
     // in the controller). Path must match the exception in bootstrap/app.php.

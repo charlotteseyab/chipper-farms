@@ -1,0 +1,11 @@
+requirement,implementation,test_evidence,status
+Breeding category loads and attaches breeding stock,StorefrontPigPoolService stockTypeForCategory/stockTypeForListing,StorefrontPushCategoryTest,passed
+Standard category cannot forge hidden listing fields,PushToStorefrontRequest prepareForValidation/withValidator,StorefrontPushCategoryTest,passed
+Stock-backed create+attach is atomic,PushToStorefrontController DB transaction,StorefrontPushCategoryTest,passed
+Live order approvals preserve selected animal commercial snapshot,StorefrontPigAllocationService commercial snapshot and saleDataFor,StorefrontFulfilmentStateTest,passed
+Carcass order approvals allocate requested kg and exact money,StorefrontPigAllocationService splitByWeights/withResidual,StorefrontFulfilmentStateTest,passed
+Manual storefront lines post through finance invoices,StorefrontOrderConfirmedSubscriber manual invoice route,FinanceIntegrationTest,passed
+Order completion recognizes posted manual invoices,OrderService findPostedSale/unpaidCodLines invoice support,Full storefront suite,passed
+Tagged piglets do not materialize duplicate animals,StorefrontPigPoolService piglet pool compatibility,StorefrontPigletSaleTest,passed
+Search includes identifiers and weight,StorefrontPigPoolService and push.blade.php search metadata,StorefrontPushCategoryTest,passed
+

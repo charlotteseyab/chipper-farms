@@ -103,7 +103,7 @@
             border: 1px solid #dbe7f0;
             border-radius: 28px;
             box-shadow: 0 14px 34px rgba(15,23,42,.06);
-            overflow: hidden;
+            overflow: visible;
         }
 
         .weight-panel-body{
@@ -123,11 +123,26 @@
         }
 
         .weight-card{
+            position: relative;
             background: rgba(255,255,255,.97);
             border: 1px solid #dde6ee;
             border-radius: 24px;
             box-shadow: 0 10px 28px rgba(15,23,42,.05);
             overflow: hidden;
+        }
+
+        .weight-card:focus-within{
+            z-index: 30;
+            overflow: visible;
+        }
+
+        .weight-card .searchable-select{
+            position: relative;
+            z-index: 2;
+        }
+
+        .weight-card .searchable-select.is-open{
+            z-index: 40;
         }
 
         .weight-card-head{
@@ -513,22 +528,39 @@
 
                                             <div class="weight-field">
                                                 <label class="weight-label">Pig</label>
-                                                <select name="pig_id" id="pig_id" required class="weight-select" data-searchable-select data-search-placeholder="Search by ear tag, code, breed, or gender...">
+                                                <select name="pig_id" id="pig_id" required class="weight-select" data-searchable-select data-search-placeholder="Search by ear tag, local ID, code, breed, gender, or stock type...">
                                                     <option value="" disabled selected>-- Select Pig --</option>
                                                     @foreach($pigs as $pig)
+                                                        @php
+                                                            $genderLabel = match (strtolower((string) $pig->gender)) {
+                                                                'm', 'male' => 'Male',
+                                                                'f', 'female' => 'Female',
+                                                                default => ucfirst((string) ($pig->gender ?: 'unknown')),
+                                                            };
+                                                        @endphp
                                                         <option value="{{ $pig->id }}"
                                                             data-ear-tag="{{ $pig->ear_tag_number }}"
                                                             data-code="{{ $pig->code }}"
+                                                            data-local-id="{{ $pig->local_id }}"
                                                             data-breed="{{ $pig->breed }}"
                                                             data-gender="{{ $pig->gender }}"
                                                             data-age="{{ $pig->current_age_in_days }}"
                                                             data-birth-date="{{ $pig->date_of_birth ? $pig->date_of_birth->toDateString() : '' }}"
                                                             data-stock-type="{{ $pig->stock_type }}"
                                                             {{ ($selectedPig && $selectedPig->id == $pig->id) || old('pig_id') == $pig->id ? 'selected' : '' }}>
-                                                            {{ $pig->ear_tag_number }} - {{ $pig->code }} ({{ $pig->breed }}, {{ $pig->gender === 'M' ? 'Male' : 'Female' }})
+                                                            {{ $pig->ear_tag_number ?: ('Pig #' . $pig->id) }}
+                                                            @if($pig->local_id)
+                                                                / Local {{ $pig->local_id }}
+                                                            @endif
+                                                            - {{ $pig->code }} ({{ $pig->breed }}, {{ $genderLabel }}, {{ ucfirst((string) $pig->stock_type) }})
                                                         </option>
                                                     @endforeach
                                                 </select>
+                                                @if($pigs->isEmpty())
+                                                    <div class="weight-help" style="color:#b45309;">
+                                                        No active pigs are available for weight recording. Sold or deceased pigs are excluded.
+                                                    </div>
+                                                @endif
                                             </div>
 
                                             <div id="pig-info" class="hidden weight-pig-card" style="margin-top:16px;">
@@ -887,11 +919,15 @@
 
                 if (selectedOption.value) {
                     pigInfo.classList.remove('hidden');
+                    const rawGender = (selectedOption.dataset.gender || '').toLowerCase();
+                    const genderLabel = rawGender === 'm' || rawGender === 'male'
+                        ? 'Male'
+                        : (rawGender === 'f' || rawGender === 'female' ? 'Female' : (selectedOption.dataset.gender || 'Unknown'));
 
                     document.getElementById('info-ear-tag').textContent = selectedOption.dataset.earTag;
                     document.getElementById('info-code').textContent = selectedOption.dataset.code;
                     document.getElementById('info-breed').textContent = selectedOption.dataset.breed;
-                    document.getElementById('info-gender').textContent = selectedOption.dataset.gender === 'M' ? 'Male' : 'Female';
+                    document.getElementById('info-gender').textContent = genderLabel;
                     document.getElementById('info-age').textContent = selectedOption.dataset.age;
                     document.getElementById('info-age-weeks').textContent = Math.floor(selectedOption.dataset.age / 7);
                     document.getElementById('info-stock-type').textContent =

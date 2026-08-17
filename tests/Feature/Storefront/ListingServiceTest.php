@@ -4,8 +4,10 @@ namespace Tests\Feature\Storefront;
 
 use App\Models\PigManagement;
 use App\Models\Storefront\StorefrontListing;
+use App\Models\Storefront\StorefrontListingPig;
 use App\Storefront\Services\Exceptions\InvalidListingTransitionException;
 use App\Storefront\Services\ListingService;
+use App\Storefront\Services\StorefrontPigPoolService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class ListingServiceTest extends StorefrontTestCase
@@ -78,5 +80,95 @@ class ListingServiceTest extends StorefrontTestCase
         // publish() on an already-published listing is a no-op, not an error.
         $result = $this->service()->publish($listing, $actor);
         $this->assertSame(StorefrontListing::STATUS_PUBLISHED, $result->status);
+    }
+
+    public function test_archiving_a_pooled_listing_releases_unsold_pigs_for_other_listings(): void
+    {
+        $actor = $this->makeUser('admin');
+        $pig = $this->makePig(['ear_tag_number' => 'REL-ARCHIVE']);
+
+        $first = $this->makePublishedListing([
+            'title' => 'First listing',
+            'kind' => StorefrontListing::KIND_LIVE_PIG,
+        ]);
+
+        $pool = $this->app->make(StorefrontPigPoolService::class);
+        $pool->attachPigs($first, [$pig->id], $actor);
+
+        $this->service()->archive($first, $actor);
+
+        $this->assertSame(
+            StorefrontListingPig::STATUS_REMOVED,
+            StorefrontListingPig::where('storefront_listing_id', $first->id)
+                ->where('pig_id', $pig->id)
+                ->value('status'),
+        );
+
+        $second = $this->makePublishedListing([
+            'title' => 'Second listing',
+            'kind' => StorefrontListing::KIND_LIVE_PIG,
+        ]);
+
+        $pool->attachPigs($second, [$pig->id], $actor);
+
+        $this->assertDatabaseHas('storefront_listing_pigs', [
+            'storefront_listing_id' => $second->id,
+            'pig_id' => $pig->id,
+            'status' => StorefrontListingPig::STATUS_AVAILABLE,
+        ]);
+    }
+
+    public function test_superuser_can_delete_a_listing_and_release_unsold_pigs(): void
+    {
+        $this->seedStorefrontPermissions();
+
+        $superuser = $this->makeUser('superuser');
+        $pig = $this->makePig(['ear_tag_number' => 'REL-DELETE']);
+        $listing = $this->makePublishedListing([
+            'title' => 'Delete me',
+            'kind' => StorefrontListing::KIND_LIVE_PIG,
+        ]);
+
+        $pool = $this->app->make(StorefrontPigPoolService::class);
+        $pool->attachPigs($listing, [$pig->id], $superuser);
+
+        $this->actingAs($superuser)
+            ->delete(route('storefront.admin.listings.destroy', $listing))
+            ->assertRedirect(route('storefront.admin.listings.index'));
+
+        $this->assertSoftDeleted('storefront_listings', ['id' => $listing->id]);
+        $this->assertDatabaseHas('storefront_listing_pigs', [
+            'storefront_listing_id' => $listing->id,
+            'pig_id' => $pig->id,
+            'status' => StorefrontListingPig::STATUS_REMOVED,
+        ]);
+
+        $replacement = $this->makePublishedListing([
+            'title' => 'Replacement listing',
+            'kind' => StorefrontListing::KIND_LIVE_PIG,
+        ]);
+        $pool->attachPigs($replacement, [$pig->id], $superuser);
+
+        $this->assertDatabaseHas('storefront_listing_pigs', [
+            'storefront_listing_id' => $replacement->id,
+            'pig_id' => $pig->id,
+            'status' => StorefrontListingPig::STATUS_AVAILABLE,
+        ]);
+    }
+
+    public function test_non_superuser_cannot_delete_a_listing(): void
+    {
+        $this->seedStorefrontPermissions();
+
+        $listing = $this->makePublishedListing([
+            'title' => 'Protected listing',
+            'kind' => StorefrontListing::KIND_LIVE_PIG,
+        ]);
+
+        $this->actingAs($this->makeUser('admin'))
+            ->delete(route('storefront.admin.listings.destroy', $listing))
+            ->assertForbidden();
+
+        $this->assertNotSoftDeleted('storefront_listings', ['id' => $listing->id]);
     }
 }

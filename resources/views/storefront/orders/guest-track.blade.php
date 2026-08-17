@@ -66,7 +66,7 @@
                         <div class="min-w-0">
                             <p class="font-medium text-slate-800 truncate">{{ $item->description }}</p>
                             <p class="text-xs text-slate-500">
-                                {{ rtrim(rtrim((string) $item->quantity, '0'), '.') }}{{ $item->quantity_unit ? ' ' . $item->quantity_unit : '' }}
+                                {{ rtrim(rtrim((string) $item->quantity, '0'), '.') }} {{ $item->displayQuantityUnit() }}
                                 × GHS {{ $money($item->unit_price) }}
                             </p>
                         </div>
@@ -102,13 +102,13 @@
             @endif
         @else
             <div class="rounded-2xl bg-white border border-slate-200 p-5">
-                <p class="font-semibold text-slate-800">Keep this link</p>
+                <p class="font-semibold text-slate-800">Save this order</p>
                 <p class="mt-1 text-sm text-slate-500">
-                    It is the only way back to this order without an account. Create an account and
-                    return here to add the order to it.
+                    Create a buyer account with the details from checkout. You only need to choose
+                    a password, and this order will be saved to that account.
                 </p>
-                <a href="{{ route('register') }}" class="mt-3 inline-block px-4 py-2 rounded-xl border border-slate-300 text-sm">
-                    Create an account
+                <a href="{{ route('storefront.buyer.register.from-order', ['reference' => $order->reference, 'token' => $token]) }}" class="mt-3 inline-block px-4 py-2 rounded-xl border border-slate-300 text-sm">
+                    Create buyer account
                 </a>
             </div>
         @endauth

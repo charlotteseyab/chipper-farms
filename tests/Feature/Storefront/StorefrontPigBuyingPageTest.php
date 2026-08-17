@@ -10,6 +10,7 @@ use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontListingPig;
 use App\Storefront\Services\StorefrontPigPoolService;
 use App\Storefront\Services\StorefrontPigPricingService as Pricing;
+use App\Storefront\Support\CartOwnerResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 /**
@@ -100,9 +101,31 @@ class StorefrontPigBuyingPageTest extends StorefrontTestCase
             ->assertOk()
             ->assertSee('Buy live animals')
             ->assertSee('Buy by carcass weight')
+            ->assertSee('Total selected amount')
+            ->assertSee('Select all visible')
+            ->assertSee('Deselect all')
+            ->assertSee('data-live-pig-picker', false)
+            ->assertSee('data-selected-count', false)
+            ->assertSee('data-select-visible', false)
             // The rate the shop is charging, from the farm's own setup.
             ->assertSee('30.00')
             ->assertSee('50.00');
+    }
+
+    public function test_the_listing_page_and_shop_card_show_the_estimated_price_range(): void
+    {
+        $this->poolListing([25, 30]);
+
+        $this->get(route('storefront.listing', $this->listing->slug))
+            ->assertOk()
+            ->assertSee('GHS 750.00 - 900.00')
+            ->assertSee('from 25 kg')
+            ->assertSee('to 30 kg');
+
+        $this->get(route('storefront.shop'))
+            ->assertOk()
+            ->assertSee('GHS 750.00 - 900.00')
+            ->assertSee('Estimated per pig');
     }
 
     /**
@@ -122,6 +145,26 @@ class StorefrontPigBuyingPageTest extends StorefrontTestCase
             ->assertSee('3,600.00')     // 120 × 30
             ->assertSee('80 kg')
             ->assertSee('120 kg');
+    }
+
+    public function test_the_live_animal_picker_is_searchable_and_paginated(): void
+    {
+        $this->poolListing([80, 81, 82, 83, 84, 85, 86, 87, 88]);
+
+        $this->get(route('storefront.listing', $this->listing->slug))
+            ->assertOk()
+            ->assertSee('Search available pigs')
+            ->assertSee('SHOP-0')
+            ->assertSee('SHOP-7')
+            ->assertDontSee('SHOP-8');
+
+        $this->get(route('storefront.listing', [
+            'slug' => $this->listing->slug,
+            'animal_q' => 'SHOP-8',
+        ]))
+            ->assertOk()
+            ->assertSee('SHOP-8')
+            ->assertDontSee('SHOP-0');
     }
 
     public function test_the_carcass_form_offers_only_what_the_pool_can_deliver(): void
@@ -212,6 +255,26 @@ class StorefrontPigBuyingPageTest extends StorefrontTestCase
             ['2400.00', '3600.00'],
             $lines->map(fn ($l) => (string) $l->price_snapshot)->all(),
         );
+    }
+
+    public function test_a_guest_can_start_a_pig_purchase_without_signing_in(): void
+    {
+        $this->poolListing([80]);
+
+        $this->get(route('storefront.listing', $this->listing->slug))
+            ->assertOk()
+            ->assertSee('Add chosen animals to cart')
+            ->assertSee('No account needed')
+            ->assertDontSee('Sign in to buy');
+
+        $response = $this->post(route('storefront.cart.add-pigs', $this->listing), [
+            'purchase_type'   => 'live',
+            'listing_pig_ids' => $this->poolRowIds(),
+        ])->assertRedirect(route('storefront.cart.index'));
+
+        $token = $response->getCookie(CartOwnerResolver::COOKIE)?->getValue();
+        $this->assertNotNull($token, 'A guest pig purchase should mint the same guest cart token as ordinary checkout.');
+        $this->assertSame(1, StorefrontCartItem::where('listing_id', $this->listing->id)->count());
     }
 
     public function test_asking_for_kilograms_puts_one_carcass_line_in_the_basket(): void

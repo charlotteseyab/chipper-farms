@@ -95,6 +95,33 @@ class WeightAuditTest extends TestCase
         $this->assertArrayNotHasKey('target_week', $log->new_values);
     }
 
+    public function test_weight_create_lists_active_pigs_for_the_current_organization(): void
+    {
+        $otherOrganization = Organization::create([
+            'slug' => 'other-weight-farm',
+            'name' => 'Other Weight Farm',
+            'is_active' => true,
+        ]);
+
+        PigManagement::create([
+            'organization_id' => $otherOrganization->id,
+            'ear_tag_number' => 'OTHER-WEIGHT-001',
+            'code' => 'PIG-OTHER-WEIGHT-001',
+            'breed' => 'Landrace',
+            'gender' => 'M',
+            'stock_type' => 'standard',
+            'date_of_birth' => now()->subWeeks(18)->toDateString(),
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('weights.create'))
+            ->assertOk()
+            ->assertSee('WEIGHT-001')
+            ->assertSee('PIG-WEIGHT-001')
+            ->assertSee('Local ' . $this->pig->local_id)
+            ->assertDontSee('OTHER-WEIGHT-001');
+    }
+
     public function test_weight_audit_page_displays_before_and_after_values(): void
     {
         $this->actingAs($this->user);

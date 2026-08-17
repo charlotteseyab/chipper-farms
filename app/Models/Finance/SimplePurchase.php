@@ -31,7 +31,7 @@ class SimplePurchase extends Model
 
     protected $fillable = [
         'organization_id', 'purchase_number', 'purchase_date', 'supplier_id',
-        'supplier_invoice_reference', 'settlement', 'payment_method_key',
+        'supplier_invoice_reference', 'settlement', 'money_account_id', 'payment_method_key',
         'payment_account_code', 'external_reference', 'subtotal', 'tax_amount',
         'total_amount', 'currency_code', 'tax_profile_id', 'tax_snapshot',
         'status', 'posting_error', 'settlement_batch_id', 'vendor_invoice_id',
@@ -72,6 +72,11 @@ class SimplePurchase extends Model
     public function recordedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recorded_by_user_id');
+    }
+
+    public function moneyAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class, 'money_account_id');
     }
 
     public function attachments(): \Illuminate\Database\Eloquent\Relations\MorphMany

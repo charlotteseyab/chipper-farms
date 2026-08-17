@@ -2,13 +2,13 @@
     <div class="max-w-7xl mx-auto py-6 px-4">
         <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-                <h1 class="text-2xl font-bold text-gray-800">Bank Accounts</h1>
-                <p class="text-sm text-slate-500">Bank-account configuration for reconciliation. Each row links a GL account to a bank.</p>
+                <h1 class="text-2xl font-bold text-gray-800">Cash, Bank & MoMo Accounts</h1>
+                <p class="text-sm text-slate-500">Practical money accounts used by payments, receipts, expenses, purchases, loans, and storefront checkout.</p>
             </div>
             @if (auth()->user()?->hasPermission('manage_bank_accounts'))
             <a href="{{ route('finance.bank-accounts.create') }}"
                class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl">
-                <i class="fa-solid fa-plus mr-2"></i> New Bank Account
+                <i class="fa-solid fa-plus mr-2"></i> New Money Account
             </a>
             @endif
         </div>
@@ -39,8 +39,8 @@
                 <thead class="bg-slate-50 text-xs uppercase text-slate-600">
                     <tr>
                         <th class="px-4 py-3 text-left">Label</th>
-                        <th class="px-4 py-3 text-left">Bank</th>
-                        <th class="px-4 py-3 text-left">Account #</th>
+                        <th class="px-4 py-3 text-left">Type</th>
+                        <th class="px-4 py-3 text-left">Reference</th>
                         <th class="px-4 py-3 text-left">GL Account</th>
                         <th class="px-4 py-3 text-left">Currency</th>
                         <th class="px-4 py-3 text-right">Last Reconciled</th>
@@ -51,8 +51,8 @@
                 @forelse ($bankAccounts as $ba)
                     <tr class="hover:bg-slate-50">
                         <td class="px-4 py-2"><a href="{{ route('finance.bank-accounts.show', $ba) }}" class="text-emerald-700 hover:underline">{{ $ba->label }}</a></td>
-                        <td class="px-4 py-2">{{ $ba->bank_name }}</td>
-                        <td class="px-4 py-2 text-slate-600">{{ $ba->account_number ?: '—' }}</td>
+                        <td class="px-4 py-2">{{ $ba->kindLabel() }}</td>
+                        <td class="px-4 py-2 text-slate-600">{{ $ba->referenceLabel() ?: '—' }}</td>
                         <td class="px-4 py-2"><span class="text-xs text-slate-500">{{ $ba->account?->code }}</span> {{ $ba->account?->name }}</td>
                         <td class="px-4 py-2">{{ $ba->currency_code }}</td>
                         <td class="px-4 py-2 text-right">
@@ -72,7 +72,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="px-4 py-8 text-center text-sm text-slate-400">No bank accounts.</td></tr>
+                    <tr><td colspan="7" class="px-4 py-8 text-center text-sm text-slate-400">No money accounts.</td></tr>
                 @endforelse
                 </tbody>
             </table>

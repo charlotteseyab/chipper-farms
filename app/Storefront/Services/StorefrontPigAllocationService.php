@@ -4,6 +4,7 @@ namespace App\Storefront\Services;
 
 use App\Models\PigManagement;
 use App\Models\PigSale;
+use App\Models\PaymentMethod;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontListingPig;
 use App\Models\Storefront\StorefrontOrder;
@@ -189,6 +190,39 @@ class StorefrontPigAllocationService
     }
 
     /**
+     * The live animals/weights the customer paid for on this line.
+     *
+     * @return list<array{row_id:int|null,pig_id:int|null,ear_tag:?string,kg:string}>
+     */
+    public function expectedLiveSelectionsFor(StorefrontOrderItem $item): array
+    {
+        if ($item->purchase_type !== StorefrontPigPricingService::PURCHASE_LIVE) {
+            return [];
+        }
+
+        $snapshot = is_array($item->selected_pig_weight_snapshot)
+            ? $item->selected_pig_weight_snapshot
+            : [];
+
+        $expected = [];
+
+        foreach ($snapshot as $rowId => $row) {
+            if (! is_array($row) || ! isset($row['kg'])) {
+                continue;
+            }
+
+            $expected[] = [
+                'row_id'  => is_numeric($rowId) ? (int) $rowId : null,
+                'pig_id'  => isset($row['pig_id']) ? (int) $row['pig_id'] : null,
+                'ear_tag' => isset($row['ear_tag']) ? (string) $row['ear_tag'] : null,
+                'kg'      => bcadd((string) $row['kg'], '0', 4),
+            ];
+        }
+
+        return $expected;
+    }
+
+    /**
      * Is this line's selection finished?
      *
      * A LIVE or quantity line is satisfied by a COUNT: the buyer asked for
@@ -329,6 +363,8 @@ class StorefrontPigAllocationService
             }
         }
 
+        $errors = array_merge($errors, $this->validateLiveCustomerPromise($item, $pigIds));
+
         return $errors;
     }
 
@@ -404,6 +440,13 @@ class StorefrontPigAllocationService
                 $rows->push($allocation);
             }
 
+            if ($rows->isNotEmpty()) {
+                $order = StorefrontOrder::query()->whereKey($item->order_id)->first();
+                if ($order !== null) {
+                    $this->shareMoneyAcrossAllocations($rows, $order);
+                }
+            }
+
             $listing = StorefrontListing::query()
                 ->whereKey($item->listing_id)
                 ->lockForUpdate()
@@ -415,6 +458,85 @@ class StorefrontPigAllocationService
 
             return $rows;
         });
+    }
+
+    /**
+     * A live line with customer-selected weights cannot be fulfilled with a
+     * heavier replacement. The buyer paid for a specific weight/amount.
+     *
+     * @param  list<int>  $pigIds
+     * @return list<string>
+     */
+    protected function validateLiveCustomerPromise(StorefrontOrderItem $item, array $pigIds): array
+    {
+        $expected = $this->expectedLiveSelectionsFor($item);
+
+        if ($expected === [] || $pigIds === []) {
+            return [];
+        }
+
+        $remaining = array_values($expected);
+        $errors = [];
+
+        foreach ($pigIds as $pigId) {
+            $poolRow = StorefrontListingPig::query()
+                ->where('storefront_listing_id', $item->listing_id)
+                ->where('pig_id', $pigId)
+                ->first();
+
+            $pig = PigManagement::withTrashed()->with('latestWeight')->find($pigId);
+
+            if (! $pig instanceof PigManagement) {
+                continue;
+            }
+
+            $matched = null;
+
+            foreach ($remaining as $index => $row) {
+                if (($row['row_id'] !== null && $poolRow !== null && (int) $poolRow->getKey() === (int) $row['row_id'])
+                    || ($row['pig_id'] !== null && (int) $pig->getKey() === (int) $row['pig_id'])) {
+                    $matched = $index;
+                    break;
+                }
+            }
+
+            if ($matched === null) {
+                $weight = $this->latestWeightKg($pig);
+
+                if ($weight !== null) {
+                    foreach ($remaining as $index => $row) {
+                        if (bccomp($weight, $row['kg'], 4) === 0) {
+                            $matched = $index;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if ($matched === null) {
+                $weight = $this->latestWeightKg($pig);
+                $expectedText = collect($remaining)
+                    ->pluck('kg')
+                    ->map(fn (string $kg) => rtrim(rtrim($kg, '0'), '.') . ' kg')
+                    ->implode(', ');
+
+                $errors[] = sprintf(
+                    '%s does not match the customer-paid weight for this line%s.',
+                    $this->label($pig) . ($weight !== null ? ' (' . rtrim(rtrim($weight, '0'), '.') . ' kg)' : ''),
+                    $expectedText !== '' ? ' (' . $expectedText . ')' : '',
+                );
+                continue;
+            }
+
+            unset($remaining[$matched]);
+            $remaining = array_values($remaining);
+        }
+
+        if ($remaining !== [] && count($pigIds) === count($expected)) {
+            $errors[] = 'The selected pigs do not match all customer-paid live weights for this line.';
+        }
+
+        return $errors;
     }
 
     /**
@@ -754,22 +876,32 @@ class StorefrontPigAllocationService
         string $sharePrice,
         string $shareOfLineTax,
     ): array {
-        $weight = $item->weight_kg !== null ? (string) $item->weight_kg : null;
+        $purchaseType = (string) ($allocation->purchase_type ?: $item->purchase_type ?: '');
+
+        $weight = match ($purchaseType) {
+            StorefrontPigPricingService::PURCHASE_LIVE => $allocation->allocated_live_weight_kg !== null
+                ? (string) $allocation->allocated_live_weight_kg
+                : $this->latestWeightKg($pig),
+            StorefrontPigPricingService::PURCHASE_CARCASS => $allocation->allocated_carcass_weight_kg !== null
+                ? (string) $allocation->allocated_carcass_weight_kg
+                : null,
+            default => null,
+        };
 
         // Per-kg only when a weight is actually known for the animal.
-        $pricePerKg = ($weight !== null && bccomp($weight, '0', 4) === 1)
-            ? bcdiv($sharePrice, $weight, 4)
-            : null;
+        $pricePerKg = $item->price_per_kg_snapshot !== null
+            ? bcadd((string) $item->price_per_kg_snapshot, '0', 4)
+            : (($weight !== null && bccomp($weight, '0', 4) === 1)
+                ? bcdiv($sharePrice, $weight, 4)
+                : null);
 
         return [
             'price_source'   => 'explicit',
             'sale_price'     => (float) $sharePrice,
             'sale_weight'    => $weight !== null ? (float) $weight : null,
             'price_per_kg'   => $pricePerKg !== null ? (float) $pricePerKg : null,
-            // 'live' is the column default and one of the two values its CHECK
-            // permits; a pool line has no basis of its own.
-            'weight_type'    => in_array($item->price_basis, ['live', 'carcass'], true)
-                ? $item->price_basis
+            'weight_type'    => $purchaseType === StorefrontPigPricingService::PURCHASE_CARCASS
+                ? 'carcass'
                 : 'live',
             'sale_date'      => now()->toDateString(),
             // A storefront sale IS a market sale. 'storefront' is the channel,
@@ -779,13 +911,31 @@ class StorefrontPigAllocationService
             'tax_profile_id' => $order->tax_profile_id,
             'tax_amount'     => $shareOfLineTax,
             'tax_snapshot'   => $order->tax_snapshot,
-            'payment_status' => $order->payment_status === StorefrontOrder::PAY_PAID ? 'paid' : 'pending',
+            'payment_status' => in_array($order->payment_status, [
+                StorefrontOrder::PAY_PAID,
+                StorefrontOrder::PAY_PAYSTACK_VERIF,
+            ], true) ? 'paid' : 'pending',
             'payment_method' => $order->payment_method,
+            'payment_method_id' => $this->paymentMethodIdForOrder($order),
             'buyer_name'     => $order->ship_to_name ?: ($order->counterparty?->name ?? null),
             'customer_id'    => $order->counterparty_id,
             'notes'          => "Storefront order {$order->reference}.",
             'storefront_allocation_id' => $allocation->getKey(),
         ];
+    }
+
+    protected function paymentMethodIdForOrder(StorefrontOrder $order): ?int
+    {
+        $code = $order->payment_method === StorefrontOrder::METHOD_PAYSTACK ? 'PAYSTACK' : 'CASH';
+
+        return PaymentMethod::query()
+            ->where(function ($q) use ($order) {
+                $q->where('organization_id', $order->organization_id)->orWhereNull('organization_id');
+            })
+            ->where('code', $code)
+            ->where('is_active', true)
+            ->orderByRaw('organization_id is null')
+            ->value('id');
     }
 
     /**
@@ -835,14 +985,93 @@ class StorefrontPigAllocationService
                 continue;
             }
 
+            $forItem    = $forItem->values();
             $count      = $forItem->count();
-            $lineTotal  = (string) ($item->line_total ?? '0.00');
+            $lineTotal  = bcadd((string) ($item->line_total ?? '0.00'), '0', 2);
             $lineTax    = $this->lineTaxFor($item, $order);
+            $taxShares  = $this->splitEvenly($lineTax, $count);
+
+            if ($item->purchase_type === StorefrontPigPricingService::PURCHASE_LIVE) {
+                $priceShares = [];
+                $rate = $this->pricePerKgFor($item, $lineTotal);
+
+                foreach ($forItem as $allocation) {
+                    $liveWeight = $this->liveWeightForAllocation($item, $allocation);
+                    $priceShares[] = $liveWeight !== null && $rate !== null
+                        ? bcmul($liveWeight, $rate, 2)
+                        : bcdiv($lineTotal, (string) max(1, $count), 2);
+                }
+
+                $priceShares = $this->withResidual($priceShares, $lineTotal);
+
+                foreach ($forItem as $index => $allocation) {
+                    $liveWeight = $this->liveWeightForAllocation($item, $allocation);
+                    $this->snapshotAllocationCommercials(
+                        $allocation,
+                        $item,
+                        $priceShares[$index] ?? '0.00',
+                        $liveWeight,
+                        null,
+                    );
+
+                    $shares[$allocation->getKey()] = [
+                        $priceShares[$index] ?? '0.00',
+                        $taxShares[$index] ?? '0.00',
+                    ];
+                }
+
+                continue;
+            }
+
+            if ($item->purchase_type === StorefrontPigPricingService::PURCHASE_CARCASS) {
+                $requestedKg = $this->requestedKgFor($item) ?? bcadd((string) ($item->line_weight_kg ?? '0'), '0', 4);
+                $liveWeights = [];
+
+                foreach ($forItem as $allocation) {
+                    $liveWeights[] = $this->liveWeightForAllocation($item, $allocation) ?? '0.0000';
+                }
+
+                $carcassShares = $this->splitByWeights($requestedKg, $liveWeights, 4);
+                $rate = $this->pricePerKgFor($item, $lineTotal, $requestedKg);
+                $priceShares = [];
+
+                foreach ($carcassShares as $kg) {
+                    $priceShares[] = $rate !== null
+                        ? bcmul($kg, $rate, 2)
+                        : bcdiv($lineTotal, (string) max(1, $count), 2);
+                }
+
+                $priceShares = $this->withResidual($priceShares, $lineTotal);
+
+                foreach ($forItem as $index => $allocation) {
+                    $this->snapshotAllocationCommercials(
+                        $allocation,
+                        $item,
+                        $priceShares[$index] ?? '0.00',
+                        $liveWeights[$index] ?? null,
+                        $carcassShares[$index] ?? null,
+                    );
+
+                    $shares[$allocation->getKey()] = [
+                        $priceShares[$index] ?? '0.00',
+                        $taxShares[$index] ?? '0.00',
+                    ];
+                }
+
+                continue;
+            }
 
             $priceShares = $this->splitEvenly($lineTotal, $count);
-            $taxShares   = $this->splitEvenly($lineTax, $count);
 
-            foreach ($forItem->values() as $index => $allocation) {
+            foreach ($forItem as $index => $allocation) {
+                $this->snapshotAllocationCommercials(
+                    $allocation,
+                    $item,
+                    $priceShares[$index] ?? '0.00',
+                    null,
+                    null,
+                );
+
                 $shares[$allocation->getKey()] = [
                     $priceShares[$index] ?? '0.00',
                     $taxShares[$index] ?? '0.00',
@@ -851,6 +1080,144 @@ class StorefrontPigAllocationService
         }
 
         return $shares;
+    }
+
+    protected function liveWeightForAllocation(
+        StorefrontOrderItem $item,
+        StorefrontOrderItemPigAllocation $allocation,
+    ): ?string {
+        $snapshot = is_array($item->selected_pig_weight_snapshot)
+            ? $item->selected_pig_weight_snapshot
+            : [];
+
+        $rowId = $allocation->storefront_listing_pig_id;
+
+        if ($rowId !== null && isset($snapshot[(string) $rowId]['kg'])) {
+            return bcadd((string) $snapshot[(string) $rowId]['kg'], '0', 4);
+        }
+
+        if ($item->purchase_type === StorefrontPigPricingService::PURCHASE_LIVE
+            && $item->line_weight_kg !== null
+            && (int) round((float) $item->quantity) === 1) {
+            return bcadd((string) $item->line_weight_kg, '0', 4);
+        }
+
+        $pig = PigManagement::withTrashed()->with('latestWeight')->find($allocation->pig_id);
+
+        return $pig instanceof PigManagement ? $this->latestWeightKg($pig) : null;
+    }
+
+    protected function latestWeightKg(PigManagement $pig): ?string
+    {
+        return $this->pricing->latestWeightKg($pig);
+    }
+
+    protected function pricePerKgFor(StorefrontOrderItem $item, string $lineTotal, ?string $kg = null): ?string
+    {
+        if ($item->price_per_kg_snapshot !== null) {
+            return bcadd((string) $item->price_per_kg_snapshot, '0', 4);
+        }
+
+        $weight = $kg ?? ($item->line_weight_kg !== null ? (string) $item->line_weight_kg : null);
+
+        if ($weight === null || bccomp($weight, '0', 4) <= 0) {
+            return null;
+        }
+
+        return bcdiv($lineTotal, $weight, 4);
+    }
+
+    /**
+     * @param  list<string>  $weights
+     * @return list<string>
+     */
+    protected function splitByWeights(string $total, array $weights, int $scale = 4): array
+    {
+        $count = count($weights);
+
+        if ($count === 0) {
+            return [];
+        }
+
+        $sum = array_reduce(
+            $weights,
+            fn (string $carry, string $weight) => bcadd($carry, $weight, 4),
+            '0.0000',
+        );
+
+        if (bccomp($sum, '0', 4) <= 0) {
+            return $this->splitEvenly($total, $count, $scale);
+        }
+
+        $shares = [];
+        $allocated = '0';
+
+        foreach ($weights as $index => $weight) {
+            if ($index === $count - 1) {
+                $shares[] = bcsub($total, $allocated, $scale);
+                break;
+            }
+
+            $share = bcdiv(bcmul($total, $weight, $scale + 4), $sum, $scale);
+            $shares[] = $share;
+            $allocated = bcadd($allocated, $share, $scale);
+        }
+
+        return $shares;
+    }
+
+    /**
+     * @param  list<string>  $shares
+     * @return list<string>
+     */
+    protected function withResidual(array $shares, string $total): array
+    {
+        if ($shares === []) {
+            return [];
+        }
+
+        $allocated = '0.00';
+        $last = count($shares) - 1;
+
+        foreach ($shares as $index => $share) {
+            if ($index === $last) {
+                continue;
+            }
+
+            $shares[$index] = bcadd((string) $share, '0', 2);
+            $allocated = bcadd($allocated, $shares[$index], 2);
+        }
+
+        $shares[$last] = bcsub($total, $allocated, 2);
+
+        return $shares;
+    }
+
+    protected function snapshotAllocationCommercials(
+        StorefrontOrderItemPigAllocation $allocation,
+        StorefrontOrderItem $item,
+        string $amount,
+        ?string $liveWeight,
+        ?string $carcassWeight,
+    ): void {
+        $snapshot = is_array($allocation->allocation_snapshot)
+            ? $allocation->allocation_snapshot
+            : [];
+
+        $allocation->forceFill([
+            'purchase_type'                 => $item->purchase_type ?? StorefrontPigPricingService::PURCHASE_MANUAL,
+            'allocated_live_weight_kg'      => $liveWeight,
+            'allocated_carcass_weight_kg'   => $carcassWeight,
+            'allocated_sale_amount'         => $amount,
+            'allocation_snapshot'           => array_merge($snapshot, [
+                'purchase_type'      => $item->purchase_type,
+                'line_total'         => (string) ($item->line_total ?? '0.00'),
+                'price_per_kg'       => $item->price_per_kg_snapshot,
+                'live_weight_kg'     => $liveWeight,
+                'carcass_weight_kg'  => $carcassWeight,
+                'sale_amount'        => $amount,
+            ]),
+        ])->save();
     }
 
     /**

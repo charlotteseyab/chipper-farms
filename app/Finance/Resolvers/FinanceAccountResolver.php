@@ -44,6 +44,7 @@ class FinanceAccountResolver
         'MOMO_MTN'            => '1060',
         'MOMO_ATGO'           => '1061',
         'MOMO_VODA'           => '1062',
+        'PAYSTACK_CLEARING'   => '1070',
 
         'AR_PIG_SALES'        => '1110',
         'AR_FEED_SALES'       => '1120',
@@ -125,7 +126,7 @@ class FinanceAccountResolver
      */
     public function byHint(string $hint): Account
     {
-        $code = self::HINT_TO_CODE[$hint] ?? null;
+        $code = self::HINT_TO_CODE[$hint] ?? (preg_match('/^\d{4}$/', $hint) ? $hint : null);
 
         if (! $code) {
             throw new MissingAccountException("hint '{$hint}' (no code mapping)");

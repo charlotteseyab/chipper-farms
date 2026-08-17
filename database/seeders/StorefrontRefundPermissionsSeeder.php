@@ -10,10 +10,10 @@ use Illuminate\Database\Seeder;
  * Storefront Phase 6 — refund permission.
  *
  * Refunding a posted/completed order reverses customer-facing GL legs (an
- * audited financial reversal). It is therefore TREASURER-GRADE and is granted
- * only to admin/superuser — deliberately NOT to salesperson, mirroring the
- * project's principle that financially-binding reversals sit above the
- * operational sales role.
+ * audited financial reversal). It is therefore senior-operator grade and is
+ * granted only to admin/superuser/farm manager — deliberately NOT to
+ * salesperson, mirroring the project's principle that financially-binding
+ * reversals sit above the operational sales role.
  */
 class StorefrontRefundPermissionsSeeder extends Seeder
 {
@@ -21,7 +21,7 @@ class StorefrontRefundPermissionsSeeder extends Seeder
 
     public function run(): void
     {
-        foreach (['superuser', 'admin', 'salesperson'] as $roleName) {
+        foreach (['superuser', 'admin', 'farmmanager', 'salesperson'] as $roleName) {
             $this->seededRoleOrCreate($roleName);
         }
 
@@ -31,10 +31,10 @@ class StorefrontRefundPermissionsSeeder extends Seeder
             'module'      => 'storefront',
         ]);
 
-        foreach (['admin', 'superuser'] as $roleName) {
+        foreach (['admin', 'superuser', 'farmmanager'] as $roleName) {
             $this->seededRole($roleName)?->permissions()->syncWithoutDetaching([$perm->id]);
         }
 
-        $this->command?->info("Storefront P6: granted 'refund_storefront_orders' to: admin, superuser (NOT salesperson).");
+        $this->command?->info("Storefront P6: granted 'refund_storefront_orders' to: admin, superuser, farmmanager (NOT salesperson).");
     }
 }

@@ -7,6 +7,7 @@ use App\Models\Counterparty;
 use App\Models\Finance\SimplePurchase;
 use App\Models\Finance\SimplePurchaseLine;
 use App\Models\RawMaterial;
+use App\Services\Finance\Cash\MoneyAccountService;
 use App\Services\Finance\Purchases\RecordSimplePurchaseService;
 use App\Support\CurrentOrganization;
 use Illuminate\Http\RedirectResponse;
@@ -35,6 +36,7 @@ class SimplePurchaseController extends Controller
     public function __construct(
         protected RecordSimplePurchaseService $purchases,
         protected CurrentOrganization $currentOrganization,
+        protected MoneyAccountService $moneyAccounts,
     ) {
     }
 
@@ -67,7 +69,7 @@ class SimplePurchaseController extends Controller
             // rather than silently returning nothing.
             'materials'       => RawMaterial::query()->orderBy('name')->get(['id', 'name', 'unit']),
             'categories'      => config('expense_categories.categories'),
-            'paymentAccounts' => config('expense_categories.payment_accounts'),
+            'moneyAccounts'   => $this->moneyAccounts->selectable($organizationId),
             'idempotencyKey'  => (string) Str::uuid(),
         ]);
     }
@@ -82,6 +84,10 @@ class SimplePurchaseController extends Controller
                 SimplePurchase::SETTLEMENT_PAID_NOW,
                 SimplePurchase::SETTLEMENT_PAY_LATER,
             ])],
+            'money_account_id'           => ['nullable', 'integer',
+                Rule::exists('bank_accounts', 'id')
+                    ->where(fn ($q) => $q->where('organization_id', $orgId)
+                        ->where('is_active', true))],
             'payment_method_key'         => ['nullable', Rule::in(array_keys(config('expense_categories.payment_accounts')))],
             'external_reference'         => ['nullable', 'string', 'max:120'],
             'notes'                      => ['nullable', 'string', 'max:2000'],

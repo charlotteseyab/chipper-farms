@@ -1,0 +1,7 @@
+Issue ID,Severity,Area,Finding,Status,Review Decision,Evidence
+POST-CF-PIGPOOL-P0-001,P0,Order lifecycle,"Partial pooled pig order no longer removes remaining pigs from storefront",Closed,PASS,"PigPoolConfirmationTest; PigPoolFlowTest; full suites"
+POST-CF-PIGPOOL-P0-002,P0,Pool exhaustion,"Listing closes only after final linked sellable pig is sold",Closed,PASS,"Final pool sell-out feature and Dusk tests"
+POST-CF-PIGPOOL-P0-003,P0,Direct sale integration,"Direct sale syncs pool and refuses active storefront commitments",Closed,PASS,"PigPoolAllocationTest; PigPoolVisibilityTest"
+POST-CF-PIGPOOL-P0-004,P0,Standard Stock reconciliation,"Sold/dead/ineligible pigs do not remain available through stale pool rows",Closed,PASS,"Stale dead-pig regression test; MariaDB suite"
+POST-CF-PIGPOOL-P1-001,P1,Public detail,"Pooled listing no longer shows missing source record warning",Closed,PASS,"Public listing assertions in PigPoolConfirmationTest"
+POST-CF-PIGPOOL-OPEN-001,None,Final review,"No open P0/P1 findings after remediation",Closed,PASS,"Default, MariaDB, concurrency, Dusk, cache, build, and audit gates"

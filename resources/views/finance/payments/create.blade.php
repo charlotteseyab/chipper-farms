@@ -51,31 +51,26 @@
                     <label class="block text-sm font-medium text-slate-700 mb-1">Amount *</label>
                     <input type="number" step="0.01" min="0.01" name="amount" value="{{ old('amount') }}" required class="w-full rounded-xl border-slate-200 text-sm">
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Payment method *</label>
-                    <select name="payment_method_id" id="method-select" required class="w-full rounded-xl border-slate-200 text-sm">
-                        <option value="">— select —</option>
-                        @foreach($methods as $m)
-                            <option value="{{ $m->id }}" data-requires-reference="{{ $m->requires_reference ? '1' : '0' }}" @selected(old('payment_method_id') == $m->id)>{{ $m->name }} ({{ $m->code }})</option>
-                        @endforeach
-                    </select>
-                </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div id="external-reference-block" class="hidden">
-                    <label class="block text-sm font-medium text-slate-700 mb-1">External reference *</label>
-                    <input type="text" name="external_reference" maxlength="100" value="{{ old('external_reference') }}" class="w-full rounded-xl border-slate-200 text-sm" placeholder="cheque #, txn ID, MOMO ref">
-                    <p class="text-xs text-slate-500 mt-1">Required for the selected payment method.</p>
-                </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Source GL account (optional override)</label>
-                    <select name="source_account_id" class="w-full rounded-xl border-slate-200 text-sm">
-                        <option value="">Use method default</option>
-                        @foreach($cashAccounts as $a)
-                            <option value="{{ $a->id }}" @selected(old('source_account_id') == $a->id)>{{ $a->code }} — {{ $a->name }}</option>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Pay from *</label>
+                    <select name="money_account_id" class="w-full rounded-xl border-slate-200 text-sm" required>
+                        <option value="">Choose a money account...</option>
+                        @foreach($moneyAccounts as $account)
+                            <option value="{{ $account->id }}" @selected((int) old('money_account_id') === $account->id)>
+                                {{ $account->displayName() }} · {{ $account->account?->code }}
+                            </option>
                         @endforeach
                     </select>
+                    @if($moneyAccounts->isEmpty())
+                        <p class="text-xs text-slate-500 mt-1">Set up a money account under Cash, Bank & MoMo before posting payments.</p>
+                    @endif
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">External reference</label>
+                    <input type="text" name="external_reference" maxlength="100" value="{{ old('external_reference') }}" class="w-full rounded-xl border-slate-200 text-sm" placeholder="cheque #, txn ID, MOMO ref">
                 </div>
             </div>
 
@@ -131,23 +126,13 @@
     document.addEventListener('DOMContentLoaded', function() {
         const supplierSelect = document.getElementById('supplier-select');
         const currencyInput = document.getElementById('currency-input');
-        const methodSelect = document.getElementById('method-select');
-        const refBlock = document.getElementById('external-reference-block');
-
         function syncCurrency() {
             const opt = supplierSelect.options[supplierSelect.selectedIndex];
             const cur = opt?.dataset?.currency;
             if (cur) currencyInput.value = cur;
         }
-        function syncRefBlock() {
-            const opt = methodSelect.options[methodSelect.selectedIndex];
-            const required = opt?.dataset?.requiresReference === '1';
-            refBlock.classList.toggle('hidden', ! required);
-        }
 
         supplierSelect.addEventListener('change', syncCurrency);
-        methodSelect.addEventListener('change', syncRefBlock);
-        syncRefBlock();
     });
     </script>
 </x-app-layout>

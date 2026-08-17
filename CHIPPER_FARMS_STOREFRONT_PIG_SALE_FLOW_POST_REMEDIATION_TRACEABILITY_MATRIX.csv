@@ -1,0 +1,20 @@
+Requirement ID,Requirement,Implementation,Evidence,Status
+REQ-POOL-01,"Pooled listing quantity must be derived from sellable linked Standard Stock pigs","StorefrontPigPoolService::availableCount verifies pig state, organization, stock type, sales, deaths, and eligibility","PigPoolAllocationTest stale dead-pig regression; MariaDB suite",PASS
+REQ-POOL-02,"Partial pooled confirmation must not hide remaining pigs","OrderService::applyInventoryEffect syncs pooled availability instead of reserving pooled listing","PigPoolConfirmationTest partial confirmation; Dusk partial flow",PASS
+REQ-POOL-03,"Partial pooled completion must not close remaining pool","OrderService::markListingsSoldOut syncs pooled availability and only closes exhausted pools","PigPoolConfirmationTest partial completion",PASS
+REQ-POOL-04,"Final linked pig sale must sell out the listing","syncListingAvailability sets sold_out when available count is zero","PigPoolConfirmationTest final sale; Dusk final sale",PASS
+REQ-ALLOC-01,"Manager must select exact pigs before approval","StorefrontPigAllocationService selection and outstanding-allocation checks preserved","PigSelectionScreenTest; PigPoolFlowTest",PASS
+REQ-SALES-01,"Every selected storefront pig must create a real PigSale","StorefrontPigAllocationService calls RecordPigSaleService for each allocation","PigPoolConfirmationTest; PigPoolFlowTest sale detail assertions",PASS
+REQ-SALES-02,"/sales must remain canonical sale writer","RecordPigSaleService remains the writer for storefront and direct pig sales","RecordPigSaleService integration; full suites",PASS
+REQ-SALES-03,"Direct sale must sync storefront availability","RecordPigSaleService direct path invokes StorefrontPigPoolService sale guard and existing sold-direct sync","PigPoolAllocationTest direct sale partial pool",PASS
+REQ-SALES-04,"Direct sale must not consume active storefront commitments","StorefrontPigPoolService::assertPigMayBeSoldDirectly locks active allocations and live holds","PigPoolVisibilityTest bypass guard; PigPoolAllocationTest active holds",PASS
+REQ-STOCK-01,"Sold pigs must leave active Standard Stock","RecordPigSaleService soft-deletes sold pig through existing canonical sale flow","PigPoolFlowTest; default suite",PASS
+REQ-FIN-01,"Finance must remain exactly-once and subscriber-driven","OrderService still posts no direct finance; PigSale event path remains canonical","StorefrontFinanceBoundaryTest in default suite; MariaDB suite",PASS
+REQ-COD-01,"COD completion must settle every pooled PigSale","OrderService allocation sale lookup settles each sold allocation sale","Default suite; source review of allocationSalesForItem",PASS
+REQ-PUBLIC-01,"Public pooled listing detail must not show missing single-source error","ListingDetailPresenter returns pool attributes for pooled listings","PigPoolConfirmationTest public detail assertion",PASS
+REQ-CANCEL-01,"Cancellation and payment failure must release unresolved commitments","Existing OrderService cancel/fail release paths preserved","OrderLifecycleTest and default suite",PASS
+REQ-REFUND-01,"Refund/return behavior must remain covered","StorefrontOrderRefundService and return tax tests unchanged and passing","RefundExecutionTest and ReturnTaxReversalTest in default suite",PASS
+REQ-SEC-01,"Permissions, organization isolation, and request tampering must remain enforced","Existing storefront permission, org isolation, and tamper tests unchanged and passing","PigSelectionScreenTest; OrderLifecycleTest; default suite",PASS
+REQ-DB-01,"MariaDB and concurrency must pass","No SQLite-only shortcut; lock-aware services exercised under suite","MariaDB suite and concurrency suite",PASS
+REQ-BROWSER-01,"Browser pooled flow must pass","PigPoolFlowTest covers public shop, selection, approval, remaining availability, completion, final sold-out","Full Dusk suite",PASS
+REQ-BUILD-01,"Production cache, frontend build, and audits must pass","No build or cache-breaking changes","php artisan optimize; npm run build; npm audit; composer audit",PASS

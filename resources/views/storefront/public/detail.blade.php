@@ -1,4 +1,8 @@
 @php use App\Storefront\Support\StorefrontSettings; @endphp
+@php
+    $priceRange = $listing->displayPriceRangeBounds();
+    $canStartPurchase = auth()->check() || $guestCheckoutAllowed;
+@endphp
 <x-storefront.layout :title="$listing->title">
     <div class="max-w-6xl mx-auto px-4 py-8">
         <a href="{{ url()->previous() }}" class="text-sm text-slate-500">← Back</a>
@@ -36,6 +40,21 @@
                 <div class="mt-4">
                     @if($detail['quote_only'])
                         <p class="text-lg font-semibold text-amber-600">Price on request</p>
+                    @elseif($priceRange)
+                        <p class="text-2xl font-bold text-slate-900">
+                            @if(bccomp($priceRange['min'], $priceRange['max'], 2) === 0)
+                                {{ $detail['currency'] }} {{ number_format((float) $priceRange['min'], 2) }}
+                            @else
+                                {{ $detail['currency'] }} {{ number_format((float) $priceRange['min'], 2) }} - {{ number_format((float) $priceRange['max'], 2) }}
+                            @endif
+                        </p>
+                        <p class="text-sm text-slate-500 mt-1">
+                            Estimated per pig
+                            @if($listing->min_pig_weight_kg_snapshot !== null && $listing->max_pig_weight_kg_snapshot !== null)
+                                from {{ rtrim(rtrim((string) $listing->min_pig_weight_kg_snapshot, '0'), '.') }} kg
+                                to {{ rtrim(rtrim((string) $listing->max_pig_weight_kg_snapshot, '0'), '.') }} kg
+                            @endif
+                        </p>
                     @elseif($detail['price'] !== null)
                         <p class="text-2xl font-bold text-slate-900">
                             {{ $detail['currency'] }} {{ number_format((float) $detail['price'], 2) }}
@@ -72,7 +91,11 @@
                         <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-600">Farm pickup</span>
                     @endif
                     @if($detail['fulfilment']['delivery'])
-                        @php($feeLabel = $detail['fulfilment']['delivery_fee'] ? ' (' . $listing->currency_code . ' ' . number_format((float) $detail['fulfilment']['delivery_fee'], 2) . ')' : '')
+                        @php
+                            $feeLabel = $detail['fulfilment']['delivery_fee']
+                                ? ' (' . $listing->currency_code . ' ' . number_format((float) $detail['fulfilment']['delivery_fee'], 2) . ')'
+                                : '';
+                        @endphp
                         <span class="px-3 py-1 rounded-full bg-slate-100 text-slate-600">Local delivery{{ $feeLabel }}</span>
                     @endif
                 </div>
@@ -91,11 +114,36 @@
                     weights. Nothing the browser posts back is trusted as money.
                 --}}
                 @if($pigPurchase && $detail['orderable'])
-                    <div class="mt-6 space-y-4" data-pig-purchase>
-                        @auth
-                            @if($pigPurchase['animals']->isNotEmpty() && $pigPurchase['live_rate'])
-                                <form method="POST" action="{{ route('storefront.cart.add-pigs', $listing) }}"
-                                      class="rounded-2xl border border-slate-200 p-4">
+                    <div id="live-animals" class="mt-6 space-y-4" data-pig-purchase>
+                        @if($canStartPurchase)
+                            @if($pigPurchase['animals']->total() > 0 && $pigPurchase['live_rate'])
+                                <div class="rounded-2xl border border-slate-200 p-4">
+                                    <form method="GET" action="{{ route('storefront.listing', $listing->slug) }}" class="mb-3">
+                                        <label class="block text-xs font-medium text-slate-500" for="animal_q">Search available pigs</label>
+                                        <div class="mt-1 flex gap-2">
+                                            <input id="animal_q" type="search" name="animal_q" value="{{ $pigPurchase['animal_search'] }}"
+                                                   placeholder="Tag, breed, gender, code, or weight"
+                                                   class="min-w-0 flex-1 rounded-xl border-slate-300 text-sm">
+                                            <button class="rounded-xl border border-slate-300 px-4 text-sm font-medium text-slate-700">Search</button>
+                                        </div>
+                                    </form>
+
+                                    @php
+                                        $selectableAnimals = $pigPurchase['animals']->getCollection()
+                                            ->filter(fn ($animal) => $animal['price'] !== null)
+                                            ->values();
+                                        $selectableAnimalIds = $selectableAnimals
+                                            ->pluck('row_id')
+                                            ->map(fn ($id) => (string) $id)
+                                            ->values();
+                                        $selectableAnimalPrices = $selectableAnimals
+                                            ->mapWithKeys(fn ($animal) => [(string) $animal['row_id'] => (float) $animal['price']]);
+                                    @endphp
+
+                                    <form method="POST"
+                                          action="{{ route('storefront.cart.add-pigs', $listing) }}"
+                                          data-live-pig-picker
+                                          data-currency="{{ $listing->currency_code }}">
                                     @csrf
                                     <input type="hidden" name="purchase_type" value="live">
 
@@ -108,8 +156,26 @@
                                     </div>
                                     <p class="mt-1 text-xs text-slate-500">
                                         Choose the animals you want. You pay for the weight each one is
-                                        carrying, so the price differs between them.
+                                            carrying, so the price differs between them.
                                     </p>
+
+                                    <div class="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-3 text-sm">
+                                        <div>
+                                            <p class="font-semibold text-slate-800"><span data-selected-count>0</span> selected</p>
+                                            <p class="text-xs text-slate-500">Total selected amount: <span class="font-semibold text-slate-700" data-selected-total>{{ $listing->currency_code }} 0.00</span></p>
+                                        </div>
+                                        <div class="flex flex-wrap gap-2">
+                                            <button type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                                                    data-select-visible
+                                                    @disabled($selectableAnimals->isEmpty())>
+                                                Select all visible
+                                            </button>
+                                            <button type="button" class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                                                    data-deselect-all>
+                                                Deselect all
+                                            </button>
+                                        </div>
+                                    </div>
 
                                     <div class="mt-3 divide-y divide-slate-100 rounded-xl border border-slate-200">
                                         @foreach($pigPurchase['animals'] as $animal)
@@ -117,6 +183,8 @@
                                                 <input type="checkbox"
                                                        name="listing_pig_ids[]"
                                                        value="{{ $animal['row_id'] }}"
+                                                       data-live-pig-option
+                                                       data-price="{{ $animal['price'] ?? '' }}"
                                                        @disabled($animal['price'] === null)
                                                        class="rounded border-slate-300">
                                                 <span class="flex-1 min-w-0">
@@ -141,10 +209,26 @@
                                         @endforeach
                                     </div>
 
+                                    @if($pigPurchase['animals']->hasPages())
+                                        <div class="mt-3">
+                                            {{ $pigPurchase['animals']->links() }}
+                                        </div>
+                                    @endif
+
                                     <button type="submit" class="mt-3 w-full px-5 py-2.5 rounded-xl bg-slate-800 text-white font-medium">
                                         Add chosen animals to cart
                                     </button>
+                                    @guest
+                                        <p class="mt-2 text-xs text-slate-500">
+                                            No account needed. At checkout we will ask for your name, email or phone, then save the order with a private tracking link.
+                                        </p>
+                                    @endguest
                                 </form>
+                                </div>
+                            @elseif($pigPurchase['live_rate'])
+                                <div class="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+                                    No available pigs match that search.
+                                </div>
                             @endif
 
                             @if($pigPurchase['carcass_rate'] && bccomp($pigPurchase['carcass_kg_available'], '0', 4) > 0)
@@ -174,26 +258,35 @@
                                             Add to cart
                                         </button>
                                     </div>
+                                    @guest
+                                        <p class="mt-2 text-xs text-slate-500">
+                                            No account needed. Your checkout details are saved with the order for tracking and later account claiming.
+                                        </p>
+                                    @endguest
                                 </form>
                             @endif
                         @else
-                            <a href="{{ route('login') }}" class="inline-block px-5 py-2.5 rounded-xl bg-slate-800 text-white font-medium">Sign in to buy</a>
-                        @endauth
+                            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                                <p class="font-semibold">This farm asks buyers to sign in before ordering.</p>
+                                <p class="mt-1">Your selection can still be quoted, or you can sign in to buy.</p>
+                                <a href="{{ route('login') }}" class="mt-3 inline-block px-5 py-2.5 rounded-xl bg-slate-800 text-white font-medium">Sign in or create account</a>
+                            </div>
+                        @endif
                     </div>
                 @endif
 
                 {{-- CTA --}}
                 <div class="mt-6 flex flex-wrap gap-3">
                     @if($detail['orderable'] && ! $pigPurchase)
-                        @auth
+                        @if($canStartPurchase)
                             <form method="POST" action="{{ route('storefront.cart.add', $listing) }}" class="flex items-center gap-2">
                                 @csrf
                                 <input type="number" name="quantity" value="1" min="1" step="1" class="w-20 rounded-xl border-slate-300 text-sm">
                                 <button type="submit" class="px-5 py-2.5 rounded-xl bg-slate-800 text-white font-medium">Add to cart</button>
                             </form>
                         @else
-                            <a href="{{ route('login') }}" class="px-5 py-2.5 rounded-xl bg-slate-800 text-white font-medium">Sign in to buy</a>
-                        @endauth
+                            <a href="{{ route('login') }}" class="px-5 py-2.5 rounded-xl bg-slate-800 text-white font-medium">Sign in or create account</a>
+                        @endif
                     @endif
                     <a href="{{ route('storefront.quote.create', ['listing' => $listing->id]) }}" class="px-5 py-2.5 rounded-xl border border-slate-300 font-medium">Request a quote</a>
 
@@ -216,4 +309,89 @@
             </div>
         </div>
     </div>
+
+    <script>
+        (function () {
+            function formatMoney(currency, amount) {
+                try {
+                    return new Intl.NumberFormat('en-GH', {
+                        style: 'currency',
+                        currency: currency,
+                    }).format(amount);
+                } catch (error) {
+                    return currency + ' ' + amount.toFixed(2);
+                }
+            }
+
+            function initializeLivePigPicker(form) {
+                if (form.dataset.livePigPickerReady === 'true') {
+                    return;
+                }
+
+                form.dataset.livePigPickerReady = 'true';
+
+                const currency = form.dataset.currency || 'GHS';
+                const checkboxes = Array.from(form.querySelectorAll('[data-live-pig-option]'));
+                const countTarget = form.querySelector('[data-selected-count]');
+                const totalTarget = form.querySelector('[data-selected-total]');
+                const selectVisibleButton = form.querySelector('[data-select-visible]');
+                const deselectButton = form.querySelector('[data-deselect-all]');
+
+                function selectableBoxes() {
+                    return checkboxes.filter((checkbox) => ! checkbox.disabled);
+                }
+
+                function updateSummary() {
+                    const selected = selectableBoxes().filter((checkbox) => checkbox.checked);
+                    const total = selected.reduce((sum, checkbox) => {
+                        return sum + Number.parseFloat(checkbox.dataset.price || '0');
+                    }, 0);
+
+                    if (countTarget) {
+                        countTarget.textContent = selected.length.toString();
+                    }
+
+                    if (totalTarget) {
+                        totalTarget.textContent = formatMoney(currency, total);
+                    }
+                }
+
+                checkboxes.forEach((checkbox) => {
+                    checkbox.addEventListener('change', updateSummary);
+                });
+
+                if (selectVisibleButton) {
+                    selectVisibleButton.addEventListener('click', function () {
+                        selectableBoxes().forEach((checkbox) => {
+                            checkbox.checked = true;
+                        });
+
+                        updateSummary();
+                    });
+                }
+
+                if (deselectButton) {
+                    deselectButton.addEventListener('click', function () {
+                        selectableBoxes().forEach((checkbox) => {
+                            checkbox.checked = false;
+                        });
+
+                        updateSummary();
+                    });
+                }
+
+                updateSummary();
+            }
+
+            function bootLivePigPickers() {
+                document.querySelectorAll('[data-live-pig-picker]').forEach(initializeLivePigPicker);
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', bootLivePigPickers);
+            } else {
+                bootLivePigPickers();
+            }
+        })();
+    </script>
 </x-storefront.layout>

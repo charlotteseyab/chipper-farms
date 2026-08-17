@@ -10,6 +10,7 @@ use App\Models\Finance\PaymentAllocation;
 use App\Models\Finance\PaymentRun;
 use App\Models\Finance\VendorInvoice;
 use App\Models\PaymentMethod;
+use App\Services\Finance\Cash\MoneyAccountService;
 use App\Services\Finance\JournalReversalService;
 use App\Services\Finance\Payments\PaymentAllocationService;
 use App\Services\Finance\Payments\PaymentService;
@@ -137,15 +138,7 @@ class PaymentController extends Controller
             ->orderBy('display_order')
             ->get();
 
-        $cashAccounts = Account::query()
-            ->when($orgId, fn ($q) => $q->where('organization_id', $orgId))
-            ->where('is_active', true)
-            ->where('account_type', 'asset')
-            ->where('account_subtype', 'current_asset')
-            ->where('code', 'like', '10%')
-            ->where('allow_manual_journal', true)
-            ->orderBy('code')
-            ->get(['id', 'code', 'name']);
+        $moneyAccounts = app(MoneyAccountService::class)->selectable($orgId);
 
         // Optional preselect from query.
         $preselectSupplierId = $request->get('supplier_id');
@@ -159,7 +152,7 @@ class PaymentController extends Controller
         }
 
         return view('finance.payments.create', compact(
-            'suppliers', 'methods', 'cashAccounts',
+            'suppliers', 'methods', 'moneyAccounts',
             'preselectSupplierId', 'preselectVendorInvoice'
         ));
     }
@@ -172,7 +165,11 @@ class PaymentController extends Controller
             'counterparty_id'    => ['required', 'integer',
                 Rule::exists('counterparties', 'id')
                     ->where(fn ($q) => $q->where('organization_id', $orgId))],
-            'payment_method_id'  => ['required', 'integer', 'exists:payment_methods,id'],
+            'payment_method_id'  => ['nullable', 'required_without:money_account_id', 'integer', 'exists:payment_methods,id'],
+            'money_account_id'   => ['nullable', 'required_without:payment_method_id', 'integer',
+                Rule::exists('bank_accounts', 'id')
+                    ->where(fn ($q) => $q->where('organization_id', $orgId)
+                        ->where('is_active', true))],
             'amount'             => ['required', 'numeric', 'gt:0'],
             'payment_date'       => ['required', 'date'],
             'currency_code'      => ['required', 'string', 'size:3'],
@@ -188,7 +185,17 @@ class PaymentController extends Controller
         ]);
 
         $supplier = Counterparty::findOrFail($validated['counterparty_id']);
-        $method = PaymentMethod::findOrFail($validated['payment_method_id']);
+        $moneyAccounts = app(MoneyAccountService::class);
+        if (empty($validated['money_account_id']) && empty($validated['payment_method_id'])) {
+            return back()->withInput()->with('error', 'Choose the money account this payment leaves from.');
+        }
+
+        $method = ! empty($validated['money_account_id'])
+            ? $moneyAccounts->paymentMethodForMoneyAccount((int) $validated['money_account_id'], $orgId)
+            : PaymentMethod::findOrFail($validated['payment_method_id']);
+        $sourceAccountId = ! empty($validated['money_account_id'])
+            ? $moneyAccounts->sourceAccountIdForMoneyAccount((int) $validated['money_account_id'], $orgId)
+            : ($validated['source_account_id'] ?? null);
 
         if ($method->requires_reference && empty($validated['external_reference'])) {
             return back()->withInput()->with('error',
@@ -205,7 +212,7 @@ class PaymentController extends Controller
                 createdBy:    $request->user(),
                 extra: [
                     'currency_code'      => $validated['currency_code'],
-                    'source_account_id'  => $validated['source_account_id'] ?? null,
+                    'source_account_id'  => $sourceAccountId,
                     'external_reference' => $validated['external_reference'] ?? null,
                     'description'        => $validated['description'] ?? null,
                     'notes'              => $validated['notes'] ?? null,

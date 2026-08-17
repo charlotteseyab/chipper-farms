@@ -138,17 +138,22 @@
                     <h2 class="font-semibold text-slate-800">Money in</h2>
                 </div>
                 <ul class="divide-y divide-slate-100">
-                    @forelse($recentReceipts as $receipt)
+                    @forelse($recentMoneyIn as $item)
                         <li class="px-5 py-3 flex items-center justify-between gap-3 text-sm">
                             <div class="min-w-0">
-                                <p class="font-medium text-slate-800 truncate">{{ $receipt->counterparty?->name ?? '—' }}</p>
-                                <p class="text-xs text-slate-500">
-                                    <a class="hover:underline" href="{{ route('finance.receipts.show', $receipt) }}">{{ $receipt->receipt_number }}</a>
-                                    · {{ \Illuminate\Support\Carbon::parse($receipt->receipt_date)->format('d M Y') }}
-                                    @if($receipt->paymentMethod) · {{ $receipt->paymentMethod->name }}@endif
+                                <p class="font-medium text-slate-800 truncate">{{ $item['name'] }}</p>
+                                <p class="text-xs text-slate-500 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                                    <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">{{ $item['type'] }}</span>
+                                    @if($item['href'])
+                                        <a class="hover:underline" href="{{ $item['href'] }}">{{ $item['reference'] }}</a>
+                                    @else
+                                        <span>{{ $item['reference'] }}</span>
+                                    @endif
+                                    <span>· {{ \Illuminate\Support\Carbon::parse($item['date'])->format('d M Y') }}</span>
+                                    @if($item['method']) <span>· {{ $item['method'] }}</span>@endif
                                 </p>
                             </div>
-                            <span class="font-semibold tabular-nums text-emerald-700">GHS {{ $money($receipt->amount) }}</span>
+                            <span class="font-semibold tabular-nums text-emerald-700">GHS {{ $money($item['amount']) }}</span>
                         </li>
                     @empty
                         <li class="px-5 py-10 text-center text-sm text-slate-400">No money recorded yet.</li>

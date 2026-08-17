@@ -75,7 +75,7 @@
                             </label>
                             <label class="block text-sm">
                                 <span class="text-slate-600">Unit</span>
-                                <input type="text" name="items[{{ $i }}][quantity_unit]" value="{{ old("items.$i.quantity_unit", 'head') }}" class="mt-1 w-full rounded-xl border-slate-300 text-sm">
+                                <input type="text" name="items[{{ $i }}][quantity_unit]" value="{{ old("items.$i.quantity_unit", 'piglets') }}" class="mt-1 w-full rounded-xl border-slate-300 text-sm">
                             </label>
                         </div>
                     @endfor

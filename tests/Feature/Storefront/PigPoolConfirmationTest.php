@@ -235,7 +235,7 @@ class PigPoolConfirmationTest extends StorefrontTestCase
 
         $this->get(route('storefront.listing', $listing->slug))
             ->assertOk()
-            ->assertSee('2 head available')
+            ->assertSee('2 pigs available')
             ->assertDontSee('Source record no longer available');
 
         [$nextOrder, $nextItem] = $this->orderForExistingListing($listing, 2);

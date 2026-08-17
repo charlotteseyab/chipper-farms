@@ -45,15 +45,15 @@
                     <div class="rounded-2xl bg-white border border-slate-200 p-5 space-y-3">
                         <h2 class="font-semibold text-slate-700">Your details</h2>
                         <p class="text-xs text-slate-500">
-                            No account needed. Sign in instead if you would rather keep your orders together.
+                            No account needed. We save your details with this order and give you a private tracking link. If you create an account later with the same email, you can claim the order.
                         </p>
                         <input type="text" name="guest_name" required maxlength="200" placeholder="Your name"
                                value="{{ old('guest_name') }}" class="w-full rounded-xl border-slate-300 text-sm">
                         <div class="grid sm:grid-cols-2 gap-3">
+                            <input type="email" name="guest_email" maxlength="190" placeholder="Email"
+                                   value="{{ old('guest_email') }}" class="w-full rounded-xl border-slate-300 text-sm">
                             <input type="text" name="guest_phone" maxlength="60" placeholder="Phone"
                                    value="{{ old('guest_phone') }}" class="w-full rounded-xl border-slate-300 text-sm">
-                            <input type="email" name="guest_email" maxlength="190" placeholder="Email (optional)"
-                                   value="{{ old('guest_email') }}" class="w-full rounded-xl border-slate-300 text-sm">
                         </div>
                         <p class="text-xs text-slate-400">A phone number or an email — whichever is easier to reach you on.</p>
                     </div>

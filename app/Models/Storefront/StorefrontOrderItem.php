@@ -80,4 +80,22 @@ class StorefrontOrderItem extends Model
     {
         return $this->belongsTo(StorefrontListing::class, 'listing_id');
     }
+
+    public function displayQuantityUnit(): string
+    {
+        $unit = strtolower((string) $this->quantity_unit);
+
+        if ($unit === 'head') {
+            $single = bccomp((string) $this->quantity, '1', 4) === 0;
+
+            return match ($this->kind) {
+                StorefrontListing::KIND_PIGLET_LOT => $single ? 'piglet' : 'piglets',
+                StorefrontListing::KIND_LIVE_PIG,
+                StorefrontListing::KIND_BREEDING_STOCK => $single ? 'pig' : 'pigs',
+                default => 'stock',
+            };
+        }
+
+        return $this->quantity_unit ?: 'unit';
+    }
 }

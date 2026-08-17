@@ -2,7 +2,7 @@
     <div class="max-w-6xl mx-auto py-6 px-4">
         <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-                <a href="{{ route('finance.bank-accounts.index') }}" class="text-xs text-slate-500 hover:underline"><i class="fa-solid fa-chevron-left mr-1"></i> All Bank Accounts</a>
+                <a href="{{ route('finance.bank-accounts.index') }}" class="text-xs text-slate-500 hover:underline"><i class="fa-solid fa-chevron-left mr-1"></i> All Money Accounts</a>
                 <h1 class="text-2xl font-bold text-gray-800 mt-1">{{ $bankAccount->displayName() }}</h1>
                 <p class="text-sm text-slate-500">{{ $bankAccount->account?->code }} — {{ $bankAccount->account?->name }}</p>
             </div>
@@ -15,7 +15,7 @@
                 @if (auth()->user()?->hasPermission('manage_bank_accounts'))
                     <a href="{{ route('finance.bank-accounts.edit', $bankAccount) }}" class="px-3 py-1.5 text-sm rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700">Edit</a>
                     @if ($bankAccount->is_active)
-                        <form method="POST" action="{{ route('finance.bank-accounts.deactivate', $bankAccount) }}" onsubmit="return confirm('Deactivate this bank account?')" class="inline">
+                        <form method="POST" action="{{ route('finance.bank-accounts.deactivate', $bankAccount) }}" onsubmit="return confirm('Deactivate this money account?')" class="inline">
                             @csrf
                             <button class="px-3 py-1.5 text-sm rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800">Deactivate</button>
                         </form>
@@ -58,12 +58,15 @@
         </div>
 
         <div class="rounded-2xl bg-white shadow-sm border border-slate-100 p-5 mb-6">
-            <h2 class="text-sm font-semibold text-slate-700 mb-3">Bank Details</h2>
+            <h2 class="text-sm font-semibold text-slate-700 mb-3">Money Account Details</h2>
             <dl class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div><dt class="text-xs text-slate-500">Bank</dt><dd class="text-slate-800 mt-0.5">{{ $bankAccount->bank_name }}</dd></div>
-                <div><dt class="text-xs text-slate-500">Account #</dt><dd class="text-slate-800 mt-0.5">{{ $bankAccount->account_number ?: '—' }}</dd></div>
+                <div><dt class="text-xs text-slate-500">Type</dt><dd class="text-slate-800 mt-0.5">{{ $bankAccount->kindLabel() }}</dd></div>
+                <div><dt class="text-xs text-slate-500">Provider / Bank</dt><dd class="text-slate-800 mt-0.5">{{ $bankAccount->provider ?: $bankAccount->bank_name ?: '—' }}</dd></div>
+                <div><dt class="text-xs text-slate-500">Account / Wallet #</dt><dd class="text-slate-800 mt-0.5">{{ $bankAccount->referenceLabel() ?: '—' }}</dd></div>
+                <div><dt class="text-xs text-slate-500">Account name</dt><dd class="text-slate-800 mt-0.5">{{ $bankAccount->account_name ?: '—' }}</dd></div>
                 <div><dt class="text-xs text-slate-500">SWIFT</dt><dd class="text-slate-800 mt-0.5">{{ $bankAccount->swift_code ?: '—' }}</dd></div>
                 <div><dt class="text-xs text-slate-500">Branch</dt><dd class="text-slate-800 mt-0.5">{{ $bankAccount->branch ?: '—' }}</dd></div>
+                <div><dt class="text-xs text-slate-500">Storefront</dt><dd class="text-slate-800 mt-0.5">{{ $bankAccount->storefront_payment_method ? str_replace('_', ' ', $bankAccount->storefront_payment_method) : '—' }}</dd></div>
                 <div><dt class="text-xs text-slate-500">Default CSV format</dt><dd class="text-slate-800 mt-0.5">{{ $bankAccount->default_csv_format ?: 'auto-detect' }}</dd></div>
             </dl>
             @if ($bankAccount->notes)

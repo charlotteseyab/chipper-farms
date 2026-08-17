@@ -30,7 +30,7 @@
                             @foreach($order->items as $item)
                                 <tr class="border-b border-slate-100 last:border-0">
                                     <td class="py-2">{{ $item->description }}</td>
-                                    <td class="py-2 text-slate-500">{{ rtrim(rtrim((string)$item->quantity,'0'),'.') }} {{ $item->quantity_unit }} × {{ number_format((float)$item->unit_price,2) }}</td>
+                                    <td class="py-2 text-slate-500">{{ rtrim(rtrim((string)$item->quantity,'0'),'.') }} {{ $item->displayQuantityUnit() }} × {{ number_format((float)$item->unit_price,2) }}</td>
                                     <td class="py-2 text-right font-medium">GHS {{ number_format((float)$item->line_total,2) }}</td>
                                 </tr>
                             @endforeach

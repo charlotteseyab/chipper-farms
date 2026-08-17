@@ -39,9 +39,9 @@ class StorefrontOrderPermissionsSeeder extends Seeder
 
         $assignments = [
             'view_storefront_orders'    => ['admin', 'superuser', 'salesperson', 'farmmanager', 'accountant'],
-            'manage_storefront_orders'  => ['admin', 'superuser', 'salesperson'],
-            'confirm_storefront_orders' => ['admin', 'superuser', 'salesperson'],
-            'cancel_storefront_orders'  => ['admin', 'superuser', 'salesperson'],
+            'manage_storefront_orders'  => ['admin', 'superuser', 'salesperson', 'farmmanager'],
+            'confirm_storefront_orders' => ['admin', 'superuser', 'salesperson', 'farmmanager'],
+            'cancel_storefront_orders'  => ['admin', 'superuser', 'salesperson', 'farmmanager'],
         ];
 
         foreach ($assignments as $code => $roleNames) {

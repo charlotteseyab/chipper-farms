@@ -7,6 +7,7 @@ use App\Models\PigWeight;
 use App\Models\Setting;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontListingPig;
+use App\Models\Storefront\StorefrontListingMedia;
 use App\Storefront\Services\StorefrontPigPricingService as Pricing;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -80,6 +81,19 @@ class StorefrontPushCategoryTest extends StorefrontTestCase
             ->assertSee('Standard Stock')
             ->assertSee('Piglets')
             ->assertSee('Manual Entry');
+    }
+
+    public function test_the_create_page_offers_media_fields_to_media_managers(): void
+    {
+        $this->seedStorefrontQuotePermissions();
+
+        $this->pushPage(['source_category' => Pricing::CATEGORY_MANUAL])
+            ->assertOk()
+            ->assertSee('3. Media')
+            ->assertSee('Recommended image size: 1200 x 900 px')
+            ->assertSee('Upload image')
+            ->assertSee('...or image URL')
+            ->assertSee('Alt text');
     }
 
     /**
@@ -190,6 +204,35 @@ class StorefrontPushCategoryTest extends StorefrontTestCase
         $this->assertSame('GHS', $listing->currency_code);
     }
 
+    public function test_initial_media_can_be_added_while_creating_a_listing(): void
+    {
+        $this->seedStorefrontQuotePermissions();
+
+        $pig = $this->pig('standard', 'MEDIA-1', 100);
+
+        $this->actingAs($this->makeUser('admin'))
+            ->post(route('storefront.admin.push.store'), [
+                'source_category'    => Pricing::CATEGORY_STANDARD,
+                'title'              => 'Listing with media',
+                'quantity_available' => 1,
+                'pool_pig_ids'       => [$pig->id],
+                'media_url'          => 'https://example.com/listing-photo.jpg',
+                'alt_text'           => 'Market-ready pig photo',
+            ])
+            ->assertRedirect();
+
+        $listing = StorefrontListing::where('title', 'Listing with media')->firstOrFail();
+
+        $this->assertDatabaseHas('storefront_listing_media', [
+            'organization_id' => $this->org->id,
+            'listing_id'      => $listing->id,
+            'type'            => StorefrontListingMedia::TYPE_IMAGE,
+            'path'            => 'https://example.com/listing-photo.jpg',
+            'alt_text'        => 'Market-ready pig photo',
+            'is_primary'      => true,
+        ]);
+    }
+
     public function test_breeding_stock_creates_a_breeding_stock_listing(): void
     {
         $sow = $this->pig('breeding', 'SOW-3', 200);
@@ -207,6 +250,54 @@ class StorefrontPushCategoryTest extends StorefrontTestCase
             StorefrontListing::KIND_BREEDING_STOCK,
             StorefrontListing::where('title', 'Proven sow')->firstOrFail()->kind,
         );
+
+        $listing = StorefrontListing::where('title', 'Proven sow')->firstOrFail();
+
+        $this->assertSame(1, StorefrontListingPig::where('storefront_listing_id', $listing->id)->count());
+        $this->assertSame(1, app(\App\Storefront\Services\StorefrontPigPoolService::class)->availableCount($listing));
+        $this->assertSame('1.0000', (string) $listing->fresh()->quantity_available);
+    }
+
+    public function test_hidden_listing_fields_are_derived_not_trusted_for_stock_backed_categories(): void
+    {
+        $pig = $this->pig('standard', 'FORGE-1', 100);
+
+        $this->actingAs($this->makeUser('admin'))
+            ->post(route('storefront.admin.push.store'), [
+                'source_category'    => Pricing::CATEGORY_STANDARD,
+                'kind'               => StorefrontListing::KIND_BREEDING_STOCK,
+                'sale_mode'          => StorefrontListing::MODE_QUOTE,
+                'pricing_basis'      => StorefrontListing::BASIS_CARCASS,
+                'currency_code'      => 'USD',
+                'fixed_price'        => 1,
+                'title'              => 'Forged fields',
+                'quantity_available' => 999,
+                'pool_pig_ids'       => [$pig->id],
+            ])
+            ->assertRedirect();
+
+        $listing = StorefrontListing::where('title', 'Forged fields')->firstOrFail();
+
+        $this->assertSame(StorefrontListing::KIND_LIVE_PIG, $listing->kind);
+        $this->assertSame(StorefrontListing::MODE_FIXED, $listing->sale_mode);
+        $this->assertSame(StorefrontListing::BASIS_FIXED, $listing->pricing_basis);
+        $this->assertSame('GHS', $listing->currency_code);
+        $this->assertSame('3000.00', (string) $listing->fixed_price);
+        $this->assertSame('1.0000', (string) $listing->quantity_available);
+    }
+
+    public function test_stock_backed_listing_without_selected_pigs_is_refused_without_shell_listing(): void
+    {
+        $this->actingAs($this->makeUser('admin'))
+            ->post(route('storefront.admin.push.store'), [
+                'source_category'    => Pricing::CATEGORY_STANDARD,
+                'title'              => 'Empty stock-backed listing',
+                'quantity_available' => 1,
+                'pool_pig_ids'       => [],
+            ])
+            ->assertSessionHasErrors('pool_pig_ids');
+
+        $this->assertSame(0, StorefrontListing::where('title', 'Empty stock-backed listing')->count());
     }
 
     /* ================================================================== */
@@ -413,6 +504,28 @@ class StorefrontPushCategoryTest extends StorefrontTestCase
             ->assertOk()
             ->assertSee($wanted->ear_tag_number)
             ->assertDontSee($other->ear_tag_number);
+    }
+
+    public function test_the_stock_search_can_find_local_ids_and_latest_weights(): void
+    {
+        $wanted = $this->pig('standard', 'SEARCH-1', 123.5);
+        $wanted->forceFill(['local_id' => 'LOCAL-777'])->save();
+
+        $other = $this->pig('standard', 'SEARCH-2', 88);
+
+        $this->pushPage([
+            'source_category' => Pricing::CATEGORY_STANDARD,
+            'stock_search'    => 'LOCAL-777',
+        ])
+            ->assertOk()
+            ->assertSee($wanted->ear_tag_number)
+            ->assertDontSee($other->ear_tag_number);
+
+        $matches = app(\App\Storefront\Services\StorefrontPigPoolService::class)
+            ->candidatesForCategory($this->org->id, Pricing::CATEGORY_STANDARD, null, '123');
+
+        $this->assertTrue($matches->contains(fn (PigManagement $pig) => (int) $pig->id === (int) $wanted->id));
+        $this->assertFalse($matches->contains(fn (PigManagement $pig) => (int) $pig->id === (int) $other->id));
     }
 
     /**

@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
 use App\Models\Counterparty;
+use App\Models\Finance\BankAccount;
 use App\Models\Finance\QuickExpense;
+use App\Services\Finance\Cash\MoneyAccountService;
 use App\Services\Finance\Expenses\RecordQuickExpenseService;
 use App\Services\Finance\Tax\TaxProfileResolver;
 use App\Support\CurrentOrganization;
@@ -39,6 +41,7 @@ class QuickExpenseController extends Controller
         protected RecordQuickExpenseService $expenses,
         protected TaxProfileResolver $taxProfiles,
         protected CurrentOrganization $currentOrganization,
+        protected MoneyAccountService $moneyAccounts,
     ) {
     }
 
@@ -65,7 +68,7 @@ class QuickExpenseController extends Controller
 
         return view('finance.expenses.create', [
             'categories'      => config('expense_categories.categories'),
-            'paymentAccounts' => config('expense_categories.payment_accounts'),
+            'moneyAccounts'   => $this->moneyAccounts->selectable($organizationId),
             'referenceNeeded' => config('expense_categories.reference_required_for'),
             'suppliers'       => Counterparty::query()
                 ->when($organizationId, fn ($q) => $q->where('organization_id', $organizationId))
@@ -88,6 +91,10 @@ class QuickExpenseController extends Controller
                 QuickExpense::SETTLEMENT_PAID_NOW,
                 QuickExpense::SETTLEMENT_PAY_LATER,
             ])],
+            'money_account_id'   => ['nullable', 'integer',
+                Rule::exists('bank_accounts', 'id')
+                    ->where(fn ($q) => $q->where('organization_id', $this->currentOrganization->id())
+                        ->where('is_active', true))],
             'payment_method_key' => ['nullable', Rule::in(array_keys(config('expense_categories.payment_accounts')))],
             'external_reference' => ['nullable', 'string', 'max:120'],
             'supplier_id'        => ['nullable', 'integer', 'exists:counterparties,id'],

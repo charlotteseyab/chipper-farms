@@ -32,6 +32,21 @@
             </div>
         </div>
 
+        <div class="mb-6 rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
+            <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-800">Use Money Accounts For Daily Transactions</h2>
+                    <p class="mt-1 max-w-3xl text-sm text-slate-500">
+                        Expenses, purchases, receipts, supplier payments, payment runs, loans, and storefront checkout should use a configured Cash, Bank, MoMo, or Paystack account. The GL code stays linked behind the scenes for the accountant.
+                    </p>
+                </div>
+                <a href="{{ route('finance.bank-accounts.index') }}"
+                   class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                    Manage Money Accounts
+                </a>
+            </div>
+        </div>
+
         <form method="GET" class="mb-4 flex flex-col sm:flex-row gap-2">
             <input type="text" name="search" value="{{ $search }}" placeholder="Search by code or name..."
                    class="flex-1 rounded-xl border-slate-200 text-sm">

@@ -571,6 +571,18 @@ class OrderService
                 continue;
             }
 
+            if ($sale instanceof \App\Models\Finance\Invoice) {
+                if (! $sale->is_cash_invoice || $sale->status !== \App\Models\Finance\Invoice::STATUS_POSTED) {
+                    $unpaid[] = sprintf(
+                        'line #%d: Invoice#%d is still unpaid',
+                        $item->id,
+                        $sale->id,
+                    );
+                }
+
+                continue;
+            }
+
             if ($sale->payment_status !== 'paid') {
                 $unpaid[] = sprintf(
                     'line #%d: %s#%d is still %s',
@@ -590,6 +602,7 @@ class OrderService
         return match ($item->posted_sale_type) {
             \App\Models\PigSale::class  => \App\Models\PigSale::find($item->posted_sale_id),
             \App\Models\FeedSale::class => \App\Models\FeedSale::find($item->posted_sale_id),
+            \App\Models\Finance\Invoice::class => \App\Models\Finance\Invoice::find($item->posted_sale_id),
             default                     => null,
         };
     }

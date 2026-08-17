@@ -34,8 +34,8 @@ class StorefrontQuotePermissionsSeeder extends Seeder
 
         $assignments = [
             'view_storefront_quotes'   => ['admin', 'superuser', 'salesperson', 'farmmanager', 'accountant'],
-            'manage_storefront_quotes' => ['admin', 'superuser', 'salesperson'],
-            'manage_storefront_media'  => ['admin', 'superuser', 'salesperson'],
+            'manage_storefront_quotes' => ['admin', 'superuser', 'salesperson', 'farmmanager'],
+            'manage_storefront_media'  => ['admin', 'superuser', 'salesperson', 'farmmanager'],
         ];
 
         foreach ($assignments as $code => $roleNames) {

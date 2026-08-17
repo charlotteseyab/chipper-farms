@@ -151,6 +151,18 @@ class AdminStorefrontController extends Controller
         return back()->with('success', "Listing {$listing->reference} archived.");
     }
 
+    public function destroy(StorefrontListing $listing): RedirectResponse
+    {
+        $this->authorize('delete', $listing);
+
+        $reference = $listing->reference;
+        $this->listingService->delete($listing, $this->request()->user());
+
+        return redirect()
+            ->route('storefront.admin.listings.index')
+            ->with('success', "Listing {$reference} deleted. Unsold selected pigs are available for other listings.");
+    }
+
     protected function request(): Request
     {
         return request();

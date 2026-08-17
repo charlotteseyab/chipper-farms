@@ -68,6 +68,10 @@ class PaymentMethodSeeder extends Seeder
                 'code' => 'POS', 'name' => 'POS / Card Payment', 'is_bank' => true,
                 'requires_reference' => true, 'gl_account_hint' => 'BANK_MAIN', 'display_order' => 32,
             ],
+            [
+                'code' => 'PAYSTACK', 'name' => 'Paystack Online Checkout', 'is_bank' => true,
+                'requires_reference' => true, 'gl_account_hint' => 'PAYSTACK_CLEARING', 'display_order' => 33,
+            ],
 
             // Credit terms
             [

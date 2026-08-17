@@ -54,6 +54,7 @@ class ListingService
 
     public function __construct(
         protected ListingAvailabilityService $availability,
+        protected StorefrontPigPoolService $pigPool,
     ) {
     }
 
@@ -103,7 +104,40 @@ class ListingService
     {
         $this->assertTransitionAllowed($listing, StorefrontListing::STATUS_ARCHIVED);
 
-        return $this->applyStatus($listing, StorefrontListing::STATUS_ARCHIVED, $actor);
+        return DB::transaction(function () use ($listing, $actor) {
+            $archived = $this->applyStatus($listing, StorefrontListing::STATUS_ARCHIVED, $actor);
+
+            $this->pigPool->releaseUnsoldPigsForListing(
+                $archived,
+                $actor,
+                'Listing archived; unsold selected pig released for other listings.',
+            );
+
+            return $archived->refresh();
+        });
+    }
+
+    public function delete(StorefrontListing $listing, User $actor): void
+    {
+        DB::transaction(function () use ($listing, $actor) {
+            $lockedListing = StorefrontListing::query()
+                ->whereKey($listing->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $this->pigPool->releaseUnsoldPigsForListing(
+                $lockedListing,
+                $actor,
+                'Listing deleted; unsold selected pig released for other listings.',
+            );
+
+            $lockedListing->forceFill([
+                'status'             => StorefrontListing::STATUS_ARCHIVED,
+                'updated_by_user_id' => $actor->id,
+            ])->save();
+
+            $lockedListing->delete();
+        });
     }
 
     public function markSoldOut(StorefrontListing $listing, User $actor): StorefrontListing

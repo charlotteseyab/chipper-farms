@@ -50,7 +50,7 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('storefront.admin.push.store') }}" class="space-y-6">
+        <form method="POST" action="{{ route('storefront.admin.push.store') }}" enctype="multipart/form-data" class="space-y-6">
             @csrf
             @if($source)
                 <input type="hidden" name="source_type" value="{{ $sourceType }}">
@@ -102,6 +102,11 @@
                         <span class="text-slate-600">Kind</span>
                         <select name="kind" class="mt-1 w-full rounded-xl border-slate-300 text-sm">
                             @foreach($kinds as $k)
+                                @continue(in_array($k, [
+                                    \App\Models\Storefront\StorefrontListing::KIND_LIVE_PIG,
+                                    \App\Models\Storefront\StorefrontListing::KIND_BREEDING_STOCK,
+                                    \App\Models\Storefront\StorefrontListing::KIND_PIGLET_LOT,
+                                ], true))
                                 <option value="{{ $k }}" @selected(old('kind', $prefill['kind'] ?? 'feed') === $k)>{{ ucwords(str_replace('_',' ',$k)) }}</option>
                             @endforeach
                         </select>
@@ -135,13 +140,17 @@
                 </label>
             </div>
 
+            @can('manage_storefront_media')
+                @include('storefront.admin.listings.partials.media-manager', ['mode' => 'create'])
+            @endcan
+
             @php
                 $isManual = $sourceCategory === \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_MANUAL;
                 $isPiglet = $sourceCategory === \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_PIGLETS;
             @endphp
 
             <div class="rounded-2xl bg-white border border-slate-200 p-5 space-y-4">
-                <h2 class="font-semibold text-slate-700">3. Stock &amp; price</h2>
+                <h2 class="font-semibold text-slate-700">4. Stock &amp; price</h2>
 
                 @unless($isManual)
                     {{--
@@ -189,7 +198,7 @@
 
                         A pig listing used to mean one animal, reached from that
                         animal's page with ?pig=. A farm more often wants to
-                        advertise "market-ready live pigs — 5 head" and decide
+                        advertise "market-ready live pigs" and decide
                         which five when an order comes in. Both shapes are
                         supported; this block is the second one, and appears only
                         when the wizard is not already pinned to a single animal.
@@ -215,7 +224,7 @@
                         <input type="search"
                                data-pig-pool-filter
                                value="{{ $stockSearch }}"
-                               placeholder="Filter by ear tag, breed or sex…"
+                               placeholder="Filter by tag, ID, breed, sex or weight..."
                                class="mt-3 w-full rounded-xl border-slate-300 text-sm">
 
                         <div class="mt-2 flex flex-wrap gap-2 text-xs">
@@ -237,10 +246,15 @@
                         @else
                             <div class="mt-2 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white divide-y divide-slate-100">
                                 @foreach($poolCandidates as $candidate)
-                                    @php $row = $poolRows[$candidate->getKey()] ?? ['weight' => null, 'value' => null]; @endphp
+                                    @php
+                                        $row = $poolRows[$candidate->getKey()] ?? ['weight' => null, 'value' => null];
+                                        $ageText = $candidate->date_of_birth
+                                            ? \Carbon\Carbon::parse($candidate->date_of_birth)->age . ' yr'
+                                            : '';
+                                    @endphp
                                     <label class="flex items-start gap-3 p-3 text-sm cursor-pointer hover:bg-slate-50"
                                            data-pig-row
-                                           data-pig-search="{{ strtolower(trim(($candidate->ear_tag_number ?? '') . ' ' . ($candidate->breed ?? '') . ' ' . ($candidate->gender ?? ''))) }}">
+                                           data-pig-search="{{ strtolower(trim(($candidate->ear_tag_number ?? '') . ' ' . ($candidate->code ?? '') . ' ' . ($candidate->local_id ?? '') . ' ' . ($candidate->breed ?? '') . ' ' . ($candidate->gender ?? '') . ' ' . ($row['weight'] ?? '') . ' ' . $ageText)) }}">
                                         <input type="checkbox"
                                                name="pool_pig_ids[]"
                                                value="{{ $candidate->id }}"
@@ -268,7 +282,7 @@
                                                 {{ $candidate->breed ?: 'Breed not recorded' }}
                                                 · {{ $candidate->gender ?: 'sex not recorded' }}
                                                 @if($candidate->date_of_birth)
-                                                    · {{ \Carbon\Carbon::parse($candidate->date_of_birth)->age }} yr
+                                                    · {{ $ageText }}
                                                 @endif
                                             </span>
                                         </span>
@@ -286,7 +300,7 @@
                         <dl class="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                             <div class="rounded-xl bg-white border border-slate-200 p-2">
                                 <dt class="text-slate-500">Selected</dt>
-                                <dd class="text-sm font-semibold text-slate-800"><span data-pig-pool-count>0</span> head</dd>
+                                <dd class="text-sm font-semibold text-slate-800"><span data-pig-pool-count>0</span> pigs</dd>
                             </div>
                             <div class="rounded-xl bg-white border border-slate-200 p-2">
                                 <dt class="text-slate-500">Total weight</dt>
@@ -322,7 +336,7 @@
 
                             Piglets are here for the same reason as a bag of
                             feed: there is nothing on the scale. A farm prices a
-                            weaner by the head, not by the kilo.
+                            weaner by the pig, not by the kilo.
                         --}}
                         <label class="block text-sm">
                             <span class="text-slate-600">{{ $isPiglet ? 'Price per piglet' : 'Price' }}</span>
@@ -337,7 +351,7 @@
                         </label>
                         <label class="block text-sm">
                             <span class="text-slate-600">Unit</span>
-                            <input type="text" name="quantity_unit" value="{{ old('quantity_unit', $prefill['quantity_unit'] ?? ($isPiglet ? 'head' : 'unit')) }}" class="mt-1 w-full rounded-xl border-slate-300 text-sm">
+                            <input type="text" name="quantity_unit" value="{{ old('quantity_unit', $prefill['quantity_unit'] ?? ($isPiglet ? 'piglet' : 'unit')) }}" class="mt-1 w-full rounded-xl border-slate-300 text-sm">
                         </label>
                     @else
                         {{--
@@ -351,7 +365,7 @@
             </div>
 
             <div class="rounded-2xl bg-white border border-slate-200 p-5 space-y-4">
-                <h2 class="font-semibold text-slate-700">4. Fulfilment</h2>
+                <h2 class="font-semibold text-slate-700">5. Fulfilment</h2>
                 <div class="flex flex-wrap gap-6 text-sm">
                     <label class="inline-flex items-center gap-2"><input type="checkbox" name="pickup_allowed" value="1" checked class="rounded border-slate-300"> Pickup allowed</label>
                     <label class="inline-flex items-center gap-2"><input type="checkbox" name="delivery_allowed" value="1" class="rounded border-slate-300"> Delivery allowed</label>

@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
 use App\Models\Counterparty;
-use App\Models\Finance\Account;
 use App\Models\Finance\PaymentRun;
 use App\Models\Finance\PaymentRunLine;
 use App\Models\Finance\VendorInvoice;
 use App\Models\PaymentMethod;
+use App\Services\Finance\Cash\MoneyAccountService;
 use App\Services\Finance\Payments\PaymentRunExecutor;
 use App\Services\Finance\Payments\PaymentRunService;
 use App\Support\CurrentOrganization;
@@ -91,35 +91,43 @@ class PaymentRunController extends Controller
             ->orderBy('display_order')
             ->get();
 
-        $cashAccounts = Account::query()
-            ->when($orgId, fn ($q) => $q->where('organization_id', $orgId))
-            ->where('is_active', true)
-            ->where('account_type', 'asset')
-            ->where('account_subtype', 'current_asset')
-            ->where('code', 'like', '10%')
-            ->where('allow_manual_journal', true)
-            ->orderBy('code')
-            ->get(['id', 'code', 'name']);
+        $moneyAccounts = app(MoneyAccountService::class)->selectable($orgId);
 
-        return view('finance.payment-runs.create', compact('methods', 'cashAccounts'));
+        return view('finance.payment-runs.create', compact('methods', 'moneyAccounts'));
     }
 
-    public function store(Request $request, PaymentRunService $service)
+    public function store(Request $request, PaymentRunService $service, CurrentOrganization $currentOrg)
     {
+        $orgId = $currentOrg->id();
         $validated = $request->validate([
             'run_date'                    => ['required', 'date'],
             'currency_code'               => ['required', 'string', 'size:3'],
+            'money_account_id'             => ['nullable', 'integer',
+                Rule::exists('bank_accounts', 'id')
+                    ->where(fn ($q) => $q->where('organization_id', $orgId)
+                        ->where('is_active', true))],
             'default_payment_method_id'   => ['nullable', 'integer', 'exists:payment_methods,id'],
             'default_source_account_id'   => ['nullable', 'integer', 'exists:chart_of_accounts,id'],
             'description'                 => ['nullable', 'string', 'max:500'],
             'notes'                       => ['nullable', 'string', 'max:2000'],
         ]);
+        $moneyAccounts = app(MoneyAccountService::class);
+        $defaultPaymentMethodId = $validated['default_payment_method_id'] ?? null;
+        $defaultSourceAccountId = $validated['default_source_account_id'] ?? null;
+
+        if (! empty($validated['money_account_id'])) {
+            $defaultPaymentMethodId = $moneyAccounts
+                ->paymentMethodForMoneyAccount((int) $validated['money_account_id'], $orgId)
+                ->id;
+            $defaultSourceAccountId = $moneyAccounts
+                ->sourceAccountIdForMoneyAccount((int) $validated['money_account_id'], $orgId);
+        }
 
         $run = $service->createDraft(
             runDate:                  CarbonImmutable::parse($validated['run_date']),
             currencyCode:             $validated['currency_code'],
-            defaultPaymentMethodId:   $validated['default_payment_method_id'] ?? null,
-            defaultSourceAccountId:   $validated['default_source_account_id'] ?? null,
+            defaultPaymentMethodId:   $defaultPaymentMethodId,
+            defaultSourceAccountId:   $defaultSourceAccountId,
             createdBy:                $request->user(),
             extra: [
                 'description' => $validated['description'] ?? null,

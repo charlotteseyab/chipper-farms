@@ -29,14 +29,28 @@ class BankAccount extends Model
     use BelongsToOrganization;
     use SoftDeletes;
 
+    public const KIND_CASH = 'cash';
+    public const KIND_BANK = 'bank';
+    public const KIND_MOMO = 'momo';
+    public const KIND_GATEWAY = 'gateway';
+
+    public const STOREFRONT_COD = 'cod';
+    public const STOREFRONT_PAYSTACK = 'paystack';
+    public const STOREFRONT_MOMO = 'momo';
+    public const STOREFRONT_BANK_TRANSFER = 'bank_transfer';
+
     protected $table = 'bank_accounts';
 
     protected $fillable = [
         'organization_id',
         'account_id',
+        'account_kind',
         'label',
         'bank_name',
+        'provider',
+        'account_name',
         'account_number',
+        'wallet_number',
         'swift_code',
         'branch',
         'currency_code',
@@ -45,6 +59,7 @@ class BankAccount extends Model
         'last_reconciled_balance',
         'last_reconciled_date',
         'default_csv_format',
+        'storefront_payment_method',
         'is_active',
         'notes',
         'created_by_user_id',
@@ -97,12 +112,39 @@ class BankAccount extends Model
         return $this->is_active && $this->account_id !== null;
     }
 
+    public function kindLabel(): string
+    {
+        return match ($this->account_kind) {
+            self::KIND_CASH => 'Cash',
+            self::KIND_MOMO => 'Mobile Money',
+            self::KIND_GATEWAY => 'Payment Gateway',
+            default => 'Bank Account',
+        };
+    }
+
+    public function referenceLabel(): string
+    {
+        return match ($this->account_kind) {
+            self::KIND_MOMO => $this->wallet_number ?: $this->account_number ?: 'No wallet number',
+            self::KIND_GATEWAY => $this->provider ?: $this->bank_name,
+            self::KIND_CASH => $this->branch ?: 'Cash on hand',
+            default => $this->account_number ?: 'No account number',
+        };
+    }
+
     /**
-     * Build a display name combining bank + label.
+     * Build a display name combining the practical money account + label.
      */
     public function displayName(): string
     {
-        $bits = [$this->bank_name, $this->label];
+        $primary = match ($this->account_kind) {
+            self::KIND_MOMO => trim(($this->provider ?: $this->bank_name) . ' MoMo'),
+            self::KIND_GATEWAY => $this->provider ?: $this->bank_name ?: 'Payment Gateway',
+            self::KIND_CASH => 'Cash',
+            default => $this->bank_name ?: 'Bank',
+        };
+
+        $bits = [$primary, $this->label];
         return implode(' — ', array_filter($bits));
     }
 }

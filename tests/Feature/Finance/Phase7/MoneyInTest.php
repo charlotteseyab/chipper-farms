@@ -8,6 +8,8 @@ use App\Models\Finance\Receipt;
 use App\Models\Finance\ReceiptAllocation;
 use App\Models\Organization;
 use App\Models\PaymentMethod;
+use App\Models\PigManagement;
+use App\Models\PigSale;
 use App\Services\Organizations\OrganizationFeatureService;
 use App\Support\Features\FeatureCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -314,6 +316,38 @@ class MoneyInTest extends TestCase
             ->assertSee('750.00');
     }
 
+    public function test_the_workspace_includes_posted_paid_pig_sales_without_receipts(): void
+    {
+        $this->makePostedPaidPigSale('900.00');
+
+        $this->actingAs($this->user)
+            ->get(route('finance.money-in.index'))
+            ->assertOk()
+            ->assertSee('Received this month')
+            ->assertSee('Storefront Guest')
+            ->assertSee('Pig sale')
+            ->assertSee('SO-000001')
+            ->assertSee('GHS 900.00');
+    }
+
+    public function test_a_pig_sale_linked_to_a_cash_invoice_is_not_counted_twice(): void
+    {
+        $sale = $this->makePostedPaidPigSale('900.00');
+        $invoice = $this->makePostedInvoice('900.00', isCash: true, invoiceDate: now()->toDateString());
+        $invoice->update([
+            'source_type' => PigSale::class,
+            'source_id' => $sale->id,
+        ]);
+        $sale->update(['invoice_id' => $invoice->id]);
+
+        $this->actingAs($this->user)
+            ->get(route('finance.money-in.index'))
+            ->assertOk()
+            ->assertSee('GHS 900.00')
+            ->assertSee('Cash sale')
+            ->assertDontSee('Pig sale');
+    }
+
     /**
      * Phase 7 gates its own surfaces. Before this phase, `finance.sales_money_in`
      * — like every other finance flag except three — was enforced nowhere, so a
@@ -359,6 +393,38 @@ class MoneyInTest extends TestCase
             'created_by_user_id' => $this->user->id,
             'posted_by_user_id'  => $this->user->id,
             'posted_at'          => now(),
+        ]);
+    }
+
+    protected function makePostedPaidPigSale(string $total): PigSale
+    {
+        $pig = PigManagement::create([
+            'organization_id' => $this->org->id,
+            'ear_tag_number' => 'SF-' . uniqid(),
+            'breed' => 'LW',
+            'gender' => 'M',
+            'stock_type' => 'standard',
+            'date_of_birth' => now()->subMonths(8)->toDateString(),
+        ]);
+
+        return PigSale::create([
+            'organization_id' => $this->org->id,
+            'pig_id' => $pig->id,
+            'sale_date' => now()->toDateString(),
+            'sale_price' => $total,
+            'sale_weight' => '30.00',
+            'weight_type' => 'live',
+            'price_per_kg' => '30.00',
+            'buyer_name' => 'Storefront Guest',
+            'buyer_contact' => 'guest@example.com',
+            'sale_purpose' => 'market',
+            'payment_method' => 'paystack',
+            'payment_status' => 'paid',
+            'sold_by_user_id' => $this->user->id,
+            'sold_by_name' => $this->user->name,
+            'document_number' => 'SO-000001',
+            'is_posted' => true,
+            'posted_at' => now(),
         ]);
     }
 

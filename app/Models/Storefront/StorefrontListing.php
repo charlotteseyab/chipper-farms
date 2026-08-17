@@ -325,4 +325,48 @@ class StorefrontListing extends Model
 
         return $this->price_per_kg !== null ? (string) $this->price_per_kg : null;
     }
+
+    /**
+     * Estimated per-animal amount range for pooled pig listings.
+     *
+     * A pool is not one price: each animal carries a different latest weight,
+     * so the public listing should say "from X to Y" until the buyer chooses
+     * the exact animal.
+     *
+     * @return array{min:string,max:string}|null
+     */
+    public function displayPriceRangeBounds(): ?array
+    {
+        if (! $this->isPigBacked()
+            || $this->min_estimated_pig_price === null
+            || $this->max_estimated_pig_price === null) {
+            return null;
+        }
+
+        return [
+            'min' => (string) $this->min_estimated_pig_price,
+            'max' => (string) $this->max_estimated_pig_price,
+        ];
+    }
+
+    public function displayQuantityUnit(?string $quantity = null): string
+    {
+        $unit = strtolower((string) $this->quantity_unit);
+
+        if ($unit === 'head') {
+            $single = $quantity !== null && bccomp((string) $quantity, '1', 4) === 0;
+
+            if ($this->kind === self::KIND_PIGLET_LOT) {
+                return $single ? 'piglet' : 'piglets';
+            }
+
+            if ($this->isPigBacked()) {
+                return $single ? 'pig' : 'pigs';
+            }
+
+            return 'stock';
+        }
+
+        return $this->quantity_unit ?: 'unit';
+    }
 }

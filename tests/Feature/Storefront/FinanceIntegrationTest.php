@@ -6,6 +6,7 @@ use App\Finance\Subscribers\Sales\StorefrontOrderConfirmedSubscriber;
 use App\Models\DomainEvent;
 use App\Models\FeedSale;
 use App\Models\FeedType;
+use App\Models\Finance\Invoice;
 use App\Models\PigManagement;
 use App\Models\PigSale;
 use App\Models\Storefront\StorefrontListing;
@@ -29,6 +30,34 @@ use Tests\Feature\Storefront\Support\FakePaystackClient;
 class FinanceIntegrationTest extends StorefrontTestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(\Database\Seeders\ChartOfAccountsSeeder::class);
+        $this->seed(\Database\Seeders\PaymentMethodSeeder::class);
+
+        $year = \App\Models\FiscalYear::create([
+            'organization_id' => $this->org->id,
+            'fiscal_year'     => 2026,
+            'name'            => 'FY2026',
+            'start_date'      => '2026-01-01',
+            'end_date'        => '2026-12-31',
+            'status'          => 'open',
+        ]);
+
+        \App\Models\FiscalPeriod::create([
+            'organization_id' => $this->org->id,
+            'fiscal_year_id'  => $year->id,
+            'period_number'   => 8,
+            'name'            => 'August 2026',
+            'start_date'      => '2026-08-01',
+            'end_date'        => '2026-08-31',
+            'status'          => \App\Models\FiscalPeriod::STATUS_OPEN,
+            'posting_count'   => 0,
+        ]);
+    }
 
     protected function feedType(): FeedType
     {
@@ -157,7 +186,7 @@ class FinanceIntegrationTest extends StorefrontTestCase
         $this->assertSame('posted', $order->fresh()->finance_posting_status);
     }
 
-    public function test_non_postable_line_is_deferred_not_posted(): void
+    public function test_manual_line_posts_a_real_finance_invoice_not_a_fake_sale(): void
     {
         $customer = $this->makeUser('customer');
 
@@ -183,9 +212,19 @@ class FinanceIntegrationTest extends StorefrontTestCase
 
         $this->assertSame(0, FeedSale::count());
         $this->assertSame(0, PigSale::count());
+        $invoice = Invoice::first();
+        $this->assertNotNull($invoice, 'A manual storefront line should post through the finance invoice service.');
+        $this->assertSame(Invoice::STATUS_POSTED, $invoice->status);
+        $this->assertSame('100.00', (string) $invoice->subtotal);
+        $this->assertSame('100.00', (string) $invoice->total);
+
         $order->refresh();
-        $this->assertSame('skipped', $order->finance_posting_status);
-        $this->assertStringContainsString('kind_not_auto_postable', (string) $order->finance_posting_error);
+        $item = $order->items()->firstOrFail();
+
+        $this->assertSame('posted', $order->finance_posting_status);
+        $this->assertNull($order->finance_posting_error);
+        $this->assertSame(Invoice::class, $item->posted_sale_type);
+        $this->assertSame($invoice->id, (int) $item->posted_sale_id);
     }
 
     public function test_finance_routing_is_idempotent(): void

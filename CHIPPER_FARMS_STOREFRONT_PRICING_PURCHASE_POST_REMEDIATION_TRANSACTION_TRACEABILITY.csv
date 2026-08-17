@@ -1,0 +1,7 @@
+flow,source,checkout_snapshot,approval_or_finance_path,system_of_record,status
+Standard stock live purchase,storefront_listing_pigs selected by customer,purchase_type=live with selected_listing_pig_ids and selected_pig_weight_snapshot,RecordPigSaleService per selected allocation,pig_sales,passed
+Standard stock carcass purchase,storefront_listing_pigs selected by manager,purchase_type=carcass with requested_kg and price_per_kg_snapshot,RecordPigSaleService per manager allocation with allocated_carcass_weight_kg,pig_sales,passed
+Breeding stock live/carcass purchase,breeding stock pool rows,same as pig-backed purchase path,RecordPigSaleService,pig_sales,passed
+Piglet count purchase,no pool rows; source_category=piglets,quantity count,StorefrontPigletMaterialisationService then RecordPigSaleService,pig_sales,passed
+Tagged piglet purchase,piglet listing pool rows,ordinary pig-backed snapshots,RecordPigSaleService,pig_sales,passed
+Manual storefront purchase,no pig/feed source required,fixed quantity/price line,InvoiceService then InvoicePostingService,finance_invoices/journals,passed

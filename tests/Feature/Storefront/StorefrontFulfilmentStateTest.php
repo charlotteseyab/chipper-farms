@@ -147,6 +147,49 @@ class StorefrontFulfilmentStateTest extends StorefrontTestCase
         $this->assertSame($this->poolPigIds()[0], (int) $allocation->pig_id);
     }
 
+    public function test_approving_a_live_line_uses_the_customer_selected_weight_snapshot(): void
+    {
+        $this->poolListing([100, 120]);
+        $buyer = $this->makeUser('customer');
+        $staff = $this->makeUser('admin');
+
+        $this->lines()->addLiveLines(CartOwner::from($buyer), $this->listing, [$this->poolRowIds()[0]]);
+        $order = $this->checkout($buyer);
+
+        $sales = $this->allocations()->approveAllocationsForOrder($order->fresh(), $staff);
+
+        $this->assertCount(1, $sales);
+        $sale = $sales->first();
+
+        $this->assertSame('live', $sale->weight_type);
+        $this->assertEquals(100.0, (float) $sale->sale_weight);
+        $this->assertEquals(30.0, (float) $sale->price_per_kg);
+        $this->assertSame('3000.00', (string) $sale->sale_price);
+
+        $allocation = StorefrontOrderItemPigAllocation::where('pig_sale_id', $sale->id)->firstOrFail();
+        $this->assertSame('100.0000', (string) $allocation->allocated_live_weight_kg);
+        $this->assertNull($allocation->allocated_carcass_weight_kg);
+    }
+
+    public function test_a_paystack_live_allocation_records_the_pig_sale_as_paid(): void
+    {
+        $this->poolListing([100]);
+        $buyer = $this->makeUser('customer');
+        $staff = $this->makeUser('admin');
+
+        $this->lines()->addLiveLines(CartOwner::from($buyer), $this->listing, [$this->poolRowIds()[0]]);
+        $order = $this->checkout($buyer);
+        $order->forceFill([
+            'payment_method' => StorefrontOrder::METHOD_PAYSTACK,
+            'payment_status' => StorefrontOrder::PAY_PAYSTACK_VERIF,
+        ])->save();
+
+        $sale = $this->allocations()->approveAllocationsForOrder($order->fresh(), $staff)->first();
+
+        $this->assertSame('paid', $sale->payment_status);
+        $this->assertSame(StorefrontOrder::METHOD_PAYSTACK, $sale->payment_method);
+    }
+
     /**
      * The animal a buyer has paid for must leave the shop at once, not when a
      * manager gets round to the order.
@@ -321,10 +364,10 @@ class StorefrontFulfilmentStateTest extends StorefrontTestCase
             ->get(route('storefront.admin.orders.show', $order))
             ->assertOk()
             ->assertSee('150 kg')
-            ->assertSee('of carcass weight')
+            ->assertSee('Requested weight')
             // Head-count progress would read "1 of 1 chosen" on a delivery
             // that is 150 kg short.
-            ->assertDontSee('asks for <strong>1</strong> head', escape: false);
+            ->assertDontSee('asks for <strong>1</strong> pig', escape: false);
     }
 
     public function test_the_order_page_says_a_live_line_was_the_customers_choice(): void
@@ -338,7 +381,60 @@ class StorefrontFulfilmentStateTest extends StorefrontTestCase
         $this->actingAs($this->makeUser('admin'))
             ->get(route('storefront.admin.orders.show', $order))
             ->assertOk()
-            ->assertSee('The customer chose these animals themselves');
+            ->assertSee('Customer paid for')
+            ->assertSee('100 kg')
+            ->assertSee('Only pigs matching that paid');
+    }
+
+    public function test_the_order_page_disables_live_pigs_that_do_not_match_the_paid_weight(): void
+    {
+        $this->poolListing([100, 100, 120]);
+        $buyer = $this->makeUser('customer');
+
+        $this->lines()->addLiveLines(CartOwner::from($buyer), $this->listing, [$this->poolRowIds()[0]]);
+        $order = $this->checkout($buyer);
+        $pigIds = $this->poolPigIds();
+
+        $response = $this->actingAs($this->makeUser('admin'))
+            ->get(route('storefront.admin.orders.show', $order))
+            ->assertOk()
+            ->assertSee('100 kg')
+            ->assertSee('120 kg')
+            ->assertSee('Customer paid for 100 kg');
+
+        $this->assertMatchesRegularExpression(
+            '/value="' . $pigIds[2] . '"[^>]*disabled/s',
+            $response->getContent(),
+            'A 120 kg pig must not be selectable for a 100 kg live-pig purchase.',
+        );
+    }
+
+    public function test_a_live_customer_selection_cannot_be_replaced_with_a_heavier_pig(): void
+    {
+        $this->poolListing([100, 100, 120]);
+        $buyer = $this->makeUser('customer');
+        $staff = $this->makeUser('admin');
+
+        $this->lines()->addLiveLines(CartOwner::from($buyer), $this->listing, [$this->poolRowIds()[0]]);
+        $order = $this->checkout($buyer);
+        $item  = StorefrontOrderItem::where('order_id', $order->id)->firstOrFail();
+        $pigIds = $this->poolPigIds();
+
+        $this->assertNotSame(
+            [],
+            $this->allocations()->validateSelection($item, [$pigIds[2]]),
+            'A heavier animal would exceed the paid live weight and must be refused server-side.',
+        );
+
+        $this->allocations()->selectForOrderItem($item, [$pigIds[1]], $staff);
+
+        $allocation = StorefrontOrderItemPigAllocation::where('storefront_order_item_id', $item->id)
+            ->whereIn('status', StorefrontOrderItemPigAllocation::ACTIVE_STATUSES)
+            ->firstOrFail();
+
+        $this->assertSame($pigIds[1], (int) $allocation->pig_id);
+        $this->assertSame('100.0000', (string) $allocation->allocated_live_weight_kg);
+        $this->assertSame('3000.00', (string) $allocation->allocated_sale_amount);
     }
 
     public function test_the_order_page_shows_a_conflict_before_approval(): void
@@ -409,6 +505,8 @@ class StorefrontFulfilmentStateTest extends StorefrontTestCase
         $total = '0.00';
         foreach ($sales as $sale) {
             $total = bcadd($total, (string) $sale->sale_price, 2);
+            $this->assertSame('carcass', $sale->weight_type);
+            $this->assertEquals(50.0, (float) $sale->price_per_kg);
         }
 
         $this->assertSame(
@@ -416,5 +514,12 @@ class StorefrontFulfilmentStateTest extends StorefrontTestCase
             $total,
             'The parts must sum to the line exactly — no cent may be created or lost in the split.',
         );
+
+        $allocatedKg = StorefrontOrderItemPigAllocation::where('storefront_order_item_id', $item->id)
+            ->where('status', StorefrontOrderItemPigAllocation::STATUS_SOLD)
+            ->pluck('allocated_carcass_weight_kg')
+            ->reduce(fn (string $carry, $kg) => bcadd($carry, (string) $kg, 4), '0.0000');
+
+        $this->assertSame('150.0000', $allocatedKg);
     }
 }

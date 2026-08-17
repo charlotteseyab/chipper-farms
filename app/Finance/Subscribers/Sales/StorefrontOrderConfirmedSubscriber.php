@@ -8,11 +8,17 @@ use App\Finance\Subscribers\Subscriber;
 use App\Models\DomainEvent;
 use App\Models\FeedType;
 use App\Models\FeedSale;
+use App\Models\Counterparty;
+use App\Models\Finance\Invoice;
 use App\Models\PigManagement;
 use App\Models\PigSale;
+use App\Models\PaymentMethod;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontOrder;
 use App\Models\User;
+use App\Services\Finance\Invoicing\InvoiceLineDraft;
+use App\Services\Finance\Invoicing\InvoicePostingService;
+use App\Services\Finance\Invoicing\InvoiceService;
 use App\Services\Sales\RecordFeedSaleService;
 use App\Services\Sales\RecordPigSaleService;
 use App\Support\CurrentOrganization;
@@ -47,6 +53,8 @@ class StorefrontOrderConfirmedSubscriber extends Subscriber
         protected RecordFeedSaleService $feedSales,
         protected RecordPigSaleService $pigSales,
         protected CurrentOrganization $currentOrganization,
+        protected InvoiceService $invoices,
+        protected InvoicePostingService $invoicePosting,
     ) {
     }
 
@@ -198,12 +206,20 @@ class StorefrontOrderConfirmedSubscriber extends Subscriber
     ): ?string {
         $kind = $item->kind;
 
+        if ($this->soldByAllocation($item)) {
+            return null;
+        }
+
         if (in_array($kind, [StorefrontListing::KIND_LIVE_PIG, StorefrontListing::KIND_BREEDING_STOCK], true)) {
             return $this->routePigLine($item, $actor, $paymentStatus, $paymentMethod, $buyerName, $counterpartyId, $order, $lineTax);
         }
 
-        if ($kind === StorefrontListing::KIND_FEED) {
+        if ($kind === StorefrontListing::KIND_FEED && $item->source_type === FeedType::class && $item->source_id !== null) {
             return $this->routeFeedLine($item, $actor, $paymentStatus, $paymentMethod, $buyerName, $counterpartyId, $order, $lineTax);
+        }
+
+        if ($this->isManualInvoiceLine($item)) {
+            return $this->routeManualInvoiceLine($item, $actor, $paymentStatus, $paymentMethod, $counterpartyId, $order, $lineTax);
         }
 
         return 'kind_not_auto_postable:' . $kind;
@@ -365,6 +381,99 @@ class StorefrontOrderConfirmedSubscriber extends Subscriber
         ])->save();
 
         return null;
+    }
+
+    protected function isManualInvoiceLine($item): bool
+    {
+        if ($item->purchase_type === \App\Storefront\Services\StorefrontPigPricingService::PURCHASE_MANUAL
+            || $item->source_category === \App\Storefront\Services\StorefrontPigPricingService::CATEGORY_MANUAL) {
+            return true;
+        }
+
+        return in_array($item->kind, [
+            StorefrontListing::KIND_FEED,
+            StorefrontListing::KIND_MANURE,
+            StorefrontListing::KIND_SERVICE,
+        ], true) && ($item->source_type === null || $item->source_id === null);
+    }
+
+    protected function routeManualInvoiceLine(
+        $item,
+        User $actor,
+        string $paymentStatus,
+        ?string $paymentMethod,
+        ?int $counterpartyId,
+        StorefrontOrder $order,
+        string $lineTax = '0.00',
+    ): ?string {
+        if ($item->posted_sale_type === Invoice::class && $item->posted_sale_id !== null && Invoice::find($item->posted_sale_id) !== null) {
+            return null;
+        }
+
+        $counterparty = Counterparty::find($counterpartyId ?: $order->counterparty_id);
+
+        if ($counterparty === null) {
+            return 'manual_invoice_counterparty_missing';
+        }
+
+        $paymentMethodId = $this->paymentMethodIdForInvoice($order, $paymentStatus, $paymentMethod);
+
+        $invoice = $this->invoices->createDraft(
+            customer: $counterparty,
+            headerData: [
+                'invoice_date'      => now()->toDateString(),
+                'due_date'          => now()->toDateString(),
+                'currency_code'     => $order->currency_code ?: 'GHS',
+                'payment_method_id' => $paymentMethodId,
+                'source_type'       => $item::class,
+                'source_id'         => $item->id,
+                'reference'         => $order->reference,
+                'description'       => "Storefront order {$order->reference}",
+                'notes'             => $item->description,
+            ],
+            lineDrafts: [
+                new InvoiceLineDraft(
+                    description: (string) $item->description,
+                    quantity: bcadd((string) $item->quantity, '0', 4),
+                    unitPrice: bcadd((string) $item->unit_price, '0', 2),
+                    unitOfMeasure: (string) ($item->quantity_unit ?: 'unit'),
+                    taxAmount: bccomp($lineTax, '0', 2) > 0 ? $lineTax : null,
+                ),
+            ],
+            createdBy: $actor,
+        );
+
+        $posted = $this->invoicePosting->post($invoice, $actor);
+
+        $item->forceFill([
+            'posted_sale_type' => Invoice::class,
+            'posted_sale_id'   => $posted->id,
+        ])->save();
+
+        return null;
+    }
+
+    protected function paymentMethodIdForInvoice(StorefrontOrder $order, string $paymentStatus, ?string $paymentMethod): ?int
+    {
+        if ($paymentStatus !== 'paid' && $order->payment_method !== StorefrontOrder::METHOD_COD) {
+            return null;
+        }
+
+        $code = $paymentMethod === StorefrontOrder::METHOD_PAYSTACK || $order->payment_method === StorefrontOrder::METHOD_PAYSTACK
+            ? 'PAYSTACK'
+            : 'CASH';
+
+        $method = PaymentMethod::query()
+            ->where(function ($q) use ($order) {
+                $q->where('organization_id', $order->organization_id)
+                    ->orWhereNull('organization_id');
+            })
+            ->where('code', $code)
+            ->where('is_active', true)
+            ->orderByRaw('organization_id is null')
+            ->first();
+
+        return $method?->id;
     }
 
     protected function resolveActor(DomainEvent $event, StorefrontOrder $order): ?User

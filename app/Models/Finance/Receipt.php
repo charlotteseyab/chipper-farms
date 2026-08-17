@@ -33,6 +33,7 @@ class Receipt extends Model
         'amount',
         'allocated_amount',
         'payment_method_id',
+        'source_account_id',
         'external_reference',
         'reference_type',
         'status',
@@ -70,6 +71,11 @@ class Receipt extends Model
     public function paymentMethod(): BelongsTo
     {
         return $this->belongsTo(PaymentMethod::class);
+    }
+
+    public function sourceAccount(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'source_account_id');
     }
 
     public function allocations(): HasMany

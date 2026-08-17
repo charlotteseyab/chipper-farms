@@ -3,7 +3,9 @@
 namespace App\Services\Finance\Cash;
 
 use App\Models\Finance\Account;
+use App\Models\Finance\BankAccount;
 use App\Models\Organization;
+use App\Models\PaymentMethod;
 use App\Support\CurrentOrganization;
 use Carbon\CarbonImmutable;
 
@@ -59,8 +61,32 @@ class MoneyAccountService
             return [];
         }
 
-        $codes = $this->configuredCodes();
+        $moneyAccounts = $this->moneyAccountRows($organizationId);
+        if ($moneyAccounts->isNotEmpty()) {
+            $balances = $this->balances($asOf, $organizationId);
 
+            return $moneyAccounts
+                ->filter(fn (BankAccount $moneyAccount): bool => $moneyAccount->account !== null)
+                ->map(function (BankAccount $moneyAccount) use ($balances): array {
+                    $account = $moneyAccount->account;
+                    $balance = $balances[$account->id] ?? '0.00';
+
+                    return [
+                        'id'               => (int) $account->id,
+                        'money_account_id' => (int) $moneyAccount->id,
+                        'code'             => (string) $account->code,
+                        'name'             => (string) $account->name,
+                        'label'            => $moneyAccount->displayName(),
+                        'kind'             => (string) ($moneyAccount->account_kind ?: BankAccount::KIND_BANK),
+                        'balance'          => $balance,
+                        'is_negative'      => bccomp($balance, '0', 2) < 0,
+                    ];
+                })
+                ->values()
+                ->all();
+        }
+
+        $codes = $this->configuredCodes();
         $accounts = $this->resolveAccounts(array_keys($codes), $organizationId);
         $balances = $this->balances($asOf, $organizationId);
 
@@ -133,7 +159,89 @@ class MoneyAccountService
      */
     public function isMoneyAccount(Account $account): bool
     {
+        $organizationId = $account->organization_id ?? $this->currentOrganization->get()?->id;
+
+        if ($organizationId !== null && $this->moneyAccountRows((int) $organizationId)->isNotEmpty()) {
+            return BankAccount::query()
+                ->where('organization_id', $organizationId)
+                ->where('account_id', $account->id)
+                ->where('is_active', true)
+                ->exists();
+        }
+
         return array_key_exists((string) $account->code, $this->configuredCodes());
+    }
+
+    /**
+     * Active practical money accounts for forms.
+     *
+     * @return \Illuminate\Support\Collection<int, BankAccount>
+     */
+    public function selectable(Organization|int|null $organization = null)
+    {
+        $organizationId = $this->resolveOrganizationId($organization);
+
+        if ($organizationId === null) {
+            return collect();
+        }
+
+        return $this->moneyAccountRows($organizationId);
+    }
+
+    public function sourceAccountIdForMoneyAccount(int $moneyAccountId, Organization|int|null $organization = null): int
+    {
+        $organizationId = $this->resolveOrganizationId($organization);
+
+        $moneyAccount = BankAccount::query()
+            ->with('account')
+            ->where('id', $moneyAccountId)
+            ->when($organizationId, fn ($q) => $q->where('organization_id', $organizationId))
+            ->where('is_active', true)
+            ->first();
+
+        if (! $moneyAccount || ! $moneyAccount->account) {
+            throw new \InvalidArgumentException('Choose an active money account before posting this transaction.');
+        }
+
+        return (int) $moneyAccount->account->id;
+    }
+
+    public function accountForMoneyAccount(int $moneyAccountId, Organization|int|null $organization = null): Account
+    {
+        $accountId = $this->sourceAccountIdForMoneyAccount($moneyAccountId, $organization);
+
+        return Account::query()->findOrFail($accountId);
+    }
+
+    public function paymentMethodForMoneyAccount(int $moneyAccountId, Organization|int|null $organization = null): PaymentMethod
+    {
+        $organizationId = $this->resolveOrganizationId($organization);
+
+        $moneyAccount = BankAccount::query()
+            ->where('id', $moneyAccountId)
+            ->when($organizationId, fn ($q) => $q->where('organization_id', $organizationId))
+            ->first();
+
+        if (! $moneyAccount) {
+            throw new \InvalidArgumentException('Choose an active money account before posting this transaction.');
+        }
+
+        $code = $this->paymentMethodCodeFor($moneyAccount);
+
+        $method = PaymentMethod::query()
+            ->where(function ($q) use ($organizationId) {
+                $q->where('organization_id', $organizationId)->orWhereNull('organization_id');
+            })
+            ->where('code', $code)
+            ->where('is_active', true)
+            ->orderByRaw('organization_id is null')
+            ->first();
+
+        if ($method === null) {
+            throw new \DomainException("Payment method [{$code}] is not configured.");
+        }
+
+        return $method;
     }
 
     /**
@@ -240,6 +348,43 @@ class MoneyAccountService
         }
 
         return $out;
+    }
+
+    protected function moneyAccountRows(int $organizationId)
+    {
+        return BankAccount::query()
+            ->with('account')
+            ->where('organization_id', $organizationId)
+            ->where('is_active', true)
+            ->orderBy('account_kind')
+            ->orderBy('label')
+            ->get();
+    }
+
+    protected function paymentMethodCodeFor(BankAccount $moneyAccount): string
+    {
+        if ($moneyAccount->account_kind === BankAccount::KIND_CASH) {
+            return 'CASH';
+        }
+
+        if ($moneyAccount->account_kind === BankAccount::KIND_BANK) {
+            return 'BANK_TRANSFER';
+        }
+
+        if ($moneyAccount->account_kind === BankAccount::KIND_GATEWAY) {
+            return strtoupper((string) $moneyAccount->provider) === 'PAYSTACK'
+                ? 'PAYSTACK'
+                : 'POS';
+        }
+
+        $provider = strtolower((string) ($moneyAccount->provider ?: $moneyAccount->bank_name));
+
+        return match (true) {
+            str_contains($provider, 'mtn') => 'MOMO_MTN',
+            str_contains($provider, 'airtel') || str_contains($provider, 'tigo') || str_contains($provider, 'at') => 'MOMO_ATGO',
+            str_contains($provider, 'telecel') || str_contains($provider, 'voda') => 'MOMO_VODA',
+            default => 'MOMO_MTN',
+        };
     }
 
     protected function resolveOrganizationId(Organization|int|null $organization): ?int

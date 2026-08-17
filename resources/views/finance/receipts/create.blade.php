@@ -45,19 +45,18 @@
                         <input type="number" step="0.01" min="0.01" name="amount" value="{{ old('amount') }}" required class="w-full rounded-xl border-slate-200 text-sm text-right">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Payment Method <span class="text-red-500">*</span></label>
-                        <select name="payment_method_id" required class="w-full rounded-xl border-slate-200 text-sm">
-                            <option value="">Select a method...</option>
-                            @foreach($paymentMethods as $pm)
-                                <option value="{{ $pm->id }}" @selected(old('payment_method_id') == $pm->id)>
-                                    {{ $pm->name }}
-                                    @if($pm->is_cash) (cash)
-                                    @elseif($pm->is_mobile_money) (mobile money)
-                                    @elseif($pm->is_bank) (bank)
-                                    @endif
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Received into <span class="text-red-500">*</span></label>
+                        <select name="money_account_id" required class="w-full rounded-xl border-slate-200 text-sm">
+                            <option value="">Choose a money account...</option>
+                            @foreach($moneyAccounts as $account)
+                                <option value="{{ $account->id }}" @selected((int) old('money_account_id') === $account->id)>
+                                    {{ $account->displayName() }} · {{ $account->account?->code }}
                                 </option>
                             @endforeach
                         </select>
+                        @if($moneyAccounts->isEmpty())
+                            <p class="mt-1 text-xs text-slate-500">Set up a money account under Cash, Bank & MoMo before posting receipts.</p>
+                        @endif
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-slate-700 mb-1">External Reference</label>

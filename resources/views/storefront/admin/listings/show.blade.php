@@ -25,7 +25,7 @@
                     <dl class="grid grid-cols-2 gap-3 text-sm">
                         <dt class="text-slate-400">Pricing basis</dt><dd>{{ $listing->pricing_basis }}</dd>
                         <dt class="text-slate-400">Price</dt><dd>{{ $listing->displayPrice() !== null ? $listing->currency_code.' '.number_format((float)$listing->displayPrice(),2) : '—' }}</dd>
-                        <dt class="text-slate-400">Quantity</dt><dd>{{ rtrim(rtrim((string)$listing->quantity_available,'0'),'.') }} {{ $listing->quantity_unit }}</dd>
+                        <dt class="text-slate-400">Quantity</dt><dd>{{ rtrim(rtrim((string)$listing->quantity_available,'0'),'.') }} {{ $listing->displayQuantityUnit((string) $listing->quantity_available) }}</dd>
                         <dt class="text-slate-400">Est. weight</dt><dd>{{ $listing->estimated_weight_kg !== null ? $listing->estimated_weight_kg.' kg' : '—' }}</dd>
                         <dt class="text-slate-400">Pickup</dt><dd>{{ $listing->pickup_allowed ? 'Yes' : 'No' }}</dd>
                         <dt class="text-slate-400">Delivery</dt><dd>{{ $listing->delivery_allowed ? 'Yes' : 'No' }}</dd>
@@ -57,6 +57,13 @@
                                     <button class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm">Archive</button>
                                 </form>
                             @endif
+                            @can('delete', $listing)
+                                <form method="POST" action="{{ route('storefront.admin.listings.destroy', $listing) }}" onsubmit="return confirm('Delete this listing? Unsold selected pigs will be released for other listings. Sold pigs remain sales history.');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="w-full px-3 py-2 rounded-xl border border-red-300 text-red-700 text-sm">Delete listing</button>
+                                </form>
+                            @endcan
                         </div>
                     @else
                         <p class="text-sm text-slate-400">You don't have permission to manage this listing.</p>

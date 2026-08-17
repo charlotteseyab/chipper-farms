@@ -90,18 +90,22 @@ class StorefrontPigPoolService
             return collect();
         }
 
-        // Piglets have no per-animal record — farrowing and weaning carry litter
-        // COUNTS. They are materialised as real pigs only when a manager
-        // approves a sale, so there is nothing to pick from here yet.
-        if ($category === StorefrontPigPricingService::CATEGORY_PIGLETS) {
+        $stockType = $this->stockTypeForCategory($category);
+
+        if ($stockType === null) {
             return collect();
         }
 
-        $stockType = $category === StorefrontPigPricingService::CATEGORY_BREEDING
-            ? 'breeding'
-            : 'standard';
+        $pigs = $this->eligiblePigsForListing($organizationId, $listing, $stockType, $search);
 
-        return $this->eligiblePigsForListing($organizationId, $listing, $stockType, $search);
+        if ($category === StorefrontPigPricingService::CATEGORY_PIGLETS) {
+            return $pigs->filter(function (PigManagement $pig): bool {
+                return $pig->date_of_birth !== null
+                    && \Carbon\Carbon::parse($pig->date_of_birth)->greaterThanOrEqualTo(now()->subDays(120));
+            })->values();
+        }
+
+        return $pigs;
     }
 
     /**
@@ -114,6 +118,31 @@ class StorefrontPigPoolService
             StorefrontPigPricingService::CATEGORY_PIGLETS  => StorefrontListing::KIND_PIGLET_LOT,
             StorefrontPigPricingService::CATEGORY_STANDARD => StorefrontListing::KIND_LIVE_PIG,
             default => StorefrontListing::KIND_LIVE_PIG,
+        };
+    }
+
+    public function stockTypeForCategory(string $category): ?string
+    {
+        return match ($category) {
+            StorefrontPigPricingService::CATEGORY_BREEDING => 'breeding',
+            StorefrontPigPricingService::CATEGORY_STANDARD => 'standard',
+            StorefrontPigPricingService::CATEGORY_PIGLETS => 'standard',
+            default => null,
+        };
+    }
+
+    public function stockTypeForListing(StorefrontListing $listing): ?string
+    {
+        $category = (string) ($listing->source_category ?? '');
+
+        if ($category !== '') {
+            return $this->stockTypeForCategory($category);
+        }
+
+        return match ($listing->kind) {
+            StorefrontListing::KIND_BREEDING_STOCK => 'breeding',
+            StorefrontListing::KIND_LIVE_PIG => 'standard',
+            default => null,
         };
     }
 
@@ -135,6 +164,7 @@ class StorefrontPigPoolService
     ): Collection {
         $alreadyPooledElsewhere = StorefrontListingPig::query()
             ->whereIn('status', StorefrontListingPig::ACTIVE_STATUSES)
+            ->whereHas('listing', fn ($q) => $q->where('status', '!=', StorefrontListing::STATUS_ARCHIVED))
             ->when($listing !== null, fn ($q) => $q->where('storefront_listing_id', '!=', $listing->getKey()))
             ->pluck('pig_id')
             ->all();
@@ -155,7 +185,9 @@ class StorefrontPigPoolService
                         ->orWhere('code', 'like', $term)
                         ->orWhere('local_id', 'like', $term)
                         ->orWhere('breed', 'like', $term)
-                        ->orWhere('gender', 'like', $term);
+                        ->orWhere('gender', 'like', $term)
+                        ->orWhere('current_weight_kg_cache', 'like', $term)
+                        ->orWhereHas('latestWeight', fn ($weights) => $weights->where('weight', 'like', $term));
                 });
             })
             // The picker shows each animal's latest weight and its estimated
@@ -207,6 +239,12 @@ class StorefrontPigPoolService
             $organizationId = (int) ($lockedListing->organization_id
                 ?? $this->currentOrganization->requireId());
 
+            $requiredStockType = $this->stockTypeForListing($lockedListing);
+
+            if ($requiredStockType === null) {
+                throw new InventoryConflictException('This listing type cannot be backed by selected pigs.');
+            }
+
             // Lock the pigs themselves, in ascending id order. Ascending is the
             // same order every other locking path in this application uses; two
             // callers grabbing overlapping sets in opposite orders is how a
@@ -231,9 +269,10 @@ class StorefrontPigPoolService
                     throw new InventoryConflictException("Pig #{$pigId} could not be found.");
                 }
 
-                if ($pig->stock_type !== 'standard') {
+                if ($pig->stock_type !== $requiredStockType) {
+                    $label = $requiredStockType === 'breeding' ? 'Breeding Stock' : 'Standard Stock';
                     throw new InventoryConflictException(
-                        "{$this->label($pig)} is not Standard Stock and cannot be sold through the shop."
+                        "{$this->label($pig)} is not {$label} and cannot be sold through this listing."
                     );
                 }
 
@@ -289,6 +328,66 @@ class StorefrontPigPoolService
     }
 
     /**
+     * Make the listing's editable pool match the checked animals on the form.
+     *
+     * Only sellable rows are removed here. Held/allocated/sold rows are order
+     * and sales history, so an edit screen must not quietly detach them because
+     * they were not shown as ordinary selectable stock.
+     *
+     * @param  list<int>  $pigIds
+     */
+    public function syncPigs(StorefrontListing $listing, array $pigIds, User $actor): StorefrontListing
+    {
+        $pigIds = array_values(array_unique(array_map('intval', $pigIds)));
+
+        return DB::transaction(function () use ($listing, $pigIds, $actor) {
+            $lockedListing = StorefrontListing::query()
+                ->whereKey($listing->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($this->stockTypeForListing($lockedListing) === null) {
+                throw new InventoryConflictException('This listing type cannot be backed by selected pigs.');
+            }
+
+            $currentSellableRows = StorefrontListingPig::query()
+                ->where('storefront_listing_id', $lockedListing->getKey())
+                ->whereIn('status', StorefrontListingPig::SELLABLE_STATUSES)
+                ->orderBy('pig_id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('pig_id');
+
+            $currentIds = $currentSellableRows->keys()
+                ->map(fn ($id) => (int) $id)
+                ->all();
+
+            $removeIds = array_diff($currentIds, $pigIds);
+
+            foreach ($removeIds as $pigId) {
+                $row = $currentSellableRows->get($pigId);
+                if ($row === null) {
+                    continue;
+                }
+
+                $row->status             = StorefrontListingPig::STATUS_REMOVED;
+                $row->removed_by_user_id = $actor->getKey();
+                $row->removed_at         = now();
+                $row->removal_reason     = 'Removed while editing the storefront listing.';
+                $row->save();
+            }
+
+            if ($pigIds !== []) {
+                $this->attachPigs($lockedListing, $pigIds, $actor);
+            } else {
+                $this->syncListingAvailability($lockedListing, $actor);
+            }
+
+            return $lockedListing->refresh();
+        });
+    }
+
+    /**
      * Take a pig out of a listing's pool.
      *
      * Refuses if the animal is allocated to an order: releasing that is the
@@ -340,18 +439,81 @@ class StorefrontPigPoolService
     }
 
     /**
+     * Release every unsold animal selected for a listing.
+     *
+     * Archiving/deleting a listing is different from removing one row by hand:
+     * the listing itself is leaving the sales surface, so any unsold selected
+     * animals must stop reserving stock. Sold rows stay sold as immutable sales
+     * history; active order allocations are released with a clear reason so no
+     * pending order silently points at a pig that has returned to the pool.
+     */
+    public function releaseUnsoldPigsForListing(
+        StorefrontListing $listing,
+        User $actor,
+        string $reason,
+    ): int {
+        return DB::transaction(function () use ($listing, $actor, $reason): int {
+            $lockedListing = StorefrontListing::query()
+                ->whereKey($listing->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $rows = StorefrontListingPig::query()
+                ->where('storefront_listing_id', $lockedListing->getKey())
+                ->whereNotIn('status', [
+                    StorefrontListingPig::STATUS_SOLD,
+                    StorefrontListingPig::STATUS_REMOVED,
+                ])
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($rows as $row) {
+                StorefrontOrderItemPigAllocation::query()
+                    ->where('storefront_listing_pig_id', $row->getKey())
+                    ->whereIn('status', StorefrontOrderItemPigAllocation::ACTIVE_STATUSES)
+                    ->lockForUpdate()
+                    ->get()
+                    ->each(function (StorefrontOrderItemPigAllocation $allocation) use ($reason): void {
+                        $allocation->status = StorefrontOrderItemPigAllocation::STATUS_RELEASED;
+                        $allocation->release_reason = $reason;
+                        $allocation->save();
+                    });
+
+                $row->status                  = StorefrontListingPig::STATUS_REMOVED;
+                $row->removed_by_user_id      = $actor->getKey();
+                $row->removed_at              = now();
+                $row->removal_reason          = $reason;
+                $row->allocated_order_id      = null;
+                $row->allocated_order_item_id = null;
+                $row->allocated_at            = null;
+                $row->save();
+            }
+
+            $this->syncListingAvailability($lockedListing, $actor);
+
+            return $rows->count();
+        });
+    }
+
+    /**
      * How many animals this listing can still offer.
      */
     public function availableCount(StorefrontListing $listing): int
     {
         $organizationId = (int) $listing->organization_id;
+        $requiredStockType = $this->stockTypeForListing($listing);
+
+        if ($requiredStockType === null) {
+            return 0;
+        }
 
         return StorefrontListingPig::query()
             ->where('storefront_listing_id', $listing->getKey())
             ->whereIn('status', StorefrontListingPig::SELLABLE_STATUSES)
             ->with('pig')
             ->get()
-            ->filter(function (StorefrontListingPig $row) use ($listing, $organizationId): bool {
+            ->filter(function (StorefrontListingPig $row) use ($listing, $organizationId, $requiredStockType): bool {
                 $pig = $row->pig;
 
                 if (! $pig instanceof PigManagement) {
@@ -360,7 +522,7 @@ class StorefrontPigPoolService
 
                 if ($pig->trashed()
                     || (int) $pig->organization_id !== $organizationId
-                    || $pig->stock_type !== 'standard'
+                    || $pig->stock_type !== $requiredStockType
                     || $pig->sales()->exists()
                     || $pig->deaths()->exists()) {
                     return false;
@@ -453,6 +615,7 @@ class StorefrontPigPoolService
         $rows = StorefrontListingPig::query()
             ->where('pig_id', $pig->getKey())
             ->whereIn('status', StorefrontListingPig::ACTIVE_STATUSES)
+            ->whereHas('listing', fn ($q) => $q->where('status', '!=', StorefrontListing::STATUS_ARCHIVED))
             ->orderBy('id')
             ->lockForUpdate()
             ->get();
@@ -612,6 +775,7 @@ class StorefrontPigPoolService
             ->where('pig_id', $pig->getKey())
             ->where('storefront_listing_id', '!=', $listing->getKey())
             ->whereIn('status', StorefrontListingPig::ACTIVE_STATUSES)
+            ->whereHas('listing', fn ($q) => $q->where('status', '!=', StorefrontListing::STATUS_ARCHIVED))
             ->lockForUpdate()
             ->first();
 

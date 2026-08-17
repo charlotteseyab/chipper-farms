@@ -18,7 +18,7 @@ use Illuminate\Database\Seeder;
  *   grants.
  * - The Salesperson role manages listings/placements/orders within scope but
  *   is deliberately NOT granted sensitive finance permissions (refund approval,
- *   payment configuration) — those stay with admin/accountant per the brief.
+ *   payment configuration) — those stay with admin/accountant/farm manager.
  * - The Customer role holds NO operational/finance permissions. It exists so
  *   storefront customers can authenticate and reach their account area while
  *   being naturally locked out of every back-office route.
@@ -44,6 +44,7 @@ class StorefrontPermissionsSeeder extends Seeder
             'view_storefront_dashboard'   => 'View the storefront back-office dashboard.',
             'view_storefront_listings'    => 'View storefront listings in the back office.',
             'manage_storefront_listings'  => 'Create, edit, publish, unpublish and archive listings.',
+            'delete_storefront_listings'  => 'Delete storefront listings and release any unsold pooled pigs.',
             'push_to_storefront'          => 'Push pigs / lots / products from operations into a storefront listing.',
             'manage_storefront_placements'=> 'Manage homepage / featured placement slots.',
             'manage_storefront_settings'  => 'Change storefront settings (store info, pricing defaults, delivery).',
@@ -60,10 +61,11 @@ class StorefrontPermissionsSeeder extends Seeder
         $assignments = [
             'view_storefront_dashboard'    => ['admin', 'superuser', 'salesperson', 'manager', 'accountant'],
             'view_storefront_listings'     => ['admin', 'superuser', 'salesperson', 'manager', 'accountant'],
-            'manage_storefront_listings'   => ['admin', 'superuser', 'salesperson'],
+            'manage_storefront_listings'   => ['admin', 'superuser', 'salesperson', 'manager'],
+            'delete_storefront_listings'   => ['superuser'],
             'push_to_storefront'           => ['admin', 'superuser', 'salesperson', 'manager'],
-            'manage_storefront_placements' => ['admin', 'superuser', 'salesperson'],
-            'manage_storefront_settings'   => ['admin', 'superuser'],
+            'manage_storefront_placements' => ['admin', 'superuser', 'salesperson', 'manager'],
+            'manage_storefront_settings'   => ['admin', 'superuser', 'manager'],
             'view_storefront_reports'      => ['admin', 'superuser', 'salesperson', 'accountant', 'manager'],
         ];
 

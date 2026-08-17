@@ -1,0 +1,27 @@
+Section,Menu Label,Route,Superuser,Admin,Farm Manager,Finance Officer,Salesperson,Data Entry,Customer,Guest,Feature,Permission,Direct Route Guarded,Mobile Tested,Status
+System Settings,Modules & Features,settings.modules,Yes,No,No,No,No,No,No,No,None,Superuser plus manage_feature_flags middleware,Yes,Not critical,Complete
+System Settings,General Settings,settings.general,Yes,Yes,No,No,No,No,No,No,None,Admin role,Yes,Default,Complete
+System Settings,Breeding Setup,settings.setup,Yes,Yes,No,No,No,No,No,No,None,Admin role,Yes,Default,Complete
+System Settings,Email Settings,settings.email,Yes,Yes,No,No,No,No,No,No,None,Admin role,Yes,Default,Complete
+System Settings,System Reports,settings.reports,Yes,Yes,No,No,No,No,No,No,None,Admin role,Yes,Default,Complete
+System Settings,Activity Log,settings.activity-log,Yes,No,No,No,No,No,No,No,None,Superuser role,Yes,Default,Complete
+System Settings,User Management,settings.users,Yes,No,No,No,No,No,No,No,None,Superuser role,Yes,Default,Complete
+Storefront,Overview,storefront.admin.dashboard,Yes,Yes,Yes,Conditional,Yes,No,No,No,Storefront,view_storefront_dashboard,Yes,Yes,Complete
+Storefront,Listings,storefront.admin.listings.index,Yes,Yes,Yes,Conditional,Yes,No,No,No,Storefront,view_storefront_listings,Yes,Yes,Complete
+Storefront,Push to Storefront,storefront.admin.push.create,Yes,Yes,Yes,No,Yes,No,No,No,Storefront,push_to_storefront,Yes,Feature,Complete
+Storefront,Orders,storefront.admin.orders.index,Yes,Yes,Yes,Conditional,Yes,No,No,No,Storefront,view_storefront_orders,Yes,Yes,Complete
+Storefront,Quotes,storefront.admin.quotes.index,Yes,Yes,Yes,Conditional,Yes,No,No,No,STOREFRONT_QUOTES,view_storefront_quotes,Yes,Feature,Complete
+Storefront,Placements,storefront.admin.placements.index,Yes,Yes,No,No,Yes,No,No,No,Storefront,manage_storefront_placements,Yes,Feature,Complete
+Storefront,Reports,storefront.admin.reports.sales,Yes,Yes,Yes,Conditional,Yes,No,No,No,Storefront,view_storefront_reports,Yes,Feature,Complete
+Storefront,Settings,storefront.admin.settings.index,Yes,Yes,No,No,No,No,No,No,Storefront,manage_storefront_settings,Yes,Feature,Complete
+Storefront,View Store,storefront.home,Yes,Yes,Yes,Conditional,Yes,No,No,Yes,Storefront,Any storefront staff permission or public route,Public-safe,Yes,Complete
+Shop,Shop all,storefront.shop,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Storefront/Public,None,Public-safe,Yes,Complete
+Shop,Cart,storefront.cart.index,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Storefront/Public,None,Public-safe,Feature,Complete
+Shop,Checkout,storefront.checkout.show,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Yes,Storefront/Public,None,Public-safe,Feature,Complete
+Finance,Overview,finance.overview,Yes,Yes,Yes,Yes,No,No,No,No,Finance flags,Feature/permission-aware finance navigation,Yes,Yes,Complete
+Finance,Money In,finance.money-in.index,Yes,Yes,No,Yes,No,No,No,No,Finance,Finance permission,Yes,Yes,Complete
+Finance,Trial Balance,finance.trial-balance.index,Yes,Yes,No,Yes,No,No,No,No,Finance reports,Finance report permission,Yes,Feature,Complete
+Pig Management,All Stocks,all-stocks.index,Yes,Yes,Yes,No,No,Yes,No,No,None,Farm role/permission,Yes,Yes,Complete
+Pig Management,Sales,sales.index,Yes,Yes,Yes,Conditional,Conditional,No,No,No,None,Farm/sales permission,Yes,Yes,Complete
+Feed,Purchase Requests,purchase-requests.index,Yes,Yes,Yes,No,No,Conditional,No,No,None,Farm/feed permission,Yes,Feature,Complete
+Inventory,Raw Materials,raw-materials.index,Yes,Yes,Yes,No,No,Conditional,No,No,None,Farm/feed permission,Yes,Feature,Complete

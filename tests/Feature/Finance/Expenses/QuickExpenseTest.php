@@ -4,6 +4,7 @@ namespace Tests\Feature\Finance\Expenses;
 
 use App\Models\Counterparty;
 use App\Models\Finance\Account;
+use App\Models\Finance\BankAccount;
 use App\Models\Finance\Journal;
 use App\Models\Finance\JournalLine;
 use App\Models\Finance\QuickExpense;
@@ -142,6 +143,37 @@ class QuickExpenseTest extends TestCase
             'MTN MoMo must reduce the MTN wallet, not cash on hand. MoMo providers are separate '
             . 'accounts because their settlements and references differ.',
         );
+        $this->assertNull($this->lineFor($expense, '1010'));
+    }
+
+    public function test_money_account_selection_controls_the_cash_side(): void
+    {
+        $bankLedger = Account::where('organization_id', $this->org->id)
+            ->where('code', '1030')
+            ->firstOrFail();
+
+        $moneyAccount = BankAccount::create([
+            'organization_id' => $this->org->id,
+            'account_id' => $bankLedger->id,
+            'account_kind' => BankAccount::KIND_BANK,
+            'label' => 'Main GCB account',
+            'bank_name' => 'GCB Bank',
+            'account_number' => '1234567890',
+            'currency_code' => 'GHS',
+            'opening_balance' => '0.00',
+            'opening_balance_date' => '2026-01-01',
+            'is_active' => true,
+            'created_by_user_id' => $this->user->id,
+        ]);
+
+        $expense = $this->service()->record($this->input([
+            'money_account_id' => $moneyAccount->id,
+            'payment_method_key' => 'cash',
+            'external_reference' => 'BNK-001',
+        ]), $this->user);
+
+        $this->assertSame($moneyAccount->id, $expense->money_account_id);
+        $this->assertSame('400.00', (string) $this->lineFor($expense, '1030')->credit);
         $this->assertNull($this->lineFor($expense, '1010'));
     }
 
