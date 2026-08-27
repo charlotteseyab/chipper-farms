@@ -387,7 +387,7 @@
             font-size: 1.45rem;
             line-height: 1;
             font-weight: 900;
-            font-family: Georgia, "Times New Roman", serif;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
         }
 
         .admin-command-title{

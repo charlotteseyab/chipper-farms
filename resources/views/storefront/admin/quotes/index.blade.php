@@ -51,10 +51,7 @@
                                         @endif
 
                                         @if($q->status === \App\Models\Storefront\StorefrontQuote::STATUS_QUOTED)
-                                            <form method="POST" action="{{ route('storefront.admin.quotes.accept', $q) }}">
-                                                @csrf
-                                                <button class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white">Accept</button>
-                                            </form>
+                                            <span class="rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">Awaiting buyer</span>
                                         @endif
 
                                         @if($q->status === \App\Models\Storefront\StorefrontQuote::STATUS_ACCEPTED)

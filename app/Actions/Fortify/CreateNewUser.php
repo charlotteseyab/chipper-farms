@@ -42,6 +42,7 @@ class CreateNewUser implements CreatesNewUsers
             'email' => ['required', 'string', 'email', 'max:50', 'unique:users'],
             'phone' => ['nullable', 'regex:/^[0-9]{0,20}$/'],
             'role' => ['required', 'string', 'in:' . implode(',', User::allowedRoleNames())],
+            'organization_id' => ['nullable', 'integer', 'exists:organizations,id'],
             'active_status' => ['boolean'],
             'password' => $this->passwordRules(),
             'terms' => Jetstream::hasTermsAndPrivacyPolicyFeature() ? ['accepted', 'required'] : '',

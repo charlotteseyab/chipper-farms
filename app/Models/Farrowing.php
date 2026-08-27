@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
 use App\Models\Concerns\ResolvesOrganization;
+use App\Models\Concerns\BelongsToOrganizationThroughRelation;
 
 class Farrowing extends Model implements ResolvesOrganization
 {
@@ -33,7 +34,12 @@ class Farrowing extends Model implements ResolvesOrganization
         return $boarOrg === null ? null : (int) $boarOrg;
     }
 
-    use HasFactory;
+    use HasFactory, BelongsToOrganizationThroughRelation;
+
+    protected static function organizationRelation(): string
+    {
+        return 'sow';
+    }
 
     protected $table = 'farrowing';
 

@@ -43,6 +43,28 @@ class StorefrontPlacement extends Model
         self::CODE_BEST_SELLERS,
     ];
 
+    public const LABELS = [
+        self::CODE_HOME_HERO      => 'Homepage spotlight',
+        self::CODE_LIVE_PIGS      => 'Featured live pigs',
+        self::CODE_BREEDING_STOCK => 'Featured breeding stock',
+        self::CODE_FEED           => 'Feed & supplies',
+        self::CODE_MANURE         => 'Featured manure',
+        self::CODE_BULK_ORDERS    => 'Bulk orders',
+        self::CODE_NEW_ARRIVALS   => 'New arrivals',
+        self::CODE_BEST_SELLERS   => 'Best sellers',
+    ];
+
+    public const DESCRIPTIONS = [
+        self::CODE_HOME_HERO      => 'The main product spotlight beside the storefront introduction. One listing is shown.',
+        self::CODE_LIVE_PIGS      => 'Live-pig listings promoted in their own homepage section.',
+        self::CODE_BREEDING_STOCK => 'Breeding-stock listings promoted in their own homepage section.',
+        self::CODE_FEED           => 'Feed listings promoted in their own homepage section.',
+        self::CODE_MANURE         => 'Manure listings promoted in their own homepage section.',
+        self::CODE_BULK_ORDERS    => 'Listings suitable for larger or quote-based purchases.',
+        self::CODE_NEW_ARRIVALS   => 'Recently added products selected by the storefront team.',
+        self::CODE_BEST_SELLERS   => 'Popular products selected by the storefront team.',
+    ];
+
     protected $fillable = [
         'organization_id',
         'code',

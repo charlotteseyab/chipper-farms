@@ -131,6 +131,6 @@ class ListingDetailPresenter
             return null;
         }
 
-        return ucfirst($breed);
+        return \App\Models\Setting::breedName($breed);
     }
 }

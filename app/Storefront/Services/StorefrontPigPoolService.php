@@ -179,13 +179,18 @@ class StorefrontPigPoolService
             // without every row being rendered first.
             ->when($search !== null && trim($search) !== '', function ($q) use ($search) {
                 $term = '%' . trim($search) . '%';
+                $matchingBreedCodes = collect(\App\Models\Setting::animalBreeds())
+                    ->filter(fn (string $name, string $code) => str_contains(strtolower($name.' '.$code), strtolower(trim($search))))
+                    ->keys()
+                    ->all();
 
-                $q->where(function ($inner) use ($term) {
+                $q->where(function ($inner) use ($term, $matchingBreedCodes) {
                     $inner->where('ear_tag_number', 'like', $term)
                         ->orWhere('code', 'like', $term)
                         ->orWhere('local_id', 'like', $term)
                         ->orWhere('breed', 'like', $term)
                         ->orWhere('gender', 'like', $term)
+                        ->when($matchingBreedCodes !== [], fn ($breedQuery) => $breedQuery->orWhereIn('breed', $matchingBreedCodes))
                         ->orWhere('current_weight_kg_cache', 'like', $term)
                         ->orWhereHas('latestWeight', fn ($weights) => $weights->where('weight', 'like', $term));
                 });

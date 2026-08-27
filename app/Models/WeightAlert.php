@@ -5,9 +5,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Carbon\Carbon;
+use App\Models\Concerns\BelongsToOrganizationThroughRelation;
 
 class WeightAlert extends Model
 {
+    use BelongsToOrganizationThroughRelation;
+
+    protected static function organizationRelation(): string
+    {
+        return 'pig';
+    }
+
     protected $fillable = [
         'pig_id',
         'weight_record_id',

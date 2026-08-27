@@ -81,10 +81,18 @@
 
             <div class="rounded-2xl border border-slate-100 bg-white shadow-sm p-5">
                 <h3 class="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">Finance Defaults</h3>
+                @php
+                    $effectiveCreditLimit = $customer->effectiveCreditLimit();
+                @endphp
                 <dl class="space-y-2 text-sm">
                     <div class="flex justify-between"><dt class="text-slate-500">Currency</dt><dd class="text-slate-800">{{ $customer->currency_code }}</dd></div>
                     <div class="flex justify-between"><dt class="text-slate-500">Payment Terms</dt><dd class="text-slate-800">{{ $customer->effectivePaymentTermsDays() !== null ? 'Net ' . $customer->effectivePaymentTermsDays() . ' days' : 'COD' }}</dd></div>
-                    <div class="flex justify-between"><dt class="text-slate-500">Credit Limit</dt><dd class="text-slate-800">@php $cl = $customer->effectiveCreditLimit(); @endphp{{ $cl !== null ? $customer->currency_code . ' ' . number_format((float) $cl, 2) : '—' }}</dd></div>
+                    <div class="flex items-start justify-between gap-4">
+                        <dt class="text-slate-500">Credit Limit</dt>
+                        <dd class="text-right font-medium text-slate-800">
+                            {{ $effectiveCreditLimit !== null ? $customer->currency_code . ' ' . number_format((float) $effectiveCreditLimit, 2) : '—' }}
+                        </dd>
+                    </div>
                     <div class="flex justify-between"><dt class="text-slate-500">Discount</dt><dd class="text-slate-800">{{ $customer->effectiveDiscountPercent() }}%</dd></div>
                 </dl>
             </div>

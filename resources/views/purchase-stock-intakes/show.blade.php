@@ -108,9 +108,14 @@
                             @csrf
                             <button class="w-full rounded-lg px-4 py-2 text-sm font-semibold" style="background:#14532d;color:#ffffff;border:1px solid #14532d;box-shadow:0 8px 18px rgba(20,83,45,.22);">Approve Stock Entry</button>
                         </form>
-                    @elseif($intake->status === \App\Models\PurchaseStockIntake::STATUS_APPROVED)
+                    @elseif($intake->status === \App\Models\PurchaseStockIntake::STATUS_APPROVED || $canMaterializeLegacyPiglets)
                         <form method="POST" action="{{ route('purchase-stock-intakes.add-to-stock', $intake) }}">
                             @csrf
+                            @if($canMaterializeLegacyPiglets)
+                                <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                                    This older piglet intake was counted only as a batch. Create its individual main-stock record{{ $intake->receivedQuantity() === 1 ? '' : 's' }} now so it appears in All Stock.
+                                </div>
+                            @endif
                             <div class="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
                                 <div class="text-sm font-bold text-slate-900">Final Housing</div>
                                 <p class="mt-1 text-xs text-slate-500">Choose a room with enough available space, or assign the animals to a group. Room capacity is checked before stock records are created.</p>
@@ -147,30 +152,21 @@
                                     </select>
                                 </label>
                             </div>
-                            @if(! $intake->isPigletBatch())
-                                <div class="mb-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                                    <div class="text-sm font-bold text-slate-900">Ear Tag Numbers</div>
-                                    <p class="mt-1 text-xs text-slate-500">Enter one ear tag for each received animal. These tags will be used on the generated pig records.</p>
-                                </div>
-                                <div class="mb-4 max-h-72 space-y-3 overflow-y-auto pr-1">
-                                    @for($i = 0; $i < $intake->receivedQuantity(); $i++)
-                                        <label class="block">
-                                            <span class="text-sm font-semibold text-slate-700">Animal {{ $i + 1 }} Ear Tag</span>
-                                            <input
-                                                name="ear_tag_numbers[]"
-                                                value="{{ old('ear_tag_numbers.' . $i) }}"
-                                                required
-                                                maxlength="50"
-                                                class="mt-1 w-full rounded-lg border-slate-300 text-sm"
-                                                placeholder="Example: CF-{{ now()->format('y') }}-{{ str_pad((string) ($i + 1), 3, '0', STR_PAD_LEFT) }}"
-                                            >
-                                        </label>
-                                    @endfor
-                                </div>
-                            @endif
-                            <button class="w-full rounded-lg px-4 py-2 text-sm font-semibold" style="background:#0f172a;color:#ffffff;border:1px solid #0f172a;box-shadow:0 8px 18px rgba(15,23,42,.22);">Add to Stock</button>
+                            <div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                                <div class="text-sm font-bold text-slate-900">Proposed Ear Tag Numbers</div>
+                                <p class="mt-1 text-xs text-slate-600">Based on the most recently added animal. Keep these suggestions or replace any tag before adding the animals.</p>
+                            </div>
+                            <div class="mb-4 max-h-72 space-y-3 overflow-y-auto pr-1">
+                                @for($i = 0; $i < $intake->receivedQuantity(); $i++)
+                                    <label class="block">
+                                        <span class="text-sm font-semibold text-slate-700">Animal {{ $i + 1 }} Ear Tag</span>
+                                        <input name="ear_tag_numbers[]" value="{{ old('ear_tag_numbers.' . $i, $proposedEarTags[$i] ?? '') }}" required maxlength="50" class="mt-1 w-full rounded-lg border-slate-300 text-sm">
+                                    </label>
+                                @endfor
+                            </div>
+                            <button class="w-full rounded-lg px-4 py-2 text-sm font-semibold" style="background:#0f172a;color:#ffffff;border:1px solid #0f172a;box-shadow:0 8px 18px rgba(15,23,42,.22);">{{ $canMaterializeLegacyPiglets ? 'Create Main Stock Records' : 'Add to Main Stock' }}</button>
                         </form>
-                        <p class="mt-3 text-xs text-slate-500">Piglet batches increase purchased piglet stock. Non-piglet categories generate individual pig records.</p>
+                        <p class="mt-3 text-xs text-slate-500">Each received animal will appear in All Stock as an individual, traceable record.</p>
                     @else
                         <p class="text-sm text-slate-500">No further workflow actions are available.</p>
                     @endif

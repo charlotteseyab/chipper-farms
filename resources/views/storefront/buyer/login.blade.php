@@ -12,9 +12,14 @@
 
             <form method="POST" action="{{ route('storefront.buyer.login.store') }}" class="mt-6 space-y-4">
                 @csrf
+                @if($claimReference && $claimToken)
+                    <input type="hidden" name="claim_reference" value="{{ $claimReference }}">
+                    <input type="hidden" name="claim_token" value="{{ $claimToken }}">
+                    <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">Sign in with the order email and we’ll save the guest order to your account.</div>
+                @endif
                 <div>
                     <label class="text-sm font-medium text-slate-700" for="email">Email</label>
-                    <input id="email" name="email" type="email" value="{{ old('email') }}" required class="mt-1 w-full rounded-xl border-slate-300 text-sm">
+                    <input id="email" name="email" type="email" value="{{ old('email', request('email')) }}" required class="mt-1 w-full rounded-xl border-slate-300 text-sm">
                 </div>
                 <div>
                     <label class="text-sm font-medium text-slate-700" for="password">Password</label>

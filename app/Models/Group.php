@@ -6,7 +6,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Group extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganization;
+
     protected $fillable = [
+        'organization_id',
         'name',
         'type',
         'structure_id',

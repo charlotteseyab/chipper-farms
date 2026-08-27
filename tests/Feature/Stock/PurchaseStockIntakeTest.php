@@ -82,7 +82,7 @@ class PurchaseStockIntakeTest extends TestCase
         $this->assertStringContainsString('External Farm', $response->json('html'));
     }
 
-    public function test_piglet_batch_only_increases_stock_after_add_to_stock(): void
+    public function test_purchased_piglets_become_individual_main_stock_records(): void
     {
         $this->actingAs($this->manager);
         $service = app(PurchaseStockIntakeService::class);
@@ -98,17 +98,11 @@ class PurchaseStockIntakeTest extends TestCase
         $intake = $service->approve($intake);
         $this->assertSame(0, PurchaseStockIntake::activePigletQuantity());
 
-        $intake = $service->addToStock($intake);
+        $intake = $service->addToStock($intake, ['PIGLET-001', 'PIGLET-002', 'PIGLET-003', 'PIGLET-004']);
 
         $this->assertSame(PurchaseStockIntake::STATUS_ADDED_TO_STOCK, $intake->status);
-        $this->assertSame(4, PurchaseStockIntake::activePigletQuantity());
-        $this->assertSame(0, PigManagement::count(), 'Piglet batches should not create individual pig records.');
-        $this->assertDatabaseHas('stock_movements', [
-            'source_type' => StockMovement::SOURCE_PURCHASE_STOCK_INTAKE,
-            'source_id' => $intake->id,
-            'animal_category' => StockMovement::CATEGORY_PIGLET,
-            'quantity' => 4,
-        ]);
+        $this->assertSame(4, PigManagement::where('purchase_stock_intake_id', $intake->id)->count());
+        $this->assertSame(0, StockMovement::where('source_id', $intake->id)->count(), 'Individual pigs must not also be counted as a batch movement.');
     }
 
     public function test_individual_purchased_pigs_are_created_with_purchase_metadata_after_add_to_stock(): void
@@ -179,16 +173,34 @@ class PurchaseStockIntakeTest extends TestCase
         $service = app(PurchaseStockIntakeService::class);
         $intake = $this->makeApprovedIntake(PurchaseStockIntake::CATEGORY_PIGLET, 3, $room);
 
-        $service->addToStock($intake);
+        $service->addToStock($intake, ['PIGLET-ONCE-001', 'PIGLET-ONCE-002', 'PIGLET-ONCE-003']);
 
         try {
-            $service->addToStock($intake->fresh());
+            $service->addToStock($intake->fresh(), ['PIGLET-TWICE-001', 'PIGLET-TWICE-002', 'PIGLET-TWICE-003']);
             $this->fail('Second piglet add-to-stock should have been rejected.');
         } catch (StockValidationException $e) {
             $this->assertSame('status', $e->field);
         }
 
-        $this->assertSame(1, StockMovement::where('source_id', $intake->id)->count());
+        $this->assertSame(3, PigManagement::where('purchase_stock_intake_id', $intake->id)->count());
+        $this->assertSame(0, StockMovement::where('source_id', $intake->id)->count());
+    }
+
+    public function test_ear_tag_proposals_continue_the_latest_animal_sequence(): void
+    {
+        PigManagement::create([
+            'organization_id' => $this->org->id,
+            'ear_tag_number' => 'CF-009',
+            'breed' => 'LW',
+            'gender' => 'F',
+            'stock_type' => 'standard',
+            'date_of_birth' => now()->subDays(90)->toDateString(),
+        ]);
+
+        $this->assertSame(
+            ['CF-010', 'CF-011', 'CF-012'],
+            app(PurchaseStockIntakeService::class)->proposeEarTagNumbers(3, $this->org->id),
+        );
     }
 
     public function test_missing_ear_tags_fail_before_add_to_stock(): void

@@ -4,6 +4,17 @@
     $canStartPurchase = auth()->check() || $guestCheckoutAllowed;
 @endphp
 <x-storefront.layout :title="$listing->title">
+    <style>
+        @media (max-width: 480px) {
+            .sf-detail-search { flex-direction:column; }
+            .sf-detail-search button { min-height:44px; }
+            .sf-detail-actions > a,
+            .sf-detail-actions > form { width:100%; }
+            .sf-detail-actions > a,
+            .sf-detail-actions > form > button { text-align:center; }
+            .sf-detail-add-form { display:grid !important; grid-template-columns:5rem minmax(0, 1fr); width:100%; }
+        }
+    </style>
     <div class="max-w-6xl mx-auto px-4 py-8">
         <a href="{{ url()->previous() }}" class="text-sm text-slate-500">← Back</a>
 
@@ -116,11 +127,11 @@
                 @if($pigPurchase && $detail['orderable'])
                     <div id="live-animals" class="mt-6 space-y-4" data-pig-purchase>
                         @if($canStartPurchase)
-                            @if($pigPurchase['animals']->total() > 0 && $pigPurchase['live_rate'])
+                            @if($pigPurchase['animals']->total() > 0 && ($pigPurchase['live_rate'] || $pigPurchase['carcass_rate']))
                                 <div class="rounded-2xl border border-slate-200 p-4">
                                     <form method="GET" action="{{ route('storefront.listing', $listing->slug) }}" class="mb-3">
                                         <label class="block text-xs font-medium text-slate-500" for="animal_q">Search available pigs</label>
-                                        <div class="mt-1 flex gap-2">
+                                        <div class="sf-detail-search mt-1 flex gap-2">
                                             <input id="animal_q" type="search" name="animal_q" value="{{ $pigPurchase['animal_search'] }}"
                                                    placeholder="Tag, breed, gender, code, or weight"
                                                    class="min-w-0 flex-1 rounded-xl border-slate-300 text-sm">
@@ -130,14 +141,12 @@
 
                                     @php
                                         $selectableAnimals = $pigPurchase['animals']->getCollection()
-                                            ->filter(fn ($animal) => $animal['price'] !== null)
+                                            ->filter(fn ($animal) => $animal['price'] !== null || $animal['carcass_price'] !== null)
                                             ->values();
                                         $selectableAnimalIds = $selectableAnimals
                                             ->pluck('row_id')
                                             ->map(fn ($id) => (string) $id)
                                             ->values();
-                                        $selectableAnimalPrices = $selectableAnimals
-                                            ->mapWithKeys(fn ($animal) => [(string) $animal['row_id'] => (float) $animal['price']]);
                                     @endphp
 
                                     <form method="POST"
@@ -145,19 +154,25 @@
                                           data-live-pig-picker
                                           data-currency="{{ $listing->currency_code }}">
                                     @csrf
-                                    <input type="hidden" name="purchase_type" value="live">
 
                                     <div class="flex flex-wrap items-baseline justify-between gap-2">
-                                        <h3 class="font-semibold text-slate-800">Buy live animals</h3>
-                                        <p class="text-sm text-slate-500">
-                                            {{ $listing->currency_code }}
-                                            {{ number_format((float) $pigPurchase['live_rate'], 2) }} / kg live weight
-                                        </p>
+                                        <h3 class="font-semibold text-slate-800">Choose your animals</h3>
                                     </div>
                                     <p class="mt-1 text-xs text-slate-500">
-                                        Choose the animals you want. You pay for the weight each one is
-                                            carrying, so the price differs between them.
+                                        Select the animals you want, then choose whether to buy them live or as carcass.
                                     </p>
+
+                                    <fieldset class="mt-4 grid gap-3 sm:grid-cols-2">
+                                        <legend class="mb-2 text-sm font-semibold text-slate-800">How would you like to buy?</legend>
+                                        <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                                            <input type="radio" name="purchase_type" value="live" checked class="mt-1 border-slate-300 text-emerald-700" data-purchase-type>
+                                            <span><span class="block text-sm font-semibold text-slate-800">Live animal</span><span class="text-xs text-slate-500">{{ $listing->currency_code }} {{ number_format((float) $pigPurchase['live_rate'], 2) }} / kg</span></span>
+                                        </label>
+                                        <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                                            <input type="radio" name="purchase_type" value="carcass" class="mt-1 border-slate-300 text-emerald-700" data-purchase-type>
+                                            <span><span class="block text-sm font-semibold text-slate-800">Carcass</span><span class="text-xs text-slate-500">{{ $listing->currency_code }} {{ number_format((float) $pigPurchase['carcass_rate'], 2) }} / kg</span></span>
+                                        </label>
+                                    </fieldset>
 
                                     <div class="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-3 text-sm">
                                         <div>
@@ -184,8 +199,9 @@
                                                        name="listing_pig_ids[]"
                                                        value="{{ $animal['row_id'] }}"
                                                        data-live-pig-option
-                                                       data-price="{{ $animal['price'] ?? '' }}"
-                                                       @disabled($animal['price'] === null)
+                                                       data-live-price="{{ $animal['price'] ?? '' }}"
+                                                       data-carcass-price="{{ $animal['carcass_price'] ?? '' }}"
+                                                       @disabled($animal['price'] === null && $animal['carcass_price'] === null)
                                                        class="rounded border-slate-300">
                                                 <span class="flex-1 min-w-0">
                                                     <span class="font-medium text-slate-800">{{ $animal['ear_tag'] }}</span>
@@ -195,12 +211,11 @@
                                                 </span>
                                                 <span class="text-right">
                                                     @if($animal['price'] !== null)
-                                                        <span class="block font-semibold text-slate-800">
-                                                            {{ $listing->currency_code }} {{ number_format((float) $animal['price'], 2) }}
-                                                        </span>
                                                         <span class="block text-xs text-slate-500">
                                                             {{ rtrim(rtrim($animal['weight'], '0'), '.') }} kg
                                                         </span>
+                                                        <span class="block font-semibold text-slate-800">Live: {{ $listing->currency_code }} {{ number_format((float) $animal['price'], 2) }}</span>
+                                                        <span class="block font-semibold text-emerald-700">Carcass: {{ $listing->currency_code }} {{ number_format((float) $animal['carcass_price'], 2) }}</span>
                                                     @else
                                                         <span class="text-xs text-amber-700">Ask us for a price</span>
                                                     @endif
@@ -225,46 +240,12 @@
                                     @endguest
                                 </form>
                                 </div>
-                            @elseif($pigPurchase['live_rate'])
+                            @elseif($pigPurchase['live_rate'] || $pigPurchase['carcass_rate'])
                                 <div class="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
                                     No available pigs match that search.
                                 </div>
                             @endif
 
-                            @if($pigPurchase['carcass_rate'] && bccomp($pigPurchase['carcass_kg_available'], '0', 4) > 0)
-                                <form method="POST" action="{{ route('storefront.cart.add-pigs', $listing) }}"
-                                      class="rounded-2xl border border-slate-200 p-4">
-                                    @csrf
-                                    <input type="hidden" name="purchase_type" value="carcass">
-
-                                    <div class="flex flex-wrap items-baseline justify-between gap-2">
-                                        <h3 class="font-semibold text-slate-800">Buy by carcass weight</h3>
-                                        <p class="text-sm text-slate-500">
-                                            {{ $listing->currency_code }}
-                                            {{ number_format((float) $pigPurchase['carcass_rate'], 2) }} / kg
-                                        </p>
-                                    </div>
-                                    <p class="mt-1 text-xs text-slate-500">
-                                        Tell us how much you need and we choose the animals.
-                                        Up to {{ rtrim(rtrim($pigPurchase['carcass_kg_available'], '0'), '.') }} kg available.
-                                    </p>
-
-                                    <div class="mt-3 flex items-center gap-2">
-                                        <input type="number" name="requested_kg" step="0.1" min="0.1"
-                                               max="{{ $pigPurchase['carcass_kg_available'] }}"
-                                               placeholder="kg"
-                                               class="w-28 rounded-xl border-slate-300 text-sm">
-                                        <button type="submit" class="flex-1 px-5 py-2.5 rounded-xl border border-slate-800 text-slate-800 font-medium">
-                                            Add to cart
-                                        </button>
-                                    </div>
-                                    @guest
-                                        <p class="mt-2 text-xs text-slate-500">
-                                            No account needed. Your checkout details are saved with the order for tracking and later account claiming.
-                                        </p>
-                                    @endguest
-                                </form>
-                            @endif
                         @else
                             <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                                 <p class="font-semibold">This farm asks buyers to sign in before ordering.</p>
@@ -276,10 +257,10 @@
                 @endif
 
                 {{-- CTA --}}
-                <div class="mt-6 flex flex-wrap gap-3">
+                <div class="sf-detail-actions mt-6 flex flex-wrap gap-3">
                     @if($detail['orderable'] && ! $pigPurchase)
                         @if($canStartPurchase)
-                            <form method="POST" action="{{ route('storefront.cart.add', $listing) }}" class="flex items-center gap-2">
+                            <form method="POST" action="{{ route('storefront.cart.add', $listing) }}" class="sf-detail-add-form flex items-center gap-2">
                                 @csrf
                                 <input type="number" name="quantity" value="1" min="1" step="1" class="w-20 rounded-xl border-slate-300 text-sm">
                                 <button type="submit" class="px-5 py-2.5 rounded-xl bg-slate-800 text-white font-medium">Add to cart</button>
@@ -334,6 +315,7 @@
                 const checkboxes = Array.from(form.querySelectorAll('[data-live-pig-option]'));
                 const countTarget = form.querySelector('[data-selected-count]');
                 const totalTarget = form.querySelector('[data-selected-total]');
+                const purchaseTypes = Array.from(form.querySelectorAll('[data-purchase-type]'));
                 const selectVisibleButton = form.querySelector('[data-select-visible]');
                 const deselectButton = form.querySelector('[data-deselect-all]');
 
@@ -343,8 +325,12 @@
 
                 function updateSummary() {
                     const selected = selectableBoxes().filter((checkbox) => checkbox.checked);
+                    const purchaseType = purchaseTypes.find((option) => option.checked)?.value || 'live';
                     const total = selected.reduce((sum, checkbox) => {
-                        return sum + Number.parseFloat(checkbox.dataset.price || '0');
+                        const price = purchaseType === 'carcass'
+                            ? checkbox.dataset.carcassPrice
+                            : checkbox.dataset.livePrice;
+                        return sum + Number.parseFloat(price || '0');
                     }, 0);
 
                     if (countTarget) {
@@ -359,6 +345,7 @@
                 checkboxes.forEach((checkbox) => {
                     checkbox.addEventListener('change', updateSummary);
                 });
+                purchaseTypes.forEach((option) => option.addEventListener('change', updateSummary));
 
                 if (selectVisibleButton) {
                     selectVisibleButton.addEventListener('click', function () {

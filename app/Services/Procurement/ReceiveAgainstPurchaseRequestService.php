@@ -17,7 +17,8 @@ use Illuminate\Support\Facades\DB;
  * The user picks a PR → picks a line → enters actual qty + unit cost.
  * This service:
  *
- *   1. Validates the PR is in 'approved' status.
+ *   1. Validates the PR is approved and still open for receiving. A fully
+ *      prepaid request has status 'paid' and remains receivable.
  *   2. Validates the PR item is open (not is_receipt_closed).
  *   3. Validates the PR item has raw_material_id set.
  *   4. Pre-fills supplier_id from the PR.
@@ -69,9 +70,9 @@ class ReceiveAgainstPurchaseRequestService
             throw new \DomainException("PR item #{$prItem->id} is orphaned (no PR row).");
         }
 
-        if ($pr->status !== 'approved') {
+        if (! in_array($pr->status, ['approved', 'paid'], true)) {
             throw new \DomainException(sprintf(
-                "Cannot receive against PR %s: status is '%s' (must be 'approved').",
+                "Cannot receive against PR %s: status is '%s' (must be approved or paid).",
                 $pr->request_no,
                 $pr->status,
             ));
@@ -152,6 +153,58 @@ class ReceiveAgainstPurchaseRequestService
                 ],
                 linkedPurchaseRequest: $pr,
             );
+        });
+    }
+
+    /**
+     * Receive several delivered PR lines under one delivery reference. The
+     * outer transaction guarantees that a validation/posting failure on any
+     * line rolls back every line in the delivery.
+     *
+     * @param array<int, array{purchase_request_item_id:int, quantity:float, unit_cost:float, notes?:?string}> $receipts
+     */
+    public function executeMany(
+        PurchaseRequest $purchaseRequest,
+        User $actor,
+        array $receipts,
+        ?string $reference = null,
+        ?string $deliveryNotes = null,
+        bool $allowOverReceipt = false,
+    ): array {
+        if ($receipts === []) {
+            throw new \InvalidArgumentException('Select at least one material to receive.');
+        }
+
+        return DB::transaction(function () use (
+            $purchaseRequest, $actor, $receipts, $reference, $deliveryNotes, $allowOverReceipt
+        ): array {
+            $results = [];
+
+            foreach ($receipts as $receipt) {
+                $item = PurchaseRequestItem::query()
+                    ->where('purchase_request_id', $purchaseRequest->id)
+                    ->lockForUpdate()
+                    ->find($receipt['purchase_request_item_id']);
+
+                if (! $item) {
+                    throw new \DomainException('One of the selected receipt lines does not belong to this purchase request.');
+                }
+
+                $lineNotes = trim((string) ($receipt['notes'] ?? ''));
+                $results[] = $this->execute(
+                    prItem: $item,
+                    actor: $actor,
+                    data: [
+                        'quantity' => (float) $receipt['quantity'],
+                        'unit_cost' => (float) $receipt['unit_cost'],
+                        'reference' => $reference,
+                        'notes' => $lineNotes !== '' ? $lineNotes : $deliveryNotes,
+                    ],
+                    allowOverReceipt: $allowOverReceipt,
+                );
+            }
+
+            return $results;
         });
     }
 }

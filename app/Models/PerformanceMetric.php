@@ -6,12 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class PerformanceMetric extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Models\Concerns\BelongsToOrganization;
 
     /**
      * The attributes that are mass assignable.
      */
     protected $fillable = [
+        'organization_id',
         'measure',
         'unit',
         'level',

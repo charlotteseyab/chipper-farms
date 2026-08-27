@@ -11,11 +11,7 @@ class NotificationController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $isSuperuser = $user && optional($user->role)->name === 'superuser';
-
-        $notifications = $isSuperuser
-            ? DatabaseNotification::query()->latest()->paginate(15)
-            : $user->notifications()->latest()->paginate(15);
+        $notifications = $user->notifications()->latest()->paginate(15);
 
         return view('notifications.index', compact('notifications'));
     }
@@ -23,11 +19,7 @@ class NotificationController extends Controller
     public function markRead(string $id)
     {
         $user = Auth::user();
-        $isSuperuser = $user && optional($user->role)->name === 'superuser';
-
-        $notification = $isSuperuser
-            ? DatabaseNotification::query()->where('id', $id)->firstOrFail()
-            : $user->notifications()->where('id', $id)->firstOrFail();
+        $notification = $user->notifications()->where('id', $id)->firstOrFail();
 
         if (is_null($notification->read_at)) {
             $notification->forceFill(['read_at' => now()])->save();
@@ -39,15 +31,8 @@ class NotificationController extends Controller
     public function markAllRead(Request $request)
     {
         $user = Auth::user();
-        $isSuperuser = $user && optional($user->role)->name === 'superuser';
-
-        if ($isSuperuser) {
-            DatabaseNotification::query()->whereNull('read_at')->update(['read_at' => now()]);
-            $remaining = DatabaseNotification::whereNull('read_at')->count();
-        } else {
-            $user->unreadNotifications()->update(['read_at' => now()]);
-            $remaining = $user->unreadNotifications()->count();
-        }
+        $user->unreadNotifications()->update(['read_at' => now()]);
+        $remaining = $user->unreadNotifications()->count();
 
         $realTimeAlertCount = 0;
         if (class_exists(\App\Services\RealTimeNotificationService::class)) {

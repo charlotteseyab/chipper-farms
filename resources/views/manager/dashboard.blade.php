@@ -128,6 +128,40 @@
             margin-bottom: 16px;
         }
 
+        .fm2-herd-grid{
+            display:grid;
+            grid-template-columns:repeat(6,minmax(0,1fr));
+            gap:12px;
+            margin-bottom:16px;
+        }
+
+        .fm2-herd-card{
+            background:#fff;
+            border:1px solid #e2e8f0;
+            border-radius:16px;
+            padding:16px;
+            min-width:0;
+        }
+
+        .fm2-herd-label{font-size:.72rem;font-weight:800;color:#64748b;}
+        .fm2-herd-value{margin-top:8px;font-size:1.65rem;line-height:1;font-weight:900;color:#0f172a;}
+        .fm2-herd-note{margin-top:7px;font-size:.68rem;color:#94a3b8;}
+
+        .fm2-attention{
+            margin-bottom:16px;
+            overflow:hidden;
+            border:1px solid #fecaca;
+            border-radius:18px;
+            background:#fff7f7;
+        }
+        .fm2-attention-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid #fee2e2;}
+        .fm2-attention-title{font-size:.9rem;font-weight:900;color:#991b1b;}
+        .fm2-attention-list{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));}
+        .fm2-attention-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-right:1px solid #fee2e2;}
+        .fm2-attention-item:last-child{border-right:0;}
+        .fm2-attention-label{font-size:.74rem;font-weight:800;color:#334155;}
+        .fm2-attention-count{display:inline-flex;min-width:26px;height:26px;align-items:center;justify-content:center;border-radius:999px;background:#dc2626;color:#fff;font-size:.7rem;font-weight:900;}
+
         .fm2-command-card{
             background: #fff;
             border: 1px solid #e5e7eb;
@@ -196,6 +230,7 @@
 
         .fm2-work-table{
             width: 100%;
+            min-width: 760px;
             border-collapse: collapse;
         }
 
@@ -713,6 +748,8 @@
             .fm2-insight-grid{
                 grid-template-columns: repeat(2, minmax(0,1fr));
             }
+            .fm2-herd-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+            .fm2-attention-list{grid-template-columns:repeat(2,minmax(0,1fr));}
         }
 
         @media (max-width: 1024px){
@@ -737,6 +774,8 @@
             .fm2-actions-body{
                 grid-template-columns: 1fr;
             }
+            .fm2-herd-grid,.fm2-attention-list{grid-template-columns:1fr;}
+            .fm2-attention-item{border-right:0;border-bottom:1px solid #fee2e2;}
 
             .fm2-big-head{
                 align-items: stretch;
@@ -759,68 +798,38 @@
             <header class="fm2-header">
                 <div>
                     <h1>Farm Manager Dashboard</h1>
-                    <p>Daily operations, priority work, stock condition, and manager actions.</p>
+                    <p>Daily exceptions, priority work, herd condition, and operational performance.</p>
                 </div>
 
                 <div class="fm2-top-pills">
-                    <div class="fm2-pill">Operational view</div>
-                    <div class="fm2-pill">Manager view</div>
+                    <div class="fm2-pill">{{ now()->format('D, M j, Y') }}</div>
+                    <div class="fm2-pill">Refreshed {{ $refreshedAt->format('g:i A') }}</div>
+                    <a href="{{ route('manager.dashboard') }}" class="fm2-pill" style="background:#166534;color:#fff;border-color:#166534;">Refresh</a>
                 </div>
             </header>
 
-            <div class="fm2-command-grid">
-                <a href="{{ route('all-stocks.index') }}" class="fm2-command-card fm2-command-green">
-                    <div>
-                        <div class="fm2-command-label">Live Stock</div>
-                        <div class="fm2-command-value">{{ number_format($totalStockActive) }}</div>
-                        <div class="fm2-command-sub">{{ number_format($weanedActive) }} weaned • {{ number_format($activePigletsAdjusted) }} piglets</div>
+            @if($immediateAttention->isNotEmpty())
+                <section class="fm2-attention">
+                    <div class="fm2-attention-head"><div><div class="fm2-attention-title">Immediate attention</div><div class="fm2-panel-sub">Items requiring a manager decision or operational response</div></div><span class="fm2-priority fm2-priority-high">{{ $immediateAttention->sum('count') }} open</span></div>
+                    <div class="fm2-attention-list">
+                        @foreach($immediateAttention as $attention)
+                            <a href="{{ $attention['route'] }}" class="fm2-attention-item"><span class="fm2-attention-label">{{ $attention['label'] }}</span><span class="fm2-attention-count">{{ $attention['count'] }}</span></a>
+                        @endforeach
                     </div>
-                    <div class="fm2-command-icon">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 11h14M7 11V8h10v3m-9 0v6m8-6v6M6 17h12" />
-                        </svg>
-                    </div>
-                </a>
+                </section>
+            @endif
 
-                <a href="{{ route('mating.manage') }}" class="fm2-command-card fm2-command-blue">
-                    <div>
-                        <div class="fm2-command-label">Breeding Stock</div>
-                        <div class="fm2-command-value">{{ number_format($breedingStockActive) }}</div>
-                        <div class="fm2-command-sub">{{ number_format($breedingFemales) }} females • {{ number_format($breedingMales) }} males</div>
-                    </div>
-                    <div class="fm2-command-icon">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m5-11a5 5 0 1 1-10 0 5 5 0 0 1 10 0Z" />
-                        </svg>
-                    </div>
-                </a>
-
-                <a href="{{ route('weight-alerts.index') }}" class="fm2-command-card fm2-command-red">
-                    <div>
-                        <div class="fm2-command-label">Critical Alerts</div>
-                        <div class="fm2-command-value">{{ number_format($criticalAlerts) }}</div>
-                        <div class="fm2-command-sub">{{ number_format($highAlerts) }} high • {{ number_format($mediumAlerts) }} medium</div>
-                    </div>
-                    <div class="fm2-command-icon">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3Z" />
-                        </svg>
-                    </div>
-                </a>
-
-                <button type="button" onclick="toggleWeighingAlertsModal()" class="fm2-command-card fm2-command-amber text-left cursor-pointer">
-                    <div>
-                        <div class="fm2-command-label">Overdue Weighing</div>
-                        <div class="fm2-command-value">{{ number_format($overdueForWeighing) }}</div>
-                        <div class="fm2-command-sub">Click to view animals</div>
-                    </div>
-                    <div class="fm2-command-icon">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M7 6l-3 8a3 3 0 0 0 6 0L7 6Zm10 0-3 8a3 3 0 0 0 6 0l-3-8ZM12 3v18" />
-                        </svg>
-                    </div>
-                </button>
-            </div>
+            <section>
+                <div class="fm2-panel-head" style="padding:0 0 10px;"><div><h3 class="fm2-panel-title">Herd position</h3><div class="fm2-panel-sub">Current active animals by operational group</div></div><a href="{{ route('all-stocks.index') }}" class="fm2-view-link">View herd</a></div>
+                <div class="fm2-herd-grid">
+                    <div class="fm2-herd-card"><div class="fm2-herd-label">Active pigs</div><div class="fm2-herd-value">{{ number_format($totalStockActive) }}</div><div class="fm2-herd-note">All active weaned pigs and piglets</div></div>
+                    <div class="fm2-herd-card"><div class="fm2-herd-label">Breeding females</div><div class="fm2-herd-value">{{ number_format($breedingFemales) }}</div><div class="fm2-herd-note">Active female breeding stock</div></div>
+                    <div class="fm2-herd-card"><div class="fm2-herd-label">Breeding males</div><div class="fm2-herd-value">{{ number_format($breedingMales) }}</div><div class="fm2-herd-note">Active male breeding stock</div></div>
+                    <div class="fm2-herd-card"><div class="fm2-herd-label">Growers & finishers</div><div class="fm2-herd-value">{{ number_format($standardStockActive) }}</div><div class="fm2-herd-note">Active standard stock</div></div>
+                    <div class="fm2-herd-card"><div class="fm2-herd-label">Active piglets</div><div class="fm2-herd-value">{{ number_format($activePigletsAdjusted) }}</div><div class="fm2-herd-note">Live births less recorded deaths</div></div>
+                    <div class="fm2-herd-card"><div class="fm2-herd-label">Quarantined</div><div class="fm2-herd-value">{{ number_format($procurementSummary['quarantined']) }}</div><div class="fm2-herd-note">Purchased stock under quarantine</div></div>
+                </div>
+            </section>
 
             <div class="fm2-main-grid">
                 <div class="fm2-panel">
@@ -829,9 +838,9 @@
                             <h3 class="fm2-panel-title">Today's Work Queue</h3>
                             <div class="fm2-panel-sub">Priority work for weighing, breeding, health, and stock review</div>
                         </div>
-                        <a href="{{ route('weight-alerts.index') }}" class="fm2-view-link">See all tasks</a>
+                        <span class="fm2-priority fm2-priority-medium">{{ number_format($managerWorkQueue->sum('count')) }} open actions</span>
                     </div>
-                    <div class="overflow-x-auto">
+                    <div class="overflow-x-auto" tabindex="0" aria-label="Manager work queue; scroll horizontally on smaller screens">
                         <table class="fm2-work-table">
                             <thead>
                                 <tr>
@@ -869,46 +878,56 @@
                 <div class="fm2-grid">
                     <div class="fm2-actions-card">
                         <div class="fm2-side-head">
-                            <h3 class="fm2-side-title">Quick Actions</h3>
-                            <div class="fm2-side-sub">Common manager actions</div>
+                            <h3 class="fm2-side-title">Health & welfare</h3>
+                            <div class="fm2-side-sub">Open cases and current restrictions</div>
                         </div>
-                        <div class="fm2-action-list">
-                            <a href="{{ route('weights.create') }}" class="fm2-action-wide fm2-action-green">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M7 6l-3 8a3 3 0 0 0 6 0L7 6Zm10 0-3 8a3 3 0 0 0 6 0l-3-8ZM12 3v18" /></svg>
-                                Record Weight
-                            </a>
-                            <a href="{{ route('all-stocks.create') }}" class="fm2-action-wide fm2-action-green">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m7-7H5" /></svg>
-                                Add Stock
-                            </a>
-                            <a href="{{ route('weight-alerts.index') }}" class="fm2-action-wide fm2-action-red">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0a3 3 0 0 1-6 0" /></svg>
-                                View Alerts
-                            </a>
-                            <a href="{{ route('health.create') }}" class="fm2-action-wide fm2-action-blue">
-                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v8m4-4H8m13 0A9 9 0 1 1 3 12a9 9 0 0 1 18 0Z" /></svg>
-                                Start Health Check
-                            </a>
+                        <div class="fm2-activity-list">
+                            <a href="{{ route('health.index') }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-high"></span><div><div class="fm2-activity-title">Open health cases</div><div class="fm2-activity-sub">Unresolved treatment or observation</div></div><div class="fm2-activity-time">{{ $healthSummary['open_cases'] }}</div></a>
+                            <a href="{{ route('health.index', ['severity' => 'high']) }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-high"></span><div><div class="fm2-activity-title">Critical cases</div><div class="fm2-activity-sub">High or severe health records</div></div><div class="fm2-activity-time">{{ $healthSummary['critical_cases'] }}</div></a>
+                            <a href="{{ route('medications.index') }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-medium"></span><div><div class="fm2-activity-title">Active withdrawals</div><div class="fm2-activity-sub">Animals still inside withdrawal period</div></div><div class="fm2-activity-time">{{ $healthSummary['active_withdrawals'] }}</div></a>
+                            <a href="{{ route('deaths.index') }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-medium"></span><div><div class="fm2-activity-title">Deaths in 30 days</div><div class="fm2-activity-sub">{{ number_format($healthSummary['mortality_rate_30_days'], 1) }}% of current population plus deaths</div></div><div class="fm2-activity-time">{{ $healthSummary['deaths_30_days'] }}</div></a>
                         </div>
                     </div>
 
                     <div class="fm2-task-card">
                         <div class="fm2-side-head">
-                            <h3 class="fm2-side-title">Upcoming Tasks</h3>
-                            <div class="fm2-side-sub">Priority management timeline</div>
+                            <h3 class="fm2-side-title">Feed & inventory</h3>
+                            <div class="fm2-side-sub">Raw-material and production condition</div>
                         </div>
-                        <div class="fm2-task-list">
-                            @forelse ($upcomingEvents as $event)
-                                <div class="fm2-task-item text-{{ $event['color'] }}-500">
-                                    <div class="fm2-task-title">{{ $event['title'] }}</div>
-                                    <div class="fm2-task-meta">{{ optional($event['date'])->format('M d') }} • {{ $event['days_until'] }} days left</div>
-                                </div>
-                            @empty
-                                <div class="fm2-empty">No upcoming tasks found.</div>
-                            @endforelse
+                        <div class="fm2-activity-list">
+                            <a href="{{ route('raw-materials.index', ['status' => 'out_of_stock']) }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-high"></span><div><div class="fm2-activity-title">Out of stock</div><div class="fm2-activity-sub">Ingredients with no available balance</div></div><div class="fm2-activity-time">{{ $inventorySummary['out_of_stock'] }}</div></a>
+                            <a href="{{ route('raw-materials.index', ['status' => 'low_stock']) }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-medium"></span><div><div class="fm2-activity-title">Low stock</div><div class="fm2-activity-sub">At or below configured reorder level</div></div><div class="fm2-activity-time">{{ $inventorySummary['low_stock'] }}</div></a>
+                            <a href="{{ route('feed-production.index') }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-low"></span><div><div class="fm2-activity-title">Feed produced</div><div class="fm2-activity-sub">Production during the last 7 days</div></div><div class="fm2-activity-time">{{ number_format($inventorySummary['feed_produced_7_days'], 1) }} kg</div></a>
+                            <a href="{{ route('raw-materials.index') }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-low"></span><div><div class="fm2-activity-title">Raw-material value</div><div class="fm2-activity-sub">Quantity on hand × current unit cost</div></div><div class="fm2-activity-time">GHS {{ number_format($inventorySummary['stock_value'], 0) }}</div></a>
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div class="fm2-wide-grid">
+                <section class="fm2-wide">
+                    <div class="fm2-panel-head" style="padding:0 0 16px;">
+                        <div><h3 class="fm2-panel-title">Breeding & piglet flow</h3><div class="fm2-panel-sub">Checks and transitions that keep the production cycle moving</div></div>
+                        <a href="{{ route('mating.manage') }}" class="fm2-view-link">Manage breeding</a>
+                    </div>
+                    <div class="fm2-inline-metrics">
+                        <div class="fm2-inline-metric"><div class="fm2-inline-bar" style="background:#ef4444;"></div><div><div class="fm2-inline-label">Checks overdue</div><div class="fm2-inline-value">{{ number_format($pregnancyChecksOverdue) }}</div></div></div>
+                        <div class="fm2-inline-metric"><div class="fm2-inline-bar" style="background:#f59e0b;"></div><div><div class="fm2-inline-label">Ready to wean</div><div class="fm2-inline-value">{{ number_format($readyToWean) }}</div></div></div>
+                        <div class="fm2-inline-metric"><div class="fm2-inline-bar" style="background:#10b981;"></div><div><div class="fm2-inline-label">Pregnant (90d)</div><div class="fm2-inline-value">{{ number_format($fertilityRate, 1) }}%</div></div></div>
+                    </div>
+                </section>
+
+                <section class="fm2-wide">
+                    <div class="fm2-panel-head" style="padding:0 0 16px;">
+                        <div><h3 class="fm2-panel-title">Procurement & intake</h3><div class="fm2-panel-sub">Requests awaiting decisions and livestock entering the farm</div></div>
+                        <a href="{{ route('purchase-requests.index') }}" class="fm2-view-link">View requests</a>
+                    </div>
+                    <div class="fm2-inline-metrics">
+                        <div class="fm2-inline-metric"><div class="fm2-inline-bar" style="background:#f59e0b;"></div><div><div class="fm2-inline-label">Awaiting approval</div><div class="fm2-inline-value">{{ number_format($procurementSummary['requests_pending']) }}</div></div></div>
+                        <div class="fm2-inline-metric"><div class="fm2-inline-bar" style="background:#2563eb;"></div><div><div class="fm2-inline-label">In progress</div><div class="fm2-inline-value">{{ number_format($procurementSummary['requests_in_progress']) }}</div></div></div>
+                        <div class="fm2-inline-metric"><div class="fm2-inline-bar" style="background:#14b8a6;"></div><div><div class="fm2-inline-label">Pending intake</div><div class="fm2-inline-value">{{ number_format($procurementSummary['pending_intakes']) }}</div></div></div>
+                    </div>
+                </section>
             </div>
 
             <div class="fm2-insight-grid">
@@ -965,48 +984,39 @@
                     </div>
                     <div class="fm2-panel-body">
                         <div class="fm2-inline-metrics">
-                            <div class="fm2-inline-metric">
-                                <div class="fm2-inline-bar" style="background:#3b82f6;"></div>
-                                <div>
-                                    <div class="fm2-inline-label">LW</div>
-                                    <div class="fm2-inline-value">{{ $breedCounts['lw'] }}</div>
+                            @forelse($breedCounts as $index => $breed)
+                                @php($breedColours = ['#3b82f6', '#22c55e', '#a855f7', '#f59e0b', '#14b8a6', '#ef4444'])
+                                <div class="fm2-inline-metric">
+                                    <div class="fm2-inline-bar" style="background:{{ $breedColours[$index % count($breedColours)] }};"></div>
+                                    <div>
+                                        <div class="fm2-inline-label">{{ $breed['name'] }}</div>
+                                        <div class="fm2-inline-value">{{ number_format($breed['count']) }}</div>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="fm2-inline-metric">
-                                <div class="fm2-inline-bar" style="background:#22c55e;"></div>
-                                <div>
-                                    <div class="fm2-inline-label">Duroc</div>
-                                    <div class="fm2-inline-value">{{ $breedCounts['dr'] }}</div>
-                                </div>
-                            </div>
-                            <div class="fm2-inline-metric">
-                                <div class="fm2-inline-bar" style="background:#a855f7;"></div>
-                                <div>
-                                    <div class="fm2-inline-label">LWDR</div>
-                                    <div class="fm2-inline-value">{{ $breedCounts['lwdr'] }}</div>
-                                </div>
-                            </div>
+                            @empty
+                                <div class="fm2-empty">No animal breeds have been configured for this farm.</div>
+                            @endforelse
                         </div>
                         <div class="fm2-inline-metrics mt-6">
                             <div class="fm2-inline-metric">
                                 <div class="fm2-inline-bar" style="background:#10b981;"></div>
                                 <div>
-                                    <div class="fm2-inline-label">Fertility</div>
+                                    <div class="fm2-inline-label">Pregnant (90d)</div>
                                     <div class="fm2-inline-value">{{ number_format($fertilityRate, 1) }}%</div>
                                 </div>
                             </div>
                             <div class="fm2-inline-metric">
                                 <div class="fm2-inline-bar" style="background:#f59e0b;"></div>
                                 <div>
-                                    <div class="fm2-inline-label">Data Accuracy</div>
+                                    <div class="fm2-inline-label">Weight coverage</div>
                                     <div class="fm2-inline-value">{{ $breedingStats['data_completeness'] }}%</div>
                                 </div>
                             </div>
                             <div class="fm2-inline-metric">
                                 <div class="fm2-inline-bar" style="background:#ef4444;"></div>
                                 <div>
-                                    <div class="fm2-inline-label">Mortality</div>
-                                    <div class="fm2-inline-value">{{ number_format($mortalityRate, 1) }}%</div>
+                                    <div class="fm2-inline-label">Mortality (30d)</div>
+                                    <div class="fm2-inline-value">{{ number_format($healthSummary['mortality_rate_30_days'], 1) }}%</div>
                                 </div>
                             </div>
                         </div>
@@ -1044,7 +1054,7 @@
                         </div>
                     </div>
                     <div class="fm2-activity-list">
-                        @foreach($recentActivity as $activity)
+                        @forelse($recentActivity as $activity)
                             <div class="fm2-activity-item">
                                 <span class="fm2-activity-dot fm2-activity-{{ $activity['severity'] }}"></span>
                                 <div>
@@ -1053,7 +1063,9 @@
                                 </div>
                                 <div class="fm2-activity-time">{{ $activity['when'] }}</div>
                             </div>
-                        @endforeach
+                        @empty
+                            <div class="fm2-empty">No recent operational activity has been recorded.</div>
+                        @endforelse
                     </div>
                 </div>
             </div>

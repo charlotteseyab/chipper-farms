@@ -8,8 +8,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Room extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganization;
+
     protected $fillable = [
-        'structure_id', 'name', 'code', 'capacity', 'type', 'notes'
+        'organization_id', 'structure_id', 'name', 'code', 'capacity', 'type', 'notes'
     ];
 
     public function structure(): BelongsTo
@@ -44,5 +46,3 @@ class Room extends Model
         return $currentActive < (int) $this->capacity;
     }
 }
-
-

@@ -7,6 +7,7 @@ use App\Models\Finance\Account;
 use App\Models\Finance\Payment;
 use App\Models\Finance\SupplierCategory;
 use App\Models\PaymentMethod;
+use App\Models\PurchaseRequest;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\Finance\Payments\PaymentService;
@@ -142,6 +143,48 @@ class PaymentControllerTest extends TestCase
         ]);
     }
 
+    public function test_linked_posted_payment_is_the_only_path_that_marks_request_paid(): void
+    {
+        $purchaseRequest = $this->makeApprovedPurchaseRequest('500.00');
+
+        $this->actingAs($this->treasurer)
+            ->post(route('finance.payments.store'), [
+                'counterparty_id' => $this->supplier->id,
+                'payment_method_id' => $this->cashMethod->id,
+                'amount' => 500,
+                'payment_date' => '2026-12-15',
+                'currency_code' => 'GHS',
+                'allocate_to' => 'none',
+                'purchase_request_id' => $purchaseRequest->id,
+                'purchase_payment_stage' => 'full',
+            ])
+            ->assertRedirect(route('purchase-requests.show', $purchaseRequest));
+
+        $this->assertSame('paid', $purchaseRequest->fresh()->status);
+        $this->assertSame('paid', $purchaseRequest->fresh()->payment_progress);
+    }
+
+    public function test_partial_linked_payment_keeps_request_approved(): void
+    {
+        $purchaseRequest = $this->makeApprovedPurchaseRequest('500.00');
+
+        $this->actingAs($this->treasurer)
+            ->post(route('finance.payments.store'), [
+                'counterparty_id' => $this->supplier->id,
+                'payment_method_id' => $this->cashMethod->id,
+                'amount' => 100,
+                'payment_date' => '2026-12-15',
+                'currency_code' => 'GHS',
+                'allocate_to' => 'none',
+                'purchase_request_id' => $purchaseRequest->id,
+                'purchase_payment_stage' => 'deposit',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('approved', $purchaseRequest->fresh()->status);
+        $this->assertSame('partially_paid', $purchaseRequest->fresh()->payment_progress);
+    }
+
     public function test_store_blocks_credit_terms_method(): void
     {
         $creditMethod = PaymentMethod::create([
@@ -223,6 +266,27 @@ class PaymentControllerTest extends TestCase
         $this->assertSame(Payment::STATUS_REVERSED, $payment->status);
     }
 
+    public function test_reversing_linked_payment_reopens_purchase_request_payment_status(): void
+    {
+        $purchaseRequest = $this->makeApprovedPurchaseRequest('500.00');
+        $payment = $this->app->make(PaymentService::class)->createPosted(
+            supplier: $this->supplier,
+            method: $this->cashMethod,
+            amount: '500.00',
+            paymentDate: now(),
+            createdBy: $this->treasurer,
+            extra: ['purchase_request_id' => $purchaseRequest->id],
+        );
+        $purchaseRequest->syncPaymentProgressFromFinance();
+
+        $this->actingAs($this->treasurer)
+            ->post(route('finance.payments.reverse', $payment), ['reason' => 'Payment cancelled'])
+            ->assertRedirect();
+
+        $this->assertSame('approved', $purchaseRequest->fresh()->status);
+        $this->assertSame('not_paid', $purchaseRequest->fresh()->payment_progress);
+    }
+
     public function test_reconcile_and_unreconcile(): void
     {
         $payment = $this->makePayment();
@@ -264,6 +328,20 @@ class PaymentControllerTest extends TestCase
             paymentDate: now(),
             createdBy:   $this->treasurer,
         );
+    }
+
+    protected function makeApprovedPurchaseRequest(string $total): PurchaseRequest
+    {
+        return PurchaseRequest::create([
+            'organization_id' => $this->org->id,
+            'request_no' => 'PR-' . uniqid(),
+            'request_date' => now()->toDateString(),
+            'requested_by' => $this->treasurer->id,
+            'supplier_id' => $this->supplier->id,
+            'status' => 'approved',
+            'payment_progress' => 'not_paid',
+            'total_amount' => $total,
+        ]);
     }
 
     protected function makeUser(string $roleName): User

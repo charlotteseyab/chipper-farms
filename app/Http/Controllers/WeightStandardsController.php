@@ -14,7 +14,7 @@ class WeightStandardsController extends Controller
     public function index(Request $request)
     {
         $request->validate([
-            'breed' => ['nullable', 'in:LW,DR,LWDR'],
+            'breed' => ['nullable', \Illuminate\Validation\Rule::in(array_keys(\App\Models\Setting::animalBreeds()))],
             'gender' => ['nullable', 'in:M,F'],
             'stock_type' => ['nullable', 'in:standard,breeding'],
             'is_active' => ['nullable', 'in:0,1'],
@@ -72,7 +72,7 @@ class WeightStandardsController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'breed' => 'required|in:LW,DR,LWDR',
+            'breed' => ['required', \Illuminate\Validation\Rule::in(array_keys(\App\Models\Setting::animalBreeds()))],
             'gender' => 'required|in:M,F',
             'stock_type' => 'required|in:standard,breeding',
             'week_number' => 'required|integer|min:1|max:200', // Up to 2 years
@@ -232,7 +232,7 @@ class WeightStandardsController extends Controller
     public function bulkStore(Request $request)
     {
         $data = $request->validate([
-            'breed' => 'required|in:LW,DR,LWDR',
+            'breed' => ['required', \Illuminate\Validation\Rule::in(array_keys(\App\Models\Setting::animalBreeds()))],
             'gender' => 'required|in:M,F',
             'stock_type' => 'required|in:standard,breeding',
             'week_from' => 'required|integer|min:1|max:200',

@@ -7,7 +7,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ExpectedWeightStandard extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganization;
+
     protected $fillable = [
+        'organization_id',
         'breed',
         'gender',
         'stock_type',
@@ -41,12 +44,7 @@ class ExpectedWeightStandard extends Model
      */
     public function getBreedDisplayAttribute(): string
     {
-        return match($this->breed) {
-            'LW' => 'Large White',
-            'DR' => 'Duroc',
-            'LWDR' => 'Large White Duroc',
-            default => $this->breed
-        };
+        return Setting::breedName($this->breed) ?? $this->breed;
     }
 
     /**

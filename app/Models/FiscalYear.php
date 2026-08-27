@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FiscalYear extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Models\Concerns\BelongsToOrganization;
 
     public const STATUS_OPEN   = 'open';
     public const STATUS_CLOSED = 'closed';

@@ -8,12 +8,23 @@ use App\Models\Concerns\HasPermissions;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Jetstream\HasProfilePhoto;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
+    protected static function booted(): void
+    {
+        static::saving(function (User $user): void {
+            // A superuser is a platform identity, never a member of a tenant.
+            if (static::normalizeRoleName($user->getAttribute('role')) === 'superuser') {
+                $user->organization_id = null;
+            }
+        });
+    }
+
     /**
      * Roles a user may actually hold.
      *
@@ -42,6 +53,7 @@ class User extends Authenticatable
     use HasFactory;
     use HasProfilePhoto;
     use Notifiable;
+    use SoftDeletes;
     use TwoFactorAuthenticatable;
     use BelongsToOrganization;
     use HasPermissions;
@@ -61,6 +73,8 @@ class User extends Authenticatable
         'last_name',
         'phone',
         'active_status',
+        'onboarding_required',
+        'onboarding_completed_at',
         'last_seen',
         'last_active_at'
     ];
@@ -103,6 +117,8 @@ class User extends Authenticatable
             'last_seen' => 'datetime',
             'last_active_at' => 'datetime',
             'active_status' => 'boolean',
+            'onboarding_required' => 'boolean',
+            'onboarding_completed_at' => 'datetime',
         ];
     }
 
@@ -153,6 +169,7 @@ class User extends Authenticatable
         $this->forceFill([
             'role' => $normalized,
             'role_id' => $role->id,
+            'organization_id' => $normalized === 'superuser' ? null : $this->organization_id,
         ]);
     }
 

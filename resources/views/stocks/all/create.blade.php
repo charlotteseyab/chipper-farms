@@ -528,9 +528,9 @@
                                     <label class="pig-label">Breed</label>
                                     <select name="breed" required class="pig-select" data-searchable-select>
                                         <option value="" {{ old('breed') ? '' : 'selected' }} disabled>Select breed</option>
-                                        <option value="LW" {{ old('breed') === 'LW' ? 'selected' : '' }}>Large White</option>
-                                        <option value="DR" {{ old('breed') === 'DR' ? 'selected' : '' }}>Duroc</option>
-                                        <option value="LWDR" {{ old('breed') === 'LWDR' ? 'selected' : '' }}>Large White Duroc</option>
+                                        @foreach($animalBreeds as $code => $name)
+                                            <option value="{{ $code }}" @selected(old('breed') === $code)>{{ $name }} ({{ $code }})</option>
+                                        @endforeach
                                     </select>
                                 </div>
 

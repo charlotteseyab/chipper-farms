@@ -6,6 +6,7 @@ use App\Models\Farrowing;
 use App\Models\Mating;
 use App\Models\Organization;
 use App\Models\PigManagement;
+use App\Models\PigWeight;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\Weaning;
@@ -80,6 +81,22 @@ class DerivedOrganizationScopeTest extends TestCase
             'stock_type'     => 'breeding',
             'date_of_birth'  => now()->subMonths(14)->toDateString(),
         ]);
+    }
+
+    public function test_new_organization_starts_without_another_organizations_operational_data(): void
+    {
+        $pig = $this->makePig($this->orgA);
+        PigWeight::create([
+            'pig_id' => $pig->id,
+            'weight' => 80,
+            'weigh_date' => now()->toDateString(),
+            'weight_unit' => 'kg',
+        ]);
+
+        $this->app->make(CurrentOrganization::class)->bind($this->orgB);
+
+        $this->assertSame(0, PigManagement::count());
+        $this->assertSame(0, PigWeight::count());
     }
 
     public function test_creating_hook_stamps_current_organization_on_pigs(): void

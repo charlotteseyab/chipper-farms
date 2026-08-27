@@ -31,7 +31,7 @@
         }
 
         body{
-            font-family: Figtree, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
             background: linear-gradient(180deg, #f8fcfa 0%, #ffffff 100%);
             color: var(--text-main);
         }
@@ -221,6 +221,27 @@
             font-weight: 700;
             box-shadow: var(--shadow-sm);
         }
+
+        .home-storefront-feature{
+            border-top:1px solid var(--line);
+            border-bottom:1px solid var(--line);
+            background:linear-gradient(135deg, rgba(234,246,241,.82), rgba(255,255,255,.96));
+        }
+
+        .home-storefront-grid{
+            display:grid;
+            grid-template-columns:minmax(0,1fr) minmax(290px,430px);
+            gap:56px;
+            align-items:center;
+            padding-top:72px;
+            padding-bottom:72px;
+        }
+
+        .home-storefront-kicker{color:var(--green-700);font-size:.76rem;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+        .home-storefront-title{margin:10px 0 14px;max-width:620px;font-size:clamp(1.9rem,4vw,3rem);line-height:1.08;letter-spacing:-.035em;font-weight:900;color:var(--text-main)}
+        .home-storefront-copy{max-width:600px;color:var(--text-soft);font-size:1rem;line-height:1.8}
+        .home-storefront-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:24px}
+        .home-storefront-card{min-width:0;border-radius:28px;padding:14px;background:rgba(255,255,255,.78);border:1px solid #d8ebe2;box-shadow:var(--shadow-lg)}
 
         .hero-preview{
             background: linear-gradient(180deg, #ffffff 0%, #f8fcfa 100%);
@@ -458,11 +479,21 @@
 
         .cta-grid{
             display:grid;
-            grid-template-columns: 1.1fr .9fr;
+            grid-template-columns: minmax(0,1.1fr) minmax(0,.9fr);
             gap: 26px;
             align-items:center;
             position:relative;
             z-index:1;
+        }
+
+        .cta-grid > *,
+        .cta-list-item > div:last-child{
+            min-width:0;
+        }
+
+        .cta-section p,
+        .cta-list-item{
+            overflow-wrap:anywhere;
         }
 
         .cta-list{
@@ -508,6 +539,14 @@
             text-decoration:none;
             padding: 12px 0;
             border-top:1px solid rgba(255,255,255,.12);
+        }
+
+        .contact-link > *{
+            min-width:0;
+        }
+
+        .contact-link span{
+            overflow-wrap:anywhere;
         }
 
         .big-footer{
@@ -564,20 +603,56 @@
             gap:10px;
         }
 
+        .mobile-nav{ display:none; position:relative; }
+        .mobile-nav summary{
+            display:flex; width:46px; height:46px; align-items:center; justify-content:center;
+            border:1px solid var(--line); border-radius:14px; background:#fff;
+            color:var(--green-800); cursor:pointer; box-shadow:var(--shadow-sm); list-style:none;
+        }
+        .mobile-nav summary::-webkit-details-marker{ display:none; }
+        .mobile-nav summary:focus-visible{ outline:3px solid rgba(28,108,81,.18); outline-offset:2px; }
+        .mobile-nav-icon,.mobile-nav-icon::before,.mobile-nav-icon::after{
+            display:block; width:20px; height:2px; border-radius:999px; background:currentColor; transition:.2s ease;
+        }
+        .mobile-nav-icon{ position:relative; }
+        .mobile-nav-icon::before,.mobile-nav-icon::after{ content:""; position:absolute; left:0; }
+        .mobile-nav-icon::before{ top:-6px; }
+        .mobile-nav-icon::after{ top:6px; }
+        .mobile-nav[open] .mobile-nav-icon{ background:transparent; }
+        .mobile-nav[open] .mobile-nav-icon::before{ top:0; transform:rotate(45deg); }
+        .mobile-nav[open] .mobile-nav-icon::after{ top:0; transform:rotate(-45deg); }
+        .mobile-nav-panel{
+            position:absolute; top:calc(100% + 12px); right:0; width:min(320px, calc(100vw - 32px));
+            border:1px solid var(--line); border-radius:20px; background:#fff; padding:10px; box-shadow:var(--shadow-lg);
+        }
+        .mobile-nav-panel a{
+            display:flex; align-items:center; justify-content:space-between; min-height:46px;
+            border-radius:12px; padding:10px 12px; color:var(--green-800); font-weight:700; text-decoration:none;
+        }
+        .mobile-nav-panel a:hover,.mobile-nav-panel a:focus{ background:var(--green-50); color:var(--green-900); outline:none; }
+        .mobile-nav-divider{ height:1px; margin:8px 6px; background:var(--line); }
+
         @media (max-width: 1024px){
             .hero-clean,
             .about-wrap,
             .cta-grid,
             .feature-grid,
-            .footer-grid{
-                grid-template-columns: 1fr;
+            .footer-grid,
+            .home-storefront-grid{
+                grid-template-columns: minmax(0, 1fr);
             }
+
+            .home-storefront-grid{gap:30px}
+            .home-storefront-card{width:100%;max-width:520px}
         }
 
         @media (max-width: 768px){
             .top-nav .desktop-nav{
                 display:none;
             }
+
+            .top-nav .desktop-actions{ display:none; }
+            .mobile-nav{ display:block; }
 
             .hero-title{
                 font-size: 2.55rem;
@@ -593,6 +668,56 @@
 
             .cta-section{
                 padding: 28px 22px;
+            }
+        }
+
+        @media (max-width: 480px){
+            #contact{
+                padding-top:56px !important;
+                padding-bottom:56px !important;
+            }
+
+            .cta-section{
+                width:100%;
+                border-radius:26px;
+                padding:28px 20px;
+            }
+
+            .cta-grid{
+                gap:30px;
+            }
+
+            .cta-section h2{
+                font-size:1.85rem !important;
+                line-height:1.22 !important;
+                letter-spacing:-.025em;
+            }
+
+            .cta-section p{
+                max-width:100%;
+                font-size:1rem;
+                line-height:1.75;
+            }
+
+            .cta-list{
+                gap:10px;
+                margin-top:20px;
+            }
+
+            .cta-list-item{
+                gap:10px;
+                border-radius:16px;
+                padding:14px;
+            }
+
+            .cta-list-item svg{
+                width:18px;
+                height:18px;
+            }
+
+            .contact-card{
+                border-radius:20px;
+                padding:20px;
             }
         }
     </style>
@@ -616,11 +741,27 @@
                     <a href="#contact" class="nav-link">Contact</a>
                 </div>
 
-                <div class="flex items-center gap-3">
+                <div class="desktop-actions flex items-center gap-3">
+                    <a href="{{ route('storefront.home') }}" class="btn-secondary">
+                        Storefront
+                    </a>
                     <a href="{{ route('login') }}" class="btn-primary">
                         Sign In
                     </a>
                 </div>
+
+                <details class="mobile-nav">
+                    <summary aria-label="Open navigation menu"><span class="mobile-nav-icon" aria-hidden="true"></span></summary>
+                    <nav class="mobile-nav-panel" aria-label="Mobile navigation">
+                        <a href="#home">Home</a>
+                        <a href="#about">About</a>
+                        <a href="#features">Features</a>
+                        <a href="#contact">Contact</a>
+                        <div class="mobile-nav-divider"></div>
+                        <a href="{{ route('storefront.home') }}">Storefront <span aria-hidden="true">&rarr;</span></a>
+                        <a href="{{ route('login') }}">Sign In <span aria-hidden="true">&rarr;</span></a>
+                    </nav>
+                </details>
             </div>
         </div>
     </nav>
@@ -688,6 +829,25 @@
             </div>
         </div>
     </section>
+
+    @if($pinnedListing ?? null)
+        <section class="home-storefront-feature" aria-labelledby="home-storefront-title">
+            <div class="container-wrap home-storefront-grid">
+                <div>
+                    <div class="home-storefront-kicker">Available from our storefront</div>
+                    <h2 id="home-storefront-title" class="home-storefront-title">Featured from Chipper Farms</h2>
+                    <p class="home-storefront-copy">Explore this selected listing or visit the storefront to see everything currently available for purchase, pickup, or local delivery.</p>
+                    <div class="home-storefront-actions">
+                        <a href="{{ route('storefront.listing', $pinnedListing->slug) }}" class="btn-primary">View featured listing</a>
+                        <a href="{{ route('storefront.home') }}" class="btn-secondary">Browse storefront</a>
+                    </div>
+                </div>
+                <div class="home-storefront-card">
+                    @include('storefront.partials.listing-card', ['listing' => $pinnedListing])
+                </div>
+            </div>
+        </section>
+    @endif
 
     <section id="about" class="py-20">
         <div class="container-wrap">

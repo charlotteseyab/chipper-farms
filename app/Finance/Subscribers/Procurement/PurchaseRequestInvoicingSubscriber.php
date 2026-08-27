@@ -39,10 +39,8 @@ use Illuminate\Support\Facades\Log;
  *   Phase 3 — operations needs the visibility today.
  *
  * Coexistence with legacy:
- *   The legacy PurchaseRequestPaid event has no AP subscriber — purchase
- *   requests in the existing system don't produce GL entries. So unlike
- *   Phase 2b's pig-sale subscriber pattern, there's no legacy AP path
- *   to early-return out of. The flag controls whether AP runs AT ALL.
+ *   Purchase request status alone never produces a finance entry. Cash-out is
+ *   recorded only through a posted Payment linked to the request.
  *
  *   When flag is OFF: PRs continue to operate without finance integration
  *   (current behaviour). When ON: every approved PR generates a draft VI

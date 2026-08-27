@@ -132,7 +132,9 @@ class PaystackService
     protected function emailFor(StorefrontOrder $order): ?string
     {
         return $order->counterparty?->email
-            ?? $order->customer?->email;
+            ?? $order->customer?->email
+            ?? $order->storefrontBuyer?->email
+            ?? $order->guest_email;
     }
 
     protected function generateReference(StorefrontOrder $order): string

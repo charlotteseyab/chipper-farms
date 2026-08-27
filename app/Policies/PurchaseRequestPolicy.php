@@ -17,7 +17,6 @@ use App\Policies\Concerns\EnforcesOrganizationScope;
  * Some actions are gated by the request's status:
  *   - update / delete  : only on PENDING requests
  *   - approve / decline: only on PENDING requests
- *   - markPaid         : only on APPROVED requests
  *
  * These status checks are enforced in the policy rather than repeated in
  * every controller.
@@ -29,8 +28,6 @@ use App\Policies\Concerns\EnforcesOrganizationScope;
  *   update          admin, manager (PR must be pending)
  *   approve         admin only (PR must be pending)
  *   decline         admin only (PR must be pending)
- *   markPaid        admin, accountant (PR must be approved; Phase 1 turns this
- *                                       into a proper AP flow)
  *   delete          admin only (PR must be pending)
  *
  * SUPERUSER bypasses via Gate::before.
@@ -88,15 +85,11 @@ class PurchaseRequestPolicy
         return $user->isAdmin();
     }
 
-    public function markPaid(User $user, PurchaseRequest $request): bool
+    public function complete(User $user, PurchaseRequest $request): bool
     {
-        if (! $this->sameOrganization($user, $request)) {
-            return false;
-        }
-        if ($request->status !== 'approved') {
-            return false;
-        }
-        return $user->isAdmin() || $user->isAccountant();
+        return $this->sameOrganization($user, $request)
+            && in_array($request->status, ['approved', 'paid'], true)
+            && ($user->isAdmin() || $user->isAccountant());
     }
 
     public function delete(User $user, PurchaseRequest $request): bool

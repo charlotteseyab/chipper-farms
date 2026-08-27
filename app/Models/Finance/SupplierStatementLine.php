@@ -32,7 +32,12 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  */
 class SupplierStatementLine extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Models\Concerns\BelongsToOrganizationThroughRelation;
+
+    protected static function organizationRelation(): string
+    {
+        return 'statement';
+    }
 
     public const STATUS_UNMATCHED         = 'unmatched';
     public const STATUS_MATCHED           = 'matched';

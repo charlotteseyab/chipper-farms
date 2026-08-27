@@ -93,9 +93,9 @@ class CartController extends Controller
     {
         $validated = $request->validate([
             'purchase_type'    => ['required', 'in:live,carcass'],
-            'listing_pig_ids'  => ['required_if:purchase_type,live', 'array'],
+            'listing_pig_ids'  => ['required_if:purchase_type,live', 'required_without:requested_kg', 'array'],
             'listing_pig_ids.*'=> ['integer'],
-            'requested_kg'     => ['required_if:purchase_type,carcass', 'nullable', 'numeric', 'min:0.0001', 'max:99999999'],
+            'requested_kg'     => ['required_without:listing_pig_ids', 'nullable', 'numeric', 'min:0.0001', 'max:99999999'],
         ]);
 
         $owner = $this->owners->currentOrCreate($request);
@@ -112,13 +112,17 @@ class CartController extends Controller
                     ? 'Added to cart.'
                     : $lines->count() . ' animals added to cart.';
             } else {
-                $this->purchaseLines->addCarcassLine(
-                    $owner,
-                    $listing,
-                    (string) $validated['requested_kg'],
-                );
-
-                $message = 'Added to cart.';
+                if (! empty($validated['listing_pig_ids'])) {
+                    $lines = $this->purchaseLines->addSelectedCarcassLines(
+                        $owner,
+                        $listing,
+                        $validated['listing_pig_ids'],
+                    );
+                    $message = $lines->count() === 1 ? 'Added to cart.' : $lines->count() . ' animals added to cart.';
+                } else {
+                    $this->purchaseLines->addCarcassLine($owner, $listing, (string) $validated['requested_kg']);
+                    $message = 'Added to cart.';
+                }
             }
         } catch (CartException $e) {
             return back()->with('error', $e->getMessage());

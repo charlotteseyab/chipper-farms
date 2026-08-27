@@ -25,12 +25,12 @@ class PigSale extends Model
     // Get pricing from settings, fallback to defaults
     public static function getLiveWeightRate()
     {
-        return \App\Models\Setting::get('sales.pricing.live_weight_price', 30.00);
+        return \App\Models\Setting::get('sales.pricing.live_weight_price', 0);
     }
 
     public static function getCarcassWeightRate()
     {
-        return \App\Models\Setting::get('sales.pricing.carcass_weight_price', 50.00);
+        return \App\Models\Setting::get('sales.pricing.carcass_weight_price', 0);
     }
 
     /**

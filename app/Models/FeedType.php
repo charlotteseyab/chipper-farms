@@ -6,7 +6,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class FeedType extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganization;
+
     protected $fillable = [
+        'organization_id',
         'name',
         'notes',
     ];

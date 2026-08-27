@@ -15,11 +15,16 @@ use App\Models\Structure;
 use App\Models\Room;
 use App\Models\User;
 use App\Models\Role;
+use App\Models\Organization;
 use App\Helpers\FlashHelper;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use App\Models\ActivityLog;
+use App\Services\Reports\SystemReportService;
+use App\Support\CurrentOrganization;
+use Carbon\CarbonImmutable;
 
 class SettingsController extends Controller
 {
@@ -29,42 +34,61 @@ class SettingsController extends Controller
     public function setup()
     {
         $this->abortUnlessRole('superuser', 'admin');
+        $platformView = auth()->user()->isSuperuser();
+        $minimumAges = Setting::get('breeding.parameters.minimum_breeding_age', []);
+        $optimalAges = Setting::get('breeding.parameters.optimal_first_breeding_age', []);
+        $minimumWeights = Setting::get('breeding.parameters.minimum_breeding_weight', []);
+        $optimalWeights = Setting::get('breeding.parameters.optimal_breeding_weight', []);
         $breeding = [
-            'pregnancy_check_days' => Setting::get('breeding.cycle.pregnancy_check_days', config('breeding.cycle.pregnancy_check_days')),
-            'gestation_days' => Setting::get('breeding.cycle.gestation_days', config('breeding.cycle.gestation_days')),
-            'birth_to_weaning_days' => Setting::get('breeding.cycle.birth_to_weaning_days', config('breeding.cycle.birth_to_weaning_days')),
-            'birth_to_maturity_days' => Setting::get('breeding.cycle.birth_to_maturity_days', config('breeding.cycle.birth_to_maturity_days')),
-            'minimum_breeding_age_female' => Setting::get('breeding.parameters.minimum_breeding_age.female', config('breeding.parameters.minimum_breeding_age.female')),
-            'minimum_breeding_age_male' => Setting::get('breeding.parameters.minimum_breeding_age.male', config('breeding.parameters.minimum_breeding_age.male')),
-            'optimal_first_breeding_age_female' => Setting::get('breeding.parameters.optimal_first_breeding_age.female', config('breeding.parameters.optimal_first_breeding_age.female')),
-            'optimal_first_breeding_age_male' => Setting::get('breeding.parameters.optimal_first_breeding_age.male', config('breeding.parameters.optimal_first_breeding_age.male')),
-            'average_litter_size' => Setting::get('breeding.parameters.average_litter_size', config('breeding.parameters.average_litter_size')),
-            'weaning_to_mating_rest' => Setting::get('breeding.parameters.weaning_to_mating_rest', config('breeding.parameters.weaning_to_mating_rest')),
-            'maximum_breeding_age' => Setting::get('breeding.parameters.maximum_breeding_age', config('breeding.parameters.maximum_breeding_age')),
-            'lactation_days' => Setting::get('breeding.parameters.lactation_days', config('breeding.parameters.lactation_days')),
+            'pregnancy_check_days' => Setting::get('breeding.cycle.pregnancy_check_days'),
+            'gestation_days' => Setting::get('breeding.cycle.gestation_days'),
+            'birth_to_weaning_days' => Setting::get('breeding.cycle.birth_to_weaning_days'),
+            'birth_to_maturity_days' => Setting::get('breeding.cycle.birth_to_maturity_days'),
+            'minimum_breeding_age_female' => $minimumAges['female'] ?? null,
+            'minimum_breeding_age_male' => $minimumAges['male'] ?? null,
+            'optimal_first_breeding_age_female' => $optimalAges['female'] ?? null,
+            'optimal_first_breeding_age_male' => $optimalAges['male'] ?? null,
+            'minimum_breeding_weight_female' => $minimumWeights['female'] ?? null,
+            'minimum_breeding_weight_male' => $minimumWeights['male'] ?? null,
+            'optimal_breeding_weight_female' => $optimalWeights['female'] ?? null,
+            'optimal_breeding_weight_male' => $optimalWeights['male'] ?? null,
+            'average_litter_size' => Setting::get('breeding.parameters.average_litter_size'),
+            'weaning_to_mating_rest' => Setting::get('breeding.parameters.weaning_to_mating_rest'),
+            'maximum_breeding_age' => Setting::get('breeding.parameters.maximum_breeding_age'),
+            'lactation_days' => Setting::get('breeding.parameters.lactation_days'),
         ];
 
         $stages = [
-            'piglet_max_days' => Setting::get('stages.piglet.max_days', 45),
-            'weaner_max_days' => Setting::get('stages.weaner.max_days', 105),
-            'grower_max_days' => Setting::get('stages.grower.max_days', 180),
+            'piglet_max_days' => Setting::get('stages.piglet.max_days'),
+            'weaner_max_days' => Setting::get('stages.weaner.max_days'),
+            'grower_max_days' => Setting::get('stages.grower.max_days'),
         ];
 
         $pricing = [
-            'live_weight_price' => Setting::get('sales.pricing.live_weight_price', 30.00),
-            'carcass_weight_price' => Setting::get('sales.pricing.carcass_weight_price', 50.00),
+            'live_weight_price' => Setting::get('sales.pricing.live_weight_price'),
+            'carcass_weight_price' => Setting::get('sales.pricing.carcass_weight_price'),
         ];
 
         $feedBagWeights = [
-            'default_bag_weight_kg' => Setting::get('feed.units.default_bag_weight_kg', 50),
-            'maize_bag_weight_kg' => Setting::get('feed.units.maize_bag_weight_kg', 50),
-            'soybean_meal_bag_weight_kg' => Setting::get('feed.units.soybean_meal_bag_weight_kg', 50),
-            'wheat_bran_bag_weight_kg' => Setting::get('feed.units.wheat_bran_bag_weight_kg', 50),
-            'premix_bag_weight_kg' => Setting::get('feed.units.premix_bag_weight_kg', 25),
-            'concentrate_bag_weight_kg' => Setting::get('feed.units.concentrate_bag_weight_kg', 50),
+            'default_bag_weight_kg' => Setting::get('feed.units.default_bag_weight_kg'),
+            'maize_bag_weight_kg' => Setting::get('feed.units.maize_bag_weight_kg'),
+            'soybean_meal_bag_weight_kg' => Setting::get('feed.units.soybean_meal_bag_weight_kg'),
+            'wheat_bran_bag_weight_kg' => Setting::get('feed.units.wheat_bran_bag_weight_kg'),
+            'premix_bag_weight_kg' => Setting::get('feed.units.premix_bag_weight_kg'),
+            'concentrate_bag_weight_kg' => Setting::get('feed.units.concentrate_bag_weight_kg'),
         ];
 
         $purchaseRequestFeedItems = Setting::purchaseFeedItems();
+        $animalBreeds = Setting::animalBreeds();
+
+        if ($platformView) {
+            $breeding = array_fill_keys(array_keys($breeding), null);
+            $pricing = array_fill_keys(array_keys($pricing), null);
+            $stages = array_fill_keys(array_keys($stages), null);
+            $feedBagWeights = array_fill_keys(array_keys($feedBagWeights), null);
+            $purchaseRequestFeedItems = [];
+            $animalBreeds = [];
+        }
         
         return view('settings.setup', compact(
             'breeding',
@@ -72,6 +96,8 @@ class SettingsController extends Controller
             'stages',
             'feedBagWeights',
             'purchaseRequestFeedItems',
+            'animalBreeds',
+            'platformView',
         ));
     }
 
@@ -81,9 +107,13 @@ class SettingsController extends Controller
     public function saveBreeding(Request $request)
     {
         $this->abortUnlessRole('superuser', 'admin');
+        abort_unless($request->user()->organization_id, 403, 'Operational setup must be completed by a farm administrator.');
 
         if ($request->has('feed_items_only')) {
             return $this->savePurchaseFeedItems($request);
+        }
+        if ($request->has('breeds_only')) {
+            return $this->saveAnimalBreeds($request);
         }
 
         $data = $request->validate([
@@ -95,6 +125,10 @@ class SettingsController extends Controller
             'minimum_breeding_age_male' => 'required|integer|min:150|max:400',
             'optimal_first_breeding_age_female' => 'required|integer|min:150|max:500',
             'optimal_first_breeding_age_male' => 'required|integer|min:150|max:500',
+            'minimum_breeding_weight_female' => 'required|numeric|min:20|max:500',
+            'minimum_breeding_weight_male' => 'required|numeric|min:20|max:500',
+            'optimal_breeding_weight_female' => 'required|numeric|min:20|max:500',
+            'optimal_breeding_weight_male' => 'required|numeric|min:20|max:500',
             'average_litter_size' => 'required|numeric|min:1|max:25',
             'weaning_to_mating_rest' => 'required|integer|min:0|max:60',
             'maximum_breeding_age' => 'required|integer|min:365|max:3650',
@@ -105,12 +139,12 @@ class SettingsController extends Controller
             'weaner_max_days' => 'required|integer|min:' . ($request->input('piglet_max_days', 1) + 1) . '|max:400',
             'grower_max_days' => 'required|integer|min:' . ($request->input('weaner_max_days', 2) + 1) . '|max:600',
 
-            'default_bag_weight_kg' => 'nullable|numeric|min:0.01|max:500',
-            'maize_bag_weight_kg' => 'nullable|numeric|min:0.01|max:500',
-            'soybean_meal_bag_weight_kg' => 'nullable|numeric|min:0.01|max:500',
-            'wheat_bran_bag_weight_kg' => 'nullable|numeric|min:0.01|max:500',
-            'premix_bag_weight_kg' => 'nullable|numeric|min:0.01|max:500',
-            'concentrate_bag_weight_kg' => 'nullable|numeric|min:0.01|max:500',
+            'default_bag_weight_kg' => 'required|numeric|min:0.01|max:500',
+            'maize_bag_weight_kg' => 'required|numeric|min:0.01|max:500',
+            'soybean_meal_bag_weight_kg' => 'required|numeric|min:0.01|max:500',
+            'wheat_bran_bag_weight_kg' => 'required|numeric|min:0.01|max:500',
+            'premix_bag_weight_kg' => 'required|numeric|min:0.01|max:500',
+            'concentrate_bag_weight_kg' => 'required|numeric|min:0.01|max:500',
             'feed_items' => 'nullable|array',
             'feed_items.*' => 'nullable|string|max:255',
         ]);
@@ -128,6 +162,14 @@ class SettingsController extends Controller
             'female' => (int) $data['optimal_first_breeding_age_female'],
             'male' => (int) $data['optimal_first_breeding_age_male'],
         ]);
+        Setting::set('breeding.parameters.minimum_breeding_weight', [
+            'female' => (float) $data['minimum_breeding_weight_female'],
+            'male' => (float) $data['minimum_breeding_weight_male'],
+        ]);
+        Setting::set('breeding.parameters.optimal_breeding_weight', [
+            'female' => (float) $data['optimal_breeding_weight_female'],
+            'male' => (float) $data['optimal_breeding_weight_male'],
+        ]);
         Setting::set('breeding.parameters.average_litter_size', (float) $data['average_litter_size']);
         Setting::set('breeding.parameters.weaning_to_mating_rest', (int) $data['weaning_to_mating_rest']);
         Setting::set('breeding.parameters.maximum_breeding_age', (int) $data['maximum_breeding_age']);
@@ -143,12 +185,12 @@ class SettingsController extends Controller
         Setting::set('stages.grower.max_days', (int) $data['grower_max_days']);
 
         // Save feed purchase unit / bag weight settings
-        Setting::set('feed.units.default_bag_weight_kg', (float) ($data['default_bag_weight_kg'] ?? 50));
-        Setting::set('feed.units.maize_bag_weight_kg', (float) ($data['maize_bag_weight_kg'] ?? 50));
-        Setting::set('feed.units.soybean_meal_bag_weight_kg', (float) ($data['soybean_meal_bag_weight_kg'] ?? 50));
-        Setting::set('feed.units.wheat_bran_bag_weight_kg', (float) ($data['wheat_bran_bag_weight_kg'] ?? 50));
-        Setting::set('feed.units.premix_bag_weight_kg', (float) ($data['premix_bag_weight_kg'] ?? 25));
-        Setting::set('feed.units.concentrate_bag_weight_kg', (float) ($data['concentrate_bag_weight_kg'] ?? 50));
+        Setting::set('feed.units.default_bag_weight_kg', (float) $data['default_bag_weight_kg']);
+        Setting::set('feed.units.maize_bag_weight_kg', (float) $data['maize_bag_weight_kg']);
+        Setting::set('feed.units.soybean_meal_bag_weight_kg', (float) $data['soybean_meal_bag_weight_kg']);
+        Setting::set('feed.units.wheat_bran_bag_weight_kg', (float) $data['wheat_bran_bag_weight_kg']);
+        Setting::set('feed.units.premix_bag_weight_kg', (float) $data['premix_bag_weight_kg']);
+        Setting::set('feed.units.concentrate_bag_weight_kg', (float) $data['concentrate_bag_weight_kg']);
 
         Setting::setPurchaseFeedItems($data['feed_items'] ?? []);
 
@@ -163,6 +205,7 @@ class SettingsController extends Controller
     public function savePurchaseFeedItems(Request $request)
     {
         $this->abortUnlessRole('superuser', 'admin');
+        abort_unless($request->user()->organization_id, 403, 'Operational setup must be completed by a farm administrator.');
 
         $data = $request->validate([
             'feed_items' => ['nullable', 'array'],
@@ -183,13 +226,83 @@ class SettingsController extends Controller
             ->with('success', 'Purchase request feed items saved successfully.');
     }
 
+    public function saveAnimalBreeds(Request $request)
+    {
+        $this->abortUnlessRole('superuser', 'admin');
+        abort_unless($request->user()->organization_id, 403, 'Operational setup must be completed by a farm administrator.');
+
+        $data = $request->validate([
+            'breed_names' => ['nullable', 'array'],
+            'breed_names.*' => ['nullable', 'string', 'max:100'],
+            'remove_breeds' => ['nullable', 'array'],
+            'remove_breeds.*' => ['string', 'max:20'],
+            'new_breed_code' => ['nullable', 'alpha_dash', 'max:20'],
+            'new_breed_name' => ['nullable', 'string', 'max:100', 'required_with:new_breed_code'],
+        ]);
+
+        $breeds = Setting::animalBreeds();
+        foreach ($data['breed_names'] ?? [] as $code => $name) {
+            if (array_key_exists($code, $breeds) && trim((string) $name) !== '') {
+                $breeds[$code] = trim($name);
+            }
+        }
+
+        foreach ($data['remove_breeds'] ?? [] as $code) {
+            $organizationId = (int) $request->user()->organization_id;
+            $inUse = PigManagement::where('organization_id', $organizationId)->where('breed', $code)->exists()
+                || \App\Models\PurchaseStockIntake::where('organization_id', $organizationId)->where('breed', $code)->exists();
+            if ($inUse) {
+                return back()->withErrors(['breeds' => "{$code} cannot be removed because it is used by existing stock."])->withInput();
+            }
+            unset($breeds[$code]);
+        }
+
+        if (! empty($data['new_breed_name'])) {
+            $code = ! empty($data['new_breed_code'])
+                ? strtoupper(trim($data['new_breed_code']))
+                : $this->generateBreedCode($data['new_breed_name'], array_keys($breeds));
+            if (array_key_exists($code, $breeds)) {
+                return back()->withErrors(['new_breed_code' => 'That breed code already exists.'])->withInput();
+            }
+            $breeds[$code] = trim($data['new_breed_name']);
+        }
+
+        if ($breeds === []) {
+            return back()->withErrors(['breeds' => 'At least one animal breed must remain available.']);
+        }
+
+        Setting::setAnimalBreeds($breeds);
+
+        return redirect()->route('settings.setup')->with('success', 'Animal breeds saved successfully.');
+    }
+
+    protected function generateBreedCode(string $name, array $existingCodes): string
+    {
+        $words = preg_split('/\s+/', trim($name)) ?: [];
+        $base = count($words) > 1
+            ? implode('', array_map(fn ($word) => substr($word, 0, 1), $words))
+            : substr($words[0] ?? 'BRD', 0, 4);
+        $base = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $base) ?: 'BRD');
+        $code = $base;
+        $suffix = 2;
+        while (in_array($code, $existingCodes, true)) {
+            $code = substr($base, 0, 16).$suffix++;
+        }
+
+        return $code;
+    }
+
     /**
      * Reset breeding settings to defaults
      */
     public function resetBreeding()
     {
         $this->abortUnlessRole('superuser', 'admin');
-        // Remove keys so config falls back to defaults
+        $organizationId = auth()->user()->organization_id;
+        abort_unless($organizationId, 403, 'Farm setup can only be cleared from a farm administrator account.');
+
+        // Remove only this farm's choices. Other farms and platform settings
+        // must never be touched by this action.
         foreach ([
             'breeding.cycle.pregnancy_check_days',
             'breeding.cycle.gestation_days',
@@ -197,6 +310,8 @@ class SettingsController extends Controller
             'breeding.cycle.birth_to_maturity_days',
             'breeding.parameters.minimum_breeding_age',
             'breeding.parameters.optimal_first_breeding_age',
+            'breeding.parameters.minimum_breeding_weight',
+            'breeding.parameters.optimal_breeding_weight',
             'breeding.parameters.average_litter_size',
             'breeding.parameters.weaning_to_mating_rest',
             'breeding.parameters.maximum_breeding_age',
@@ -214,175 +329,36 @@ class SettingsController extends Controller
             'feed.units.concentrate_bag_weight_kg',
             'purchase_requests.feed_items',
         ] as $key) {
-            \App\Models\Setting::query()->where('key', $key)->delete();
+            \App\Models\Setting::query()
+                ->where('organization_id', $organizationId)
+                ->where('key', $key)
+                ->delete();
         }
 
-        return FlashHelper::successAndRedirect('Settings reset to defaults.', 'settings.setup');
+        return FlashHelper::successAndRedirect('This farm’s setup values were cleared.', 'settings.setup');
     }
 
     /**
      * Show comprehensive system reports
      */
-    public function systemReports(Request $request)
+    public function systemReports(Request $request, SystemReportService $reports, CurrentOrganization $currentOrganization, \App\Services\Reports\PlatformReportingService $platformReports)
     {
         $this->abortUnlessRole('superuser', 'admin');
-        $from = $request->date('from');
-        $to = $request->date('to');
+        [$from, $to] = $this->reportPeriod($request);
+        if (auth()->user()->isSuperuser() && (! $request->filled('organization_id') || $request->input('organization_id') === 'all')) {
+            $activeTab = $request->validate([
+                'tab' => ['nullable', 'string', Rule::in(['overview', 'livestock', 'breeding', 'health', 'weights', 'feed', 'procurement', 'sales', 'finance', 'users', 'risk'])],
+            ])['tab'] ?? 'overview';
+            return view('settings.platform-reports', array_merge(
+                $platformReports->build($from, $to),
+                ['reportOrganizations' => Organization::active()->orderBy('name')->get(), 'activeTab' => $activeTab]
+            ));
+        }
+        $organizationId = $this->reportOrganizationId($request, $currentOrganization);
 
-        // Helper to apply optional date range on created_at
-        $applyRange = function($query) use ($from, $to) {
-            if ($from) { $query->whereDate('created_at', '>=', $from); }
-            if ($to) { $query->whereDate('created_at', '<=', $to); }
-            return $query;
-        };
-
-        // Executive Summary
-        $summary = [
-            'total_pigs' => $applyRange(PigManagement::query())->count(),
-            'active_pigs' => $applyRange(PigManagement::active())->count(),
-            'sold_pigs' => $applyRange(PigManagement::whereHas('sales'))->count(),
-            'deceased_pigs' => $applyRange(PigManagement::whereHas('deaths'))->count(),
-            'total_sales_revenue' => $applyRange(PigSale::query())->sum('sale_price'),
-            'average_sale_price' => $applyRange(PigSale::query())->avg('sale_price'),
-            'total_weights_recorded' => $applyRange(PigWeight::query())->count(),
-            'total_structures' => Structure::count(),
-            'total_rooms' => Room::count(),
-            'total_users' => User::count(),
-        ];
-
-        // Pig Distribution
-        $pigDistribution = [
-            'by_stock_type' => $applyRange(PigManagement::selectRaw('stock_type, COUNT(*) as count')->groupBy('stock_type'))
-                ->pluck('count', 'stock_type'),
-            'by_gender' => $applyRange(PigManagement::selectRaw('gender, COUNT(*) as count')->groupBy('gender'))
-                ->pluck('count', 'gender'),
-            'by_breed' => $applyRange(PigManagement::selectRaw('breed, COUNT(*) as count')->groupBy('breed'))
-                ->pluck('count', 'breed'),
-        ];
-
-        // Recent Activity (last 30 days)
-        $recentActivity = [
-            'new_pigs' => $applyRange(PigManagement::query())->count(),
-            'weights_recorded' => $applyRange(PigWeight::query())->count(),
-            'pigs_sold' => $applyRange(PigSale::query())->count(),
-            'pigs_died' => $applyRange(PigDeath::query())->count(),
-            'matings_planned' => $applyRange(Mating::query())->count(),
-        ];
-
-        // Financial Overview
-        $financialOverview = [
-            'total_revenue' => $applyRange(PigSale::query())->sum('sale_price'),
-            'average_price_per_kg' => $applyRange(PigSale::query())->avg('sale_price'),
-            'sales_by_month' => $applyRange(PigSale::selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, SUM(sale_price) as revenue, COUNT(*) as count')
-                ->groupBy('month')
-                ->orderBy('month'))
-                ->get(),
-        ];
-
-        // Breeding Statistics
-        $breedingStats = [
-            'total_matings' => $applyRange(Mating::query())->count(),
-            'total_farrowings' => $applyRange(Farrowing::query())->count(),
-            'total_weanings' => $applyRange(Weaning::query())->count(),
-            'average_litter_size' => $applyRange(Farrowing::query())->avg('total_piglets_born'),
-            // Unify with PerformanceMetricController (pregnancy_status method)
-            'pregnancy_rate' => (function() use ($applyRange) {
-                $eligibleMatings = $applyRange(Mating::whereNotNull('female_id'));
-                $pregnant = $applyRange(Mating::where('pregnancy_status', 'pregnant'));
-                $numEligible = $eligibleMatings->count();
-                $numPregnant = $pregnant->count();
-                return $numEligible > 0 ? round(100 * $numPregnant / $numEligible, 1) : 0;
-            })(),
-        ];
-
-        // Health & Mortality
-        $healthStats = [
-            'total_deaths' => $applyRange(PigDeath::query())->count(),
-            'deaths_by_cause' => $applyRange(PigDeath::selectRaw('death_cause, COUNT(*) as count')->groupBy('death_cause'))
-                ->pluck('count', 'death_cause'),
-            'mortality_rate' => $applyRange(PigManagement::query())->count() > 0 
-                ? ($applyRange(PigDeath::query())->count() / $applyRange(PigManagement::query())->count()) * 100 
-                : 0,
-        ];
-
-        // Weight Analytics
-        $weightAnalytics = [
-            'average_weight' => $applyRange(PigWeight::query())->avg('weight'),
-            'total_weight_records' => $applyRange(PigWeight::query())->count(),
-            'weights_by_month' => $applyRange(PigWeight::selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, COUNT(*) as count, AVG(weight) as avg_weight')
-                ->groupBy('month')
-                ->orderBy('month'))
-                ->get(),
-        ];
-
-        // Structure & Room Utilization
-        $structureStats = [
-            // Provide list of structures with identifiers for tab filtering
-            'structures_by_status' => Structure::select('id', 'name', 'status')->orderBy('name')->get(),
-            'room_utilization' => Room::withCount('pigs')->with('structure')->get(),
-            'detailed_structures' => Structure::withCount('rooms')->get(),
-        ];
-
-        $stages = [
-            'piglet_max_days' => Setting::get('stages.piglet.max_days', 45),
-            'weaner_max_days' => Setting::get('stages.weaner.max_days', 105),
-            'grower_max_days' => Setting::get('stages.grower.max_days', 180)
-        ];
-
-        // Notification/Alert Analytics (live count by alert type)
-        $realTimeAlerts = [
-            'weight' => \App\Models\WeightAlert::where('acknowledged', false)->count(),
-            'critical' => \App\Models\WeightAlert::where('severity', 'high')->where('acknowledged', false)->count(),
-            'pending_weaning_alerts' => \App\Models\PigManagement::active()->whereNotNull('date_of_birth')->whereDoesntHave('weaning')->count(),
-        ];
-        $storedNotifications = [
-            'total' => \DB::table('notifications')->count(),
-            'unread' => \DB::table('notifications')->whereNull('read_at')->count(),
-        ];
-        // Soft deletes/archival
-        $softDeletes = [
-            'pigs_archived' => \App\Models\PigManagement::onlyTrashed()->count(),
-            'piglet_deaths_archived' => \App\Models\PigletDeath::onlyTrashed()->count(),
-            'sales_archived' => \App\Models\PigSale::onlyTrashed()->count(),
-            'deaths_archived' => \App\Models\PigDeath::onlyTrashed()->count(),
-            'pigs_active' => \App\Models\PigManagement::count(),
-        ];
-        // Piglet survivability
-        $liveBirths = \App\Models\Farrowing::sum('live_births');
-        $preWeaningDeaths = \App\Models\PigletDeath::whereHas('farrowing', function($q){ $q->where('status', 'active'); })->count();
-        $pigletSurvivalRate = $liveBirths > 0 ? round(100 * ($liveBirths - $preWeaningDeaths) / $liveBirths, 2) : null;
-        // Weaning details
-        $totalLittersWeaned = \App\Models\Weaning::distinct('mother_id')->count('mother_id');
-        $totalPigletsWeaned = \App\Models\Weaning::count();
-        $avgWeaningAge = \App\Models\Weaning::avg('age_at_weaning_days');
-        $avgWeaningWeight = \App\Models\Weaning::avg('weaning_weight');
-        // Sales/Procurement breakdown
-        $paidSales = \App\Models\PigSale::where('payment_status', 'paid')->count();
-        $unpaidSales = \App\Models\PigSale::where('payment_status', '!=', 'paid')->count();
-        // User roles
-        $roleCounts = \App\Models\User::with('role')->get()->groupBy(fn($u)=>optional($u->role)->name ?? 'unknown')->map->count();
-
-        return view('settings.reports', compact(
-            'summary',
-            'pigDistribution', 
-            'recentActivity',
-            'financialOverview',
-            'breedingStats',
-            'healthStats',
-            'weightAnalytics',
-            'structureStats',
-            'stages',
-            'realTimeAlerts',
-            'storedNotifications',
-            'softDeletes',
-            'pigletSurvivalRate',
-            'totalLittersWeaned',
-            'totalPigletsWeaned',
-            'avgWeaningAge',
-            'avgWeaningWeight',
-            'paidSales',
-            'unpaidSales',
-            'roleCounts'
+        return view('settings.reports', array_merge(
+            $reports->build($organizationId, $from, $to),
+            ['reportOrganizations' => auth()->user()->isSuperuser() ? Organization::active()->orderBy('name')->get() : collect(), 'reportOrganizationId' => $organizationId]
         ));
     }
 
@@ -391,106 +367,94 @@ class SettingsController extends Controller
      */
     public function activityLog(Request $request)
     {
-        // Restrict to superuser only
-        abort_unless(auth()->check() && auth()->user()->isSuperuser(), 403);
+        $user = $request->user();
+        abort_unless($user && ($user->isSuperuser() || $user->isAdmin()), 403);
 
-        $query = ActivityLog::with('user')->latest();
+        $filters = $request->validate([
+            'organization_id' => ['nullable', 'integer', 'exists:organizations,id'],
+            'module' => ['nullable', 'string', 'max:100'],
+            'action' => ['nullable', 'string', 'max:100'],
+            'user' => ['nullable', 'string', 'max:100'],
+            'record' => ['nullable', 'string', 'max:150'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+        ]);
 
-        // By default, show login, logout and login_attempt without requiring filters
-        if (!$request->filled('action')) {
-            $query->whereIn('action', ['login', 'logout', 'login_attempt']);
-        } else {
-            $query->where('action', $request->string('action'));
+        $query = ActivityLog::query()->with(['user', 'organization']);
+
+        if ($user->isAdmin()) {
+            $query->where('organization_id', $user->organization_id);
+        } elseif (! empty($filters['organization_id'])) {
+            $query->where('organization_id', (int) $filters['organization_id']);
         }
-        if ($request->filled('user')) {
-            $query->whereHas('user', function($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->string('user') . '%')
-                  ->orWhere('email', 'like', '%' . $request->string('user') . '%');
+
+        if (! empty($filters['module'])) {
+            $query->where('module', $filters['module']);
+        }
+        if (! empty($filters['action'])) {
+            $query->where('action', $filters['action']);
+        }
+        if (! empty($filters['user'])) {
+            $term = trim($filters['user']);
+            $query->where(function ($search) use ($term): void {
+                $search->where('name', 'like', "%{$term}%")
+                    ->orWhereHas('user', fn ($users) => $users
+                        ->where('name', 'like', "%{$term}%")
+                        ->orWhere('email', 'like', "%{$term}%"));
             });
         }
+        if (! empty($filters['record'])) {
+            $term = trim($filters['record']);
+            $query->where(function ($search) use ($term): void {
+                $search->where('record_label', 'like', "%{$term}%")
+                    ->orWhere('description', 'like', "%{$term}%");
+            });
+        }
+        if (! empty($filters['from'])) {
+            $query->whereDate('created_at', '>=', $filters['from']);
+        }
+        if (! empty($filters['to'])) {
+            $query->whereDate('created_at', '<=', $filters['to']);
+        }
 
-        $logs = $query->paginate(20);
+        $summaryQuery = clone $query;
+        $summary = [
+            'total' => (clone $summaryQuery)->count(),
+            'today' => (clone $summaryQuery)->whereDate('created_at', today())->count(),
+            'users' => (clone $summaryQuery)->whereNotNull('user_id')->distinct()->count('user_id'),
+            'attention' => (clone $summaryQuery)->where(function ($attention): void {
+                $attention->whereIn('action', ['login_attempt', 'failed', 'declined', 'deleted', 'archived', 'cancelled', 'refunded'])
+                    ->orWhere('action', 'like', '%failed%');
+            })->count(),
+        ];
 
-        return view('settings.activity-log', compact('logs'));
+        $logs = $query->latest()->paginate(25)->withQueryString();
+        $modules = ActivityLog::query()
+            ->when($user->isAdmin(), fn ($items) => $items->where('organization_id', $user->organization_id))
+            ->whereNotNull('module')->distinct()->orderBy('module')->pluck('module');
+        $actions = ActivityLog::query()
+            ->when($user->isAdmin(), fn ($items) => $items->where('organization_id', $user->organization_id))
+            ->whereNotNull('action')->distinct()->orderBy('action')->pluck('action');
+        $organizations = $user->isSuperuser()
+            ? Organization::withTrashed()->orderBy('name')->get(['id', 'name'])
+            : collect();
+
+        return view('settings.activity-log', compact('logs', 'summary', 'modules', 'actions', 'organizations'));
     }
 
     /**
      * Export system reports as PDF
      */
-    public function exportSystemReportsPdf()
+    public function exportSystemReportsPdf(Request $request, SystemReportService $reports, CurrentOrganization $currentOrganization, \App\Services\Reports\PlatformReportingService $platformReports)
     {
         $this->abortUnlessRole('superuser', 'admin');
-        // Get the same data as the main reports page
-        $summary = [
-            'total_pigs' => PigManagement::count(),
-            'active_pigs' => PigManagement::active()->count(),
-            'sold_pigs' => PigManagement::whereHas('sales')->count(),
-            'deceased_pigs' => PigManagement::whereHas('deaths')->count(),
-            'total_sales_revenue' => PigSale::sum('sale_price'),
-            'average_sale_price' => PigSale::avg('sale_price'),
-            'total_weights_recorded' => PigWeight::count(),
-            'total_structures' => Structure::count(),
-            'total_rooms' => Room::count(),
-            'total_users' => User::count(),
-        ];
-
-        $pigDistribution = [
-            'by_stock_type' => PigManagement::selectRaw('stock_type, COUNT(*) as count')
-                ->groupBy('stock_type')
-                ->pluck('count', 'stock_type'),
-            'by_gender' => PigManagement::selectRaw('gender, COUNT(*) as count')
-                ->groupBy('gender')
-                ->pluck('count', 'gender'),
-            'by_breed' => PigManagement::selectRaw('breed, COUNT(*) as count')
-                ->groupBy('breed')
-                ->pluck('count', 'breed'),
-        ];
-
-        $financialOverview = [
-            'total_revenue' => PigSale::sum('sale_price'),
-            'average_price_per_kg' => PigSale::avg('sale_price'),
-            'sales_by_month' => PigSale::selectRaw('DATE_FORMAT(created_at, "%Y-%m") as month, SUM(sale_price) as revenue, COUNT(*) as count')
-                ->groupBy('month')
-                ->orderBy('month')
-                ->get(),
-        ];
-
-        $breedingStats = [
-            'total_matings' => Mating::count(),
-            'total_farrowings' => Farrowing::count(),
-            'total_weanings' => Weaning::count(),
-            'average_litter_size' => Farrowing::avg('total_piglets_born'),
-        ];
-
-        $healthStats = [
-            'total_deaths' => PigDeath::count(),
-            'deaths_by_cause' => PigDeath::selectRaw('death_cause, COUNT(*) as count')
-                ->groupBy('death_cause')
-                ->pluck('count', 'death_cause'),
-        ];
-
-        $weightAnalytics = [
-            'average_weight' => PigWeight::avg('weight'),
-            'total_weight_records' => PigWeight::count(),
-        ];
-
-        $structureStats = [
-            'structures_by_status' => Structure::selectRaw('status, COUNT(*) as count')
-                ->groupBy('status')
-                ->pluck('count', 'status'),
-            'room_utilization' => Room::withCount('pigs')->get(),
-            'detailed_structures' => Structure::withCount('rooms')->get(),
-        ];
-
-        $pdf = \PDF::loadView('exports.system-reports-pdf', compact(
-            'summary',
-            'pigDistribution',
-            'financialOverview', 
-            'breedingStats',
-            'healthStats',
-            'weightAnalytics',
-            'structureStats'
-        ));
+        [$from, $to] = $this->reportPeriod($request);
+        if (auth()->user()->isSuperuser() && (! $request->filled('organization_id') || $request->input('organization_id') === 'all')) {
+            $data = $platformReports->build($from, $to);
+            return \PDF::loadView('exports.platform-reports-pdf', $data)->download('platform-report-'.now()->format('Y-m-d').'.pdf');
+        }
+        $data = $reports->build($this->reportOrganizationId($request, $currentOrganization), $from, $to);
+        $pdf = \PDF::loadView('exports.system-reports-pdf', $data);
 
         return $pdf->download('system-reports-' . now()->format('Y-m-d') . '.pdf');
     }
@@ -498,9 +462,22 @@ class SettingsController extends Controller
     /**
      * Export system reports as CSV
      */
-    public function exportSystemReportsCsv()
+    public function exportSystemReportsCsv(Request $request, SystemReportService $reports, CurrentOrganization $currentOrganization, \App\Services\Reports\PlatformReportingService $platformReports)
     {
         $this->abortUnlessRole('superuser', 'admin');
+        [$from, $to] = $this->reportPeriod($request);
+        if (auth()->user()->isSuperuser() && (! $request->filled('organization_id') || $request->input('organization_id') === 'all')) {
+            $platform = $platformReports->build($from, $to);
+            return response()->streamDownload(function () use ($platform) {
+                $out = fopen('php://output', 'w');
+                fputcsv($out, ['Organization', 'Active pigs', 'Added', 'Sold', 'Deaths', 'Revenue', 'Open orders', 'Pipeline', 'Alerts', 'Data quality', 'Status']);
+                foreach ($platform['rows'] as $row) {
+                    fputcsv($out, [$row['name'], $row['active_pigs'], $row['added'], $row['sold'], $row['deaths'], $row['revenue'], $row['open_orders'], $row['order_pipeline'], $row['alerts'], $row['data_quality'].'%', $row['status']]);
+                }
+                fclose($out);
+            }, 'platform-report-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv']);
+        }
+        $report = $reports->build($this->reportOrganizationId($request, $currentOrganization), $from, $to);
         $filename = 'system-reports-' . now()->format('Y-m-d') . '.csv';
         
         $headers = [
@@ -508,130 +485,106 @@ class SettingsController extends Controller
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ];
 
-        $stages = [
-            'piglet_max_days' => Setting::get('stages.piglet.max_days', 45),
-            'weaner_max_days' => Setting::get('stages.weaner.max_days', 105),
-            'grower_max_days' => Setting::get('stages.grower.max_days', 180)
-        ];
-        $callback = function() use ($stages) {
+        $callback = function() use ($report) {
             $file = fopen('php://output', 'w');
-            
-            // Executive Summary
-            fputcsv($file, ['EXECUTIVE SUMMARY']);
-            fputcsv($file, ['Metric', 'Value']);
-            fputcsv($file, ['Total Pigs', PigManagement::count()]);
-            fputcsv($file, ['Active Pigs', PigManagement::active()->count()]);
-            fputcsv($file, ['Sold Pigs', PigManagement::whereHas('sales')->count()]);
-            fputcsv($file, ['Deceased Pigs', PigManagement::whereHas('deaths')->count()]);
-            fputcsv($file, ['Total Sales Revenue', PigSale::sum('sale_price')]);
-            fputcsv($file, ['Average Sale Price', PigSale::avg('sale_price')]);
-            fputcsv($file, ['Total Weights Recorded', PigWeight::count()]);
-            fputcsv($file, ['Total Structures', Structure::count()]);
-            fputcsv($file, ['Total Rooms', Room::count()]);
-            fputcsv($file, ['Total Users', User::count()]);
-            fputcsv($file, []); // Empty row
-            
-            // Pig Distribution
-            fputcsv($file, ['PIG DISTRIBUTION BY STOCK TYPE']);
-            fputcsv($file, ['Stock Type', 'Count']);
-            $stockTypes = PigManagement::selectRaw('stock_type, COUNT(*) as count')
-                ->groupBy('stock_type')
-                ->get();
-            foreach ($stockTypes as $type) {
-                fputcsv($file, [$type->stock_type, $type->count]);
-            }
-            fputcsv($file, []); // Empty row
-            
-            // Financial Overview
-            fputcsv($file, ['FINANCIAL OVERVIEW']);
-            fputcsv($file, ['Total Revenue', PigSale::sum('sale_price')]);
-            fputcsv($file, ['Average Price per Sale', PigSale::avg('sale_price')]);
-            fputcsv($file, []); // Empty row
-            
-            // Breeding Statistics
-            fputcsv($file, ['BREEDING STATISTICS']);
-            fputcsv($file, ['Metric', 'Value']);
-            fputcsv($file, ['Total Matings', Mating::count()]);
-            fputcsv($file, ['Total Farrowings', Farrowing::count()]);
-            fputcsv($file, ['Total Weanings', Weaning::count()]);
-            fputcsv($file, ['Average Litter Size', Farrowing::avg('total_piglets_born')]);
-            fputcsv($file, []); // Empty row
-            
-            // Health & Mortality
-            fputcsv($file, ['HEALTH & MORTALITY']);
-            fputcsv($file, ['Total Deaths', PigDeath::count()]);
-            fputcsv($file, ['Cause of Death', 'Count']);
-            $deathsByCause = PigDeath::selectRaw('death_cause, COUNT(*) as count')
-                ->groupBy('death_cause')
-                ->get();
-            foreach ($deathsByCause as $death) {
-                fputcsv($file, [$death->death_cause, $death->count]);
-            }
-            fputcsv($file, []); // Empty row
-            
-            // Structure & Room Utilization
-            fputcsv($file, ['STRUCTURE & ROOM UTILIZATION']);
-            fputcsv($file, ['Total Structures', Structure::count()]);
-            fputcsv($file, ['Total Rooms', Room::count()]);
-            fputcsv($file, []); // Empty row
-            
-            // Structures by Status
-            fputcsv($file, ['STRUCTURES BY STATUS']);
-            fputcsv($file, ['Status', 'Count']);
-            $structuresByStatus = Structure::selectRaw('status, COUNT(*) as count')
-                ->groupBy('status')
-                ->get();
-            foreach ($structuresByStatus as $structure) {
-                fputcsv($file, [ucfirst(str_replace('_', ' ', $structure->status)), $structure->count]);
-            }
-            fputcsv($file, []); // Empty row
-            
-            // Room Utilization
-            fputcsv($file, ['ROOM UTILIZATION']);
-            fputcsv($file, ['Room Name', 'Structure', 'Pigs Count', 'Capacity']);
-            $roomUtilization = Room::withCount('pigs')->with('structure')->get();
-            foreach ($roomUtilization as $room) {
-                fputcsv($file, [
-                    $room->name,
-                    $room->structure->name ?? 'N/A',
-                    $room->pigs_count,
-                    $room->capacity ?? 'N/A'
-                ]);
-            }
-            fputcsv($file, []); // Empty row
-            
-            // Detailed Structure Information
-            fputcsv($file, ['DETAILED STRUCTURE INFORMATION']);
-            fputcsv($file, ['Structure Name', 'Status', 'Capacity', 'Current Rooms', 'Available', 'Utilization %']);
-            $detailedStructures = Structure::withCount('rooms')->get();
-            foreach ($detailedStructures as $structure) {
-                $capacity = $structure->capacity ?? 'Unlimited';
-                $currentRooms = $structure->rooms_count;
-                $available = $structure->available_capacity;
-                $utilization = $structure->capacity ? round(($currentRooms / $structure->capacity) * 100, 1) : 'N/A';
-                
-                fputcsv($file, [
-                    $structure->name,
-                    ucfirst(str_replace('_', ' ', $structure->status)),
-                    $capacity,
-                    $currentRooms,
-                    $available === -1 ? 'Unlimited' : $available,
-                    $utilization
-                ]);
-            }
-            
-            // Growth stages section
+            fputcsv($file, ['FARM PERFORMANCE REPORT']);
+            fputcsv($file, ['Period', $report['from']->format('Y-m-d').' to '.$report['to']->format('Y-m-d')]);
+            fputcsv($file, ['Generated', now()->toDateTimeString()]);
             fputcsv($file, []);
-            fputcsv($file, ['GROWTH STAGES & AGE REQUIREMENTS']);
-            fputcsv($file, ['Stage', 'Max Age (days)']);
-            fputcsv($file, ['Piglet', $stages['piglet_max_days']]);
-            fputcsv($file, ['Weaner', $stages['weaner_max_days']]);
-            fputcsv($file, ['Grower', $stages['grower_max_days']]);
-            
+            fputcsv($file, ['EXECUTIVE OVERVIEW']);
+            fputcsv($file, ['Metric', 'Value']);
+            fputcsv($file, ['Closing Herd', $report['current']['closing_herd']]);
+            fputcsv($file, ['Sales Revenue (GHS)', $report['current']['revenue']]);
+            fputcsv($file, ['Average Sale (GHS)', $report['current']['average_sale']]);
+            fputcsv($file, ['Average Price per kg (GHS)', $report['current']['average_price_per_kg']]);
+            fputcsv($file, ['Mortality Rate (%)', $report['current']['mortality_rate'] ?? 'N/A']);
+            fputcsv($file, []);
+
+            fputcsv($file, ['HERD MOVEMENT RECONCILIATION']);
+            fputcsv($file, ['Opening', 'Manually added', 'Purchased', 'Sold', 'Deaths', 'Closing', 'Variance']);
+            fputcsv($file, array_values($report['herdMovement']));
+            fputcsv($file, []);
+
+            fputcsv($file, ['BREEDING']);
+            foreach ($report['breeding'] as $metric => $value) {
+                fputcsv($file, [str($metric)->replace('_', ' ')->title(), $value ?? 'N/A']);
+            }
+            fputcsv($file, []);
+
+            fputcsv($file, ['PIGLET TRACKING']);
+            foreach (['litters', 'total_born', 'live_births', 'stillbirths', 'pre_weaning_deaths', 'currently_alive', 'weaned', 'survival_rate', 'average_litter_size', 'average_birth_weight', 'average_weaning_age', 'average_weaning_weight'] as $metric) {
+                fputcsv($file, [str($metric)->replace('_', ' ')->title(), $report['pigletTracking'][$metric] ?? 'N/A']);
+            }
+            fputcsv($file, []);
+
+            fputcsv($file, ['HERD COMPOSITION']);
+            fputcsv($file, ['Stock Type', 'Head']);
+            foreach ($report['distribution'] as $row) {
+                fputcsv($file, [$row->label, $row->total]);
+            }
+            fputcsv($file, []);
+
+            fputcsv($file, ['STOREFRONT']);
+            fputcsv($file, ['Orders', $report['storefront']['orders']]);
+            fputcsv($file, ['Completed', $report['storefront']['completed']]);
+            fputcsv($file, ['Open orders', $report['storefront']['open']]);
+            fputcsv($file, ['Realised revenue (GHS)', $report['storefront']['realised_revenue']]);
+            fputcsv($file, ['Open pipeline (GHS)', $report['storefront']['pipeline']]);
+            fputcsv($file, []);
+
+            fputcsv($file, ['FINANCE LEDGER']);
+            foreach (['revenue', 'cost_of_sales', 'gross_profit', 'operating_expenses', 'net_profit', 'inventory_value'] as $metric) {
+                fputcsv($file, [str($metric)->replace('_', ' ')->title(), $report['finance'][$metric]]);
+            }
+            fputcsv($file, []);
+
+            fputcsv($file, ['GROWTH & FEED']);
+            fputcsv($file, ['Weight records', $report['weights']['records']]);
+            fputcsv($file, ['Average recorded weight (kg)', $report['weights']['average_kg']]);
+            fputcsv($file, ['Feed issued (kg)', $report['feed']['issued_kg']]);
+            fputcsv($file, ['Feed issued cost (GHS)', $report['feed']['issued_cost']]);
+            fputcsv($file, []);
+
+            fputcsv($file, ['ROOM OCCUPANCY']);
+            fputcsv($file, ['Structure', 'Room', 'Animals', 'Capacity', 'Utilization %']);
+            foreach ($report['facilities']['details'] as $room) {
+                fputcsv($file, [
+                    $room->structure?->name ?? 'Unassigned', $room->name, $room->pigs_count,
+                    $room->capacity ?? 'Unlimited', $room->capacity > 0 ? round(($room->pigs_count / $room->capacity) * 100, 1) : 'N/A',
+                ]);
+            }
             fclose($file);
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    private function reportPeriod(Request $request): array
+    {
+        $validated = $request->validate([
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+        ]);
+
+        $from = CarbonImmutable::parse($validated['from'] ?? now()->startOfMonth()->toDateString());
+        $to = CarbonImmutable::parse($validated['to'] ?? now()->toDateString());
+
+        return [$from, $to];
+    }
+
+    private function reportOrganizationId(Request $request, CurrentOrganization $currentOrganization): int
+    {
+        if (! auth()->user()->isSuperuser()) {
+            return $currentOrganization->requireId();
+        }
+
+        $organization = Organization::active()
+            ->when($request->filled('organization_id'), fn ($query) => $query->whereKey($request->integer('organization_id')))
+            ->orderBy('name')
+            ->firstOrFail();
+        $currentOrganization->bind($organization);
+
+        return (int) $organization->id;
     }
 
     /**
@@ -639,33 +592,98 @@ class SettingsController extends Controller
      */
     public function users(Request $request)
     {
-        // Restrict to superuser only
-        abort_unless(auth()->check() && auth()->user()->isSuperuser(), 403);
+        $actor = $request->user();
+        abort_unless($actor && ($actor->isSuperuser() || $actor->isAdmin()), 403);
 
-        $users = User::with(['role'])->orderBy('created_at', 'desc')->paginate(10);
-        $roles = Role::all();
+        $baseUsers = User::query()
+            ->when($actor->isAdmin(), fn ($query) => $query->where('organization_id', $actor->organization_id));
+        $userStats = [
+            'total' => (clone $baseUsers)->count(),
+            'active' => (clone $baseUsers)->where('active_status', true)->count(),
+            'inactive' => (clone $baseUsers)->where('active_status', false)->count(),
+            'farms' => $actor->isSuperuser() ? Organization::active()->count() : 1,
+        ];
 
-        return view('settings.users', compact('users', 'roles'));
+        $users = (clone $baseUsers)->with(['role', 'organization'])
+            ->when($actor->isSuperuser() && $request->filled('organization_id'), fn ($query) => $query->where('organization_id', $request->integer('organization_id')))
+            ->when($request->filled('q'), function ($query) use ($request) {
+                $term = '%'.trim((string) $request->input('q')).'%';
+                $query->where(fn ($nested) => $nested->where('name', 'like', $term)->orWhere('email', 'like', $term)->orWhere('phone', 'like', $term));
+            })
+            ->when($request->filled('role'), fn ($query) => $query->where('role', $request->input('role')))
+            ->when($request->input('status') === 'active', fn ($query) => $query->where('active_status', true))
+            ->when($request->input('status') === 'inactive', fn ($query) => $query->where('active_status', false))
+            ->orderBy('created_at', 'desc')
+            ->paginate(10)
+            ->withQueryString();
+        $organizations = $actor->isSuperuser() ? Organization::active()->orderBy('name')->get() : collect();
+        $availableRoles = $actor->isSuperuser()
+            ? array_values(array_diff(User::allowedRoleNames(), ['customer']))
+            : array_values(array_diff(User::allowedRoleNames(), ['superuser', 'customer']));
+
+        return view('settings.users', compact('users', 'organizations', 'availableRoles', 'userStats'));
     }
 
     /**
      * Store a new user
      */
-    public function storeUser(Request $request, \App\Services\Users\UserProvisioningService $provisioning)
+    public function storeUser(
+        Request $request,
+        \App\Services\Users\UserProvisioningService $provisioning,
+        \App\Services\Email\EmailTemplateService $emails,
+    )
     {
-        // Restrict to superuser only
-        abort_unless(auth()->check() && auth()->user()->isSuperuser(), 403);
+        $actor = $request->user();
+        abort_unless($actor && ($actor->isSuperuser() || $actor->isAdmin()), 403);
+
+        if ($actor->isSuperuser() && $request->input('account_scope') === 'platform') {
+            $request->merge(['role' => 'superuser', 'organization_id' => null]);
+        }
+
+        // Older builds soft-deleted users. Those invisible rows still occupy
+        // the unique email index and would make a genuinely deleted address
+        // appear unavailable. Permanently clear only a matching retired row
+        // that this actor is authorized to manage before uniqueness runs.
+        $requestedEmail = strtolower(trim((string) $request->input('email')));
+        if ($requestedEmail !== '') {
+            $retiredUsers = User::onlyTrashed()
+                ->where('email', $requestedEmail)
+                ->when($actor->isAdmin(), fn ($query) => $query->where('organization_id', $actor->organization_id))
+                ->get();
+
+            foreach ($retiredUsers as $retiredUser) {
+                DB::transaction(function () use ($retiredUser): void {
+                    DB::table('sessions')->where('user_id', $retiredUser->id)->delete();
+                    DB::table('password_reset_tokens')->where('email', $retiredUser->email)->delete();
+                    $retiredUser->forceDelete();
+                });
+            }
+
+            $request->merge(['email' => $requestedEmail]);
+        }
 
         $validated = $request->validate([
+            'account_scope' => [$actor->isSuperuser() ? 'required' : 'sometimes', 'in:farm,platform'],
             'first_name' => ['required', 'string', 'max:50'],
             'last_name' => ['required', 'string', 'max:50'],
             'email' => ['required', 'string', 'email', 'max:50', 'unique:users'],
             'phone' => ['nullable', 'string', 'max:20'],
-            'role' => ['required', 'string', 'in:' . implode(',', User::allowedRoleNames())],
+            'role' => ['required', 'string', 'in:' . implode(',', $actor->isSuperuser()
+                ? array_values(array_diff(User::allowedRoleNames(), ['customer']))
+                : array_values(array_diff(User::allowedRoleNames(), ['superuser', 'customer'])))],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'active_status' => ['sometimes', 'boolean'],
             'organization_id' => ['sometimes', 'nullable', 'integer', 'exists:organizations,id'],
         ]);
+
+        if ($actor->isAdmin()) {
+            abort_if($validated['role'] === 'superuser', 403, 'Farm administrators cannot create platform superusers.');
+            $validated['organization_id'] = $actor->organization_id;
+        } elseif (($validated['account_scope'] ?? 'farm') === 'farm' && $validated['role'] === 'superuser') {
+            return back()->withErrors(['role' => 'Choose a farm staff role for a farm account.'])->withInput();
+        } elseif ($validated['role'] !== 'superuser' && empty($validated['organization_id'])) {
+            return back()->withErrors(['organization_id' => 'Select the farm this user belongs to.'])->withInput();
+        }
 
         // CF-P0-001: this method used to build the User inline, never setting
         // organization_id and defaulting active_status to false — producing an
@@ -673,9 +691,59 @@ class SettingsController extends Controller
         // reject on the first request. All creation now goes through the single
         // provisioning service, which establishes organisation and role
         // transactionally and refuses to return an unusable account.
-        $provisioning->provision($validated, $request->user());
+        $user = $provisioning->provision($validated, $request->user());
 
-        return redirect()->route('settings.users')->with('success', 'User created successfully.');
+        // Farm users receive the same secure first-login experience as the
+        // administrator created with a new organization. Platform superusers
+        // deliberately have no organization, so organization-owned templates
+        // do not apply to them.
+        $emailSent = false;
+        if ($user->organization_id) {
+            $user->loadMissing('organization');
+            $resetToken = \Illuminate\Support\Facades\Password::broker()->createToken($user);
+            $passwordUrl = route('password.reset', [
+                'token' => $resetToken,
+                'email' => $user->email,
+            ]);
+
+            $emailSent = $emails->send(
+                (int) $user->organization_id,
+                'users.account_created',
+                $user->email,
+                [
+                    'recipient_name' => $user->name,
+                    'organization_name' => $user->organization?->name ?? config('app.name'),
+                    'role_name' => match ($user->role) {
+                        'admin' => 'Administrator',
+                        'farmmanager' => 'Farm Manager',
+                        'dataentry' => 'Data Entry Officer',
+                        'accountant' => 'Accountant',
+                        'treasurer' => 'Treasurer',
+                        'salesperson' => 'Salesperson',
+                        'mill_operator' => 'Mill Operator',
+                        default => ucfirst(str_replace('_', ' ', $user->role)),
+                    },
+                    'login_url' => route('login'),
+                    'login_email' => $user->email,
+                    'temporary_password' => $validated['password'],
+                    'action_url' => $passwordUrl,
+                    'store_name' => $user->organization?->name ?? config('app.name'),
+                    'support_email' => $user->organization?->email,
+                    'support_phone' => $user->organization?->phone,
+                ],
+            );
+        }
+
+        if (! $user->organization_id) {
+            return redirect()->route('settings.users')->with('success', 'Platform user created successfully.');
+        }
+
+        return redirect()->route('settings.users')->with(
+            $emailSent ? 'success' : 'warning',
+            $emailSent
+                ? 'User created successfully. Login instructions were emailed to them.'
+                : 'User created successfully, but the welcome email was not sent. Check whether the template is active and the email server is configured.',
+        );
     }
 
     /**
@@ -683,18 +751,33 @@ class SettingsController extends Controller
      */
     public function updateUser(Request $request, User $user)
     {
-        // Restrict to superuser only
-        abort_unless(auth()->check() && auth()->user()->isSuperuser(), 403);
+        $actor = $request->user();
+        abort_unless($actor && ($actor->isSuperuser() || $actor->isAdmin()), 403);
+        $this->authorizeUserAdministration($actor, $user);
 
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:50'],
             'last_name' => ['required', 'string', 'max:50'],
             'email' => ['required', 'string', 'email', 'max:50', 'unique:users,email,' . $user->id],
             'phone' => ['nullable', 'string', 'max:20'],
-            'role' => ['required', 'string', 'in:' . implode(',', User::allowedRoleNames())],
+            'role' => ['required', 'string', 'in:' . implode(',', $actor->isSuperuser()
+                ? array_values(array_diff(User::allowedRoleNames(), ['customer']))
+                : array_values(array_diff(User::allowedRoleNames(), ['superuser', 'customer'])))],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'active_status' => ['sometimes', 'boolean'],
         ]);
+
+        if ($actor->isAdmin() && $validated['role'] === 'superuser') {
+            abort(403, 'Farm administrators cannot assign the platform superuser role.');
+        }
+
+        if ($actor->isSuperuser() && $user->isSuperuser() && $validated['role'] !== 'superuser') {
+            return back()->withErrors(['role' => 'Create a farm user instead of converting a platform superuser.']);
+        }
+
+        if (! $user->isSuperuser() && $validated['role'] === 'superuser') {
+            return back()->withErrors(['role' => 'A farm account cannot be converted into a platform superuser.']);
+        }
 
         $user->fill([
             'first_name' => $validated['first_name'],
@@ -719,12 +802,17 @@ class SettingsController extends Controller
      */
     public function updateUserStatus(Request $request, User $user)
     {
-        // Restrict to superuser only
-        abort_unless(auth()->check() && auth()->user()->isSuperuser(), 403);
+        $actor = $request->user();
+        abort_unless($actor && ($actor->isSuperuser() || $actor->isAdmin()), 403);
+        $this->authorizeUserAdministration($actor, $user);
 
         $validated = $request->validate([
             'active_status' => ['required', 'boolean'],
         ]);
+
+        if ($user->is($actor) && ! $validated['active_status']) {
+            return response()->json(['success' => false, 'message' => 'You cannot deactivate your own account.'], 422);
+        }
 
         $user->update(['active_status' => $validated['active_status']]);
 
@@ -740,8 +828,9 @@ class SettingsController extends Controller
      */
     public function deleteUser(User $user)
     {
-        // Restrict to superuser only
-        abort_unless(auth()->check() && auth()->user()->isSuperuser(), 403);
+        $actor = auth()->user();
+        abort_unless($actor && ($actor->isSuperuser() || $actor->isAdmin()), 403);
+        $this->authorizeUserAdministration($actor, $user);
 
         // Prevent deleting any superuser account (protects the system even if UI is bypassed)
         if ($user->isSuperuser()) {
@@ -753,9 +842,30 @@ class SettingsController extends Controller
             return redirect()->route('settings.users')->with('error', 'You cannot delete your own account.');
         }
 
-        $user->delete();
+        DB::transaction(function () use ($user): void {
+            // User removal is permanent across both platform and farm-admin
+            // management paths. Clear authentication artifacts first so a
+            // deleted identity cannot retain a session or reset link.
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+            DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+            $user->forceDelete();
+        });
 
-        return redirect()->route('settings.users')->with('success', 'User deleted successfully.');
+        return redirect()->route('settings.users')->with('success', 'User permanently deleted successfully.');
+    }
+
+    private function authorizeUserAdministration(User $actor, User $target): void
+    {
+        if ($actor->isSuperuser()) {
+            return;
+        }
+
+        abort_unless(
+            $actor->isAdmin()
+            && ! $target->isSuperuser()
+            && (int) $actor->organization_id === (int) $target->organization_id,
+            404
+        );
     }
 
         
@@ -764,7 +874,7 @@ class SettingsController extends Controller
         $this->abortUnlessRole('superuser', 'admin');
         // Use your Model's custom getAll logic or pluck manually
         // We use Setting::all() to get everything from the 'settings' table
-        $settings = Setting::all()->pluck('value', 'key');
+        $settings = Setting::getAll();
 
         return view('settings.general-settings', compact('settings'));
     }

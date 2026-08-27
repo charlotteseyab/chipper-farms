@@ -70,6 +70,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->afterResolving('validator', function ($validator, $app): void {
+            $validator->setPresenceVerifier(
+                new \App\Validation\OrganizationPresenceVerifier($app['db'])
+            );
+        });
+
         // The current organization resolver is a per-request singleton.
         // EnsureOrganizationContext middleware binds the organization into it;
         // everywhere else in the app reads through this one service.
@@ -106,11 +112,22 @@ class AppServiceProvider extends ServiceProvider
 
         // Share navigation helper with all views
         View::share('navigation', new NavigationHelper());
+        View::composer('*', function ($view) {
+            try {
+                $breeds = Schema::hasTable('system_configs')
+                    ? Setting::animalBreeds()
+                    : [];
+            } catch (\Throwable) {
+                $breeds = [];
+            }
+            $view->with('animalBreeds', $breeds);
+        });
 
         // Register model observers
         PigWeight::observe(PigWeightObserver::class);
         ExpectedWeightStandard::observe(ExpectedWeightStandardObserver::class);
         PigSale::observe(PigSaleObserver::class);
+        \App\Models\Storefront\StorefrontOrderEvent::observe(\App\Observers\StorefrontOrderEventObserver::class);
 
         // --- Authorization (Phase 0.3) ---------------------------------------
         // Superuser bypass: a superuser is allowed to perform any gate check.
@@ -146,36 +163,6 @@ class AppServiceProvider extends ServiceProvider
 
         $this->registerOrganizationScopedRouteBindings();
         // ---------------------------------------------------------------------
-
-        // Apply runtime settings overrides for breeding config only when settings storage is reachable
-        try {
-            if (! Schema::hasTable('system_configs')) {
-                $overrides = [];
-            } else {
-                $overrides = [
-                'breeding.cycle.pregnancy_check_days' => Setting::get('breeding.cycle.pregnancy_check_days'),
-                'breeding.cycle.gestation_days' => Setting::get('breeding.cycle.gestation_days'),
-                'breeding.cycle.birth_to_weaning_days' => Setting::get('breeding.cycle.birth_to_weaning_days'),
-                'breeding.cycle.birth_to_maturity_days' => Setting::get('breeding.cycle.birth_to_maturity_days'),
-                'breeding.parameters.minimum_breeding_age' => Setting::get('breeding.parameters.minimum_breeding_age'),
-                'breeding.parameters.optimal_first_breeding_age' => Setting::get('breeding.parameters.optimal_first_breeding_age'),
-                'breeding.parameters.average_litter_size' => Setting::get('breeding.parameters.average_litter_size'),
-                'breeding.parameters.weaning_to_mating_rest' => Setting::get('breeding.parameters.weaning_to_mating_rest'),
-                'breeding.parameters.maximum_breeding_age' => Setting::get('breeding.parameters.maximum_breeding_age'),
-                'breeding.parameters.lactation_days' => Setting::get('breeding.parameters.lactation_days'),
-                ];
-            }
-
-            foreach ($overrides as $configKey => $value) {
-                if ($value !== null) {
-                    config([$configKey => $value]);
-                }
-            }
-        } catch (\Throwable $e) {
-            Log::warning('Skipping runtime settings overrides during boot.', [
-                'error' => $e->getMessage(),
-            ]);
-        }
 
         // Login/Logout activity logging
         Event::listen(Login::class, function (Login $event) {

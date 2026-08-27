@@ -18,7 +18,7 @@ class StorePigRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'breed'          => ['required', 'in:LW,DR,LWDR'],
+            'breed'          => ['required', \Illuminate\Validation\Rule::in(array_keys(\App\Models\Setting::animalBreeds()))],
             'gender'         => ['required', 'in:M,F'],
             'stock_type'     => ['required', 'in:standard,breeding'],
             'date_of_birth'  => ['required', 'date', 'before_or_equal:today'],

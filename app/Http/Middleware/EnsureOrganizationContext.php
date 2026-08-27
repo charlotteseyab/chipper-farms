@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Setting;
 use App\Support\CurrentOrganization;
 use Closure;
 use Illuminate\Http\Request;
@@ -40,6 +41,13 @@ class EnsureOrganizationContext
             return $next($request);
         }
 
+        // Platform superusers deliberately live above all tenants. They do not
+        // receive an implicit/default farm context.
+        if ($user->isSuperuser()) {
+            $this->current->bind(null);
+            return $next($request);
+        }
+
         if (empty($user->organization_id)) {
             abort(403, 'Your account is not linked to an organization. Contact a system administrator.');
         }
@@ -55,7 +63,31 @@ class EnsureOrganizationContext
         }
 
         $this->current->bind($organization);
+        $this->applyFarmOperationalSettings();
 
         return $next($request);
+    }
+
+    private function applyFarmOperationalSettings(): void
+    {
+        foreach ([
+            'breeding.cycle.pregnancy_check_days',
+            'breeding.cycle.gestation_days',
+            'breeding.cycle.birth_to_weaning_days',
+            'breeding.cycle.birth_to_maturity_days',
+            'breeding.parameters.minimum_breeding_age',
+            'breeding.parameters.optimal_first_breeding_age',
+            'breeding.parameters.minimum_breeding_weight',
+            'breeding.parameters.optimal_breeding_weight',
+            'breeding.parameters.average_litter_size',
+            'breeding.parameters.weaning_to_mating_rest',
+            'breeding.parameters.maximum_breeding_age',
+            'breeding.parameters.lactation_days',
+        ] as $key) {
+            $value = Setting::get($key);
+            if ($value !== null) {
+                config([$key => $value]);
+            }
+        }
     }
 }

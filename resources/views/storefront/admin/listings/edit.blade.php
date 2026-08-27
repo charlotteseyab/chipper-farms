@@ -147,7 +147,7 @@
                                     @endphp
                                     <label class="flex items-start gap-3 p-3 text-sm cursor-pointer hover:bg-slate-50"
                                            data-pig-row
-                                           data-pig-search="{{ strtolower(trim(($candidate->ear_tag_number ?? '') . ' ' . ($candidate->code ?? '') . ' ' . ($candidate->local_id ?? '') . ' ' . ($candidate->breed ?? '') . ' ' . ($candidate->gender ?? '') . ' ' . ($row['weight'] ?? '') . ' ' . $ageText)) }}">
+                                           data-pig-search="{{ strtolower(trim(($candidate->ear_tag_number ?? '') . ' ' . ($candidate->code ?? '') . ' ' . ($candidate->local_id ?? '') . ' ' . (\App\Models\Setting::breedName($candidate->breed) ?? '') . ' ' . ($candidate->breed ?? '') . ' ' . ($candidate->gender ?? '') . ' ' . ($row['weight'] ?? '') . ' ' . $ageText)) }}">
                                         <input type="checkbox"
                                                name="pool_pig_ids[]"
                                                value="{{ $candidate->id }}"
@@ -172,7 +172,7 @@
                                                 </span>
                                             </span>
                                             <span class="block text-xs text-slate-500">
-                                                {{ $candidate->breed ?: 'Breed not recorded' }}
+                                                {{ \App\Models\Setting::breedName($candidate->breed) ?: 'Breed not recorded' }}
                                                 · {{ $candidate->gender ?: 'sex not recorded' }}
                                                 @if($candidate->date_of_birth)
                                                     · {{ $ageText }}

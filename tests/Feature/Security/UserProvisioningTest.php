@@ -54,7 +54,7 @@ class UserProvisioningTest extends TestCase
             'password'        => bcrypt('x'),
             'role'            => 'superuser',
             'role_id'         => Role::where('name', 'superuser')->first()->id,
-            'organization_id' => $this->org->id,
+            'organization_id' => null,
             'active_status'   => true,
         ]);
     }
@@ -73,10 +73,11 @@ class UserProvisioningTest extends TestCase
             'email'      => 'ama_' . uniqid() . '@example.com',
             'role'       => 'farmmanager',
             'password'   => 'correct-horse-battery',
+            'organization_id' => $this->org->id,
         ], $overrides);
     }
 
-    public function test_provisioned_user_inherits_actor_organization(): void
+    public function test_platform_superuser_targets_an_explicit_organization(): void
     {
         $user = $this->service()->provision($this->validInput(), $this->superuser);
 
@@ -234,12 +235,14 @@ class UserProvisioningTest extends TestCase
         $email = 'via_settings_' . uniqid() . '@example.com';
 
         $this->actingAs($this->superuser)->post(route('settings.users.store'), [
+            'account_scope'          => 'farm',
             'first_name'            => 'Kofi',
             'last_name'             => 'Boateng',
             'email'                 => $email,
             'role'                  => 'dataentry',
             'password'              => 'correct-horse-battery',
             'password_confirmation' => 'correct-horse-battery',
+            'organization_id'       => $this->org->id,
         ]);
 
         $created = User::where('email', $email)->first();
@@ -253,5 +256,23 @@ class UserProvisioningTest extends TestCase
             (bool) $created->active_status,
             'Settings-created user is inactive — CF-P0-001 has regressed.',
         );
+    }
+
+    public function test_superuser_is_platform_scoped_without_an_organization(): void
+    {
+        $platformUser = $this->service()->provision($this->validInput([
+            'email' => 'platform@example.com',
+            'role' => 'superuser',
+            'organization_id' => $this->org->id,
+        ]), $this->superuser);
+
+        $this->assertNull($platformUser->organization_id);
+    }
+
+    public function test_platform_superuser_must_select_a_farm_for_farm_staff(): void
+    {
+        $this->expectException(ValidationException::class);
+
+        $this->service()->provision($this->validInput(['organization_id' => null]), $this->superuser);
     }
 }

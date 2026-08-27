@@ -32,15 +32,11 @@ class GenerateWeighingNotifications extends Command
             }
         }
 
-        // Target recipients: dataentry, farmmanager, admin, superuser
-        $recipients = User::whereHas('role', function($q) {
-            $q->whereIn('name', ['dataentry','farmmanager','admin','superuser']);
-        })->get();
-
         // Avoid duplicate spam: naive approach - send one notification per pig per day
         $today = now()->toDateString();
 
         foreach ($dueSoon as $pig) {
+            $recipients = $this->recipientsFor((int) $pig->organization_id);
             foreach ($recipients as $user) {
                 $already = $user->notifications()
                     ->where('type', \App\Notifications\WeightDueSoonNotification::class)
@@ -53,6 +49,7 @@ class GenerateWeighingNotifications extends Command
             }
         }
         foreach ($overdue as $pig) {
+            $recipients = $this->recipientsFor((int) $pig->organization_id);
             foreach ($recipients as $user) {
                 $already = $user->notifications()
                     ->where('type', \App\Notifications\WeightOverdueNotification::class)
@@ -68,6 +65,14 @@ class GenerateWeighingNotifications extends Command
         $this->info("Due soon: {$dueSoon->count()}, Overdue: {$overdue->count()}");
         return self::SUCCESS;
     }
+
+    protected function recipientsFor(int $organizationId)
+    {
+        return User::query()
+            ->where('organization_id', $organizationId)
+            ->where('active_status', true)
+            ->with('role.permissions')
+            ->get()
+            ->filter(fn (User $user) => $user->isSuperuser() || $user->isAdmin() || $user->hasPermission('view_weights'));
+    }
 }
-
-

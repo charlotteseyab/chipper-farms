@@ -41,6 +41,8 @@ class Organization extends Model
         'address',
         'tax_identifier',
         'is_active',
+        'deletion_reason',
+        'deleted_by_user_id',
     ];
 
     protected function casts(): array
@@ -59,6 +61,11 @@ class Organization extends Model
         return $this->hasMany(User::class);
     }
 
+    public function deletedBy()
+    {
+        return $this->belongsTo(User::class, 'deleted_by_user_id');
+    }
+
     /**
      * Normalised slug helper — used when creating or looking up orgs.
      */
@@ -75,4 +82,3 @@ class Organization extends Model
         return $query->where('is_active', true);
     }
 }
-

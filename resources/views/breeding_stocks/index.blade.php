@@ -531,11 +531,11 @@
                         <div class="breed-filter-grid">
                             <div class="breed-field">
                                 <label class="breed-label">Breed</label>
-                                <select name="breed" id="breedFilter" class="breed-select">
+                                <select name="breed" id="breedFilter" class="breed-select" data-searchable-select>
                                     <option value="">All Breeds</option>
-                                    <option value="LW" {{ request('breed') == 'LW' ? 'selected' : '' }}>Large White</option>
-                                    <option value="DR" {{ request('breed') == 'DR' ? 'selected' : '' }}>Duroc</option>
-                                    <option value="LWDR" {{ request('breed') == 'LWDR' ? 'selected' : '' }}>Large White Duroc</option>
+                                    @foreach($animalBreeds as $code => $name)
+                                        <option value="{{ $code }}" @selected(request('breed') === $code)>{{ $name }}</option>
+                                    @endforeach
                                 </select>
                             </div>
 

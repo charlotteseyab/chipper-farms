@@ -36,7 +36,8 @@
 
                 <div>
                     <label class="text-sm font-medium text-slate-700" for="email">Email</label>
-                    <input id="email" name="email" type="email" value="{{ old('email', $order->guest_email) }}" required maxlength="190" class="mt-1 w-full rounded-xl border-slate-300 text-sm">
+                    <input id="email" name="email" type="email" value="{{ old('email', $order->guest_email) }}" required readonly maxlength="190" class="mt-1 w-full rounded-xl border-slate-300 bg-slate-50 text-sm text-slate-600">
+                    <p class="mt-1 text-xs text-slate-500">This must match the address that received the secure order link.</p>
                 </div>
 
                 <div>
@@ -59,7 +60,7 @@
                     <button type="submit" class="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white">
                         Create buyer account
                     </button>
-                    <a href="{{ route('storefront.buyer.login') }}" class="text-sm font-medium text-slate-600 hover:text-slate-900">
+                    <a href="{{ route('storefront.buyer.login', ['email' => $order->guest_email, 'claim_reference' => $order->reference, 'claim_token' => $token]) }}" class="text-sm font-medium text-slate-600 hover:text-slate-900">
                         I already have a buyer account
                     </a>
                 </div>

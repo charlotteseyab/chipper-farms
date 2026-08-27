@@ -6,6 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class FeedTypeRecipe extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganizationThroughRelation;
+
+    protected static function organizationRelation(): string
+    {
+        return 'feedType';
+    }
+
     protected $fillable = [
         'feed_type_id',
         'raw_material_id',

@@ -173,7 +173,8 @@ class FeedBatchWorkflowBaselineTest extends TestCase
                 'batch_date' => now()->toDateString(),
                 'batch_size_kg' => 100,  // needs 30 kg soya, only 5 available
             ])
-            ->assertStatus(422);
+            ->assertRedirect(route('feed-production.index'))
+            ->assertSessionHas('mix_error', fn ($message) => str_contains($message, 'Not enough stock for Soya meal'));
 
         // No stock changed — atomic failure.
         $this->assertSame((float) $maizeBefore, (float) $maize->fresh()->quantity_in_stock);
@@ -217,7 +218,8 @@ class FeedBatchWorkflowBaselineTest extends TestCase
                 'batch_date' => now()->toDateString(),
                 'batch_size_kg' => 100,
             ])
-            ->assertStatus(422);
+            ->assertRedirect(route('feed-production.index'))
+            ->assertSessionHas('mix_error', 'This feed type does not have a recipe yet.');
 
         $this->assertSame(0, FeedBatch::count());
     }

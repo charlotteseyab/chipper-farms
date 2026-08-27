@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Procurement;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Procurement\StoreReceiveAgainstPurchaseRequestRequest;
 use App\Models\PurchaseRequest;
-use App\Models\PurchaseRequestItem;
 use App\Services\Procurement\ReceiveAgainstPurchaseRequestService;
 use App\Support\CurrentOrganization;
 use Illuminate\Http\Request;
@@ -30,11 +29,11 @@ class ReceiveAgainstPurchaseRequestController extends Controller
 
     public function create(Request $request, PurchaseRequest $purchaseRequest)
     {
-        if ($purchaseRequest->status !== 'approved') {
+        if (! in_array($purchaseRequest->status, ['approved', 'paid'], true)) {
             return redirect()
                 ->route('purchase-requests.show', $purchaseRequest)
                 ->with('error', sprintf(
-                    "Cannot receive against PR %s: status is '%s' (must be 'approved').",
+                    "Cannot receive against PR %s: status is '%s' (must be approved or paid).",
                     $purchaseRequest->request_no,
                     $purchaseRequest->status,
                 ));
@@ -61,10 +60,10 @@ class ReceiveAgainstPurchaseRequestController extends Controller
     ) {
         $validated = $request->validated();
 
-        /** @var PurchaseRequestItem $prItem */
-        $prItem = PurchaseRequestItem::with('rawMaterial', 'purchaseRequest')
-            ->where('purchase_request_id', $purchaseRequest->id)
-            ->findOrFail($validated['purchase_request_item_id']);
+        $receipts = collect($validated['receipts'])
+            ->filter(fn ($receipt) => (bool) ($receipt['selected'] ?? false))
+            ->values()
+            ->all();
 
         $allowOverReceipt = (bool) ($validated['allow_over_receipt'] ?? false);
         if ($allowOverReceipt && ! $request->user()->hasPermission('override_match_variance')) {
@@ -74,30 +73,26 @@ class ReceiveAgainstPurchaseRequestController extends Controller
         }
 
         try {
-            $this->service->execute(
-                prItem: $prItem,
+            $results = $this->service->executeMany(
+                purchaseRequest: $purchaseRequest,
                 actor:  $request->user(),
-                data: [
-                    'quantity'  => (float) $validated['quantity'],
-                    'unit_cost' => (float) $validated['unit_cost'],
-                    'reference' => $validated['reference'] ?? null,
-                    'notes'     => $validated['notes'] ?? null,
-                ],
+                receipts: $receipts,
+                reference: $validated['reference'] ?? null,
+                deliveryNotes: $validated['notes'] ?? null,
                 allowOverReceipt: $allowOverReceipt,
             );
 
             return redirect()
                 ->route('finance.procurement.receive-against-pr.create', $purchaseRequest)
                 ->with('success', sprintf(
-                    'Received %s for PR item #%d. %s',
-                    number_format((float) $validated['quantity'], 2),
-                    $prItem->id,
-                    $prItem->fresh()->is_receipt_closed ? '(line now closed)' : '',
+                    'Delivery recorded successfully for %d material line%s.',
+                    count($results),
+                    count($results) === 1 ? '' : 's',
                 ));
         } catch (\Throwable $e) {
             Log::error('ReceiveAgainstPurchaseRequest store failed', [
                 'pr'    => $purchaseRequest->id,
-                'item'  => $prItem->id,
+                'items' => collect($receipts)->pluck('purchase_request_item_id')->all(),
                 'error' => $e->getMessage(),
             ]);
 

@@ -4,6 +4,9 @@ namespace Tests\Feature\Storefront;
 
 use App\Models\Counterparty;
 use App\Models\Storefront\StorefrontBuyer;
+use App\Storefront\Payments\PaystackClient;
+use App\Storefront\Services\PaystackService;
+use Tests\Feature\Storefront\Support\FakePaystackClient;
 use App\Models\Storefront\StorefrontCart;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontOrder;
@@ -505,6 +508,102 @@ class GuestCheckoutTest extends StorefrontTestCase
         $order->refresh();
         $this->assertSame($buyer->id, $order->storefront_buyer_id);
         $this->assertNull($order->guest_claim_token);
+    }
+
+    public function test_creating_a_buyer_account_claims_other_guest_orders_for_the_verified_email(): void
+    {
+        $first = $this->placeGuestOrder(['guest_email' => 'ama@example.com']);
+        $second = $this->placeGuestOrder(['guest_email' => 'ama@example.com']);
+
+        $this->post(route('storefront.buyer.register.from-order.store', [
+            'reference' => $first->reference,
+            'token' => $first->guest_claim_token,
+        ]), [
+            'name' => 'Ama Mensah',
+            'email' => 'ama@example.com',
+            'password' => 'buyer-secret',
+            'password_confirmation' => 'buyer-secret',
+        ])->assertRedirect();
+
+        $buyer = StorefrontBuyer::firstOrFail();
+        $this->assertSame($buyer->id, $first->fresh()->storefront_buyer_id);
+        $this->assertSame($buyer->id, $second->fresh()->storefront_buyer_id);
+        $this->assertNull($second->fresh()->guest_claim_token);
+    }
+
+    public function test_order_account_creation_cannot_change_the_verified_order_email(): void
+    {
+        $order = $this->placeGuestOrder(['guest_email' => 'ama@example.com']);
+
+        $this->post(route('storefront.buyer.register.from-order.store', [
+            'reference' => $order->reference,
+            'token' => $order->guest_claim_token,
+        ]), [
+            'name' => 'Another Buyer',
+            'email' => 'other@example.com',
+            'password' => 'buyer-secret',
+            'password_confirmation' => 'buyer-secret',
+        ])->assertSessionHasErrors('email');
+
+        $this->assertDatabaseCount('storefront_buyers', 0);
+        $this->assertNull($order->fresh()->storefront_buyer_id);
+    }
+
+    public function test_an_existing_buyer_can_sign_in_and_claim_a_guest_order(): void
+    {
+        $order = $this->placeGuestOrder(['guest_email' => 'ama@example.com']);
+        $buyer = StorefrontBuyer::create([
+            'organization_id' => $this->org->id,
+            'name' => 'Ama Mensah',
+            'email' => 'ama@example.com',
+            'password' => bcrypt('buyer-secret'),
+        ]);
+
+        $this->post(route('storefront.buyer.login.store'), [
+            'email' => 'ama@example.com',
+            'password' => 'buyer-secret',
+            'claim_reference' => $order->reference,
+            'claim_token' => $order->guest_claim_token,
+        ])->assertRedirect(route('storefront.buyer.orders.show', $order));
+
+        $this->assertSame($buyer->id, $order->fresh()->storefront_buyer_id);
+        $this->assertNull($order->fresh()->guest_claim_token);
+    }
+
+    public function test_guest_returns_from_successful_paystack_payment_to_secure_order_details(): void
+    {
+        $fake = new FakePaystackClient();
+        $this->app->instance(PaystackClient::class, $fake);
+        $order = $this->placeGuestOrder([
+            'guest_email' => 'ama@example.com',
+            'payment_method' => 'paystack',
+        ]);
+        $initialised = app(PaystackService::class)->initialise($order, route('storefront.account.paystack.callback'));
+
+        $this->get(route('storefront.account.paystack.callback', ['reference' => $initialised['reference']]))
+            ->assertRedirect(route('storefront.order.track', [
+                'reference' => $order->reference,
+                'token' => $order->guest_claim_token,
+            ]));
+    }
+
+    public function test_guest_order_page_offers_sign_in_when_a_buyer_account_exists(): void
+    {
+        $order = $this->placeGuestOrder(['guest_email' => 'ama@example.com']);
+        StorefrontBuyer::create([
+            'organization_id' => $this->org->id,
+            'name' => 'Ama Mensah',
+            'email' => 'ama@example.com',
+            'password' => bcrypt('buyer-secret'),
+        ]);
+
+        $this->get(route('storefront.order.track', [
+            'reference' => $order->reference,
+            'token' => $order->guest_claim_token,
+        ]))
+            ->assertOk()
+            ->assertSee('Sign in to save this order')
+            ->assertDontSee('Create buyer account');
     }
 
     /* ---------------------------------------------------------------- */

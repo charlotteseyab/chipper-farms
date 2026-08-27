@@ -3,7 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\EmailSetting;
+use App\Models\EmailTemplate;
+use App\Models\Organization;
+use App\Services\Email\EmailTemplateService;
+use App\Support\EmailTemplateCatalog;
 use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -17,17 +22,30 @@ class EmailSettingController extends Controller
             403
         );
 
-        $settings = EmailSetting::getSettings();
+        $user = auth()->user();
+        $canManageEmailServer = $user->isSuperuser();
+        $settings = $canManageEmailServer ? EmailSetting::getSettings() : null;
+        $organizationIds = $user->isSuperuser()
+            ? Organization::active()->pluck('id')
+            : collect([(int) $user->organization_id]);
+        foreach ($organizationIds as $organizationId) {
+            app(EmailTemplateService::class)->syncDefaults((int) $organizationId);
+        }
+        $templates = EmailTemplate::query()
+            ->with('organization:id,name')
+            ->whereIn('organization_id', $organizationIds)
+            ->orderBy('category')
+            ->orderBy('name')
+            ->get()
+            ->groupBy('category');
+        $templateDefinitions = EmailTemplateCatalog::definitions();
 
-        return view('settings.email', compact('settings'));
+        return view('settings.email', compact('settings', 'templates', 'templateDefinitions', 'canManageEmailServer'));
     }
 
     public function update(Request $request)
     {
-        abort_unless(
-            auth()->check() && (auth()->user()->isSuperuser() || auth()->user()->isAdmin()),
-            403
-        );
+        $this->serverSettingsOnly();
 
         $validated = $request->validate([
             'mailer' => ['required', 'string', 'in:smtp,sendmail,log,array'],
@@ -63,10 +81,7 @@ class EmailSettingController extends Controller
 
     public function testConnection(Request $request)
     {
-        abort_unless(
-            auth()->check() && (auth()->user()->isSuperuser() || auth()->user()->isAdmin()),
-            403
-        );
+        $this->serverSettingsOnly();
 
         $validated = $request->validate([
             'mailer' => ['required', 'string', 'in:smtp,sendmail,log,array'],
@@ -152,10 +167,7 @@ class EmailSettingController extends Controller
 
     public function sendTestEmail(Request $request)
     {
-        abort_unless(
-            auth()->check() && (auth()->user()->isSuperuser() || auth()->user()->isAdmin()),
-            403
-        );
+        $this->serverSettingsOnly();
 
         $request->validate([
             'test_email' => ['required', 'email'],
@@ -230,5 +242,57 @@ class EmailSettingController extends Controller
                     : 'Failed to send the test email. Please verify the email configuration and check the application logs for details.',
             ], 422);
         }
+    }
+
+    public function updateTemplate(Request $request, EmailTemplate $emailTemplate): RedirectResponse
+    {
+        abort_unless(
+            auth()->check() && (auth()->user()->isSuperuser() || auth()->user()->isAdmin()),
+            403
+        );
+        abort_unless(
+            auth()->user()->isSuperuser()
+            || (int) $emailTemplate->organization_id === (int) auth()->user()->organization_id,
+            404
+        );
+
+        $definition = EmailTemplateCatalog::definitions()[$emailTemplate->key] ?? null;
+        abort_unless($definition !== null, 404);
+
+        $validated = $request->validate([
+            'subject' => ['required', 'string', 'max:255'],
+            'body' => ['required', 'string', 'max:10000'],
+            'action_label' => ['nullable', 'string', 'max:100'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $allowed = array_flip($definition['variables']);
+        foreach ([$validated['subject'], $validated['body']] as $content) {
+            preg_match_all('/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/', $content, $matches);
+            foreach ($matches[1] as $variable) {
+                if (! isset($allowed[$variable])) {
+                    return back()->withErrors([
+                        "template_{$emailTemplate->id}" => "Unknown variable {{$variable}} in {$emailTemplate->name}.",
+                    ])->withInput();
+                }
+            }
+        }
+
+        $emailTemplate->update([
+            'subject' => $validated['subject'],
+            'body' => $validated['body'],
+            'action_label' => $validated['action_label'] ?? null,
+            'is_active' => $request->boolean('is_active'),
+            'updated_by_user_id' => auth()->id(),
+        ]);
+
+        return redirect()
+            ->route('settings.email', ['tab' => 'templates'])
+            ->with('success', "{$emailTemplate->name} template updated.");
+    }
+
+    private function serverSettingsOnly(): void
+    {
+        abort_unless(auth()->check() && auth()->user()->isSuperuser(), 403);
     }
 }

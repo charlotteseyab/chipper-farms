@@ -144,7 +144,8 @@ return [
     */
 
     'features' => [
-        Features::registration(),
+        // Staff accounts are provisioned by a platform superuser or the farm's
+        // administrator. Buyer registration remains a separate order-claim flow.
         Features::resetPasswords(),
         // Features::emailVerification(),
         Features::updateProfileInformation(),

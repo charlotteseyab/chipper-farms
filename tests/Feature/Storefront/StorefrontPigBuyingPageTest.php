@@ -38,6 +38,7 @@ class StorefrontPigBuyingPageTest extends StorefrontTestCase
 
         Setting::set('sales.pricing.live_weight_price', 30);
         Setting::set('sales.pricing.carcass_weight_price', 50);
+        Setting::setAnimalBreeds(['LWDR' => 'Large White Duroc']);
     }
 
     /** @param array<int, float|null> $weights */
@@ -99,8 +100,9 @@ class StorefrontPigBuyingPageTest extends StorefrontTestCase
         $this->actingAs($this->makeUser('customer'))
             ->get(route('storefront.listing', $this->listing->slug))
             ->assertOk()
-            ->assertSee('Buy live animals')
-            ->assertSee('Buy by carcass weight')
+            ->assertSee('Choose your animals')
+            ->assertSee('Live animal')
+            ->assertSee('Carcass')
             ->assertSee('Total selected amount')
             ->assertSee('Select all visible')
             ->assertSee('Deselect all')
@@ -110,6 +112,21 @@ class StorefrontPigBuyingPageTest extends StorefrontTestCase
             // The rate the shop is charging, from the farm's own setup.
             ->assertSee('30.00')
             ->assertSee('50.00');
+    }
+
+    public function test_zero_non_override_snapshots_recover_the_farms_configured_prices(): void
+    {
+        $this->poolListing([80]);
+        $this->listing->forceFill([
+            'pricing_override' => false,
+            'live_price_per_kg_snapshot' => '0.0000',
+            'carcass_price_per_kg_snapshot' => '0.0000',
+        ])->save();
+
+        $this->get(route('storefront.listing', $this->listing->slug))
+            ->assertOk()
+            ->assertSee('GHS 30.00 / kg')
+            ->assertSee('GHS 50.00 / kg');
     }
 
     public function test_the_listing_page_and_shop_card_show_the_estimated_price_range(): void
@@ -143,8 +160,21 @@ class StorefrontPigBuyingPageTest extends StorefrontTestCase
         $response->assertSee('SHOP-0')->assertSee('SHOP-1')
             ->assertSee('2,400.00')     // 80 × 30
             ->assertSee('3,600.00')     // 120 × 30
+            ->assertSee('4,000.00')     // 80 × 50 carcass
+            ->assertSee('6,000.00')     // 120 × 50 carcass
             ->assertSee('80 kg')
             ->assertSee('120 kg');
+    }
+
+    public function test_the_animal_picker_shows_the_full_breed_name(): void
+    {
+        $this->poolListing([72]);
+        $this->pigs[0]->update(['breed' => 'LWDR']);
+
+        $this->get(route('storefront.listing', $this->listing->slug))
+            ->assertOk()
+            ->assertSee('Large White Duroc')
+            ->assertDontSee('· LWDR', false);
     }
 
     public function test_the_live_animal_picker_is_searchable_and_paginated(): void
@@ -167,14 +197,15 @@ class StorefrontPigBuyingPageTest extends StorefrontTestCase
             ->assertDontSee('SHOP-0');
     }
 
-    public function test_the_carcass_form_offers_only_what_the_pool_can_deliver(): void
+    public function test_carcass_is_chosen_after_selecting_an_animal(): void
     {
         $this->poolListing([80, 120]);
 
         $this->actingAs($this->makeUser('customer'))
             ->get(route('storefront.listing', $this->listing->slug))
             ->assertOk()
-            ->assertSee('Up to 200 kg available');
+            ->assertSee('name="purchase_type" value="carcass"', false)
+            ->assertDontSee('name="requested_kg"', false);
     }
 
     /**
@@ -228,8 +259,7 @@ class StorefrontPigBuyingPageTest extends StorefrontTestCase
         $this->actingAs($this->makeUser('customer'))
             ->get(route('storefront.listing', $feed->slug))
             ->assertOk()
-            ->assertDontSee('Buy live animals')
-            ->assertDontSee('Buy by carcass weight')
+            ->assertDontSee('Choose your animals')
             ->assertSee('name="quantity"', escape: false);
     }
 
@@ -294,6 +324,26 @@ class StorefrontPigBuyingPageTest extends StorefrontTestCase
         $this->assertSame('60.0000', (string) $line->requested_kg);
         $this->assertSame('3000.00', (string) $line->price_snapshot);
         $this->assertSame('1.0000', (string) $line->quantity, 'Kilograms must not be counted as head.');
+    }
+
+    public function test_choosing_an_animal_as_carcass_uses_its_weight_and_carcass_rate(): void
+    {
+        $this->poolListing([80]);
+
+        $this->actingAs($this->makeUser('customer'))
+            ->post(route('storefront.cart.add-pigs', $this->listing), [
+                'purchase_type'   => 'carcass',
+                'listing_pig_ids' => $this->poolRowIds(),
+            ])
+            ->assertRedirect(route('storefront.cart.index'));
+
+        $line = StorefrontCartItem::where('listing_id', $this->listing->id)->firstOrFail();
+
+        $this->assertSame(Pricing::PURCHASE_CARCASS, $line->purchase_type);
+        $this->assertSame('80.0000', (string) $line->requested_kg);
+        $this->assertSame('50.0000', (string) $line->price_per_kg_snapshot);
+        $this->assertSame('4000.00', (string) $line->price_snapshot);
+        $this->assertSame($this->poolRowIds(), $line->selected_listing_pig_ids);
     }
 
     /**

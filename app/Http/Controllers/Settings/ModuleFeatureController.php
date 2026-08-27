@@ -84,6 +84,20 @@ class ModuleFeatureController extends Controller
         $actor  = $request->user();
         $enable = (bool) $validated['enabled'];
 
+        if ($this->currentOrganization->id() === null) {
+            $organizations = Organization::active()->get();
+            foreach ($organizations as $organization) {
+                $enable
+                    ? $this->features->enable($key, $organization, actor: $actor)
+                    : $this->features->disable($key, $organization, actor: $actor);
+            }
+
+            return redirect()->route('settings.modules')->with(
+                'success',
+                FeatureCatalog::definition($key)['label'].' was updated for '.$organizations->count().' active organizations.'
+            );
+        }
+
         if ($enable) {
             $touched = $this->features->enable($key, actor: $actor);
             $extra   = array_values(array_diff($touched, [$key]));
@@ -120,6 +134,15 @@ class ModuleFeatureController extends Controller
 
         $code      = $validated['preset'];
         $exclusive = (bool) ($validated['exclusive'] ?? false);
+
+        if ($this->currentOrganization->id() === null) {
+            $organizations = Organization::active()->get();
+            foreach ($organizations as $organization) {
+                $this->features->applyPreset($code, $organization, actor: $request->user(), exclusive: $exclusive);
+            }
+
+            return redirect()->route('settings.modules')->with('success', 'Applied the selected setup to '.$organizations->count().' active organizations.');
+        }
 
         $result = $this->features->applyPreset(
             $code,

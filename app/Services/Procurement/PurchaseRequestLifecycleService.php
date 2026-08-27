@@ -4,7 +4,6 @@ namespace App\Services\Procurement;
 
 use App\Domain\Events\Procurement\PurchaseRequestApproved;
 use App\Domain\Events\Procurement\PurchaseRequestDeclined;
-use App\Domain\Events\Procurement\PurchaseRequestPaid;
 use App\Domain\Events\Support\SourceReference;
 use App\Models\PurchaseRequest;
 use App\Models\User;
@@ -14,7 +13,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Encapsulates the approve / decline / markAsPaid lifecycle for purchase
+ * Encapsulates the approve / decline lifecycle for purchase
  * requests. Each transition writes status fields, persists the audit
  * (approved_by, approved_at, decline_reason), and emits the appropriate
  * domain event for Phase 1 finance to subscribe to.
@@ -23,7 +22,7 @@ use Illuminate\Support\Facades\DB;
  * had:
  *   - Closure use(...) clauses that referenced $dispatcher and
  *     $currentOrganization without those variables existing in the scope
- *     of decline() and markAsPaid() — they were never received as method
+ *     of decline() — required collaborators were never received as method
  *     parameters. Fatal at runtime.
  *   - Namespace imports instead of class imports, leaving the new
  *     PurchaseRequestApproved/Declined/Paid and SourceReference references
@@ -111,28 +110,4 @@ class PurchaseRequestLifecycleService
         });
     }
 
-    public function markAsPaid(PurchaseRequest $request, User $actor): PurchaseRequest
-    {
-        $organizationId = $this->currentOrganization->requireId();
-
-        return DB::transaction(function () use ($request, $actor, $organizationId) {
-            $request->update(['status' => 'paid']);
-
-            $this->dispatcher->dispatch(new PurchaseRequestPaid(
-                source: new SourceReference(
-                    module:         'procurement',
-                    sourceType:     PurchaseRequest::class,
-                    sourceId:       (int) $request->id,
-                    organizationId: $organizationId,
-                ),
-                occurredAt: CarbonImmutable::now(),
-                dispatchedByUserId: $actor->id,
-                requestNumber:       (string) $request->request_no,
-                totalAmount:         (float) $request->total_amount,
-                markedPaidByUserId:  (int) $actor->id,
-            ));
-
-            return $request->fresh();
-        });
-    }
 }

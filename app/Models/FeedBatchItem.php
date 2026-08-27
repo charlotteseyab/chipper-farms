@@ -6,6 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class FeedBatchItem extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganizationThroughRelation;
+
+    protected static function organizationRelation(): string
+    {
+        return 'feedBatch';
+    }
+
     protected $fillable = [
         'feed_batch_id',
         'raw_material_id',

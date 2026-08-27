@@ -5,10 +5,12 @@ namespace App\Storefront\Services;
 use App\Models\Organization;
 use App\Models\Storefront\StorefrontQuote;
 use App\Models\Storefront\StorefrontQuoteItem;
+use App\Models\Storefront\StorefrontBuyer;
 use App\Models\User;
 use App\Notifications\StorefrontQuoteRequestedNotification;
 use App\Storefront\Services\Exceptions\InvalidQuoteTransitionException;
 use App\Storefront\Support\QuoteRequestData;
+use App\Storefront\Support\StorefrontCatalog;
 use App\Support\CurrentOrganization;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
@@ -106,6 +108,27 @@ class QuoteService
 
             $this->notifyStaff($quote, $organizationId);
 
+            $quoteId = (int) $quote->id;
+            DB::afterCommit(function () use ($quoteId): void {
+                $savedQuote = StorefrontQuote::find($quoteId);
+                if (! $savedQuote) {
+                    return;
+                }
+
+                app(\App\Services\Email\EmailTemplateService::class)->send(
+                    (int) $savedQuote->organization_id,
+                    'storefront.quote_received',
+                    $savedQuote->contact_email,
+                    [
+                        'customer_name' => $savedQuote->contact_name,
+                        'quote_reference' => $savedQuote->reference,
+                        'store_name' => \App\Storefront\Support\StorefrontSettings::storeName($savedQuote->organization_id),
+                        'support_email' => \App\Storefront\Support\StorefrontSettings::supportEmail($savedQuote->organization_id),
+                        'support_phone' => \App\Storefront\Support\StorefrontSettings::supportPhone($savedQuote->organization_id),
+                    ],
+                );
+            });
+
             return $quote->load('items');
         });
     }
@@ -137,6 +160,48 @@ class QuoteService
                 'responded_at'        => now(),
             ])->save();
 
+            $quoteId = (int) $quote->id;
+            DB::afterCommit(function () use ($quoteId): void {
+                $savedQuote = StorefrontQuote::find($quoteId);
+                if (! $savedQuote) {
+                    return;
+                }
+
+                $amount = ($savedQuote->currency_code ?: 'GHS').' '.number_format((float) $savedQuote->quoted_total, 2);
+                $validUntil = $savedQuote->valid_until?->format('d M Y') ?? 'further notice';
+                $actionUrl = route('storefront.buyer.quotes.show', $savedQuote);
+
+                app(\App\Services\Email\EmailTemplateService::class)->send(
+                    (int) $savedQuote->organization_id,
+                    'storefront.quote_priced',
+                    $savedQuote->contact_email,
+                    [
+                        'customer_name' => $savedQuote->contact_name,
+                        'quote_reference' => $savedQuote->reference,
+                        'quoted_total' => $amount,
+                        'valid_until' => $validUntil,
+                        'action_url' => $actionUrl,
+                        'store_name' => \App\Storefront\Support\StorefrontSettings::storeName($savedQuote->organization_id),
+                        'support_email' => \App\Storefront\Support\StorefrontSettings::supportEmail($savedQuote->organization_id),
+                        'support_phone' => \App\Storefront\Support\StorefrontSettings::supportPhone($savedQuote->organization_id),
+                    ],
+                );
+
+                $buyer = StorefrontBuyer::query()
+                    ->where('organization_id', $savedQuote->organization_id)
+                    ->whereRaw('LOWER(email) = ?', [strtolower(trim((string) $savedQuote->contact_email))])
+                    ->first();
+
+                app(\App\Services\Notifications\InAppNotificationService::class)->notifyBuyer(
+                    $buyer,
+                    'storefront.quote_priced',
+                    'Your quote is ready',
+                    "Quote {$savedQuote->reference} has been priced at {$amount}.",
+                    $actionUrl,
+                    context: ['quote_id' => $savedQuote->id],
+                );
+            });
+
             return $quote->refresh();
         });
     }
@@ -144,6 +209,70 @@ class QuoteService
     public function accept(StorefrontQuote $quote, User $actor): StorefrontQuote
     {
         return $this->transition($quote, StorefrontQuote::STATUS_ACCEPTED, $actor);
+    }
+
+    public function acceptAndConvertByBuyer(StorefrontQuote $quote, StorefrontBuyer $buyer, string $paymentMethod): \App\Models\Storefront\StorefrontOrder
+    {
+        return DB::transaction(function () use ($quote, $buyer, $paymentMethod) {
+            $locked = StorefrontQuote::query()->lockForUpdate()->findOrFail($quote->id);
+            $this->assertBuyerOwnsQuote($locked, $buyer);
+
+            if (! StorefrontCatalog::isPaymentMethodEnabled($paymentMethod, (int) $locked->organization_id)) {
+                throw new InvalidQuoteTransitionException('That payment method is not currently available.');
+            }
+
+            if ($locked->status === StorefrontQuote::STATUS_CONVERTED && $locked->converted_order_id) {
+                return \App\Models\Storefront\StorefrontOrder::findOrFail($locked->converted_order_id);
+            }
+
+            if ($locked->status !== StorefrontQuote::STATUS_QUOTED) {
+                throw new InvalidQuoteTransitionException('Only a priced quote can be accepted.');
+            }
+
+            if ($locked->valid_until && $locked->valid_until->isBefore(today())) {
+                $locked->forceFill(['status' => StorefrontQuote::STATUS_EXPIRED])->save();
+                throw new InvalidQuoteTransitionException('This quote has expired. Please request a new price.');
+            }
+
+            $locked->forceFill([
+                'status' => StorefrontQuote::STATUS_ACCEPTED,
+                'responded_at' => now(),
+            ])->save();
+
+            $order = $this->convertToOrder($locked, null, $buyer, $paymentMethod);
+
+            DB::afterCommit(function () use ($locked, $order): void {
+                app(\App\Services\Notifications\InAppNotificationService::class)->notifyRelevantStaff(
+                    (int) $locked->organization_id,
+                    'storefront.quote_staff_alert',
+                    'Quote accepted by buyer',
+                    "Quote {$locked->reference} was accepted and order {$order->reference} was created.",
+                    route('storefront.admin.orders.show', $order),
+                    context: ['quote_id' => $locked->id, 'order_id' => $order->id],
+                );
+            });
+
+            return $order;
+        });
+    }
+
+    public function declineByBuyer(StorefrontQuote $quote, StorefrontBuyer $buyer): StorefrontQuote
+    {
+        return DB::transaction(function () use ($quote, $buyer) {
+            $locked = StorefrontQuote::query()->lockForUpdate()->findOrFail($quote->id);
+            $this->assertBuyerOwnsQuote($locked, $buyer);
+
+            if ($locked->status !== StorefrontQuote::STATUS_QUOTED) {
+                throw new InvalidQuoteTransitionException('Only a priced quote can be declined.');
+            }
+
+            $locked->forceFill([
+                'status' => StorefrontQuote::STATUS_DECLINED,
+                'responded_at' => now(),
+            ])->save();
+
+            return $locked->refresh();
+        });
     }
 
     public function decline(StorefrontQuote $quote, User $actor, ?string $reason = null): StorefrontQuote
@@ -175,7 +304,7 @@ class QuoteService
      * treats them as manually-invoiced (deferred) unless later linked to a
      * listing — safe by design.
      */
-    public function convertToOrder(StorefrontQuote $quote, User $actor): \App\Models\Storefront\StorefrontOrder
+    public function convertToOrder(StorefrontQuote $quote, ?User $actor, ?StorefrontBuyer $buyer = null, string $paymentMethod = \App\Models\Storefront\StorefrontOrder::METHOD_COD): \App\Models\Storefront\StorefrontOrder
     {
         if ($quote->status === StorefrontQuote::STATUS_CONVERTED && $quote->converted_order_id) {
             $existing = \App\Models\Storefront\StorefrontOrder::find($quote->converted_order_id);
@@ -190,9 +319,10 @@ class QuoteService
             );
         }
 
-        return DB::transaction(function () use ($quote, $actor) {
+        return DB::transaction(function () use ($quote, $actor, $buyer, $paymentMethod) {
             $quote->loadMissing('items');
             $orgId = $quote->organization_id;
+            $isPaystack = $paymentMethod === \App\Models\Storefront\StorefrontOrder::METHOD_PAYSTACK;
 
             $total = $quote->quoted_total !== null ? (string) $quote->quoted_total : '0.00';
 
@@ -201,10 +331,18 @@ class QuoteService
                 'reference'         => $this->nextOrderReference($orgId),
                 'counterparty_id'   => $quote->counterparty_id,
                 'customer_user_id'  => $quote->customer_user_id,
+                'storefront_buyer_id' => $buyer?->id,
                 'quote_id'          => $quote->id,
-                'status'            => \App\Models\Storefront\StorefrontOrder::STATUS_PENDING_CONFIRMATION,
-                'payment_status'    => \App\Models\Storefront\StorefrontOrder::PAY_COD,
-                'payment_method'    => \App\Models\Storefront\StorefrontOrder::METHOD_COD,
+                'guest_name'        => $quote->contact_name,
+                'guest_email'       => $quote->contact_email,
+                'guest_phone'       => $quote->contact_phone,
+                'status'            => $isPaystack
+                    ? \App\Models\Storefront\StorefrontOrder::STATUS_PENDING_PAYMENT
+                    : \App\Models\Storefront\StorefrontOrder::STATUS_PENDING_CONFIRMATION,
+                'payment_status'    => $isPaystack
+                    ? \App\Models\Storefront\StorefrontOrder::PAY_PAYSTACK_PEND
+                    : \App\Models\Storefront\StorefrontOrder::PAY_COD,
+                'payment_method'    => $paymentMethod,
                 'fulfilment_method' => $quote->fulfilment_preference === 'delivery'
                     ? \App\Models\Storefront\StorefrontOrder::FULFIL_DELIVERY
                     : \App\Models\Storefront\StorefrontOrder::FULFIL_PICKUP,
@@ -213,6 +351,10 @@ class QuoteService
                 'total'             => $total,
                 'currency_code'     => $quote->currency_code ?: 'GHS',
                 'customer_note'     => $quote->message,
+                'ship_to_name'      => $quote->contact_name,
+                'ship_to_phone'     => $quote->contact_phone,
+                'ship_city'         => $quote->delivery_city,
+                'ship_region'       => $quote->delivery_region,
                 'placed_at'         => now(),
             ]);
 
@@ -244,8 +386,9 @@ class QuoteService
                 'organization_id' => $orgId,
                 'order_id'        => $order->id,
                 'type'            => 'system',
+                'to_status'       => $order->status,
                 'note'            => "Created from quote {$quote->reference}.",
-                'actor_user_id'   => $actor->id,
+                'actor_user_id'   => $actor?->id,
             ]);
 
             return $order->fresh('items');
@@ -297,12 +440,22 @@ class QuoteService
         }
     }
 
+    private function assertBuyerOwnsQuote(StorefrontQuote $quote, StorefrontBuyer $buyer): void
+    {
+        if ((int) $quote->organization_id !== (int) $buyer->organization_id
+            || strtolower(trim((string) $quote->contact_email)) !== strtolower(trim($buyer->email))) {
+            throw new InvalidQuoteTransitionException('This quote does not belong to your buyer account.');
+        }
+    }
+
     private function notifyStaff(StorefrontQuote $quote, ?int $organizationId): void
     {
         $recipients = User::query()
             ->when($organizationId !== null, fn ($q) => $q->where('organization_id', $organizationId))
-            ->whereIn('role', ['salesperson', 'admin', 'superuser'])
-            ->get();
+            ->where('active_status', true)
+            ->with('role.permissions')
+            ->get()
+            ->filter(fn (User $user) => $user->isSuperuser() || $user->isAdmin() || $user->hasPermission('view_storefront_quotes'));
 
         if ($recipients->isNotEmpty()) {
             Notification::send($recipients, new StorefrontQuoteRequestedNotification($quote));

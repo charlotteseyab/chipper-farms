@@ -8,6 +8,27 @@
 @endphp
 
 @switch($normalized)
+    @case('user')
+        <svg {{ $attributes->merge(['class' => $class]) }} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.5" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M5 20c.55-4 3-6 7-6s6.45 2 7 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        @break
+
+    @case('shield')
+        <svg {{ $attributes->merge(['class' => $class]) }} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3 19 6v5.25c0 4.45-2.8 7.75-7 9.75-4.2-2-7-5.3-7-9.75V6l7-3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        @break
+
+    @case('lock')
+        <svg {{ $attributes->merge(['class' => $class]) }} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <rect x="5" y="10" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M8.5 10V7.5a3.5 3.5 0 0 1 7 0V10M12 14v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        @break
+
     @case('pig')
     @case('boar')
         <svg {{ $attributes->merge(['class' => $class]) }} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -38,6 +59,14 @@
     @case('ok')
         <svg {{ $attributes->merge(['class' => $class]) }} viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        @break
+
+    @case('notification')
+    @case('bell')
+        <svg {{ $attributes->merge(['class' => $class]) }} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M18 9.75a6 6 0 0 0-12 0c0 6-2.5 6.25-2.5 7.75h17C20.5 16 18 15.75 18 9.75Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M9.5 20a2.75 2.75 0 0 0 5 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
         </svg>
         @break
 

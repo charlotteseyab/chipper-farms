@@ -27,14 +27,11 @@ class GenerateGestationNotifications extends Command
             ->whereNotNull('expected_farrowing_date')
             ->get();
 
-        // Recipients: dataentry, farmmanager, admin, superuser
-        $recipients = User::whereHas('role', function($q) {
-            $q->whereIn('name', ['dataentry','farmmanager','admin','superuser']);
-        })->get();
-
         $dueSoonCount = 0; $dueTodayCount = 0; $overdueCount = 0;
 
         foreach ($pregnant as $mating) {
+            $organizationId = (int) ($mating->organization_id ?: $mating->female?->organization_id);
+            $recipients = $this->recipientsFor($organizationId);
             $expected = optional($mating->expected_farrowing_date)?->startOfDay();
             if (!$expected) { continue; }
             $daysUntil = now()->startOfDay()->diffInDays($expected, false); // positive=future, 0=today, negative=past
@@ -91,6 +88,14 @@ class GenerateGestationNotifications extends Command
         $this->info("Gestation: due soon={$dueSoonCount}, due today={$dueTodayCount}, overdue(7d)={$overdueCount}");
         return self::SUCCESS;
     }
+
+    protected function recipientsFor(int $organizationId)
+    {
+        return User::query()
+            ->where('organization_id', $organizationId)
+            ->where('active_status', true)
+            ->with('role.permissions')
+            ->get()
+            ->filter(fn (User $user) => $user->isSuperuser() || $user->isAdmin() || $user->hasPermission('view_gestation'));
+    }
 }
-
-

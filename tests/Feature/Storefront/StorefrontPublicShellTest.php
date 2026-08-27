@@ -33,6 +33,8 @@ class StorefrontPublicShellTest extends StorefrontTestCase
             ->assertSee('Shop all')
             ->assertSee('Cart')
             ->assertSee('Sign In')
+            ->assertSee('Open navigation menu')
+            ->assertSee('Mobile navigation')
             ->assertSee('Starter feed bundle')
             ->assertDontSee('storefront-admin')
             ->assertDontSee('Modules & Features');

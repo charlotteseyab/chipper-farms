@@ -42,9 +42,9 @@
                 <label class="block text-sm font-medium text-gray-700 mb-1">Breed</label>
                 <select name="breed" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500" data-searchable-select>
                     <option value="">All Breeds</option>
-                    <option value="LW" {{ request('breed') === 'LW' ? 'selected' : '' }}>Large White</option>
-                    <option value="DR" {{ request('breed') === 'DR' ? 'selected' : '' }}>Duroc</option>
-                    <option value="LWDR" {{ request('breed') === 'LWDR' ? 'selected' : '' }}>Large White Duroc</option>
+                    @foreach($animalBreeds as $code => $name)
+                        <option value="{{ $code }}" @selected(request('breed') === $code)>{{ $name }}</option>
+                    @endforeach
                 </select>
             </div>
 

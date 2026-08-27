@@ -177,26 +177,38 @@ class PurchaseStockIntakeService
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($lockedIntake->status === PurchaseStockIntake::STATUS_ADDED_TO_STOCK) {
+            $legacyPigletConversion = $lockedIntake->status === PurchaseStockIntake::STATUS_ADDED_TO_STOCK
+                && $lockedIntake->isPigletBatch()
+                && ! $lockedIntake->pigs()->exists()
+                && \App\Models\StockMovement::where('source_type', \App\Models\StockMovement::SOURCE_PURCHASE_STOCK_INTAKE)
+                    ->where('source_id', $lockedIntake->id)
+                    ->exists();
+
+            if ($lockedIntake->status === PurchaseStockIntake::STATUS_ADDED_TO_STOCK && ! $legacyPigletConversion) {
                 throw new StockValidationException('status', 'This purchased stock intake has already been added to stock.');
             }
 
-            $this->assertStatus($lockedIntake, [PurchaseStockIntake::STATUS_APPROVED], 'Only approved purchases can be added to stock.');
+            if (! $legacyPigletConversion) {
+                $this->assertStatus($lockedIntake, [PurchaseStockIntake::STATUS_APPROVED], 'Only approved purchases can be added to stock.');
+            }
             $this->applyFinalHousing($lockedIntake, $housing);
 
-            $journalBatchId = $this->finance->recordAcquisition($lockedIntake);
+            $journalBatchId = $legacyPigletConversion
+                ? $lockedIntake->acquisition_journal_batch_id
+                : $this->finance->recordAcquisition($lockedIntake);
 
             if ($journalBatchId && ! $lockedIntake->acquisition_journal_batch_id) {
                 $lockedIntake->forceFill(['acquisition_journal_batch_id' => $journalBatchId])->save();
             }
 
-            if ($lockedIntake->isPigletBatch()) {
-                $this->assertNoExistingStockMovement($lockedIntake);
-                $this->stockMovements->recordPurchasedPigletStockIn($lockedIntake);
-            } else {
-                $this->assertNoExistingPigRecords($lockedIntake);
-                $this->assertRoomCapacity($lockedIntake);
-                $this->createIndividualPigs($lockedIntake, $this->normalizeEarTagNumbers($lockedIntake, $earTagNumbers));
+            $this->assertNoExistingPigRecords($lockedIntake);
+            $this->assertRoomCapacity($lockedIntake);
+            $this->createIndividualPigs($lockedIntake, $this->normalizeEarTagNumbers($lockedIntake, $earTagNumbers));
+
+            if ($legacyPigletConversion) {
+                \App\Models\StockMovement::where('source_type', \App\Models\StockMovement::SOURCE_PURCHASE_STOCK_INTAKE)
+                    ->where('source_id', $lockedIntake->id)
+                    ->delete();
             }
 
             $lockedIntake->update([
@@ -222,6 +234,35 @@ class PurchaseStockIntakeService
 
             return $lockedIntake->fresh(['pigs']);
         });
+    }
+
+    /** @return array<int,string> */
+    public function proposeEarTagNumbers(int $quantity, ?int $organizationId = null): array
+    {
+        if ($quantity <= 0) {
+            return [];
+        }
+
+        $organizationId ??= $this->currentOrganization->id();
+        $lastTag = PigManagement::withoutGlobalScopes()
+            ->withTrashed()
+            ->when($organizationId !== null, fn ($query) => $query->where('organization_id', $organizationId))
+            ->latest('id')
+            ->value('ear_tag_number');
+
+        if (preg_match('/^(.*?)(\d+)$/', trim((string) $lastTag), $matches)) {
+            $prefix = $matches[1];
+            $number = (int) $matches[2];
+            $padding = strlen($matches[2]);
+        } else {
+            $prefix = $lastTag ? rtrim((string) $lastTag, '-').'-' : 'TAG-';
+            $number = 0;
+            $padding = 3;
+        }
+
+        return collect(range(1, max(0, $quantity)))
+            ->map(fn (int $offset) => $prefix.str_pad((string) ($number + $offset), $padding, '0', STR_PAD_LEFT))
+            ->all();
     }
 
     protected function applyFinalHousing(PurchaseStockIntake $intake, array $housing): void

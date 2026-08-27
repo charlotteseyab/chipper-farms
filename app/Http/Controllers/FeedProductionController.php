@@ -9,6 +9,7 @@ use App\Services\Feed\ProduceFeedBatchService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
  * Feed production — feed types, recipes, and batch mixing.
@@ -102,12 +103,23 @@ class FeedProductionController extends Controller
             'notes'         => ['nullable', 'string'],
         ]);
 
-        $service->execute($request->user(), [
-            'feed_type_id'  => (int) $validated['feed_type_id'],
-            'batch_date'    => $validated['batch_date'],
-            'batch_size_kg' => (float) $validated['batch_size_kg'],
-            'notes'         => $validated['notes'] ?? null,
-        ]);
+        try {
+            $service->execute($request->user(), [
+                'feed_type_id'  => (int) $validated['feed_type_id'],
+                'batch_date'    => $validated['batch_date'],
+                'batch_size_kg' => (float) $validated['batch_size_kg'],
+                'notes'         => $validated['notes'] ?? null,
+            ]);
+        } catch (HttpExceptionInterface $exception) {
+            if ($exception->getStatusCode() !== 422) {
+                throw $exception;
+            }
+
+            return redirect()
+                ->route('feed-production.index')
+                ->withInput()
+                ->with('mix_error', $exception->getMessage());
+        }
 
         return redirect()
             ->route('feed-production.index')

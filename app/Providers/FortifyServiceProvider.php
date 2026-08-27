@@ -184,6 +184,13 @@ class FortifyServiceProvider extends ServiceProvider
                 public function toResponse($request)
                 {
                     $user = Auth::user();
+
+                    if (! $user->isSuperuser()
+                        && ! $user->isCustomer()
+                        && $user->onboarding_required
+                        && $user->onboarding_completed_at === null) {
+                        return redirect()->route('onboarding.show');
+                    }
                     
                     // Use User model helper methods which handle both string and relationship roles
                     if ($user->isSuperuser()) {

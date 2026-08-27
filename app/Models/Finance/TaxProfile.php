@@ -17,6 +17,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class TaxProfile extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganization;
+
     public const TREATMENT_STANDARD    = 'standard';
     public const TREATMENT_ZERO_RATED  = 'zero_rated';
     public const TREATMENT_EXEMPT      = 'exempt';

@@ -29,7 +29,7 @@ class AdminController extends Controller
     public function dashboard(Request $request)
     {
         $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
-        $liveWeightPrice = Setting::get('sales.pricing.live_weight_price', 30.00);
+        $liveWeightPrice = Setting::get('sales.pricing.live_weight_price', 0);
 
         // Get filter parameters
         $dateFrom = $request->get('date_from', now()->subMonths(6)->format('Y-m-d'));

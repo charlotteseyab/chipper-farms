@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Storefront\QuoteRequestRequest;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontQuote;
+use App\Models\Storefront\StorefrontBuyer;
 use App\Storefront\Services\QuoteService;
 use App\Storefront\Support\QuoteRequestData;
 use App\Support\CurrentOrganization;
@@ -51,14 +52,24 @@ class QuoteController extends Controller
 
         if ($listingId = $request->integer('listing')) {
             $listing = StorefrontListing::query()
+                ->when(
+                    \App\Storefront\Support\StorefrontSettings::organizationId(),
+                    fn ($query, $organizationId) => $query->where('organization_id', $organizationId),
+                )
                 ->visible()
                 ->find($listingId);
         }
 
+        $buyer = $request->session()->get('storefront_buyer_id')
+            ? StorefrontBuyer::find($request->session()->get('storefront_buyer_id'))
+            : null;
+
         return view('storefront.public.quote', [
             'listing' => $listing,
             'source'  => $listing ? StorefrontQuote::SOURCE_LISTING : StorefrontQuote::SOURCE_BULK,
-            'user'    => $request->user(),
+            'user'    => $request->user() ?? $buyer,
+            'buyer'   => $buyer,
+            'deliveryEnabled' => \App\Storefront\Support\StorefrontSettings::deliveryEnabled(),
         ]);
     }
 
@@ -66,7 +77,15 @@ class QuoteController extends Controller
     {
         $this->assertQuotesOffered();
 
-        $data = QuoteRequestData::fromArray($request->validated());
+        $validated = $request->validated();
+        $buyer = $request->session()->get('storefront_buyer_id')
+            ? StorefrontBuyer::find($request->session()->get('storefront_buyer_id'))
+            : null;
+        if ($buyer) {
+            $validated['contact_email'] = $buyer->email;
+        }
+
+        $data = QuoteRequestData::fromArray($validated);
 
         $quote = $this->quotes->request($data, $request->user());
 

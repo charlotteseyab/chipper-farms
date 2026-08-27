@@ -9,6 +9,8 @@ use App\Storefront\Services\QuoteService;
 use App\Storefront\Support\QuoteRequestData;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\TemplatedEmail;
 
 class QuoteServiceTest extends StorefrontTestCase
 {
@@ -78,6 +80,18 @@ class QuoteServiceTest extends StorefrontTestCase
 
         $quote = $this->service()->accept($quote, $actor);
         $this->assertSame(StorefrontQuote::STATUS_ACCEPTED, $quote->status);
+    }
+
+    public function test_priced_quote_sends_customer_email(): void
+    {
+        Notification::fake();
+        Mail::fake();
+        $actor = $this->makeUser('admin');
+        $quote = $this->service()->request($this->sampleData(), null);
+
+        $this->service()->provideQuote($quote, $actor, '1500.00', now()->addDays(7)->toDateString());
+
+        Mail::assertSent(TemplatedEmail::class, fn (TemplatedEmail $mail) => $mail->hasTo('kofi@example.com'));
     }
 
     public function test_illegal_transition_throws(): void

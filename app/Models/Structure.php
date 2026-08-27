@@ -7,8 +7,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Structure extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganization;
+
     protected $fillable = [
-        'name', 'description', 'capacity', 'status', 'created_by'
+        'organization_id', 'name', 'code', 'description', 'capacity', 'status', 'created_by'
     ];
 
     public function rooms(): HasMany
@@ -70,5 +72,4 @@ class Structure extends Model
         return $weanedPigs + $pigletsCount;
     }
 }
-
 

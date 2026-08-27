@@ -94,20 +94,6 @@ class PurchaseRequestLifecycleServiceTest extends TestCase
         $this->assertSame('Budget exceeded', $event->payload['decline_reason']);
     }
 
-    public function test_mark_as_paid_persists_status_and_emits_event(): void
-    {
-        $pr = $this->makePR('approved');
-        $service = $this->app->make(PurchaseRequestLifecycleService::class);
-
-        $service->markAsPaid($pr, $this->actor);
-
-        $this->assertSame('paid', $pr->fresh()->status);
-
-        $this->assertSame(1, DomainEvent::where('event_type', 'purchase_request.paid')
-            ->where('source_id', $pr->id)
-            ->count());
-    }
-
     public function test_event_payload_includes_organization_id(): void
     {
         $pr = $this->makePR('pending');

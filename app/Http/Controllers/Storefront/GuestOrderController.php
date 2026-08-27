@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
 use App\Models\Storefront\StorefrontOrder;
+use App\Models\Storefront\StorefrontBuyer;
 use App\Storefront\Services\CustomerAccountService;
 use App\Storefront\Support\StorefrontSettings;
 use Illuminate\Http\RedirectResponse;
@@ -60,6 +61,10 @@ class GuestOrderController extends Controller
             'canClaim'     => $request->user() !== null && $order->customer_user_id === null,
             'supportEmail' => StorefrontSettings::supportEmail($order->organization_id),
             'supportPhone' => StorefrontSettings::supportPhone($order->organization_id),
+            'buyerAccountExists' => filled($order->guest_email) && StorefrontBuyer::query()
+                ->where('organization_id', $order->organization_id)
+                ->where('email', strtolower(trim($order->guest_email)))
+                ->exists(),
         ]);
     }
 

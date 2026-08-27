@@ -35,10 +35,10 @@
 @endphp
 
 @if(collect($messages)->filter()->isNotEmpty() || $errors->any())
-    <div class="mb-5 space-y-3">
+    <div class="pointer-events-none fixed right-3 top-20 z-[90] flex w-[calc(100%-1.5rem)] max-w-sm flex-col gap-3 sm:right-5 sm:top-24" role="region" aria-label="Page messages" aria-live="polite">
         @foreach($messages as $type => $message)
             @continue(blank($message))
-            <div data-flash-item data-auto-dismiss="{{ $styles[$type]['auto'] ? 'true' : 'false' }}" class="rounded-2xl border px-4 py-4 shadow-sm {{ $styles[$type]['wrapper'] }}">
+            <div data-flash-item data-auto-dismiss="{{ $styles[$type]['auto'] ? 'true' : 'false' }}" class="pointer-events-auto rounded-2xl border px-4 py-4 shadow-xl ring-1 ring-black/5 transition duration-300 {{ $styles[$type]['wrapper'] }}">
                 <div class="flex items-start gap-3">
                     <i class="{{ $styles[$type]['icon'] }} mt-0.5"></i>
                     <div class="min-w-0 flex-1">
@@ -53,7 +53,7 @@
         @endforeach
 
         @if($errors->any())
-            <div data-flash-item class="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-red-900 shadow-sm">
+            <div data-flash-item class="pointer-events-auto max-h-72 overflow-y-auto rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-red-900 shadow-xl ring-1 ring-black/5 transition duration-300">
                 <div class="flex items-start gap-3">
                     <i class="fa-solid fa-circle-exclamation mt-0.5 text-red-600"></i>
                     <div class="min-w-0 flex-1">

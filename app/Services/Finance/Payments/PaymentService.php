@@ -116,6 +116,8 @@ class PaymentService
                 'external_reference'    => $extra['external_reference'] ?? null,
                 'reference_type'        => $extra['reference_type'] ?? $this->inferReferenceType($method),
                 'payment_run_id'        => $extra['payment_run_id'] ?? null,
+                'purchase_request_id'   => $extra['purchase_request_id'] ?? null,
+                'purchase_payment_stage'=> $extra['purchase_payment_stage'] ?? null,
                 'status'                => Payment::STATUS_POSTED,
                 'is_backfilled'         => false,
                 'created_by_user_id'    => $createdBy->id,

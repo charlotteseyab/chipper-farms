@@ -1,29 +1,30 @@
 <x-app-layout>
     <div class="max-w-6xl mx-auto py-6 px-4">
-        <div class="mb-6 flex items-center justify-between">
+        <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h1 class="text-2xl font-bold text-gray-800">Orders</h1>
         </div>
 
         @if(session('success'))<div class="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm">{{ session('success') }}</div>@endif
         @if(session('error'))<div class="mb-4 rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">{{ session('error') }}</div>@endif
 
-        <form method="GET" class="bg-white rounded-2xl border border-slate-200 p-4 mb-6 flex flex-wrap gap-3">
-            <select name="status" class="rounded-xl border-slate-300 text-sm">
+        <form method="GET" class="mb-6 grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-3">
+            <select name="status" class="w-full rounded-xl border-slate-300 text-sm">
                 <option value="">Open orders</option>
                 @foreach(\App\Models\Storefront\StorefrontOrder::STATUSES as $s)
                     <option value="{{ $s }}" @selected(($filters['status'] ?? '') === $s)>{{ str_replace('_',' ',$s) }}</option>
                 @endforeach
             </select>
-            <select name="payment_method" class="rounded-xl border-slate-300 text-sm">
+            <select name="payment_method" class="w-full rounded-xl border-slate-300 text-sm">
                 <option value="">Any payment</option>
                 <option value="cod" @selected(($filters['payment_method'] ?? '')==='cod')>COD</option>
                 <option value="paystack" @selected(($filters['payment_method'] ?? '')==='paystack')>Paystack</option>
             </select>
-            <button class="rounded-xl bg-slate-800 text-white text-sm px-4 py-2">Filter</button>
+            <button class="w-full rounded-xl bg-slate-800 px-4 py-2 text-sm text-white">Filter</button>
         </form>
 
-        <div class="rounded-2xl bg-white border border-slate-200 overflow-hidden">
-            <table class="w-full text-sm">
+        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div class="overflow-x-auto" data-responsive-table>
+            <table class="min-w-[760px] w-full text-sm">
                 <thead class="bg-slate-50 text-slate-500 text-left">
                     <tr><th class="px-5 py-2">Ref</th><th class="px-5 py-2">Customer</th><th class="px-5 py-2">Status</th><th class="px-5 py-2">Payment</th><th class="px-5 py-2">Total</th><th class="px-5 py-2">Placed</th></tr>
                 </thead>
@@ -42,6 +43,7 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
         <div class="mt-6">{{ $orders->links() }}</div>
     </div>

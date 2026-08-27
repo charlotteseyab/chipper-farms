@@ -5,7 +5,12 @@ namespace Tests\Feature\Storefront;
 use App\Models\Storefront\StorefrontListing;
 use App\Models\Storefront\StorefrontQuote;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Models\Storefront\StorefrontBuyer;
+use App\Models\Storefront\StorefrontOrder;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use App\Storefront\Payments\PaystackClient;
+use Tests\Feature\Storefront\Support\FakePaystackClient;
 
 /**
  * Phase 2 HTTP behaviour. One authenticated actor per method (see the Phase 1
@@ -66,6 +71,16 @@ class StorefrontPhase2RouteTest extends StorefrontTestCase
         ])->assertSessionHasErrors(['contact_email', 'contact_phone']);
     }
 
+    public function test_delivery_quote_requires_a_city_and_region(): void
+    {
+        $this->post(route('storefront.quote.store'), [
+            'contact_name' => 'Delivery Customer',
+            'contact_phone' => '0240000000',
+            'fulfilment_preference' => 'delivery',
+            'items' => [['kind' => 'live_pig', 'description' => 'Two growers', 'quantity' => '2', 'quantity_unit' => 'head']],
+        ])->assertSessionHasErrors(['delivery_city', 'delivery_region']);
+    }
+
     public function test_favourite_toggle_requires_auth(): void
     {
         $listing = $this->makePublishedListing();
@@ -113,7 +128,7 @@ class StorefrontPhase2RouteTest extends StorefrontTestCase
             ->assertSee($accepted->reference)
             ->assertSee(route('storefront.admin.quotes.review', $requested), false)
             ->assertSee(route('storefront.admin.quotes.quote', $requested), false)
-            ->assertSee(route('storefront.admin.quotes.accept', $quoted), false)
+            ->assertSee('Awaiting buyer')
             ->assertSee(route('storefront.admin.quotes.convert', $accepted), false)
             ->assertSee('Decline');
     }
@@ -126,6 +141,102 @@ class StorefrontPhase2RouteTest extends StorefrontTestCase
         $this->actingAs($this->makeUser('customer'))
             ->get(route('storefront.admin.quotes.index'))
             ->assertForbidden();
+    }
+
+    public function test_buyer_can_monitor_only_quotes_requested_with_their_email(): void
+    {
+        $buyer = StorefrontBuyer::create([
+            'organization_id' => $this->org->id,
+            'name' => 'Kofi Buyer',
+            'email' => 'kofi@example.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $mine = $this->makeQuote(StorefrontQuote::STATUS_QUOTED, 'SQ-MINE', [
+            'contact_email' => 'KOFI@example.com',
+            'quoted_total' => '1250.00',
+        ]);
+        $other = $this->makeQuote(StorefrontQuote::STATUS_REQUESTED, 'SQ-OTHER', [
+            'contact_email' => 'other@example.com',
+        ]);
+
+        $this->withSession(['storefront_buyer_id' => $buyer->id])
+            ->get(route('storefront.buyer.quotes.index'))
+            ->assertOk()
+            ->assertSee($mine->reference)
+            ->assertDontSee($other->reference);
+
+        $this->withSession(['storefront_buyer_id' => $buyer->id])
+            ->get(route('storefront.buyer.quotes.show', $mine))
+            ->assertOk()
+            ->assertSee('GHS 1,250.00');
+
+        $this->withSession(['storefront_buyer_id' => $buyer->id])
+            ->get(route('storefront.buyer.quotes.show', $other))
+            ->assertNotFound();
+    }
+
+    public function test_buyer_accepting_price_creates_one_attached_order(): void
+    {
+        Notification::fake();
+        $buyer = StorefrontBuyer::create([
+            'organization_id' => $this->org->id,
+            'name' => 'Kofi Buyer',
+            'email' => 'kofi@example.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $quote = $this->makeQuote(StorefrontQuote::STATUS_QUOTED, 'SQ-ACCEPT', [
+            'contact_email' => 'kofi@example.com',
+            'quoted_total' => '1250.00',
+            'valid_until' => now()->addWeek(),
+        ]);
+
+        $response = $this->withSession(['storefront_buyer_id' => $buyer->id])
+            ->post(route('storefront.buyer.quotes.accept', $quote), ['payment_method' => 'cod']);
+
+        $order = StorefrontOrder::sole();
+        $response->assertRedirect(route('storefront.buyer.orders.show', $order));
+        $this->assertSame($buyer->id, $order->storefront_buyer_id);
+        $this->assertSame(StorefrontOrder::STATUS_PENDING_CONFIRMATION, $order->status);
+        $this->assertSame(StorefrontQuote::STATUS_CONVERTED, $quote->fresh()->status);
+
+        $this->withSession(['storefront_buyer_id' => $buyer->id])
+            ->post(route('storefront.buyer.quotes.accept', $quote), ['payment_method' => 'cod'])
+            ->assertRedirect(route('storefront.buyer.orders.show', $order));
+        $this->assertSame(1, StorefrontOrder::count());
+    }
+
+    public function test_buyer_can_accept_quote_and_continue_to_paystack(): void
+    {
+        Notification::fake();
+        $paystack = new FakePaystackClient();
+        $this->app->instance(PaystackClient::class, $paystack);
+        $buyer = StorefrontBuyer::create([
+            'organization_id' => $this->org->id,
+            'name' => 'Ama Buyer',
+            'email' => 'ama@example.com',
+            'password' => Hash::make('password123'),
+        ]);
+        $quote = $this->makeQuote(StorefrontQuote::STATUS_QUOTED, 'SQ-PAYSTACK', [
+            'contact_email' => $buyer->email,
+            'quoted_total' => '975.50',
+            'valid_until' => now()->addWeek(),
+        ]);
+
+        $response = $this->withSession(['storefront_buyer_id' => $buyer->id])
+            ->post(route('storefront.buyer.quotes.accept', $quote), ['payment_method' => 'paystack']);
+
+        $order = StorefrontOrder::sole();
+        $response->assertRedirectContains('https://checkout.paystack.test/');
+        $this->assertSame(StorefrontOrder::METHOD_PAYSTACK, $order->payment_method);
+        $this->assertSame(StorefrontOrder::PAY_PAYSTACK_PEND, $order->payment_status);
+        $this->assertSame(StorefrontOrder::STATUS_PENDING_PAYMENT, $order->status);
+        $this->assertSame(97550, $paystack->initialised[0]['amountMinor']);
+
+        $this->withSession(['storefront_buyer_id' => $buyer->id])
+            ->post(route('storefront.buyer.orders.pay', $order))
+            ->assertRedirectContains('https://checkout.paystack.test/');
+        $this->assertCount(2, $paystack->initialised);
+        $this->assertSame(1, StorefrontOrder::count());
     }
 
     protected function makeQuote(string $status, string $reference, array $overrides = []): StorefrontQuote

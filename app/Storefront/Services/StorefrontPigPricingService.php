@@ -55,14 +55,40 @@ class StorefrontPigPricingService
      * `Setting::get()` is organisation-scoped, so two farms get their own
      * prices and neither inherits the other's.
      */
-    public function livePricePerKg(): string
+    public function livePricePerKg(?int $organizationId = null): string
     {
-        return $this->decimal(Setting::get('sales.pricing.live_weight_price', 0));
+        $value = $organizationId === null
+            ? Setting::get('sales.pricing.live_weight_price', 0)
+            : Setting::getForOrganization($organizationId, 'sales.pricing.live_weight_price', 0);
+
+        return $this->decimal($value);
     }
 
-    public function carcassPricePerKg(): string
+    public function carcassPricePerKg(?int $organizationId = null): string
     {
-        return $this->decimal(Setting::get('sales.pricing.carcass_weight_price', 0));
+        $value = $organizationId === null
+            ? Setting::get('sales.pricing.carcass_weight_price', 0)
+            : Setting::getForOrganization($organizationId, 'sales.pricing.carcass_weight_price', 0);
+
+        return $this->decimal($value);
+    }
+
+    public function effectiveLiveRate(StorefrontListing $listing): string
+    {
+        return $this->effectiveRate(
+            $listing,
+            $listing->live_price_per_kg_snapshot,
+            fn () => $this->livePricePerKg((int) $listing->organization_id),
+        );
+    }
+
+    public function effectiveCarcassRate(StorefrontListing $listing): string
+    {
+        return $this->effectiveRate(
+            $listing,
+            $listing->carcass_price_per_kg_snapshot,
+            fn () => $this->carcassPricePerKg((int) $listing->organization_id),
+        );
     }
 
     /**
@@ -221,11 +247,11 @@ class StorefrontPigPricingService
 
         $liveRate    = $listing->live_price_per_kg_snapshot !== null && $listing->pricing_override
             ? $this->decimal($listing->live_price_per_kg_snapshot)
-            : $this->livePricePerKg();
+            : $this->livePricePerKg((int) $listing->organization_id);
 
         $carcassRate = $listing->carcass_price_per_kg_snapshot !== null && $listing->pricing_override
             ? $this->decimal($listing->carcass_price_per_kg_snapshot)
-            : $this->carcassPricePerKg();
+            : $this->carcassPricePerKg((int) $listing->organization_id);
 
         $summary = $this->summarise($pigs, $liveRate);
 
@@ -257,5 +283,16 @@ class StorefrontPigPricingService
         }
 
         return bcadd((string) $value, '0', $scale);
+    }
+
+    protected function effectiveRate(StorefrontListing $listing, mixed $snapshot, \Closure $configuredRate): string
+    {
+        $snapshot = $this->decimal($snapshot);
+
+        if ($listing->pricing_override || bccomp($snapshot, '0', 4) > 0) {
+            return $snapshot;
+        }
+
+        return $configuredRate();
     }
 }

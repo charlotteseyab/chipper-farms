@@ -15,6 +15,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class TaxProfileComponent extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganizationThroughRelation;
+
+    protected static function organizationRelation(): string
+    {
+        return 'profile';
+    }
+
     public const RATE_PERCENT = 'percent';
     public const RATE_FIXED   = 'fixed';
 

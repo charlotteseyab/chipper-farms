@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Ingredient extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Models\Concerns\BelongsToOrganization;
 
     /**
      * The attributes that are mass assignable.
@@ -16,6 +16,7 @@ class Ingredient extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'organization_id',
         'name',
         'description',
         'protein_percentage',

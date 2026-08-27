@@ -75,6 +75,7 @@ class PurchaseStockIntakeController extends Controller
             'structures' => $this->activeStructures(),
             'rooms' => Room::with('structure')->orderBy('name')->get(),
             'groups' => Group::orderBy('name')->get(),
+            'breeds' => \App\Models\Setting::animalBreeds(),
         ]);
     }
 
@@ -100,6 +101,10 @@ class PurchaseStockIntakeController extends Controller
 
         $purchaseStockIntake->load(['room.structure', 'group', 'pigs.latestWeight', 'createdBy', 'approvedBy']);
 
+        $canMaterializeLegacyPiglets = $purchaseStockIntake->status === PurchaseStockIntake::STATUS_ADDED_TO_STOCK
+            && $purchaseStockIntake->isPigletBatch()
+            && $purchaseStockIntake->pigs->isEmpty();
+
         return view('purchase-stock-intakes.show', [
             'intake' => $purchaseStockIntake,
             'rooms' => Room::with('structure')
@@ -110,6 +115,8 @@ class PurchaseStockIntakeController extends Controller
                 ->get(),
             'groups' => Group::orderBy('name')->get(),
             'statuses' => $this->statuses(),
+            'proposedEarTags' => $this->service->proposeEarTagNumbers($purchaseStockIntake->receivedQuantity(), (int) $purchaseStockIntake->organization_id),
+            'canMaterializeLegacyPiglets' => $canMaterializeLegacyPiglets,
         ]);
     }
 
@@ -184,7 +191,7 @@ class PurchaseStockIntakeController extends Controller
             'purchase_date' => ['required', 'date'],
             'document_reference' => ['nullable', 'string', 'max:255'],
             'animal_category' => ['required', Rule::in(array_keys($this->categories()))],
-            'breed' => ['nullable', 'string', 'max:50'],
+            'breed' => ['nullable', Rule::in(array_keys(\App\Models\Setting::animalBreeds()))],
             'quantity_ordered' => ['required', 'integer', 'min:1'],
             'male_quantity' => ['nullable', 'integer', 'min:0'],
             'female_quantity' => ['nullable', 'integer', 'min:0'],
@@ -248,13 +255,6 @@ class PurchaseStockIntakeController extends Controller
 
     protected function addToStockRules(PurchaseStockIntake $intake): array
     {
-        if ($intake->isPigletBatch()) {
-            return [
-                'room_id' => ['nullable', 'exists:rooms,id'],
-                'group_id' => ['nullable', 'exists:groups,id'],
-            ];
-        }
-
         return [
             'room_id' => ['nullable', 'exists:rooms,id'],
             'group_id' => ['nullable', 'exists:groups,id'],

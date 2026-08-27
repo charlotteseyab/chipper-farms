@@ -12,6 +12,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class PurchaseRequestItem extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganizationThroughRelation;
+
+    protected static function organizationRelation(): string
+    {
+        return 'purchaseRequest';
+    }
+
     protected $fillable = [
         'purchase_request_id',
         'item_name',

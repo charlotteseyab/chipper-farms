@@ -68,7 +68,7 @@ class SettingOrganizationScopeTest extends TestCase
     /**
      * Existing rows keep working untouched — the reason nothing was migrated.
      */
-    public function test_a_shared_default_answers_a_farm_that_has_not_set_its_own(): void
+    public function test_a_shared_operational_value_does_not_answer_for_an_unconfigured_farm(): void
     {
         // Exactly what an existing installation's row looks like.
         DB::table('system_configs')->insert([
@@ -80,10 +80,10 @@ class SettingOrganizationScopeTest extends TestCase
         ]);
 
         $this->asFarm($this->farmA);
-        $this->assertSame(50.0, (float) Setting::get('sales.pricing.carcass_weight_price'));
+        $this->assertNull(Setting::get('sales.pricing.carcass_weight_price'));
 
         $this->asFarm($this->farmB);
-        $this->assertSame(50.0, (float) Setting::get('sales.pricing.carcass_weight_price'));
+        $this->assertNull(Setting::get('sales.pricing.carcass_weight_price'));
     }
 
     /**
@@ -104,9 +104,9 @@ class SettingOrganizationScopeTest extends TestCase
 
         $this->assertSame(38.5, (float) Setting::get('sales.pricing.live_weight_price'));
 
-        // Farm B still gets the untouched default.
+        // Farm B remains unconfigured; it must not inherit the platform row.
         $this->asFarm($this->farmB);
-        $this->assertSame(30.0, (float) Setting::get('sales.pricing.live_weight_price'));
+        $this->assertNull(Setting::get('sales.pricing.live_weight_price'));
 
         $this->assertSame(
             '30',

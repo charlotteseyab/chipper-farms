@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+    html,
+    body,
+    button,
+    input,
+    select,
+    textarea {
+        font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+}
+
 [x-cloak] {
     display: none;
 }
@@ -39,8 +50,16 @@
         @apply absolute left-0 right-0 z-50 mt-1 hidden rounded-lg border border-gray-200 bg-white p-2 shadow-xl;
     }
 
-    .searchable-select.is-open .searchable-select__menu {
+    .searchable-select.is-open .searchable-select__menu,
+    .searchable-select__menu.is-portalled {
         @apply block;
+    }
+
+    .searchable-select__menu.is-portalled {
+        position: fixed;
+        z-index: 9999;
+        margin-top: 0;
+        overflow: hidden;
     }
 
     .searchable-select__search {
@@ -49,6 +68,9 @@
 
     .searchable-select__options {
         @apply max-h-56 overflow-y-auto;
+        max-height: var(--searchable-options-height, 14rem);
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
     }
 
     .searchable-select__option {
@@ -69,4 +91,65 @@
 
 .searchable-select.is-disabled .searchable-select__trigger {
         @apply cursor-not-allowed bg-gray-100 text-gray-500;
+}
+
+/* Shared responsive baseline for authenticated and customer-account pages. */
+main,
+main > *,
+main section,
+main article {
+    min-width: 0;
+}
+
+main img,
+main video,
+main svg {
+    max-width: 100%;
+}
+
+main canvas {
+    max-width: 100% !important;
+}
+
+main input:not([type='checkbox']):not([type='radio']),
+main select,
+main textarea {
+    max-width: 100%;
+}
+
+[data-responsive-table] {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+[data-responsive-table]:focus-visible {
+    outline: 2px solid #22c55e;
+    outline-offset: -2px;
+}
+
+@media (max-width: 767px) {
+    [data-responsive-table] > table.responsive-table--medium {
+        min-width: 42rem;
+    }
+
+    [data-responsive-table] > table.responsive-table--wide {
+        min-width: 58rem;
+    }
+
+    main button,
+    main a.inline-flex,
+    main input,
+    main select {
+        min-height: 42px;
+    }
+
+    main dialog,
+    main [role='dialog'] {
+        max-width: calc(100vw - 2rem) !important;
+        max-height: calc(100dvh - 2rem);
+        overflow-y: auto;
+    }
 }

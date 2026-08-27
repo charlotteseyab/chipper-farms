@@ -61,9 +61,8 @@ Route::get('/health/ready', [\App\Http\Controllers\HealthController::class, 'rea
 Route::get('/health/metrics', [\App\Http\Controllers\HealthController::class, 'metrics'])
     ->name('health.metrics');
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/', [\App\Http\Controllers\Storefront\StorefrontController::class, 'landing'])
+    ->name('home');
 
 Route::get('/terms-of-service', function () {
     return view('terms', [
@@ -82,9 +81,15 @@ $protectedMiddleware = [
     config('jetstream.auth_session'),
     'verified',
     'activity',
+    'action.notification',
+    'onboarding',
+    \App\Http\Middleware\EnsurePlatformSuperuserScope::class,
 ];
 
 Route::middleware($protectedMiddleware)->group(function () {
+    Route::get('/onboarding', [App\Http\Controllers\OnboardingController::class, 'show'])->name('onboarding.show');
+    Route::post('/onboarding/complete', [App\Http\Controllers\OnboardingController::class, 'complete'])->name('onboarding.complete');
+
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
@@ -138,7 +143,7 @@ Route::middleware($protectedMiddleware)->group(function () {
     });
 
     Route::middleware('role:superuser')->group(function () {
-        Route::get('/superuser/dashboard',                [SuperuserController::class, 'dashboard'])->name('superuser.dashboard');
+        Route::get('/superuser/dashboard',                App\Http\Controllers\PlatformDashboardController::class)->name('superuser.dashboard');
         Route::get('/superuser/dashboard/export/pdf',     [SuperuserController::class, 'exportPdf'])->name('superuser.dashboard.export.pdf');
         Route::get('/superuser/dashboard/export/csv',     [SuperuserController::class, 'exportCsv'])->name('superuser.dashboard.export.csv');
     });
@@ -340,6 +345,7 @@ Route::middleware($protectedMiddleware)->group(function () {
     // Settings Routes
     Route::get('settings/setup', [App\Http\Controllers\SettingsController::class, 'setup'])->name('settings.setup');
     Route::post('settings/setup/breeding', [App\Http\Controllers\SettingsController::class, 'saveBreeding'])->name('settings.setup.breeding.save');
+    Route::post('settings/setup/breeds', [App\Http\Controllers\SettingsController::class, 'saveAnimalBreeds'])->name('settings.setup.breeds.save');
     Route::post('settings/setup/breeding/reset', [App\Http\Controllers\SettingsController::class, 'resetBreeding'])->name('settings.setup.breeding.reset');
     Route::get('settings/activity-log', [App\Http\Controllers\SettingsController::class, 'activityLog'])->name('settings.activity-log');
 
@@ -356,7 +362,14 @@ Route::middleware($protectedMiddleware)->group(function () {
         ->middleware('permission:manage_feature_flags')
         ->name('settings.modules.preset');
     
-    // User Management Routes (Superuser only)
+    // Platform farm onboarding (platform superuser only)
+    Route::get('settings/organizations', [App\Http\Controllers\PlatformOrganizationController::class, 'index'])->name('settings.organizations');
+    Route::post('settings/organizations', [App\Http\Controllers\PlatformOrganizationController::class, 'store'])->name('settings.organizations.store');
+    Route::get('settings/organizations/{organization}', [App\Http\Controllers\PlatformOrganizationController::class, 'show'])->name('settings.organizations.show');
+    Route::put('settings/organizations/{organization}', [App\Http\Controllers\PlatformOrganizationController::class, 'update'])->name('settings.organizations.update');
+    Route::delete('settings/organizations/{organization}', [App\Http\Controllers\PlatformOrganizationController::class, 'destroy'])->name('settings.organizations.destroy');
+
+    // User management: platform superusers see all farms; admins see their farm.
     Route::get('settings/users', [App\Http\Controllers\SettingsController::class, 'users'])->name('settings.users');
     Route::post('settings/users', [App\Http\Controllers\SettingsController::class, 'storeUser'])->name('settings.users.store');
     Route::put('settings/users/{user}', [App\Http\Controllers\SettingsController::class, 'updateUser'])->name('settings.users.update');
@@ -374,7 +387,7 @@ Route::middleware($protectedMiddleware)->group(function () {
 
     Route::post('/purchase-requests/{purchaseRequest}/approve', [PurchaseRequestController::class, 'approve'])->name('purchase-requests.approve');
     Route::post('/purchase-requests/{purchaseRequest}/decline', [PurchaseRequestController::class, 'decline'])->name('purchase-requests.decline');
-    Route::post('/purchase-requests/{purchaseRequest}/mark-paid', [PurchaseRequestController::class, 'markAsPaid'])->name('purchase-requests.mark-paid');
+    Route::post('/purchase-requests/{purchaseRequest}/complete', [PurchaseRequestController::class, 'complete'])->name('purchase-requests.complete');
     Route::get('/purchase-requests/{purchaseRequest}', [PurchaseRequestController::class, 'show'])->name('purchase-requests.show');
     Route::get('/raw-materials-stock', [RawMaterialController::class, 'index'])->middleware('permission:view_raw_materials')->name('raw-materials.index');
     Route::post('/raw-materials-stock', [RawMaterialController::class, 'store'])->middleware('permission:manage_raw_materials')->name('raw-materials.store');
@@ -392,6 +405,7 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::put('settings/email', [App\Http\Controllers\EmailSettingController::class, 'update'])->name('settings.email.update');
     Route::post('settings/email/test-connection', [App\Http\Controllers\EmailSettingController::class, 'testConnection'])->name('settings.email.test-connection');
     Route::post('settings/email/send-test', [App\Http\Controllers\EmailSettingController::class, 'sendTestEmail'])->name('settings.email.send-test');
+    Route::put('settings/email/templates/{emailTemplate}', [App\Http\Controllers\EmailSettingController::class, 'updateTemplate'])->name('settings.email.templates.update');
 
     //General Settings Route(Superuser and Amdin only)
     // Add 'settings.' to the name here
@@ -1645,11 +1659,14 @@ Route::middleware(['auth:sanctum', config('jetstream.auth_session'), 'verified']
         // §17 lists guest checkout as essential scope and a cart behind a login
         // wall cannot be filled before one. One set of routes serves both a
         // signed-in buyer and a guest; CartOwnerResolver tells them apart.
-        Route::get('/paystack/callback', [\App\Http\Controllers\Storefront\PaystackWebhookController::class, 'callback'])->name('paystack.callback');
-
         Route::get('/orders', [\App\Http\Controllers\Storefront\CustomerOrderController::class, 'index'])->name('orders.index');
         Route::get('/orders/{order}', [\App\Http\Controllers\Storefront\CustomerOrderController::class, 'show'])->name('orders.show');
     });
+
+// Browser return from Paystack must be public: guests have no Laravel login.
+// The provider reference is verified server-side before any order is shown.
+Route::get('/account/paystack/callback', [\App\Http\Controllers\Storefront\PaystackWebhookController::class, 'callback'])
+    ->name('storefront.account.paystack.callback');
 
 /*
 |--------------------------------------------------------------------------
@@ -1724,6 +1741,22 @@ Route::prefix('shop')->name('storefront.')->group(function () {
         ->name('buyer.orders.index');
     Route::get('/buyer/orders/{order}', [\App\Http\Controllers\Storefront\BuyerAuthController::class, 'order'])
         ->name('buyer.orders.show');
+    Route::post('/buyer/orders/{order}/pay', [\App\Http\Controllers\Storefront\BuyerAuthController::class, 'retryOrderPayment'])
+        ->name('buyer.orders.pay');
+    Route::get('/buyer/quotes', [\App\Http\Controllers\Storefront\BuyerAuthController::class, 'quotes'])
+        ->name('buyer.quotes.index');
+    Route::get('/buyer/quotes/{quote}', [\App\Http\Controllers\Storefront\BuyerAuthController::class, 'quote'])
+        ->name('buyer.quotes.show');
+    Route::post('/buyer/quotes/{quote}/accept', [\App\Http\Controllers\Storefront\BuyerAuthController::class, 'acceptQuote'])
+        ->name('buyer.quotes.accept');
+    Route::post('/buyer/quotes/{quote}/decline', [\App\Http\Controllers\Storefront\BuyerAuthController::class, 'declineQuote'])
+        ->name('buyer.quotes.decline');
+    Route::get('/buyer/notifications', [\App\Http\Controllers\Storefront\BuyerNotificationController::class, 'index'])
+        ->name('buyer.notifications.index');
+    Route::post('/buyer/notifications/read-all', [\App\Http\Controllers\Storefront\BuyerNotificationController::class, 'readAll'])
+        ->name('buyer.notifications.read-all');
+    Route::post('/buyer/notifications/{id}/read', [\App\Http\Controllers\Storefront\BuyerNotificationController::class, 'read'])
+        ->name('buyer.notifications.read');
 
     // Phase 3 — Paystack server-to-server webhook (CSRF-exempt; HMAC-verified
     // in the controller). Path must match the exception in bootstrap/app.php.

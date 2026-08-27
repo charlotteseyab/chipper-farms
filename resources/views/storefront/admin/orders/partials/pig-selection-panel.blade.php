@@ -183,7 +183,7 @@
                                     </span>
                                 </span>
                                 <span class="block text-xs text-slate-500">
-                                    {{ $pig->breed ?: 'Breed not recorded' }}
+                                    {{ \App\Models\Setting::breedName($pig->breed) ?: 'Breed not recorded' }}
                                     · {{ $pig->gender ?: 'sex not recorded' }}
                                     @if($pig->date_of_birth)
                                         · {{ \Carbon\Carbon::parse($pig->date_of_birth)->age }} yr

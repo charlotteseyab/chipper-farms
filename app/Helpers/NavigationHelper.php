@@ -68,6 +68,30 @@ class NavigationHelper
             return [];
         }
 
+        if ($user->isSuperuser()) {
+            return [
+                [
+                    'title' => 'Platform',
+                    'items' => array_values(array_filter([
+                        self::dashboardItem($user),
+                        self::link('Farm Organizations', 'settings.organizations', 'settings/organizations*', 'fa-solid fa-building', ['superuser']),
+                        self::link('User Management', 'settings.users', 'settings/users*', 'fa-solid fa-users-gear', ['superuser']),
+                    ])),
+                ],
+                [
+                    'title' => 'System Settings',
+                    'items' => array_values(array_filter([
+                        self::link('General Settings', 'settings.general', 'settings/general-settings*', 'fa-solid fa-sliders', ['superuser']),
+                        self::link('Breeding Setup', 'settings.setup', 'settings/setup*', 'fa-solid fa-gear', ['superuser']),
+                        self::link('Email Settings', 'settings.email', 'settings/email*', 'fa-solid fa-envelope', ['superuser']),
+                        self::link('Modules & Features', 'settings.modules', 'settings/modules*', 'fa-solid fa-toggle-on', ['superuser']),
+                        self::link('System Reports', 'settings.reports', 'settings/reports*', 'fa-solid fa-file-lines', ['superuser']),
+                        self::link('Activity Log', 'settings.activity-log', 'settings/activity-log*', 'fa-solid fa-clock-rotate-left', ['superuser']),
+                    ])),
+                ],
+            ];
+        }
+
         $allRoles = ['superuser', 'admin', 'farmmanager', 'dataentry'];
         $managementRoles = ['superuser', 'admin', 'farmmanager'];
         $adminRoles = ['superuser', 'admin'];
@@ -87,7 +111,7 @@ class NavigationHelper
                     self::link('Purchased Stock Intake', 'purchase-stock-intakes.index', 'purchase-stock-intakes*', 'fa-solid fa-truck-ramp-box', $managementRoles),
                     self::link('Breeding Stock', 'breeding-stocks.index', 'breeding-stocks*', 'fa-solid fa-venus-mars', $allRoles),
                     self::link('Standard Stock', 'standard-stocks.index', 'standard-stocks*', 'fa-solid fa-paw', $allRoles),
-                    self::link('Audit Trail', 'audit-trail.index', ['audit-trail*', 'pigs/archived*'], 'fa-solid fa-clock-rotate-left', $managementRoles),
+                    self::link('Audit Trail', 'audit-trail.index', ['audit-trail*', 'pigs/archived*'], 'fa-solid fa-clock-rotate-left', ['superuser', 'admin', 'farmmanager', 'dataentry', 'accountant', 'treasurer', 'salesperson', 'mill_operator']),
                     self::link('Structures & Rooms', 'structures.index', ['structures*', 'rooms*'], 'fa-solid fa-warehouse', $managementRoles),
                 ])),
             ],
@@ -159,8 +183,9 @@ class NavigationHelper
                     self::link('Email Settings', 'settings.email', 'settings/email*', 'fa-solid fa-envelope', $adminRoles),
                     self::link('Modules & Features', 'settings.modules', 'settings/modules*', 'fa-solid fa-toggle-on', ['superuser']),
                     self::link('System Reports', 'settings.reports', 'settings/reports*', 'fa-solid fa-file-lines', $adminRoles),
-                    self::link('Activity Log', 'settings.activity-log', 'settings/activity-log*', 'fa-solid fa-clock-rotate-left', ['superuser']),
-                    self::link('User Management', 'settings.users', 'settings/users*', 'fa-solid fa-users-gear', ['superuser']),
+                    self::link('Activity Log', 'settings.activity-log', 'settings/activity-log*', 'fa-solid fa-clock-rotate-left', ['superuser', 'admin']),
+                    self::link('Farm Organizations', 'settings.organizations', 'settings/organizations*', 'fa-solid fa-building', ['superuser']),
+                    self::link('User Management', 'settings.users', 'settings/users*', 'fa-solid fa-users-gear', ['superuser', 'admin']),
                 ])),
             ],
         ]));

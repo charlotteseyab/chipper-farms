@@ -17,10 +17,10 @@ use Tests\TestCase;
  * typing it directly. After E3, role middleware enforces the right access
  * matrix:
  *
- *   /admin/dashboard      admin, superuser
- *   /manager/dashboard    manager, admin, superuser
+ *   /admin/dashboard      farm admin only
+ *   /manager/dashboard    farm manager and farm admin
  *   /superuser/dashboard  superuser only
- *   /dataentry/dashboard  dataentry, admin, superuser
+ *   /dataentry/dashboard  dataentry and farm admin
  */
 class DashboardAuthorizationTest extends TestCase
 {
@@ -57,11 +57,11 @@ class DashboardAuthorizationTest extends TestCase
             ->assertOk();
     }
 
-    public function test_superuser_can_access_admin_dashboard(): void
+    public function test_platform_superuser_cannot_access_admin_dashboard(): void
     {
         $this->actingAs($this->makeUser('superuser'))
             ->get('/admin/dashboard')
-            ->assertOk();
+            ->assertForbidden();
     }
 
     public function test_manager_cannot_access_admin_dashboard(): void

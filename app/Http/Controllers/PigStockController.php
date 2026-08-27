@@ -13,6 +13,7 @@ use App\Services\Audit\AuditTrailService;
 use App\Services\Stock\Imports\StockExcelImportService;
 use App\Services\Stock\PigStockService;
 use App\Services\Stock\StockValidationException;
+use App\Services\Notifications\InAppNotificationService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -44,7 +45,10 @@ class PigStockController extends Controller
 {
     use AuthorizesRequests;
 
-    public function __construct(protected PigStockService $stockService)
+    public function __construct(
+        protected PigStockService $stockService,
+        protected InAppNotificationService $notifications,
+    )
     {
         //
     }
@@ -237,6 +241,16 @@ class PigStockController extends Controller
                 'description' => "Pig {$pig->code} was created.",
                 'new_values' => $pig->only(['ear_tag_number', 'breed', 'gender', 'stock_type', 'date_of_birth', 'room_id']),
             ]);
+
+            $label = $pig->ear_tag_number ?: $pig->code;
+            $this->notifications->notifyRelevantStaff(
+                (int) $pig->organization_id,
+                'pigs.stock_added',
+                'New stock added',
+                "{$label} was registered as {$pig->stock_type} stock by " . ($request->user()->name ?? 'a team member') . '.',
+                route('pigs.show', $pig->id),
+                context: ['pig_id' => $pig->id],
+            );
 
             $route = $pig->stock_type === 'breeding' ? 'breeding-stocks.index' : 'standard-stocks.index';
             return redirect()->route($route)

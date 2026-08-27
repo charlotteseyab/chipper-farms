@@ -280,6 +280,8 @@ class OrderService
         // buyer could not pay for goes straight back on sale rather than
         // waiting for the expiry sweep to notice.
         $this->holds->releaseForOrder($order, 'Payment failed.');
+        app(StorefrontPigAllocationService::class)
+            ->releaseOrderAllocations($order, $actor, $note ?: 'Payment failed.');
 
         $this->recordEvent($order, 'payment', $from, StorefrontOrder::STATUS_FAILED, $note, $actor?->id);
 

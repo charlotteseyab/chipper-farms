@@ -88,7 +88,12 @@ class StorefrontSettingsResolver
         }
 
         if (! isset($this->cache[$organizationId])) {
-            $this->cache[$organizationId] = StorefrontSetting::query()
+            // The explicit organization argument is authoritative here. This
+            // resolver also serves guest storefronts and platform reports,
+            // where the organization being resolved can differ from a bound
+            // staff context; retaining the implicit scope would silently fall
+            // back to defaults for the requested farm.
+            $this->cache[$organizationId] = StorefrontSetting::withoutGlobalScope('current_organization')
                 ->where('organization_id', $organizationId)
                 ->first()
                 ?? $this->defaults($organizationId);
@@ -111,7 +116,7 @@ class StorefrontSettingsResolver
         }
 
         if (! isset($this->zoneCache[$organizationId])) {
-            $this->zoneCache[$organizationId] = StorefrontDeliveryZone::query()
+            $this->zoneCache[$organizationId] = StorefrontDeliveryZone::withoutGlobalScope('current_organization')
                 ->where('organization_id', $organizationId)
                 ->active()
                 ->ordered()
@@ -136,7 +141,7 @@ class StorefrontSettingsResolver
             throw new \RuntimeException('Cannot save storefront settings without an organisation context.');
         }
 
-        $settings = StorefrontSetting::updateOrCreate(
+        $settings = StorefrontSetting::withoutGlobalScope('current_organization')->updateOrCreate(
             ['organization_id' => $organizationId],
             $attributes + ['updated_by' => $actor?->id],
         );

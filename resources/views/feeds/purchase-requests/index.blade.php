@@ -72,6 +72,7 @@
                         <option value="pending" {{ $status === 'pending' ? 'selected' : '' }}>Pending</option>
                         <option value="approved" {{ $status === 'approved' ? 'selected' : '' }}>Approved</option>
                         <option value="paid" {{ $status === 'paid' ? 'selected' : '' }}>Paid</option>
+                        <option value="completed" {{ $status === 'completed' ? 'selected' : '' }}>Completed</option>
                         <option value="declined" {{ $status === 'declined' ? 'selected' : '' }}>Declined</option>
                     </select>
                 </div>

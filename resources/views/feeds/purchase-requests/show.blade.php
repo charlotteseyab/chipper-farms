@@ -3,11 +3,22 @@
         $statusClasses = match($purchaseRequest->status) {
             'approved' => 'bg-green-100 text-green-800',
             'paid' => 'bg-emerald-100 text-emerald-800',
+            'completed' => 'bg-emerald-100 text-emerald-900',
             'declined' => 'bg-red-100 text-red-800',
             'pending' => 'bg-blue-100 text-blue-800',
             default => 'bg-yellow-100 text-yellow-800',
         };
         $hasRawMaterialItems = $purchaseRequest->items->contains(fn ($item) => filled($item->raw_material_id));
+        $receiptComplete = ! $hasRawMaterialItems || $purchaseRequest->items->whereNotNull('raw_material_id')->every(fn ($item) => $item->is_receipt_closed);
+        $activeInvoices = $purchaseRequest->vendorInvoices->whereNotIn('status', ['cancelled', 'reversed']);
+        $postedInvoices = $activeInvoices->where('status', 'posted');
+        $paidAmount = (float) $purchaseRequest->payments->sum('amount');
+        $requiredAdvance = $purchaseRequest->payment_arrangement === 'deposit_balance'
+            ? (float) $purchaseRequest->total_amount * (float) $purchaseRequest->deposit_percent / 100
+            : (float) $purchaseRequest->total_amount;
+        $advanceSatisfied = ! $purchaseRequest->requiresAdvancePayment() || $paidAmount + 0.005 >= $requiredAdvance;
+        $invoicesSettled = $postedInvoices->isNotEmpty() && $postedInvoices->every(fn ($invoice) => (float) $invoice->balance_due <= 0.005);
+        $readyToComplete = $receiptComplete && $invoicesSettled;
     @endphp
 
     <div class="max-w-6xl mx-auto py-6 px-4">
@@ -18,27 +29,54 @@
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
-                @if($purchaseRequest->status === 'approved' && auth()->user()?->hasPermission('receive_against_pr'))
-                    <a href="{{ route('finance.procurement.receive-against-pr.create', $purchaseRequest) }}"
-                       class="inline-flex items-center px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
-                        Receive Goods
+                @if($purchaseRequest->status === 'pending')
+                    @can('approve', $purchaseRequest)
+                        <form action="{{ route('purchase-requests.approve', $purchaseRequest) }}" method="POST">@csrf
+                            <button type="submit" class="inline-flex items-center rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700">Approve Request</button>
+                        </form>
+                    @endcan
+                    @can('decline', $purchaseRequest)
+                        <form action="{{ route('purchase-requests.decline', $purchaseRequest) }}" method="POST" class="flex flex-wrap items-center gap-2">@csrf
+                            <input type="text" name="decline_reason" value="{{ old('decline_reason') }}" placeholder="Reason for decline" required class="w-56 rounded-lg border-gray-300 text-sm">
+                            <button type="submit" class="inline-flex items-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Decline Request</button>
+                        </form>
+                    @endcan
+                @endif
+
+                @if(in_array($purchaseRequest->status, ['approved', 'paid'], true) && $purchaseRequest->requiresAdvancePayment() && ! $advanceSatisfied && auth()->user()?->hasPermission('create_payment'))
+                    <a href="{{ route('finance.payments.create', ['purchase_request_id' => $purchaseRequest->id]) }}" class="inline-flex items-center rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800">
+                        {{ $purchaseRequest->payment_arrangement === 'deposit_balance' ? 'Record Deposit' : 'Record Advance Payment' }}
                     </a>
                 @endif
 
-                @if(in_array($purchaseRequest->status, ['approved', 'paid'], true)
-                    && auth()->user()?->hasAnyPermission(['create_vendor_invoice', 'create_purchase_request_vendor_invoice']))
-                    <a href="{{ route('finance.vendor-invoices.create', ['purchase_request_id' => $purchaseRequest->id]) }}"
-                       class="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
-                        Create Vendor Invoice
-                    </a>
+                @if(in_array($purchaseRequest->status, ['approved', 'paid'], true) && $advanceSatisfied && ! $receiptComplete && auth()->user()?->hasPermission('receive_against_pr'))
+                    <a href="{{ route('finance.procurement.receive-against-pr.create', $purchaseRequest) }}" class="inline-flex items-center rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-700">Receive Goods</a>
+                @endif
+
+                @if(in_array($purchaseRequest->status, ['approved', 'paid'], true) && $activeInvoices->isEmpty() && auth()->user()?->hasAnyPermission(['create_vendor_invoice', 'create_purchase_request_vendor_invoice']))
+                    <a href="{{ route('finance.vendor-invoices.create', ['purchase_request_id' => $purchaseRequest->id]) }}" class="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700">Create Vendor Invoice</a>
                 @endif
 
                 @foreach($purchaseRequest->vendorInvoices as $vendorInvoice)
-                    <a href="{{ route('finance.vendor-invoices.show', $vendorInvoice) }}"
-                       class="inline-flex items-center px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-sm font-semibold rounded-lg transition">
-                        View {{ $vendorInvoice->vendor_invoice_number }}
-                    </a>
+                    <a href="{{ route('finance.vendor-invoices.show', $vendorInvoice) }}" class="inline-flex items-center rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-700 hover:bg-indigo-100">View {{ $vendorInvoice->vendor_invoice_number }}</a>
                 @endforeach
+
+                @php $invoiceToPay = $postedInvoices->first(fn ($invoice) => (float) $invoice->balance_due > 0.005); @endphp
+                @if($invoiceToPay && auth()->user()?->hasPermission('create_payment'))
+                    <a href="{{ route('finance.payments.create', ['purchase_request_id' => $purchaseRequest->id, 'vendor_invoice_id' => $invoiceToPay->id]) }}" class="inline-flex items-center rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800">{{ $paidAmount > 0 ? 'Pay Balance' : 'Record Payment' }}</a>
+                @endif
+
+                @foreach($purchaseRequest->payments as $payment)
+                    <a href="{{ route('finance.payments.show', $payment) }}" class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800">View {{ $payment->payment_number }}</a>
+                @endforeach
+
+                @if($readyToComplete)
+                    @can('complete', $purchaseRequest)
+                        <form method="POST" action="{{ route('purchase-requests.complete', $purchaseRequest) }}">@csrf
+                            <button type="submit" class="inline-flex items-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">Complete Purchase</button>
+                        </form>
+                    @endcan
+                @endif
 
                 @can('update', $purchaseRequest)
                     <a href="{{ route('purchase-requests.edit', $purchaseRequest) }}"
@@ -59,49 +97,21 @@
                     </form>
                 @endcan
 
-                @can('approve', $purchaseRequest)
-                    <form action="{{ route('purchase-requests.approve', $purchaseRequest) }}" method="POST">
-                        @csrf
-                        <button type="submit"
-                                class="inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
-                            Approve Request
-                        </button>
-                    </form>
-                @endcan
-
-                @can('decline', $purchaseRequest)
-                    <form action="{{ route('purchase-requests.decline', $purchaseRequest) }}" method="POST" class="flex flex-wrap items-center gap-2">
-                        @csrf
-                        <input type="text"
-                               name="decline_reason"
-                               value="{{ old('decline_reason') }}"
-                               placeholder="Reason for decline"
-                               class="w-56 rounded-lg border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 text-sm">
-                        <button type="submit"
-                                class="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg shadow-sm transition">
-                            Decline Request
-                        </button>
-                    </form>
-                @endcan
-
-                @can('markPaid', $purchaseRequest)
-                    <form action="{{ route('purchase-requests.mark-paid', $purchaseRequest) }}" method="POST">
-                        @csrf
-                        <label class="inline-flex items-center gap-3 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-lg cursor-pointer">
-                            <input type="checkbox"
-                                   onchange="this.form.submit()"
-                                   class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500">
-                            <span class="text-sm font-semibold text-emerald-800">Mark as Paid</span>
-                        </label>
-                    </form>
-                @endcan
-
                 <a href="{{ route('purchase-requests.index') }}"
                    class="inline-flex items-center px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 text-sm font-semibold rounded-lg transition">
                     Back
                 </a>
             </div>
         </div>
+
+        @if(! in_array($purchaseRequest->status, ['pending', 'declined'], true))
+            <div class="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="rounded-2xl border border-slate-200 bg-white p-4"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Arrangement</p><p class="mt-2 font-bold text-slate-900">{{ $purchaseRequest->paymentArrangementLabel() }}</p></div>
+                <div class="rounded-2xl border border-slate-200 bg-white p-4"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Delivery</p><p class="mt-2 font-bold {{ $receiptComplete ? 'text-emerald-700' : 'text-amber-700' }}">{{ $receiptComplete ? 'Fully received' : ($advanceSatisfied ? 'Awaiting goods' : 'Waiting for advance') }}</p></div>
+                <div class="rounded-2xl border border-slate-200 bg-white p-4"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Invoice</p><p class="mt-2 font-bold text-slate-900">{{ $postedInvoices->isNotEmpty() ? 'Posted' : ($activeInvoices->isNotEmpty() ? 'In progress' : 'Not recorded') }}</p></div>
+                <div class="rounded-2xl border border-slate-200 bg-white p-4"><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Payment</p><p class="mt-2 font-bold text-slate-900">GHS {{ number_format($paidAmount, 2) }} recorded</p><p class="mt-1 text-xs text-slate-500">Request total: GHS {{ number_format((float) $purchaseRequest->total_amount, 2) }}</p></div>
+            </div>
+        @endif
 
         <div class="bg-white rounded-2xl shadow border border-gray-100 overflow-hidden mb-6">
             <div class="p-6 border-b border-gray-100">

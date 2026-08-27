@@ -8,6 +8,18 @@ use Illuminate\Support\Str;
 
 class Setting extends Model
 {
+    /**
+     * Operational choices owned by each farm. These keys must never inherit a
+     * platform row because breeds, timings, units and prices are farm policy.
+     */
+    private const FARM_OWNED_PREFIXES = [
+        'breeding.',
+        'stages.',
+        'sales.pricing.',
+        'feed.units.',
+        'purchase_requests.feed_items',
+    ];
+
     protected $table = 'system_configs';
 
     protected $fillable = [
@@ -37,7 +49,11 @@ class Setting extends Model
      */
     public static function get(string $key, $default = null)
     {
-        $organizationId = static::currentOrganizationId();
+        return static::getForOrganization(static::currentOrganizationId(), $key, $default);
+    }
+
+    public static function getForOrganization(?int $organizationId, string $key, $default = null)
+    {
 
         $row = null;
 
@@ -48,11 +64,14 @@ class Setting extends Model
                 ->first();
         }
 
-        // Fall back to the shared default.
-        $row ??= static::query()
-            ->whereNull('organization_id')
-            ->where('key', $key)
-            ->first();
+        // General platform settings may still inherit a shared value, but
+        // operational setup belongs exclusively to the individual farm.
+        if (! ($organizationId !== null && static::isFarmOwnedKey($key))) {
+            $row ??= static::query()
+                ->whereNull('organization_id')
+                ->where('key', $key)
+                ->first();
+        }
 
         if (! $row) {
             return $default;
@@ -94,6 +113,7 @@ class Setting extends Model
         $defaults = static::query()
             ->whereNull('organization_id')
             ->pluck('value', 'key')
+            ->reject(fn ($value, $key) => static::isFarmOwnedKey((string) $key))
             ->map(fn ($value) => static::decode($value))
             ->toArray();
 
@@ -133,26 +153,15 @@ class Setting extends Model
             : $decoded;
     }
 
-    public static function defaultPurchaseFeedItems(): array
+    private static function isFarmOwnedKey(string $key): bool
     {
-        return [
-            'Piglet Starter Feed',
-            'Weaner Feed',
-            'Grower Feed',
-            'Finisher Feed',
-            'Sow and Boar Feed',
-            'Lactating Sow Feed',
-            'Maize',
-            'Soybean Meal',
-            'Wheat Bran',
-            'Premix',
-            'Concentrate',
-        ];
+        return collect(static::FARM_OWNED_PREFIXES)
+            ->contains(fn (string $prefix) => str_starts_with($key, $prefix));
     }
 
     public static function purchaseFeedItems(): array
     {
-        $items = self::get('purchase_requests.feed_items', self::defaultPurchaseFeedItems());
+        $items = self::get('purchase_requests.feed_items', []);
 
         return self::normalizePurchaseFeedItems(is_array($items) ? $items : []);
     }
@@ -172,6 +181,42 @@ class Setting extends Model
             ->all();
 
         return $cleaned;
+    }
+
+    /** @return array<string,string> */
+    public static function animalBreeds(): array
+    {
+        $breeds = self::get('breeding.animal_breeds', []);
+
+        return self::normalizeAnimalBreeds(is_array($breeds) ? $breeds : []);
+    }
+
+    public static function setAnimalBreeds(array $breeds): void
+    {
+        self::set('breeding.animal_breeds', self::normalizeAnimalBreeds($breeds));
+    }
+
+    public static function normalizeAnimalBreeds(array $breeds): array
+    {
+        $normalized = [];
+        foreach ($breeds as $code => $name) {
+            $code = strtoupper(trim((string) $code));
+            $name = trim((string) $name);
+            if ($code !== '' && $name !== '') {
+                $normalized[$code] = $name;
+            }
+        }
+
+        return $normalized;
+    }
+
+    public static function breedName(?string $code): ?string
+    {
+        if ($code === null || trim($code) === '') {
+            return null;
+        }
+
+        return self::animalBreeds()[strtoupper(trim($code))] ?? $code;
     }
 
     public static function normalizedLogoPath(): ?string

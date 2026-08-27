@@ -88,6 +88,20 @@
                                class="w-full rounded-lg border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
                     </div>
 
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Payment arrangement</label>
+                        <select name="payment_arrangement" required class="w-full rounded-lg border-gray-300 shadow-sm">
+                            @foreach(['after_delivery' => 'Pay after delivery', 'before_delivery' => 'Pay before delivery', 'deposit_balance' => 'Deposit and balance', 'supplier_credit' => 'Supplier credit'] as $value => $label)
+                                <option value="{{ $value }}" @selected(old('payment_arrangement', $purchaseRequest->payment_arrangement ?: 'after_delivery') === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Deposit percentage <span class="text-xs font-normal text-gray-500">(deposit arrangement only)</span></label>
+                        <input type="number" name="deposit_percent" value="{{ old('deposit_percent', $purchaseRequest->deposit_percent) }}" min="0.01" max="99.99" step="0.01" class="w-full rounded-lg border-gray-300 shadow-sm">
+                    </div>
+
                     <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Reason for Request <span class="text-red-500">*</span></label>
                         <textarea name="reason"

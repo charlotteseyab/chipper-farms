@@ -234,4 +234,36 @@ class RawMaterialStockWorkflowBaselineTest extends TestCase
         $this->assertSame(-5.0, (float) $event->payload['quantity_delta']);
         $this->assertSame(45.0, (float) $event->payload['new_quantity_on_hand']);
     }
+
+    public function test_inventory_summary_cards_use_the_same_stock_rules_as_the_alerts(): void
+    {
+        RawMaterial::create(['name' => 'Empty', 'unit' => 'kg', 'quantity_in_stock' => 0, 'unit_cost' => 10, 'reorder_level' => 5]);
+        RawMaterial::create(['name' => 'Low', 'unit' => 'kg', 'quantity_in_stock' => 4, 'unit_cost' => 2, 'reorder_level' => 5]);
+        RawMaterial::create(['name' => 'Healthy', 'unit' => 'kg', 'quantity_in_stock' => 10, 'unit_cost' => 3, 'reorder_level' => 5]);
+
+        $response = $this->actingAs($this->admin)->get(route('raw-materials.index'))->assertOk();
+
+        $this->assertEquals([
+            'total_materials' => 3,
+            'low_stock' => 1,
+            'out_of_stock' => 1,
+            'stock_value' => 38.0,
+        ], array_map(fn ($value) => is_numeric($value) ? $value + 0 : $value, $response->viewData('stats')));
+        $this->assertCount(2, $response->viewData('lowStockAlerts'));
+    }
+
+    public function test_stock_status_filters_match_the_values_sent_by_the_page(): void
+    {
+        RawMaterial::create(['name' => 'Empty', 'unit' => 'kg', 'quantity_in_stock' => 0, 'unit_cost' => 1, 'reorder_level' => 5]);
+        RawMaterial::create(['name' => 'Low', 'unit' => 'kg', 'quantity_in_stock' => 4, 'unit_cost' => 1, 'reorder_level' => 5]);
+        RawMaterial::create(['name' => 'Healthy', 'unit' => 'kg', 'quantity_in_stock' => 10, 'unit_cost' => 1, 'reorder_level' => 5]);
+
+        $out = $this->actingAs($this->admin)->get(route('raw-materials.index', ['status' => 'out_of_stock']))->viewData('rawMaterials');
+        $low = $this->actingAs($this->admin)->get(route('raw-materials.index', ['status' => 'low_stock']))->viewData('rawMaterials');
+        $in = $this->actingAs($this->admin)->get(route('raw-materials.index', ['status' => 'in_stock']))->viewData('rawMaterials');
+
+        $this->assertSame(['Empty'], $out->pluck('name')->all());
+        $this->assertSame(['Low'], $low->pluck('name')->all());
+        $this->assertSame(['Healthy'], $in->pluck('name')->all());
+    }
 }

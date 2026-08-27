@@ -1,4 +1,10 @@
 <x-storefront.layout :title="'Your cart'">
+    <style>
+        .sf-cart-table { min-width:720px; }
+        @media (max-width: 480px) {
+            .sf-cart-actions > a { width:100%; text-align:center; }
+        }
+    </style>
     <div class="max-w-4xl mx-auto px-4 py-10">
         <h1 class="text-2xl font-bold text-slate-800 mb-6">Your cart</h1>
 
@@ -10,8 +16,8 @@
                 Your cart is empty. <a href="{{ route('storefront.shop') }}" class="text-slate-700 underline">Browse the shop</a>.
             </div>
         @else
-            <div class="rounded-2xl bg-white border border-slate-200 overflow-hidden">
-                <table class="w-full text-sm">
+            <div class="rounded-2xl bg-white border border-slate-200 overflow-x-auto">
+                <table class="sf-cart-table w-full text-sm">
                     <thead class="bg-slate-50 text-slate-500 text-left">
                         <tr><th class="px-5 py-2">Item</th><th class="px-5 py-2">Unit price</th><th class="px-5 py-2">Qty</th><th class="px-5 py-2">Total</th><th></th></tr>
                     </thead>
@@ -37,8 +43,10 @@
                                             @endif
                                         </span>
                                     @elseif($item->purchase_type === 'carcass')
+                                        @php($chosen = collect($item->selected_pig_weight_snapshot ?? [])->first())
                                         <span class="block text-xs text-slate-500">
-                                            Carcass weight · {{ rtrim(rtrim((string) $item->requested_kg, '0'), '.') }} kg
+                                            Carcass{{ $chosen ? ' · ' . $chosen['ear_tag'] : ' weight' }}
+                                            · {{ rtrim(rtrim((string) $item->requested_kg, '0'), '.') }} kg
                                             @if($item->price_per_kg_snapshot)
                                                 at GHS {{ number_format((float) $item->price_per_kg_snapshot, 2) }}/kg
                                             @endif
@@ -83,7 +91,7 @@
                 </table>
             </div>
 
-            <div class="mt-6 flex justify-between items-center">
+            <div class="sf-cart-actions mt-6 flex flex-wrap justify-between items-center gap-4">
                 <a href="{{ route('storefront.shop') }}" class="text-sm text-slate-500">← Continue shopping</a>
                 <a href="{{ route('storefront.checkout.show') }}" class="px-6 py-2.5 rounded-xl bg-slate-800 text-white font-medium">Checkout</a>
             </div>

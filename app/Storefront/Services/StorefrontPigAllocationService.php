@@ -565,7 +565,10 @@ class StorefrontPigAllocationService
         $adopted = collect();
 
         foreach ($order->items as $item) {
-            if ($item->purchase_type !== StorefrontPigPricingService::PURCHASE_LIVE) {
+            if (! in_array($item->purchase_type, [
+                StorefrontPigPricingService::PURCHASE_LIVE,
+                StorefrontPigPricingService::PURCHASE_CARCASS,
+            ], true)) {
                 continue;
             }
 
@@ -591,7 +594,7 @@ class StorefrontPigAllocationService
                 // may substitute and what the audit trail has to explain.
                 $allocation->forceFill([
                     'customer_selected' => true,
-                    'purchase_type'     => StorefrontPigPricingService::PURCHASE_LIVE,
+                    'purchase_type'     => $item->purchase_type,
                 ])->save();
 
                 $adopted->push($allocation);
@@ -754,7 +757,7 @@ class StorefrontPigAllocationService
      * Sold allocations are never touched: a completed sale is not undone by
      * cancelling the order that produced it. That is a credit note's job.
      */
-    public function releaseOrderAllocations(StorefrontOrder $order, User $actor, string $reason): int
+    public function releaseOrderAllocations(StorefrontOrder $order, ?User $actor, string $reason): int
     {
         return DB::transaction(function () use ($order, $actor, $reason) {
             $allocations = StorefrontOrderItemPigAllocation::query()

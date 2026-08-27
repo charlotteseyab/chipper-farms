@@ -24,7 +24,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  */
 class AccountingDimensionLink extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Models\Concerns\BelongsToOrganization;
 
     protected $table = 'accounting_dimension_links';
 

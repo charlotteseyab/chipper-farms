@@ -31,7 +31,7 @@ class UpdateStandardPigRequest extends FormRequest
                 'max:50',
                 Rule::unique('pigs_management', 'ear_tag_number')->ignore($pigId),
             ],
-            'breed'          => ['required', 'string', 'max:50'],
+            'breed'          => ['required', \Illuminate\Validation\Rule::in(array_keys(\App\Models\Setting::animalBreeds()))],
             'gender'         => ['required', 'in:M,F'],
             'date_of_birth'  => ['required', 'date'],
             'structure_id'   => ['nullable', 'exists:structures,id'],

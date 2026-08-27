@@ -6,9 +6,17 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\Concerns\ResolvesOrganization;
+use App\Models\Concerns\BelongsToOrganizationThroughRelation;
 
 class Weaning extends Model implements ResolvesOrganization
 {
+    use BelongsToOrganizationThroughRelation;
+
+    protected static function organizationRelation(): string
+    {
+        return 'pig';
+    }
+
     /**
      * The `weanings` table has no organization_id column, so tenancy is derived
      * from the weaned pig, then the mother (CF-P0-005). Before this,

@@ -27,8 +27,10 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             //Define the short key (activity) and the class here
             'activity' => \App\Http\Middleware\LogUserActivity::class,
+            'action.notification' => \App\Http\Middleware\NotifySuccessfulAction::class,
             'active' => \App\Http\Middleware\EnsureUserIsActive::class,
             'org' => \App\Http\Middleware\EnsureOrganizationContext::class,
+            'onboarding' => \App\Http\Middleware\EnsureOnboardingCompleted::class,
             'permission' => \App\Http\Middleware\PermissionMiddleware::class,
             // Outer confidentiality boundary for /finance (CF-P0-003). Admits
             // any user holding at least one finance-module permission; the

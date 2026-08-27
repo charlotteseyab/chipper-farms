@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Storage;
 
 class Attachment extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Models\Concerns\BelongsToOrganization;
     use SoftDeletes;
 
     protected $fillable = [

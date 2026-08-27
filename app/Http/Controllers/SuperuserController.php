@@ -151,7 +151,7 @@ class SuperuserController extends Controller
 
             $financialTrends = $this->getFinancialTrends($startDate, $endDate);
         } else {
-            $liveWeightPrice = Setting::get('sales.pricing.live_weight_price', 30.00);
+            $liveWeightPrice = Setting::get('sales.pricing.live_weight_price', 0);
 
             $userTotalPigs = PigManagement::count();
             $userActivePigs = PigManagement::active()->count();
@@ -459,7 +459,7 @@ class SuperuserController extends Controller
                 ->groupBy('pig_id');
         })->sum('weight');
 
-        $liveWeightPrice = Setting::get('sales.pricing.live_weight_price', 30.00);
+        $liveWeightPrice = Setting::get('sales.pricing.live_weight_price', 0);
         $totalFarmValue = $totalWeight * $liveWeightPrice;
         $weightsThisWeek = PigWeight::where('created_at', '>=', now()->subWeek())->count();
 

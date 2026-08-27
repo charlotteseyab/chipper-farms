@@ -41,6 +41,8 @@ class Payment extends Model
         'external_reference',
         'reference_type',
         'payment_run_id',
+        'purchase_request_id',
+        'purchase_payment_stage',
         'status',
         'journal_batch_id',
         'reversed_by_journal_batch_id',
@@ -101,6 +103,11 @@ class Payment extends Model
     public function paymentRun(): BelongsTo
     {
         return $this->belongsTo(PaymentRun::class);
+    }
+
+    public function purchaseRequest(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\PurchaseRequest::class);
     }
 
     /** Active allocations only — the default view of "what's allocated" */

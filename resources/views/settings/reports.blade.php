@@ -1,532 +1,282 @@
 <x-app-layout>
+    <style>
+        .reports-header-grid {
+            display: grid;
+            gap: 1rem;
+        }
+        .reports-filter-grid {
+            display: grid;
+            gap: .5rem;
+        }
+        .report-export-button {
+            display: inline-flex;
+            min-height: 38px;
+            min-width: 108px;
+            align-items: center;
+            justify-content: center;
+            padding: 0 16px;
+            white-space: nowrap;
+            line-height: 1;
+        }
+        @media (min-width: 720px) {
+            .reports-header-grid {
+                grid-template-columns: minmax(220px, .75fr) minmax(0, 1.5fr);
+                align-items: center;
+            }
+            .reports-filter-grid {
+                grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) auto auto;
+                align-items: end;
+            }
+        }
+    </style>
+    @php
+        $change = function ($currentValue, $previousValue) {
+            if ((float) $previousValue === 0.0) return null;
+            return round((((float) $currentValue - (float) $previousValue) / abs((float) $previousValue)) * 100, 1);
+        };
+        $maxRevenue = max(1, (float) ($monthlySales->max('revenue') ?? 1));
+        $totalDistribution = max(1, (int) $distribution->sum('total'));
+        $palette = ['#087f5b', '#34a853', '#80c99a', '#d5ede0', '#f4c95d', '#8da399'];
+        $kpis = [
+            ['label' => 'Closing herd', 'value' => number_format($current['closing_herd']), 'raw' => $current['closing_herd'], 'previous' => $previous['closing_herd'], 'tone' => 'emerald'],
+            ['label' => 'Sales revenue', 'value' => 'GHS '.number_format($current['revenue'], 2), 'raw' => $current['revenue'], 'previous' => $previous['revenue'], 'tone' => 'emerald'],
+            ['label' => 'Average sale', 'value' => 'GHS '.number_format($current['average_sale'], 2), 'raw' => $current['average_sale'], 'previous' => $previous['average_sale'], 'tone' => 'blue'],
+            ['label' => 'Mortality rate', 'value' => $current['mortality_rate'] === null ? 'N/A' : number_format($current['mortality_rate'], 2).'%', 'raw' => $current['mortality_rate'] ?? 0, 'previous' => $previous['mortality_rate'] ?? 0, 'tone' => 'rose', 'inverse' => true],
+            ['label' => 'Average price / kg', 'value' => 'GHS '.number_format($current['average_price_per_kg'], 2), 'raw' => $current['average_price_per_kg'], 'previous' => $previous['average_price_per_kg'], 'tone' => 'amber'],
+        ];
+    @endphp
 
-    <div class="min-h-screen py-2 mb-12">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-            <!-- Header with Export Options -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
-                <div class="p-6">
-                    <div class="flex items-center justify-between">
+    <div class="min-h-screen bg-slate-50/70 pb-24">
+        <div class="mx-auto max-w-[1500px] px-3 py-4 sm:px-6 lg:px-8 lg:py-7">
+            <section x-data="{ report: 'overview' }">
+                <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div class="reports-header-grid px-4 py-4 sm:px-5">
                         <div>
-                            <h1 class="text-2xl font-bold text-gray-900">Comprehensive System Reports</h1>
-                            <p class="text-gray-600 mt-1">Complete overview of your farm management system</p>
-                        </div>
-                        <div class="flex space-x-3">
-                            <a href="{{ route('settings.reports.export.pdf', request()->query()) }}" 
-                               class="inline-flex items-center px-4 py-2 bg-red-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-700 focus:bg-red-700 active:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                </svg>
-                                Export PDF
-                            </a>
-                            <a href="{{ route('settings.reports.export.csv', request()->query()) }}"
-                               class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 focus:bg-green-700 active:bg-green-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition ease-in-out duration-150">
-                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                                </svg>
-                                Export Excel
-                            </a>
-                        </div>
-                    </div>
-                    <form method="GET" class="mt-4">
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">From</label>
-                                <input type="date" name="from" value="{{ request('from') }}" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            <div class="mb-2 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.14em] text-emerald-700">
+                                <span class="h-2 w-2 rounded-full bg-emerald-500"></span> Management reporting
                             </div>
-                            <div>
-                                <label class="block text-xs font-medium text-gray-700 mb-1">To</label>
-                                <input type="date" name="to" value="{{ request('to') }}" class="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
-                            </div>
-                            <div class="flex items-end space-x-2">
-                                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">Apply</button>
-                                <a href="{{ route('settings.reports') }}" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Reset</a>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Executive Summary -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
-                <div class="p-6">
-                    <h2 class="text-xl font-bold text-gray-900 mb-6">Executive Summary</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-                        <div class="bg-blue-50 rounded-lg p-4">
-                            <div class="flex items-center">
-                                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
-                                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-medium text-blue-600">Total Pigs</p>
-                                    <p class="text-2xl font-bold text-blue-900">{{ number_format($summary['total_pigs']) }}</p>
-                                </div>
-                            </div>
+                            <h1 class="text-2xl font-bold tracking-tight text-slate-950">Farm reports</h1>
+                            <p class="mt-1 text-xs leading-5 text-slate-500">Review, compare and export farm performance.</p>
                         </div>
 
-                        <div class="bg-green-50 rounded-lg p-4">
-                            <div class="flex items-center">
-                                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-4">
-                                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                    </svg>
+                        <div class="min-w-0">
+                            <form method="GET" class="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                <div class="reports-filter-grid">
+                                    @if(auth()->user()->isSuperuser())
+                                        <label class="block min-w-0 sm:col-span-full">
+                                            <span class="mb-1 block text-[11px] font-semibold text-slate-600">Farm organization</span>
+                                            <select name="organization_id" class="w-full rounded-lg border-slate-300 bg-white py-2 text-sm">
+                                                <option value="all">All organizations</option>
+                                                @foreach($reportOrganizations as $organization)<option value="{{ $organization->id }}" @selected($reportOrganizationId === $organization->id)>{{ $organization->name }}</option>@endforeach
+                                            </select>
+                                        </label>
+                                    @endif
+                                    <label class="block min-w-0">
+                                        <span class="mb-1 block text-[11px] font-semibold text-slate-600">From date</span>
+                                        <input type="date" name="from" value="{{ $from->toDateString() }}" class="w-full rounded-lg border-slate-300 bg-white py-2 text-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                    </label>
+                                    <label class="block min-w-0">
+                                        <span class="mb-1 block text-[11px] font-semibold text-slate-600">To date</span>
+                                        <input type="date" name="to" value="{{ $to->toDateString() }}" class="w-full rounded-lg border-slate-300 bg-white py-2 text-sm focus:border-emerald-500 focus:ring-emerald-500">
+                                    </label>
+                                    <button class="rounded-lg bg-slate-900 px-5 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">Apply</button>
+                                    <a href="{{ route('settings.reports', auth()->user()->isSuperuser() ? ['organization_id' => $reportOrganizationId] : []) }}" class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-center text-sm font-semibold text-slate-700 transition hover:bg-slate-100">Reset</a>
                                 </div>
-                                <div>
-                                    <p class="text-sm font-medium text-green-600">Active Pigs</p>
-                                    <p class="text-2xl font-bold text-green-900">{{ number_format($summary['active_pigs']) }}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bg-purple-50 rounded-lg p-4">
-                            <div class="flex items-center">
-                                <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mr-4">
-                                    <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"/>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-medium text-purple-600">Total Revenue</p>
-                                    <p class="text-2xl font-bold text-purple-900">₵{{ number_format($summary['total_sales_revenue'], 2) }}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bg-orange-50 rounded-lg p-4">
-                            <div class="flex items-center">
-                                <div class="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mr-4">
-                                    <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-medium text-orange-600">Weights Recorded</p>
-                                    <p class="text-2xl font-bold text-orange-900">{{ number_format($summary['total_weights_recorded']) }}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="bg-indigo-50 rounded-lg p-4">
-                            <div class="flex items-center">
-                                <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center mr-4">
-                                    <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-                                    </svg>
-                                </div>
-                                <div>
-                                    <p class="text-sm font-medium text-indigo-600">Structures</p>
-                                    <p class="text-2xl font-bold text-indigo-900">{{ number_format($summary['total_structures']) }}</p>
-                                </div>
-                            </div>
+                            </form>
                         </div>
                     </div>
-                </div>
-            </div>
 
-            <!-- Compact Analytics Grid: All new summary cards as one grid row -->
-            <div class="grid md:grid-cols-4 lg:grid-cols-4 gap-4 mb-6">
-                <!-- Notifications & Alerts -->
-                <div class="bg-blue-50 border-l-4 border-blue-400 rounded-lg shadow-sm p-3 h-full flex flex-col justify-between">
-                    <span class="font-semibold text-blue-700 text-xs mb-1">Alerts & Notifications</span>
-                    <div class="space-y-1">
-                        <div class="text-[11px] text-gray-500 flex justify-between"><span>Unread/Total</span><span class="font-bold text-gray-900">{{ $storedNotifications['unread'] ?? 0 }}/{{ $storedNotifications['total'] ?? 0 }}</span></div>
-                        <div class="text-[11px] text-gray-500 flex justify-between"><span>Weight Alerts</span><span class="font-bold text-orange-600">{{ $realTimeAlerts['weight'] ?? 0 }}</span></div>
-                        <div class="text-[11px] text-gray-500 flex justify-between"><span>Critical</span><span class="font-bold text-red-600">{{ $realTimeAlerts['critical'] ?? 0 }}</span></div>
-                        <div class="text-[11px] text-gray-500 flex justify-between"><span>Weaning Alerts</span><span class="font-bold text-yellow-600">{{ $realTimeAlerts['pending_weaning_alerts'] ?? 0 }}</span></div>
-                    </div>
-                </div>
-                <!-- Archive summary -->
-                <div class="bg-gray-50 border-l-4 border-gray-400 rounded-lg shadow-sm p-3 h-full">
-                    <span class="font-semibold text-gray-800 text-xs mb-1">Archive/Soft Deletes</span>
-                    <div class="space-y-1 text-[11px] text-gray-500">
-                        <div class="flex justify-between"><span>Pigs (arch.)</span><span class="font-bold text-gray-700">{{ $softDeletes['pigs_archived'] ?? 0 }}</span></div>
-                        <div class="flex justify-between"><span>Piglet Deaths</span><span class="font-bold text-gray-700">{{ $softDeletes['piglet_deaths_archived'] ?? 0 }}</span></div>
-                        <div class="flex justify-between"><span>Sales (arch.)</span><span class="font-bold text-gray-700">{{ $softDeletes['sales_archived'] ?? 0 }}</span></div>
-                        <div class="flex justify-between"><span>Deaths</span><span class="font-bold text-gray-700">{{ $softDeletes['deaths_archived'] ?? 0 }}</span></div>
-                    </div>
-                </div>
-                <!-- Piglet Survivability -->
-                <div class="bg-pink-50 border-l-4 border-pink-400 rounded-lg shadow-sm p-3 h-full">
-                    <span class="font-semibold text-pink-700 text-xs mb-1">Piglet Survivability</span>
-                    <div class="space-y-1 text-[11px]">
-                        <div class="flex justify-between text-gray-500"><span>Live Births</span><span class="font-bold text-gray-900">{{ number_format($liveBirths ?? 0) }}</span></div>
-                        <div class="flex justify-between text-gray-500"><span>Deaths (pre-wean)</span><span class="font-bold text-red-700">{{ number_format($preWeaningDeaths ?? 0) }}</span></div>
-                        <div class="flex justify-between text-gray-500"><span>Survival Rate</span><span class="font-bold text-emerald-700">{{ $pigletSurvivalRate !== null ? $pigletSurvivalRate.'%' : 'N/A' }}</span></div>
-                    </div>
-                </div>
-                <!-- Weaning -->
-                <div class="bg-purple-50 border-l-4 border-purple-400 rounded-lg shadow-sm p-3 h-full">
-                    <span class="font-semibold text-purple-700 text-xs mb-1">Weaning</span>
-                    <div class="space-y-1 text-[11px]">
-                        <div class="flex justify-between text-gray-500"><span>Litters</span><span class="font-bold text-gray-900">{{ number_format($totalLittersWeaned ?? 0) }}</span></div>
-                        <div class="flex justify-between text-gray-500"><span>Piglets</span><span class="font-bold text-gray-900">{{ number_format($totalPigletsWeaned ?? 0) }}</span></div>
-                        <div class="flex justify-between text-gray-500"><span>Avg Age</span><span class="font-bold text-indigo-800">{{ $avgWeaningAge!==null ? number_format($avgWeaningAge,0).'d':'N/A' }}</span></div>
-                        <div class="flex justify-between text-gray-500"><span>Avg Wt</span><span class="font-bold text-indigo-800">{{ $avgWeaningWeight!==null ? number_format($avgWeaningWeight,1).'kg':'N/A' }}</span></div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Growth Stages & Age Requirements Card -->
-            <div class="bg-yellow-50 border-l-4 border-yellow-400 rounded-lg shadow-sm mb-6 p-6">
-                <h2 class="text-lg font-bold text-yellow-800 mb-4">Growth Stages & Age Requirements</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <span class="block text-xs text-gray-500">Piglet Stage</span>
-                        <span class="text-lg font-semibold text-gray-900">Max: {{ $stages['piglet_max_days'] ?? '?' }} days</span>
-                    </div>
-                    <div>
-                        <span class="block text-xs text-gray-500">Weaner Stage</span>
-                        <span class="text-lg font-semibold text-gray-900">Max: {{ $stages['weaner_max_days'] ?? '?' }} days</span>
-                    </div>
-                    <div>
-                        <span class="block text-xs text-gray-500">Grower Stage</span>
-                        <span class="text-lg font-semibold text-gray-900">Max: {{ $stages['grower_max_days'] ?? '?' }} days</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Detailed Statistics Grid -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                <!-- Pig Distribution -->
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6">
-                        <h3 class="text-lg font-bold text-gray-900 mb-4">Pig Distribution</h3>
-                        
-                        <div class="space-y-4">
-                            <div>
-                                <h4 class="text-sm font-medium text-gray-700 mb-2">By Stock Type</h4>
-                                <div class="space-y-2">
-                                    @foreach($pigDistribution['by_stock_type'] as $type => $count)
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-sm text-gray-600 capitalize">{{ $type }}</span>
-                                            <span class="text-sm font-semibold text-gray-900">{{ number_format($count) }}</span>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-
-                            <div>
-                                <h4 class="text-sm font-medium text-gray-700 mb-2">By Gender</h4>
-                                <div class="space-y-2">
-                                    @foreach($pigDistribution['by_gender'] as $gender => $count)
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-sm text-gray-600 capitalize">{{ $gender }}</span>
-                                            <span class="text-sm font-semibold text-gray-900">{{ number_format($count) }}</span>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-
-                            <div>
-                                <h4 class="text-sm font-medium text-gray-700 mb-2">By Breed</h4>
-                                <div class="space-y-2">
-                                    @foreach($pigDistribution['by_breed'] as $breed => $count)
-                                        <div class="flex justify-between items-center">
-                                            <span class="text-sm text-gray-600">{{ $breed }}</span>
-                                            <span class="text-sm font-semibold text-gray-900">{{ number_format($count) }}</span>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
+                    <div class="flex flex-col gap-2 border-t border-slate-100 bg-slate-50/70 px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                        <div class="flex items-center gap-2 text-xs text-slate-500">
+                            <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                            <span>{{ $from->format('d M Y') }} – {{ $to->format('d M Y') }}</span>
+                            <span class="text-slate-300">•</span>
+                            <span>Refreshed {{ now()->format('g:i A') }}</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 sm:flex">
+                            <a href="{{ route('settings.reports.export.csv', ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'organization_id' => auth()->user()->isSuperuser() ? $reportOrganizationId : null]) }}" class="report-export-button rounded-lg border border-slate-300 bg-white text-center text-xs font-semibold text-slate-700 transition hover:bg-slate-100">Export CSV</a>
+                            <a href="{{ route('settings.reports.export.pdf', ['from' => $from->toDateString(), 'to' => $to->toDateString(), 'organization_id' => auth()->user()->isSuperuser() ? $reportOrganizationId : null]) }}" class="report-export-button rounded-lg bg-emerald-700 text-center text-xs font-semibold text-white transition hover:bg-emerald-800">Export PDF</a>
                         </div>
                     </div>
                 </div>
 
-                <!-- Financial Overview -->
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6">
-                        <h3 class="text-lg font-bold text-gray-900 mb-4">Financial Overview</h3>
-                        
-                        <div class="space-y-4">
-                            <div class="bg-gray-50 rounded-lg p-4">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-sm text-gray-600">Total Revenue</span>
-                                    <span class="text-lg font-bold text-gray-900">₵{{ number_format($financialOverview['total_revenue'], 2) }}</span>
-                                </div>
-                            </div>
+                <nav class="mt-5 flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" aria-label="Report sections">
+                    @foreach(['overview' => 'Overview', 'herd' => 'Pig Stock & Movement', 'piglets' => 'Piglet Tracking', 'breeding' => 'Breeding', 'growth' => 'Growth & feed', 'health' => 'Health', 'sales' => 'Sales & storefront', 'finance' => 'Finance', 'facilities' => 'Facilities'] as $key => $tab)
+                        <button type="button" @click="report = '{{ $key }}'" :class="report === '{{ $key }}' ? 'bg-emerald-700 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'" class="whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition">{{ $tab }}</button>
+                    @endforeach
+                </nav>
 
-                            <div class="bg-gray-50 rounded-lg p-4">
-                                <div class="flex justify-between items-center">
-                                    <span class="text-sm text-gray-600">Average Sale Price</span>
-                                    <span class="text-lg font-bold text-gray-900">₵{{ number_format($financialOverview['average_price_per_kg'], 2) }}</span>
+                <div class="space-y-6 py-6">
+                    <section x-show="report === 'overview'" id="overview" class="grid grid-cols-1 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:grid-cols-2 xl:grid-cols-5">
+                        @foreach($kpis as $kpi)
+                            @php $delta = $change($kpi['raw'], $kpi['previous']); $good = $delta !== null && (!($kpi['inverse'] ?? false) ? $delta >= 0 : $delta <= 0); @endphp
+                            <article class="border-b border-slate-100 p-5 sm:border-r xl:border-b-0">
+                                <div class="flex items-center justify-between gap-2">
+                                    <p class="text-sm font-medium text-slate-500">{{ $kpi['label'] }}</p>
+                                    <span class="h-2.5 w-2.5 rounded-full" style="background-color: {{ ['emerald' => '#34d399', 'blue' => '#60a5fa', 'rose' => '#fb7185', 'amber' => '#fbbf24'][$kpi['tone']] }}"></span>
                                 </div>
-                            </div>
+                                <p class="mt-3 break-words text-2xl font-bold tracking-tight text-slate-950">{{ $kpi['value'] }}</p>
+                                <div class="mt-3 flex items-center gap-2 text-xs">
+                                    @if($delta === null)
+                                        <span class="font-semibold text-slate-400">No comparison</span>
+                                    @else
+                                        <span class="font-bold {{ $good ? 'text-emerald-700' : 'text-rose-600' }}">{{ $delta > 0 ? '↑' : ($delta < 0 ? '↓' : '—') }} {{ number_format(abs($delta), 1) }}%</span>
+                                    @endif
+                                    <span class="text-slate-400">vs previous period</span>
+                                </div>
+                            </article>
+                        @endforeach
+                    </section>
 
-                            @if($financialOverview['sales_by_month']->count() > 0)
-                                <div>
-                                    <h4 class="text-sm font-medium text-gray-700 mb-2">Monthly Sales</h4>
-                                    <div class="space-y-2 max-h-40 overflow-y-auto">
-                                        @foreach($financialOverview['sales_by_month'] as $month)
-                                            <div class="flex justify-between items-center text-sm">
-                                                <span class="text-gray-600">{{ \Carbon\Carbon::createFromFormat('Y-m', $month->month)->format('M Y') }}</span>
-                                                <span class="font-semibold text-gray-900">₵{{ number_format($month->revenue, 2) }} ({{ $month->count }} sales)</span>
-                                            </div>
-                                        @endforeach
+                    <section x-show="report === 'herd'" class="space-y-6">
+                        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div><h2 class="text-lg font-bold text-slate-950">Pig stock summary</h2><p class="mt-1 text-sm text-slate-500">Population position and recorded movement for {{ $from->format('d M') }} – {{ $to->format('d M Y') }}.</p></div>
+                                <span class="w-fit rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">{{ number_format($herdIndicators['active']) }} currently active</span>
+                            </div>
+                            <div class="mt-5 grid grid-cols-1 overflow-hidden rounded-xl border border-slate-200 sm:grid-cols-2 lg:grid-cols-4">
+                                @foreach([
+                                    ['label' => 'Opening', 'value' => $herdMovement['opening'], 'description' => 'Pigs on hand before this period began.'],
+                                    ['label' => 'Added', 'value' => $herdMovement['manually_added'] + $herdMovement['purchased'], 'description' => $herdMovement['manually_added'].' manually added · '.$herdMovement['purchased'].' purchased'],
+                                    ['label' => 'Removed', 'value' => $herdMovement['sold'] + $herdMovement['deaths'], 'description' => $herdMovement['sold'].' sold · '.$herdMovement['deaths'].' deaths'],
+                                    ['label' => 'Closing', 'value' => $herdMovement['closing'], 'description' => 'Pigs remaining at the end of the period.'],
+                                ] as $item)
+                                    <div class="border-b border-r border-slate-100 p-4">
+                                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{{ $item['label'] }}</p>
+                                        <p class="mt-2 text-xl font-bold {{ $item['label'] === 'Removed' ? 'text-rose-600' : ($item['label'] === 'Closing' ? 'text-emerald-700' : 'text-slate-900') }}">{{ number_format($item['value']) }}</p>
+                                        <p class="mt-2 text-xs leading-5 text-slate-500">{{ $item['description'] }}</p>
                                     </div>
-                                </div>
-                            @endif
+                                @endforeach
+                            </div>
+                            <div class="mt-4 flex items-center gap-2 rounded-xl px-4 py-3 text-sm {{ $herdMovement['variance'] === 0 ? 'bg-emerald-50 text-emerald-800' : 'bg-amber-50 text-amber-800' }}"><span class="font-bold">{{ $herdMovement['variance'] === 0 ? '✓ Stock movement is balanced.' : 'Movement variance: '.number_format($herdMovement['variance']) }}</span><span class="hidden sm:inline">Opening stock plus additions, less sales and deaths, agrees with closing stock.</span></div>
                         </div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Additional Statistics Grid -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                <!-- Breeding Statistics -->
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6">
-                        <h3 class="text-lg font-bold text-gray-900 mb-4">Breeding Statistics</h3>
-                        
-                        <div class="space-y-3">
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-600">Total Matings</span>
-                                <span class="text-sm font-semibold text-gray-900">{{ number_format($breedingStats['total_matings']) }}</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-600">Total Farrowings</span>
-                                <span class="text-sm font-semibold text-gray-900">{{ number_format($breedingStats['total_farrowings']) }}</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-600">Total Weanings</span>
-                                <span class="text-sm font-semibold text-gray-900">{{ number_format($breedingStats['total_weanings']) }}</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-600">Average Litter Size</span>
-                                <span class="text-sm font-semibold text-gray-900">{{ number_format($breedingStats['average_litter_size'], 1) }}</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-600">Pregnancy Rate</span>
-                                <span class="text-sm font-semibold text-gray-900">{{ number_format($breedingStats['pregnancy_rate'], 1) }}%</span>
-                            </div>
+                        <div class="grid gap-6 lg:grid-cols-3">
+                            @foreach([['title' => 'By stock type', 'rows' => $distribution], ['title' => 'By gender', 'rows' => $genderDistribution], ['title' => 'By breed', 'rows' => $breedDistribution]] as $breakdown)
+                                @php $breakdownTotal = max(1, (int) $breakdown['rows']->sum('total')); @endphp
+                                <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h3 class="font-bold text-slate-900">{{ $breakdown['title'] }}</h3><div class="mt-4 space-y-3">@forelse($breakdown['rows'] as $row) @php $share = round(($row->total / $breakdownTotal) * 100, 1); @endphp <div><div class="mb-1 flex justify-between gap-3 text-sm"><span class="capitalize text-slate-600">{{ str_replace('_', ' ', $row->label) }}</span><span class="font-bold text-slate-900">{{ $row->total }} <span class="font-normal text-slate-400">{{ $share }}%</span></span></div><div class="h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-emerald-600" style="width:{{ $share }}%"></div></div></div>@empty<p class="py-8 text-center text-sm text-slate-400">No stock data.</p>@endforelse</div></div>
+                            @endforeach
                         </div>
-                    </div>
-                </div>
 
-                <!-- Health & Mortality -->
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6">
-                        <h3 class="text-lg font-bold text-gray-900 mb-4">Health & Mortality</h3>
-                        
-                        <div class="space-y-3">
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-600">Total Deaths</span>
-                                <span class="text-sm font-semibold text-gray-900">{{ number_format($healthStats['total_deaths']) }}</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-600">Mortality Rate</span>
-                                <span class="text-sm font-semibold text-gray-900">{{ number_format($healthStats['mortality_rate'], 2) }}%</span>
-                            </div>
-                            
-                            @if($healthStats['deaths_by_cause']->count() > 0)
-                                <div class="mt-4">
-                                    <h4 class="text-sm font-medium text-gray-700 mb-2">Deaths by Cause</h4>
-                                    <div class="space-y-1 max-h-32 overflow-y-auto">
-                                        @foreach($healthStats['deaths_by_cause'] as $cause => $count)
-                                            <div class="flex justify-between items-center text-xs">
-                                                <span class="text-gray-600">{{ $cause }}</span>
-                                                <span class="font-semibold text-gray-900">{{ $count }}</span>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-                </div>
+                        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h3 class="font-bold text-slate-900">Stock record quality</h3><p class="mt-1 text-xs text-slate-500">Records that may need attention before management decisions or audits.</p><div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3"><div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Without assigned room</p><p class="mt-1 text-2xl font-bold">{{ $herdIndicators['unassigned_room'] }}</p></div><div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Without weight records</p><p class="mt-1 text-2xl font-bold">{{ $herdIndicators['missing_weight'] }}</p></div><div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Missing breed</p><p class="mt-1 text-2xl font-bold">{{ $herdIndicators['missing_breed'] }}</p></div></div></div>
+                    </section>
 
-                <!-- Weight Analytics -->
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6">
-                        <h3 class="text-lg font-bold text-gray-900 mb-4">Weight Analytics</h3>
-                        
-                        <div class="space-y-3">
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-600">Average Weight</span>
-                                <span class="text-sm font-semibold text-gray-900">{{ number_format($weightAnalytics['average_weight'], 1) }} kg</span>
-                            </div>
-                            <div class="flex justify-between items-center">
-                                <span class="text-sm text-gray-600">Total Records</span>
-                                <span class="text-sm font-semibold text-gray-900">{{ number_format($weightAnalytics['total_weight_records']) }}</span>
-                            </div>
-                            
-                            @if($weightAnalytics['weights_by_month']->count() > 0)
-                                <div class="mt-4">
-                                    <h4 class="text-sm font-medium text-gray-700 mb-2">Monthly Averages</h4>
-                                    <div class="space-y-1 max-h-32 overflow-y-auto">
-                                        @foreach($weightAnalytics['weights_by_month']->take(6) as $month)
-                                            <div class="flex justify-between items-center text-xs">
-                                                <span class="text-gray-600">{{ \Carbon\Carbon::createFromFormat('Y-m', $month->month)->format('M Y') }}</span>
-                                                <span class="font-semibold text-gray-900">{{ number_format($month->avg_weight, 1) }} kg</span>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Recent Activity -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
-                <div class="p-6">
-                    <h3 class="text-lg font-bold text-gray-900 mb-4">Recent Activity (Last 30 Days)</h3>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-                        <div class="bg-blue-50 rounded-lg p-4 text-center">
-                            <div class="text-2xl font-bold text-blue-900">{{ number_format($recentActivity['new_pigs']) }}</div>
-                            <div class="text-sm text-blue-600">New Pigs</div>
-                        </div>
-                        <div class="bg-green-50 rounded-lg p-4 text-center">
-                            <div class="text-2xl font-bold text-green-900">{{ number_format($recentActivity['weights_recorded']) }}</div>
-                            <div class="text-sm text-green-600">Weights Recorded</div>
-                        </div>
-                        <div class="bg-purple-50 rounded-lg p-4 text-center">
-                            <div class="text-2xl font-bold text-purple-900">{{ number_format($recentActivity['pigs_sold']) }}</div>
-                            <div class="text-sm text-purple-600">Pigs Sold</div>
-                        </div>
-                        <div class="bg-red-50 rounded-lg p-4 text-center">
-                            <div class="text-2xl font-bold text-red-900">{{ number_format($recentActivity['pigs_died']) }}</div>
-                            <div class="text-sm text-red-600">Pigs Died</div>
-                        </div>
-                        <div class="bg-pink-50 rounded-lg p-4 text-center">
-                            <div class="text-2xl font-bold text-pink-900">{{ number_format($recentActivity['matings_planned']) }}</div>
-                            <div class="text-sm text-pink-600">Matings Planned</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Structure & Room Utilization -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                <div class="p-6">
-                    <h3 class="text-lg font-bold text-gray-900 mb-4">Structure & Room Utilization</h3>
-                    
-                    @php $firstStructureId = optional($structureStats['structures_by_status']->first())->id; @endphp
-                    <div x-data="{ selectedStructureId: {{ $firstStructureId ?? 'null' }} }" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div>
-                            <h4 class="text-sm font-medium text-gray-700 mb-3">Structures by Status</h4>
-                            <div class="space-y-2 max-h-40 overflow-y-auto">
-                                @foreach($structureStats['structures_by_status'] as $structure)
-                                    <button type="button" @click="selectedStructureId = {{ $structure->id }}"
-                                        class="w-full flex justify-between items-center px-3 py-2 rounded-md text-left transition"
-                                        :class="selectedStructureId === {{ $structure->id }} ? 'bg-blue-50' : 'hover:bg-gray-50'">
-                                        <span class="text-sm text-gray-700" :class="selectedStructureId === {{ $structure->id }} ? 'font-semibold text-blue-900' : ''">{{ $structure->name }}</span>
-                                        <span class="text-xs inline-flex items-center px-2.5 py-0.5 rounded-full font-medium 
-                                            {{ match($structure->status) {
-                                                'active' => 'bg-green-100 text-green-800',
-                                                'inactive' => 'bg-gray-100 text-gray-800',
-                                                'under_maintenance' => 'bg-yellow-100 text-yellow-800',
-                                                default => 'bg-gray-100 text-gray-800'
-                                            } }}">
-                                            {{ ucfirst(str_replace('_', ' ', $structure->status)) }}
-                                        </span>
-                                    </button>
+                    <section x-show="report === 'piglets'" class="space-y-6">
+                        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 class="text-lg font-bold text-slate-950">Piglet tracking</h2><p class="mt-1 text-sm text-slate-500">Birth, survival, loss and weaning performance for litters born in the selected period.</p></div><span class="w-fit rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">{{ $pigletTracking['litters'] }} litters recorded</span></div>
+                            <div class="mt-5 grid grid-cols-2 overflow-hidden rounded-xl border border-slate-200 sm:grid-cols-4 lg:grid-cols-7">
+                                @foreach(['Total born' => $pigletTracking['total_born'], 'Live births' => $pigletTracking['live_births'], 'Stillbirths' => $pigletTracking['stillbirths'], 'Pre-weaning deaths' => $pigletTracking['pre_weaning_deaths'], 'Currently alive' => $pigletTracking['currently_alive'], 'Weaned' => $pigletTracking['weaned'], 'Survival rate' => $pigletTracking['survival_rate'] === null ? 'N/A' : $pigletTracking['survival_rate'].'%'] as $label => $value)
+                                    <div class="border-b border-r border-slate-100 p-4"><p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{{ $label }}</p><p class="mt-2 text-xl font-bold {{ in_array($label, ['Stillbirths','Pre-weaning deaths']) ? 'text-rose-600' : (in_array($label, ['Currently alive','Survival rate']) ? 'text-emerald-700' : 'text-slate-900') }}">{{ is_numeric($value) ? number_format($value) : $value }}</p></div>
                                 @endforeach
                             </div>
                         </div>
 
-                        <div>
-                            <h4 class="text-sm font-medium text-gray-700 mb-3">Room Utilization</h4>
-                            <div class="space-y-2 max-h-40 overflow-y-auto">
-                                @foreach($structureStats['room_utilization'] as $room)
-                                    <div class="flex justify-between items-center" x-show="selectedStructureId === {{ (int)optional($room->structure)->id }}">
-                                        <span class="text-sm text-gray-600">{{ $room->name }}</span>
-                                        <span class="text-sm font-semibold text-gray-900">{{ $room->pigs_count }} pigs</span>
-                                    </div>
-                                @endforeach
-                                @if($structureStats['room_utilization']->isEmpty())
-                                    <div class="text-xs text-gray-500 text-center">No rooms found.</div>
-                                @endif
-                            </div>
+                        <div class="grid gap-6 lg:grid-cols-3">
+                            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h3 class="font-bold text-slate-900">Birth performance</h3><dl class="mt-4 space-y-3 text-sm"><div class="flex justify-between border-b border-slate-100 pb-3"><dt class="text-slate-500">Average litter size</dt><dd class="font-bold">{{ number_format($pigletTracking['average_litter_size'], 1) }}</dd></div><div class="flex justify-between border-b border-slate-100 pb-3"><dt class="text-slate-500">Average birth weight</dt><dd class="font-bold">{{ number_format($pigletTracking['average_birth_weight'], 2) }} kg</dd></div><div class="flex justify-between border-b border-slate-100 pb-3"><dt class="text-slate-500">Male piglets</dt><dd class="font-bold">{{ $pigletTracking['males'] }}</dd></div><div class="flex justify-between"><dt class="text-slate-500">Female piglets</dt><dd class="font-bold">{{ $pigletTracking['females'] }}</dd></div></dl></div>
+                            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h3 class="font-bold text-slate-900">Weaning performance</h3><dl class="mt-4 space-y-3 text-sm"><div class="flex justify-between border-b border-slate-100 pb-3"><dt class="text-slate-500">Piglets weaned</dt><dd class="font-bold">{{ $pigletTracking['weaned'] }}</dd></div><div class="flex justify-between border-b border-slate-100 pb-3"><dt class="text-slate-500">Average weaning age</dt><dd class="font-bold">{{ number_format($pigletTracking['average_weaning_age'], 1) }} days</dd></div><div class="flex justify-between"><dt class="text-slate-500">Average weaning weight</dt><dd class="font-bold">{{ number_format($pigletTracking['average_weaning_weight'], 2) }} kg</dd></div></dl></div>
+                            <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h3 class="font-bold text-slate-900">Piglet losses by cause</h3><div class="mt-4 space-y-3">@forelse($pigletTracking['death_causes'] as $cause)<div class="flex justify-between gap-3 text-sm"><span class="text-slate-500">{{ $cause->label }}</span><span class="font-bold text-rose-600">{{ $cause->total }}</span></div>@empty<p class="py-8 text-center text-sm text-slate-400">No piglet losses recorded in this period.</p>@endforelse</div></div>
                         </div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Detailed Structure Table -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mt-6">
-                <div class="p-6">
-                    <h3 class="text-lg font-bold text-gray-900 mb-4">Structure Details & Capacity</h3>
-                    
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Structure Name</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Rooms</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Available</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Utilization</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                @foreach($structureStats['detailed_structures'] as $structure)
-                                    @php
-                                        $capacity = $structure->capacity ?? 'Unlimited';
-                                        $currentRooms = $structure->rooms_count;
-                                        $available = $structure->available_capacity;
-                                        $utilization = $structure->capacity ? round(($currentRooms / $structure->capacity) * 100, 1) : 'N/A';
-                                        
-                                        // Status color
-                                        $statusColor = match($structure->status) {
-                                            'active' => 'bg-green-100 text-green-800',
-                                            'inactive' => 'bg-gray-100 text-gray-800',
-                                            'under_maintenance' => 'bg-yellow-100 text-yellow-800',
-                                            default => 'bg-gray-100 text-gray-800'
-                                        };
-                                        
-                                        // Utilization color
-                                        $utilizationColor = 'text-gray-600';
-                                        if ($utilization !== 'N/A') {
-                                            if ($utilization >= 90) $utilizationColor = 'text-red-600 font-semibold';
-                                            elseif ($utilization >= 75) $utilizationColor = 'text-yellow-600 font-semibold';
-                                            elseif ($utilization >= 50) $utilizationColor = 'text-blue-600';
-                                        }
-                                    @endphp
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <div class="text-sm font-medium text-gray-900">{{ $structure->name }}</div>
-                                            @if($structure->description)
-                                                <div class="text-sm text-gray-500">{{ Str::limit($structure->description, 50) }}</div>
-                                            @endif
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap">
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $statusColor }}">
-                                                {{ ucfirst(str_replace('_', ' ', $structure->status)) }}
-                                            </span>
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ $capacity }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {{ $currentRooms }}
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            @if($available === -1)
-                                                <span class="text-gray-500">Unlimited</span>
-                                            @else
-                                                {{ $available }}
-                                            @endif
-                                        </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm {{ $utilizationColor }}">
-                                            @if($utilization === 'N/A')
-                                                <span class="text-gray-500">N/A</span>
-                                            @else
-                                                {{ $utilization }}%
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+                        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"><div class="border-b border-slate-100 p-5"><h3 class="font-bold text-slate-900">Litter details</h3><p class="mt-1 text-xs text-slate-500">Performance for each farrowing recorded in this period.</p></div><div class="overflow-x-auto"><table class="w-full min-w-[850px] text-sm"><thead class="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500"><tr><th class="px-5 py-3">Farrowing date</th><th class="px-5 py-3">Sow</th><th class="px-5 py-3 text-right">Born</th><th class="px-5 py-3 text-right">Live</th><th class="px-5 py-3 text-right">Stillborn</th><th class="px-5 py-3 text-right">Deaths</th><th class="px-5 py-3 text-right">Alive</th><th class="px-5 py-3">Status</th></tr></thead><tbody class="divide-y divide-slate-100">@forelse($pigletTracking['litter_details'] as $litter) @php $litterDeaths = $litter->pigletDeaths->sum('count'); $alive = max(0, (int)$litter->live_births - $litterDeaths); @endphp <tr><td class="px-5 py-4 text-slate-600">{{ $litter->farrowing_date?->format('d M Y') }}</td><td class="px-5 py-4 font-semibold text-slate-900">{{ $litter->sow?->ear_tag_number ?: ($litter->sow?->code ?: 'Unknown sow') }}</td><td class="px-5 py-4 text-right">{{ $litter->total_piglets_born }}</td><td class="px-5 py-4 text-right text-emerald-700">{{ $litter->live_births }}</td><td class="px-5 py-4 text-right text-rose-600">{{ $litter->stillbirths }}</td><td class="px-5 py-4 text-right text-rose-600">{{ $litterDeaths }}</td><td class="px-5 py-4 text-right font-bold">{{ $alive }}</td><td class="px-5 py-4"><span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold capitalize text-slate-600">{{ str_replace('_', ' ', $litter->status ?: 'recorded') }}</span></td></tr>@empty<tr><td colspan="8" class="px-5 py-12 text-center text-slate-400">No litters were recorded in the selected period.</td></tr>@endforelse</tbody></table></div></div>
+                    </section>
+
+                    <div x-show="report === 'overview'" class="grid grid-cols-1 gap-6 xl:grid-cols-3">
+                        <section id="sales" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm xl:col-span-2">
+                            <div class="flex items-start justify-between gap-4">
+                                <div><h2 class="font-bold text-slate-950">Sales revenue trend</h2><p class="mt-1 text-xs text-slate-500">Based on sale date, not record creation date</p></div>
+                                <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{{ $current['sold'] }} sales</span>
+                            </div>
+                            <div class="mt-8 flex h-56 items-end gap-3 border-b border-slate-200 px-2 sm:gap-5">
+                                @forelse($monthlySales as $month)
+                                    <div class="group flex h-full min-w-0 flex-1 flex-col justify-end">
+                                        <div class="mb-2 text-center text-[10px] font-semibold text-slate-500">GHS {{ number_format($month->revenue, 0) }}</div>
+                                        <div class="mx-auto rounded-t-lg transition" style="display:block; width:72%; max-width:72px; min-height:8px; height:{{ max(8, ($month->revenue / $maxRevenue) * 170) }}px; background:linear-gradient(180deg, #10b981 0%, #047857 100%); border:1px solid #047857; border-bottom:0; box-shadow:0 8px 18px rgba(5, 150, 105, .16);"></div>
+                                        <div class="py-3 text-center text-[11px] font-medium text-slate-500">{{ \Carbon\Carbon::createFromFormat('Y-m', $month->period)->format('M y') }}</div>
+                                    </div>
+                                @empty
+                                    <div class="flex h-full w-full items-center justify-center text-sm text-slate-400">No sales were recorded in this period.</div>
+                                @endforelse
+                            </div>
+                        </section>
+
+                        <section id="herd" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <h2 class="font-bold text-slate-950">Active herd composition</h2>
+                            <p class="mt-1 text-xs text-slate-500">Animals grouped by stock type</p>
+                            <div class="mt-6 space-y-4">
+                                @forelse($distribution as $index => $row)
+                                    @php $percentage = round(($row->total / $totalDistribution) * 100, 1); @endphp
+                                    <div>
+                                        <div class="mb-1.5 flex justify-between gap-3 text-sm"><span class="capitalize text-slate-600">{{ str_replace('_', ' ', $row->label) }}</span><span class="font-bold text-slate-900">{{ number_format($row->total) }} <span class="font-normal text-slate-400">{{ $percentage }}%</span></span></div>
+                                        <div class="h-2 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full" style="width: {{ $percentage }}%; background: {{ $palette[$index % count($palette)] }}"></div></div>
+                                    </div>
+                                @empty
+                                    <p class="py-12 text-center text-sm text-slate-400">No active herd data available.</p>
+                                @endforelse
+                            </div>
+                        </section>
                     </div>
+
+                    <div x-show="report === 'overview'" class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <div class="flex items-center justify-between gap-4"><div><h2 class="font-bold text-slate-950">Operational exceptions</h2><p class="mt-1 text-xs text-slate-500">Items that may need action</p></div><span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{{ $exceptions->count() }}</span></div>
+                            <div class="mt-5 divide-y divide-slate-100">
+                                @forelse($exceptions as $exception)
+                                    <div class="flex items-start gap-3 py-3">
+                                        <span class="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full {{ $exception['severity'] === 'high' ? 'bg-rose-500' : 'bg-amber-400' }}"></span>
+                                        <div class="min-w-0 flex-1"><p class="text-sm font-semibold text-slate-800">{{ $exception['title'] }}</p><p class="mt-0.5 text-xs text-slate-500">{{ $exception['detail'] }}</p></div>
+                                        <span class="rounded-full px-2 py-1 text-[10px] font-bold uppercase {{ $exception['severity'] === 'high' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700' }}">{{ $exception['severity'] }}</span>
+                                    </div>
+                                @empty
+                                    <div class="flex items-center gap-3 rounded-xl bg-emerald-50 p-4"><span class="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-white">✓</span><div><p class="text-sm font-bold text-emerald-900">No exceptions detected</p><p class="text-xs text-emerald-700">Recorded activity is within the current checks.</p></div></div>
+                                @endforelse
+                            </div>
+                        </section>
+
+                        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="font-bold text-slate-950">Herd movement reconciliation</h2><p class="mt-1 text-xs text-slate-500">Opening + additions − exits = closing</p></div><span class="rounded-full px-3 py-1 text-xs font-bold {{ $herdMovement['variance'] === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' }}">{{ $herdMovement['variance'] === 0 ? 'Balanced' : 'Variance '.$herdMovement['variance'] }}</span></div>
+                            <div class="mt-5 overflow-x-auto">
+                                <table class="min-w-[620px] w-full text-sm">
+                                    <thead><tr class="text-left text-xs uppercase tracking-wide text-slate-400">@foreach(['Opening','Manually added','Purchased','Sold','Deaths','Closing'] as $heading)<th class="pb-3 pr-4 font-semibold">{{ $heading }}</th>@endforeach</tr></thead>
+                                    <tbody><tr class="border-t border-slate-100">@foreach(['opening','manually_added','purchased','sold','deaths','closing'] as $key)<td class="py-4 pr-4 text-lg font-bold {{ in_array($key, ['sold','deaths']) ? 'text-rose-600' : ($key === 'closing' ? 'text-emerald-700' : 'text-slate-800') }}">{{ in_array($key, ['sold','deaths']) ? '−' : '' }}{{ number_format($herdMovement[$key]) }}</td>@endforeach</tr></tbody>
+                                </table>
+                            </div>
+                        </section>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-6">
+                        <section x-show="report === 'breeding'" id="breeding" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                            <h2 class="font-bold text-slate-950">Breeding performance</h2>
+                            <dl class="mt-5 space-y-3">@foreach(['Matings' => $breeding['matings'], 'Farrowings' => $breeding['farrowings'], 'Weanings' => $breeding['weanings'], 'Average litter size' => number_format($breeding['average_litter_size'], 1), 'Pregnancy rate' => $breeding['pregnancy_rate'] === null ? 'N/A' : $breeding['pregnancy_rate'].'%'] as $label => $value)<div class="flex justify-between gap-4 border-b border-slate-100 pb-3"><dt class="text-sm text-slate-500">{{ $label }}</dt><dd class="font-bold text-slate-900">{{ $value }}</dd></div>@endforeach</dl>
+                        </section>
+                        <section x-show="report === 'growth'" id="growth-weights" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                            <h2 class="text-lg font-bold text-slate-950">Growth & feed performance</h2><p class="mt-1 text-sm text-slate-500">Weight and feed activity recorded during this period.</p>
+                            <div class="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4"><div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Weight records</p><p class="mt-2 text-2xl font-bold">{{ number_format($weights['records']) }}</p></div><div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Average weight</p><p class="mt-2 text-2xl font-bold">{{ number_format($weights['average_kg'], 1) }} kg</p></div><div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Feed issued</p><p class="mt-2 text-2xl font-bold">{{ number_format($feed['issued_kg'], 1) }} kg</p></div><div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Feed cost</p><p class="mt-2 text-2xl font-bold">GHS {{ number_format($feed['issued_cost'], 2) }}</p></div></div>
+                            <div class="mt-6 overflow-x-auto"><table class="w-full min-w-[520px] text-sm"><thead class="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th class="px-4 py-3">Animal group</th><th class="px-4 py-3 text-right">Feed issued</th><th class="px-4 py-3 text-right">Cost</th></tr></thead><tbody class="divide-y divide-slate-100">@forelse($feed['by_group'] as $row)<tr><td class="px-4 py-3 font-medium">{{ $row->name }}</td><td class="px-4 py-3 text-right">{{ number_format($row->quantity_kg, 1) }} kg</td><td class="px-4 py-3 text-right">GHS {{ number_format($row->cost, 2) }}</td></tr>@empty<tr><td colspan="3" class="px-4 py-10 text-center text-slate-400">No feed issued in this period.</td></tr>@endforelse</tbody></table></div>
+                        </section>
+                        <section x-show="report === 'health'" id="health" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                            <h2 class="font-bold text-slate-950">Health & mortality</h2>
+                            <div class="mt-4 grid grid-cols-3 gap-3"><div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Health records</p><p class="text-2xl font-bold">{{ $health['records'] }}</p></div><div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Open cases</p><p class="text-2xl font-bold">{{ $health['open_cases'] }}</p></div><div class="rounded-xl bg-rose-50 p-4"><p class="text-xs text-rose-600">Mortality</p><p class="text-2xl font-bold text-rose-700">{{ $current['mortality_rate'] === null ? 'N/A' : number_format($current['mortality_rate'], 2).'%' }}</p></div></div>
+                            <div class="mt-5 space-y-2">@forelse($deathCauses as $cause)<div class="flex justify-between text-sm"><span class="text-slate-500">{{ $cause->label }}</span><span class="font-bold text-slate-900">{{ $cause->total }}</span></div>@empty<p class="text-sm text-slate-400">No deaths recorded.</p>@endforelse</div>
+                        </section>
+                    </div>
+
+                    <section x-show="report === 'sales'" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                        <h2 class="text-lg font-bold text-slate-950">Sales & storefront</h2><p class="mt-1 text-sm text-slate-500">Storefront orders are shown separately from manually recorded sales.</p>
+                        <div class="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4"><div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Orders</p><p class="mt-2 text-2xl font-bold">{{ $storefront['orders'] }}</p></div><div class="rounded-xl bg-slate-50 p-4"><p class="text-xs text-slate-500">Completed</p><p class="mt-2 text-2xl font-bold">{{ $storefront['completed'] }}</p></div><div class="rounded-xl bg-emerald-50 p-4"><p class="text-xs text-emerald-700">Realised revenue</p><p class="mt-2 text-2xl font-bold text-emerald-900">GHS {{ number_format($storefront['realised_revenue'], 2) }}</p></div><div class="rounded-xl bg-amber-50 p-4"><p class="text-xs text-amber-700">Open pipeline</p><p class="mt-2 text-2xl font-bold text-amber-900">GHS {{ number_format($storefront['pipeline'], 2) }}</p></div></div>
+                        <div class="mt-6 overflow-x-auto"><table class="w-full min-w-[560px] text-sm"><thead class="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr><th class="px-4 py-3">Order status</th><th class="px-4 py-3 text-right">Orders</th><th class="px-4 py-3 text-right">Value</th></tr></thead><tbody class="divide-y divide-slate-100">@forelse($storefront['by_status'] as $row)<tr><td class="px-4 py-3 font-medium capitalize">{{ str_replace('_', ' ', $row->status) }}</td><td class="px-4 py-3 text-right">{{ $row->total_orders }}</td><td class="px-4 py-3 text-right">GHS {{ number_format($row->value, 2) }}</td></tr>@empty<tr><td colspan="3" class="px-4 py-10 text-center text-slate-400">No storefront orders in this period.</td></tr>@endforelse</tbody></table></div>
+                    </section>
+
+                    <section x-show="report === 'finance'" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                        <h2 class="text-lg font-bold text-slate-950">Financial performance</h2><p class="mt-1 text-sm text-slate-500">Based on posted finance-ledger entries.</p>
+                        <div class="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-3">@foreach(['Revenue' => $finance['revenue'], 'Cost of sales' => $finance['cost_of_sales'], 'Gross profit' => $finance['gross_profit'], 'Operating expenses' => $finance['operating_expenses'], 'Net profit' => $finance['net_profit'], 'Current inventory value' => $finance['inventory_value']] as $label => $value)<div class="rounded-xl {{ $label === 'Net profit' ? 'bg-slate-900 text-white' : 'bg-slate-50' }} p-4"><p class="text-xs {{ $label === 'Net profit' ? 'text-slate-300' : 'text-slate-500' }}">{{ $label }}</p><p class="mt-2 text-2xl font-bold">GHS {{ number_format($value, 2) }}</p></div>@endforeach</div>
+                    </section>
+
+                    <section x-show="report === 'facilities'" id="facilities" class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+                        <div class="flex flex-col gap-4 border-b border-slate-200 p-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 class="font-bold text-slate-950">Facility occupancy</h2><p class="mt-1 text-xs text-slate-500">Animal occupancy measured against room animal capacity</p></div><div class="flex flex-wrap gap-2 text-xs font-semibold"><span class="rounded-full bg-slate-100 px-3 py-1.5">{{ $facilities['structures'] }} structures</span><span class="rounded-full bg-slate-100 px-3 py-1.5">{{ $facilities['rooms'] }} rooms</span><span class="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-700">{{ $facilities['utilization_rate'] === null ? 'Capacity not set' : $facilities['utilization_rate'].'% occupied' }}</span></div></div>
+                        <div class="overflow-x-auto"><table class="min-w-[720px] w-full text-sm"><thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500"><tr><th class="px-5 py-3">Structure</th><th class="px-5 py-3">Room</th><th class="px-5 py-3">Animals</th><th class="px-5 py-3">Capacity</th><th class="px-5 py-3">Utilization</th><th class="px-5 py-3">Status</th></tr></thead><tbody class="divide-y divide-slate-100">@forelse($facilities['details'] as $room) @php $utilization = $room->capacity > 0 ? round(($room->pigs_count / $room->capacity) * 100, 1) : null; @endphp <tr><td class="px-5 py-4 font-medium text-slate-700">{{ $room->structure?->name ?? 'Unassigned' }}</td><td class="px-5 py-4 text-slate-600">{{ $room->name }}</td><td class="px-5 py-4 font-bold">{{ $room->pigs_count }}</td><td class="px-5 py-4">{{ $room->capacity ?: 'Not set' }}</td><td class="px-5 py-4">{{ $utilization === null ? 'N/A' : $utilization.'%' }}</td><td class="px-5 py-4"><span class="rounded-full px-2.5 py-1 text-xs font-bold {{ $utilization !== null && $utilization > 100 ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700' }}">{{ $utilization !== null && $utilization > 100 ? 'Over capacity' : 'Available' }}</span></td></tr>@empty<tr><td colspan="6" class="px-5 py-12 text-center text-slate-400">No rooms available for this farm.</td></tr>@endforelse</tbody></table></div>
+                    </section>
                 </div>
-            </div>
+            </section>
         </div>
     </div>
 </x-app-layout>
-
-

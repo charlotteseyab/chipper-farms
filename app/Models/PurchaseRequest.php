@@ -23,6 +23,10 @@ class PurchaseRequest extends Model
         'request_date',
         'requested_by',
         'status',
+        'payment_arrangement',
+        'deposit_percent',
+        'payment_progress',
+        'completed_at',
         'total_amount',
         'purpose',
         'reason',
@@ -55,6 +59,8 @@ class PurchaseRequest extends Model
         'posted_at'        => 'datetime',
         'invoice_date'     => 'date',
         'withholding_rate' => 'decimal:4',
+        'deposit_percent'  => 'decimal:2',
+        'completed_at'     => 'datetime',
     ];
 
     public function items()
@@ -89,5 +95,46 @@ class PurchaseRequest extends Model
     public function vendorInvoices(): HasMany
     {
         return $this->hasMany(\App\Models\Finance\VendorInvoice::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(\App\Models\Finance\Payment::class);
+    }
+
+    public function requiresAdvancePayment(): bool
+    {
+        return in_array($this->payment_arrangement, ['before_delivery', 'deposit_balance'], true);
+    }
+
+    public function paymentArrangementLabel(): string
+    {
+        return match ($this->payment_arrangement) {
+            'before_delivery' => 'Pay before delivery',
+            'deposit_balance' => 'Deposit and balance',
+            'supplier_credit' => 'Supplier credit',
+            default => 'Pay after delivery',
+        };
+    }
+
+    /** Derive the operational payment state from posted finance payments. */
+    public function syncPaymentProgressFromFinance(): self
+    {
+        $paid = (float) $this->payments()
+            ->where('status', \App\Models\Finance\Payment::STATUS_POSTED)
+            ->sum('amount');
+        $total = (float) $this->total_amount;
+        $progress = $paid <= 0
+            ? 'not_paid'
+            : ($paid + 0.005 >= $total ? 'paid' : 'partially_paid');
+
+        $changes = ['payment_progress' => $progress];
+        if (in_array($this->status, ['approved', 'paid'], true)) {
+            $changes['status'] = $progress === 'paid' ? 'paid' : 'approved';
+        }
+
+        $this->update($changes);
+
+        return $this->fresh();
     }
 }

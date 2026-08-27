@@ -119,7 +119,7 @@
                                         {{ $row->pig?->ear_tag_number ?: ('Pig #' . $row->pig_id) }}
                                     </td>
                                     <td class="py-2 text-slate-500">
-                                        {{ $row->pig?->breed ?: '—' }}
+                                        {{ \App\Models\Setting::breedName($row->pig?->breed) ?: '—' }}
                                         @if($row->pig?->gender) · {{ $row->pig->gender }} @endif
                                     </td>
                                     <td class="py-2">

@@ -19,6 +19,21 @@
             </button>
         </div>
 
+        @if(session('mix_error'))
+            <div role="alert" class="mb-6 rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
+                <div class="flex items-start gap-3">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-700">
+                        <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
+                    </div>
+                    <div>
+                        <h2 class="font-bold text-red-900">Batch not created</h2>
+                        <p class="mt-1 text-sm font-medium leading-6 text-red-800">{{ session('mix_error') }}</p>
+                        <p class="mt-1 text-xs text-red-700">No raw-material quantities were changed. Receive or adjust the required stock, then try again.</p>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
             <div class="rounded-2xl border border-slate-100 bg-white shadow-sm p-5">
                 <p class="text-sm font-medium text-gray-500">Feed Types</p>
@@ -141,7 +156,7 @@
                                 required>
                             <option value="">Select feed type</option>
                             @foreach($feedTypes as $feedType)
-                                <option value="{{ $feedType->id }}">{{ $feedType->name }}</option>
+                                <option value="{{ $feedType->id }}" @selected((string) old('feed_type_id') === (string) $feedType->id)>{{ $feedType->name }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -306,8 +321,8 @@
         </div>
 
         <!-- Recipe Modal -->
-        <div x-show="openModal === 'recipe'" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-            <div @click.away="openModal = null" class="w-full max-w-3xl rounded-2xl bg-white shadow-2xl overflow-hidden">
+        <div x-show="openModal === 'recipe'" x-cloak @click.self="openModal = null" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div class="w-full max-w-3xl rounded-2xl bg-white shadow-2xl overflow-visible">
                 <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
                     <h3 class="text-lg font-semibold text-gray-800">Set Feed Recipe</h3>
                     <button type="button" @click="openModal = null" class="text-gray-400 hover:text-gray-600 text-xl">&times;</button>

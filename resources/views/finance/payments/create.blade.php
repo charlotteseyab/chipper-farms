@@ -20,8 +20,20 @@
             </div>
         @endif
 
+        @if($preselectPurchaseRequest)
+            <div class="mb-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <p class="text-xs font-bold uppercase tracking-wide text-amber-700">Purchase request payment</p>
+                <p class="mt-1 font-bold text-slate-900">{{ $preselectPurchaseRequest->request_no }} · {{ $preselectPurchaseRequest->paymentArrangementLabel() }}</p>
+                <p class="mt-1 text-sm text-slate-600">This payment will be linked to the request and remain traceable when the final supplier invoice is recorded.</p>
+            </div>
+        @endif
+
         <form method="POST" action="{{ route('finance.payments.store') }}" class="rounded-2xl border border-slate-100 bg-white shadow-sm p-6 space-y-4">
             @csrf
+            @if($preselectPurchaseRequest)
+                <input type="hidden" name="purchase_request_id" value="{{ $preselectPurchaseRequest->id }}">
+                <input type="hidden" name="purchase_payment_stage" value="{{ $preselectVendorInvoice ? ($preselectPurchaseRequest->payment_progress === 'not_paid' ? 'full' : 'balance') : ($preselectPurchaseRequest->payment_arrangement === 'deposit_balance' ? 'deposit' : 'advance') }}">
+            @endif
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -49,7 +61,7 @@
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Amount *</label>
-                    <input type="number" step="0.01" min="0.01" name="amount" value="{{ old('amount') }}" required class="w-full rounded-xl border-slate-200 text-sm">
+                    <input type="number" step="0.01" min="0.01" name="amount" value="{{ old('amount', $preselectPurchaseRequest ? ($preselectPurchaseRequest->payment_arrangement === 'deposit_balance' ? round((float) $preselectPurchaseRequest->total_amount * (float) $preselectPurchaseRequest->deposit_percent / 100, 2) : $preselectPurchaseRequest->total_amount) : null) }}" required class="w-full rounded-xl border-slate-200 text-sm">
                 </div>
             </div>
 

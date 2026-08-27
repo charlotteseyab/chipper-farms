@@ -13,12 +13,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *  - organization() relationship
  *  - forOrganization() query scope for explicit filtering
  *
- * Deliberately does NOT install a global scope. Reason: the existing codebase
- * contains many ad-hoc queries and dashboard aggregations written before org
- * scoping existed. Silently scoping all of them in one go risks changing
- * reporting outputs on a live system. Finance tables (built fresh from Phase 1
- * onwards) will apply a global scope in their own traits; operational tables
- * adopt scoping explicitly, controller-by-controller, as they are refactored.
+ * Installs a request-aware global scope whenever an organization context is
+ * bound. This is the fail-safe tenant boundary for ad-hoc counts, dashboard
+ * aggregates and new queries that forget to call forOrganization(). Platform
+ * requests and console work have no bound organization, so cross-tenant tools
+ * remain possible only in those deliberate contexts.
  *
  * Usage:
  *
@@ -50,7 +49,32 @@ trait BelongsToOrganization
      */
     public static function bootBelongsToOrganization(): void
     {
+        static::addGlobalScope('current_organization', function (Builder $query): void {
+            // Authentication must be able to resolve the identity before the
+            // request middleware knows which organization to bind. User lists
+            // are scoped explicitly by their controllers and policies.
+            if ($query->getModel() instanceof \App\Models\User) {
+                return;
+            }
+
+            try {
+                $organization = app(\App\Support\CurrentOrganization::class)->resolve();
+            } catch (\Throwable) {
+                return;
+            }
+
+            if ($organization !== null) {
+                $query->where($query->getModel()->qualifyColumn('organization_id'), $organization->id);
+            }
+        });
+
         static::creating(function ($model) {
+            if ($model instanceof \App\Models\User
+                && \App\Models\User::normalizeRoleName($model->getAttribute('role')) === 'superuser') {
+                $model->organization_id = null;
+                return;
+            }
+
             if (! empty($model->organization_id)) {
                 return;
             }

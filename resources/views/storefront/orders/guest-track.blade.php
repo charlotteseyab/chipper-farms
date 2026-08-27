@@ -102,14 +102,15 @@
             @endif
         @else
             <div class="rounded-2xl bg-white border border-slate-200 p-5">
-                <p class="font-semibold text-slate-800">Save this order</p>
-                <p class="mt-1 text-sm text-slate-500">
-                    Create a buyer account with the details from checkout. You only need to choose
-                    a password, and this order will be saved to that account.
-                </p>
-                <a href="{{ route('storefront.buyer.register.from-order', ['reference' => $order->reference, 'token' => $token]) }}" class="mt-3 inline-block px-4 py-2 rounded-xl border border-slate-300 text-sm">
-                    Create buyer account
-                </a>
+                @if($buyerAccountExists)
+                    <p class="font-semibold text-slate-800">You already have a buyer account</p>
+                    <p class="mt-1 text-sm text-slate-500">Sign in with {{ $order->guest_email }} and this order will be saved to your account.</p>
+                    <a href="{{ route('storefront.buyer.login', ['email' => $order->guest_email, 'claim_reference' => $order->reference, 'claim_token' => $token]) }}" class="mt-3 inline-flex rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white">Sign in to save this order</a>
+                @else
+                    <p class="font-semibold text-slate-800">Save this order</p>
+                    <p class="mt-1 text-sm text-slate-500">Create a buyer account with the details from checkout. You only need to choose a password, and this order will be saved to that account.</p>
+                    <a href="{{ route('storefront.buyer.register.from-order', ['reference' => $order->reference, 'token' => $token]) }}" class="mt-3 inline-flex rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white">Create buyer account</a>
+                @endif
             </div>
         @endauth
 

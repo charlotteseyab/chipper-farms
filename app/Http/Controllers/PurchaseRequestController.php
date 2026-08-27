@@ -7,15 +7,17 @@ use App\Models\RawMaterial;
 use App\Models\Counterparty;
 use App\Models\Setting;
 use App\Services\Procurement\PurchaseRequestLifecycleService;
+use App\Services\Notifications\InAppNotificationService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 /**
  * Purchase requests — index, create, store, show, approve, decline,
- * markAsPaid, edit, update, destroy.
+ * edit, update, destroy. Payment status is owned by posted finance payments.
  *
  * Phase 4 — adds optional raw_material_id + unit at the PR item level,
  * and a supplier_id at the PR header level. The PR creation form now
@@ -67,7 +69,7 @@ class PurchaseRequestController extends Controller
             });
         }
 
-        if ($status !== '' && in_array($status, ['pending', 'approved', 'paid', 'declined', 'draft'], true)) {
+        if ($status !== '' && in_array($status, ['pending', 'approved', 'paid', 'completed', 'declined', 'draft'], true)) {
             $query->where('status', $status);
         }
 
@@ -83,6 +85,7 @@ class PurchaseRequestController extends Controller
             'approved' => PurchaseRequest::where('status', 'approved')->count(),
             'paid'     => PurchaseRequest::where('status', 'paid')->count(),
             'declined' => PurchaseRequest::where('status', 'declined')->count(),
+            'completed'=> PurchaseRequest::where('status', 'completed')->count(),
         ];
 
         return view('feeds.purchase-requests.index', compact(
@@ -106,15 +109,18 @@ class PurchaseRequestController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, InAppNotificationService $notifications)
     {
         $this->authorize('create', PurchaseRequest::class);
+        $request->merge(['payment_arrangement' => $request->input('payment_arrangement', 'after_delivery')]);
 
         $request->validate([
             'request_date'              => ['required', 'date'],
             'purpose'                   => ['nullable', 'string'],
             'notes'                     => ['nullable', 'string'],
             'supplier_id'               => ['nullable', 'integer', 'exists:counterparties,id'],
+            'payment_arrangement'       => ['required', Rule::in(['after_delivery', 'before_delivery', 'deposit_balance', 'supplier_credit'])],
+            'deposit_percent'           => ['nullable', 'required_if:payment_arrangement,deposit_balance', 'numeric', 'gt:0', 'lt:100'],
             'items'                     => ['required', 'array', 'min:1'],
             'items.*.description'       => ['required', 'string'],
             'items.*.quantity'          => ['required', 'numeric', 'min:0.01'],
@@ -125,7 +131,7 @@ class PurchaseRequestController extends Controller
             'items.*.unit'              => ['nullable', 'string', 'max:20'],
         ]);
 
-        DB::transaction(function () use ($request) {
+        $purchaseRequest = DB::transaction(function () use ($request) {
             $totalAmount = collect($request->items)->sum(function ($item) {
                 return ((float) $item['quantity']) * ((float) $item['unit_price']);
             });
@@ -140,6 +146,9 @@ class PurchaseRequestController extends Controller
                 'purpose'      => $request->purpose,
                 'notes'        => $request->notes,
                 'supplier_id'  => $request->supplier_id,  // Phase 4
+                'payment_arrangement' => $request->payment_arrangement,
+                'deposit_percent'     => $request->payment_arrangement === 'deposit_balance' ? $request->deposit_percent : null,
+                'payment_progress'    => 'not_paid',
             ]);
 
             $purchaseRequest->update([
@@ -165,7 +174,18 @@ class PurchaseRequestController extends Controller
                     'unit'             => $item['unit'] ?? $material?->unit,
                 ]);
             }
+
+            return $purchaseRequest;
         });
+
+        $notifications->notifyRelevantStaff(
+            (int) $purchaseRequest->organization_id,
+            'procurement.request_submitted',
+            'Purchase request submitted',
+            "{$purchaseRequest->request_no} is waiting for review.",
+            route('purchase-requests.show', $purchaseRequest),
+            context: ['purchase_request_id' => $purchaseRequest->id],
+        );
 
         return redirect()
             ->route('purchase-requests.index')
@@ -184,12 +204,13 @@ class PurchaseRequestController extends Controller
             'approver',
             'supplier',
             'vendorInvoices' => fn ($query) => $query->latest('id'),
+            'payments' => fn ($query) => $query->where('status', \App\Models\Finance\Payment::STATUS_POSTED)->latest('id'),
         ]);
 
         return view('feeds.purchase-requests.show', compact('purchaseRequest'));
     }
 
-    public function approve(Request $request, PurchaseRequest $purchaseRequest, PurchaseRequestLifecycleService $lifecycle)
+    public function approve(Request $request, PurchaseRequest $purchaseRequest, PurchaseRequestLifecycleService $lifecycle, InAppNotificationService $notifications)
     {
         $this->authorize('approve', $purchaseRequest);
         $this->authorizeApprovalAction();
@@ -211,15 +232,29 @@ class PurchaseRequestController extends Controller
                     'This PR has raw-material-linked items but no supplier assigned. '
                     . 'Set a supplier before approving so receipts can be tracked.');
         }
+        if ($purchaseRequest->requiresAdvancePayment() && ! $purchaseRequest->supplier_id) {
+            return redirect()->route('purchase-requests.show', $purchaseRequest)
+                ->with('error', 'Assign the supplier before approving an advance-payment request.');
+        }
 
         $lifecycle->approve($purchaseRequest, $request->user());
+
+        $notifications->notifyRelevantStaff(
+            (int) $purchaseRequest->organization_id,
+            'procurement.request_approved',
+            'Purchase request approved',
+            "{$purchaseRequest->request_no} was approved by {$request->user()->name}.",
+            route('purchase-requests.show', $purchaseRequest),
+            context: ['purchase_request_id' => $purchaseRequest->id],
+            recipientUserIds: [(int) $purchaseRequest->requested_by],
+        );
 
         return redirect()
             ->route('purchase-requests.show', $purchaseRequest)
             ->with('success', 'Purchase request approved successfully.');
     }
 
-    public function decline(Request $request, PurchaseRequest $purchaseRequest, PurchaseRequestLifecycleService $lifecycle)
+    public function decline(Request $request, PurchaseRequest $purchaseRequest, PurchaseRequestLifecycleService $lifecycle, InAppNotificationService $notifications)
     {
         $this->authorize('decline', $purchaseRequest);
         $this->authorizeApprovalAction();
@@ -236,26 +271,60 @@ class PurchaseRequestController extends Controller
 
         $lifecycle->decline($purchaseRequest, $request->user(), $request->decline_reason);
 
+        $notifications->notifyRelevantStaff(
+            (int) $purchaseRequest->organization_id,
+            'procurement.request_declined',
+            'Purchase request declined',
+            "{$purchaseRequest->request_no} was declined" . ($request->decline_reason ? ": {$request->decline_reason}" : '.'),
+            route('purchase-requests.show', $purchaseRequest),
+            'warning',
+            ['purchase_request_id' => $purchaseRequest->id],
+            [(int) $purchaseRequest->requested_by],
+        );
+
         return redirect()
             ->route('purchase-requests.show', $purchaseRequest)
             ->with('success', 'Purchase request declined successfully.');
     }
 
-    public function markAsPaid(Request $request, PurchaseRequest $purchaseRequest, PurchaseRequestLifecycleService $lifecycle)
+    public function complete(Request $request, PurchaseRequest $purchaseRequest, InAppNotificationService $notifications)
     {
-        $this->authorize('markPaid', $purchaseRequest);
+        $this->authorize('complete', $purchaseRequest);
+        $purchaseRequest->load(['items', 'vendorInvoices']);
 
-        if ($purchaseRequest->status !== 'approved') {
-            return redirect()
-                ->route('purchase-requests.show', $purchaseRequest)
-                ->with('error', 'Only approved requests can be marked as paid.');
+        $unreceived = $purchaseRequest->items
+            ->whereNotNull('raw_material_id')
+            ->contains(fn ($item) => ! $item->is_receipt_closed);
+        if ($unreceived) {
+            return back()->with('error', 'This request cannot be completed while goods are still outstanding.');
         }
 
-        $lifecycle->markAsPaid($purchaseRequest, $request->user());
+        $postedInvoices = $purchaseRequest->vendorInvoices
+            ->where('status', \App\Models\Finance\VendorInvoice::STATUS_POSTED);
+        if ($postedInvoices->isEmpty()) {
+            return back()->with('error', 'Post the final vendor invoice before completing this request.');
+        }
+        if ($postedInvoices->contains(fn ($invoice) => bccomp((string) $invoice->balance_due, '0', 2) > 0)) {
+            return back()->with('error', 'The posted vendor invoice still has an unpaid balance.');
+        }
 
-        return redirect()
-            ->route('purchase-requests.show', $purchaseRequest)
-            ->with('success', 'Purchase request marked as paid successfully.');
+        $purchaseRequest->update([
+            'status' => 'completed',
+            'payment_progress' => 'paid',
+            'completed_at' => now(),
+        ]);
+
+        $notifications->notifyRelevantStaff(
+            (int) $purchaseRequest->organization_id,
+            'procurement.request_completed',
+            'Purchase completed',
+            "{$purchaseRequest->request_no} has been fully received, invoiced and paid.",
+            route('purchase-requests.show', $purchaseRequest),
+            context: ['purchase_request_id' => $purchaseRequest->id],
+            recipientUserIds: [(int) $purchaseRequest->requested_by],
+        );
+
+        return back()->with('success', "{$purchaseRequest->request_no} is complete.");
     }
 
     public function edit(PurchaseRequest $purchaseRequest)
@@ -293,11 +362,14 @@ class PurchaseRequestController extends Controller
                 ->with('error', 'Only pending purchase requests can be updated.');
         }
 
+        $request->merge(['payment_arrangement' => $request->input('payment_arrangement', 'after_delivery')]);
         $request->validate([
             'request_date'              => ['required', 'date'],
             'purpose'                   => ['nullable', 'string'],
             'notes'                     => ['nullable', 'string'],
             'supplier_id'               => ['nullable', 'integer', 'exists:counterparties,id'],
+            'payment_arrangement'       => ['required', Rule::in(['after_delivery', 'before_delivery', 'deposit_balance', 'supplier_credit'])],
+            'deposit_percent'           => ['nullable', 'required_if:payment_arrangement,deposit_balance', 'numeric', 'gt:0', 'lt:100'],
             'items'                     => ['required', 'array', 'min:1'],
             'items.*.description'       => ['required', 'string'],
             'items.*.quantity'          => ['required', 'numeric', 'min:0.01'],
@@ -319,6 +391,8 @@ class PurchaseRequestController extends Controller
                 'purpose'      => $request->purpose,
                 'notes'        => $request->notes,
                 'supplier_id'  => $request->supplier_id,
+                'payment_arrangement' => $request->payment_arrangement,
+                'deposit_percent'     => $request->payment_arrangement === 'deposit_balance' ? $request->deposit_percent : null,
             ]);
 
             $purchaseRequest->items()->delete();

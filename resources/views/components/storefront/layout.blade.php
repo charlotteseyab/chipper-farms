@@ -10,6 +10,10 @@
     $featureService = app(OrganizationFeatureService::class);
     $customerAccountsEnabled = $featureService->usable(FeatureCatalog::STOREFRONT_CUSTOMER_ACCOUNTS);
     $storeName = StorefrontSettings::storeName();
+    $storefrontBuyer = session('storefront_buyer_id')
+        ? \App\Models\Storefront\StorefrontBuyer::find(session('storefront_buyer_id'))
+        : null;
+    $buyerUnreadNotifications = $storefrontBuyer?->unreadNotifications()->count() ?? 0;
     $appName = 'Chipper Farms';
     $kindLabels = [
         'live_pig'       => 'Live Pigs',
@@ -28,7 +32,7 @@
     <title>{{ $title ?? StorefrontSettings::storeName() }}</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.bunny.net/css?family=outfit:300,400,500,600,700,800&display=swap" rel="stylesheet" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     <style>
@@ -56,7 +60,7 @@
             min-height:100vh;
             display:flex;
             flex-direction:column;
-            font-family:Figtree, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            font-family:'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
             background:linear-gradient(180deg, #f8fcfa 0%, #ffffff 100%);
             color:var(--text-main);
         }
@@ -296,6 +300,101 @@
             gap:10px;
         }
 
+        .mobile-nav{
+            display:none;
+            position:relative;
+        }
+
+        .mobile-nav summary{
+            display:flex;
+            width:46px;
+            height:46px;
+            align-items:center;
+            justify-content:center;
+            border:1px solid var(--line);
+            border-radius:14px;
+            background:#fff;
+            color:var(--green-800);
+            cursor:pointer;
+            box-shadow:var(--shadow-sm);
+            list-style:none;
+        }
+
+        .mobile-nav summary::-webkit-details-marker{ display:none; }
+
+        .mobile-nav summary:focus-visible{
+            outline:3px solid rgba(28,108,81,.18);
+            outline-offset:2px;
+        }
+
+        .mobile-nav-icon,
+        .mobile-nav-icon::before,
+        .mobile-nav-icon::after{
+            display:block;
+            width:20px;
+            height:2px;
+            border-radius:999px;
+            background:currentColor;
+            transition:.2s ease;
+        }
+
+        .mobile-nav-icon{ position:relative; }
+        .mobile-nav-icon::before,
+        .mobile-nav-icon::after{ content:""; position:absolute; left:0; }
+        .mobile-nav-icon::before{ top:-6px; }
+        .mobile-nav-icon::after{ top:6px; }
+        .mobile-nav[open] .mobile-nav-icon{ background:transparent; }
+        .mobile-nav[open] .mobile-nav-icon::before{ top:0; transform:rotate(45deg); }
+        .mobile-nav[open] .mobile-nav-icon::after{ top:0; transform:rotate(-45deg); }
+
+        .mobile-nav-panel{
+            position:absolute;
+            top:calc(100% + 12px);
+            right:0;
+            width:min(320px, calc(100vw - 32px));
+            max-height:calc(100vh - 100px);
+            overflow-y:auto;
+            border:1px solid var(--line);
+            border-radius:20px;
+            background:#fff;
+            padding:10px;
+            box-shadow:var(--shadow-lg);
+        }
+
+        .mobile-nav-panel a{
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            min-height:44px;
+            border-radius:12px;
+            padding:10px 12px;
+            color:var(--green-800);
+            font-weight:700;
+            text-decoration:none;
+        }
+
+        .mobile-nav-panel a:hover,
+        .mobile-nav-panel a:focus{
+            background:var(--green-50);
+            color:var(--green-900);
+            outline:none;
+        }
+
+        .mobile-nav-label{
+            padding:10px 12px 5px;
+            color:#809087;
+            font-size:.7rem;
+            font-weight:800;
+            letter-spacing:.12em;
+            text-transform:uppercase;
+        }
+
+        .mobile-nav-divider{
+            height:1px;
+            margin:8px 6px;
+            background:var(--line);
+        }
+
         @media (max-width:1024px){
             .footer-grid{
                 grid-template-columns:1fr;
@@ -305,6 +404,14 @@
         @media (max-width:768px){
             .top-nav .desktop-nav{
                 display:none;
+            }
+
+            .top-nav .desktop-actions{
+                display:none;
+            }
+
+            .mobile-nav{
+                display:block;
             }
 
             .container-wrap{
@@ -346,11 +453,20 @@
                     <a href="{{ url('/#contact') }}" class="nav-link">Contact</a>
                 </div>
 
-                <div class="flex items-center gap-3">
+                <div class="desktop-actions flex items-center gap-3">
                     @if(session('storefront_buyer_id'))
+                        <a href="{{ route('storefront.buyer.notifications.index') }}" class="relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[var(--line)] bg-white text-[var(--green-700)]" aria-label="Buyer notifications">
+                            <x-ui-icon name="notification" class="h-5 w-5" />
+                            @if($buyerUnreadNotifications > 0)<span class="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">{{ $buyerUnreadNotifications > 99 ? '99+' : $buyerUnreadNotifications }}</span>@endif
+                        </a>
                         <a href="{{ route('storefront.buyer.orders.index') }}" class="btn-primary">My orders</a>
+                        <a href="{{ route('storefront.buyer.quotes.index') }}" class="nav-link">My quotes</a>
                     @else
                         @auth
+                            <a href="{{ route('notifications.index') }}" class="relative hidden h-11 w-11 items-center justify-center rounded-xl border border-[var(--line)] bg-white text-[var(--green-700)] sm:inline-flex" aria-label="Notifications">
+                                <x-ui-icon name="notification" class="h-5 w-5" />
+                                @if(auth()->user()->unreadNotifications()->count() > 0)<span class="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white">{{ auth()->user()->unreadNotifications()->count() > 99 ? '99+' : auth()->user()->unreadNotifications()->count() }}</span>@endif
+                            </a>
                             @if($customerAccountsEnabled)
                                 <a href="{{ route('storefront.account.dashboard') }}" class="hidden nav-link sm:inline-flex">My account</a>
                             @endif
@@ -360,17 +476,48 @@
                         @endauth
                     @endif
                 </div>
+
+                <details class="mobile-nav">
+                    <summary aria-label="Open navigation menu"><span class="mobile-nav-icon" aria-hidden="true"></span></summary>
+                    <nav class="mobile-nav-panel" aria-label="Mobile navigation">
+                        <a href="{{ url('/#home') }}">Home</a>
+                        <a href="{{ url('/#about') }}">About</a>
+                        <a href="{{ url('/#features') }}">Features</a>
+                        <a href="{{ url('/#contact') }}">Contact</a>
+                        <div class="mobile-nav-divider"></div>
+                        <div class="mobile-nav-label">Shop</div>
+                        <a href="{{ route('storefront.shop') }}">Shop all <span aria-hidden="true">&rarr;</span></a>
+                        @foreach($navKinds as $navKind)
+                            <a href="{{ route('storefront.shop', ['kind' => $navKind]) }}">{{ $kindLabels[$navKind] ?? $navKind }}</a>
+                        @endforeach
+                        @if(StorefrontSettings::quotesEnabled())
+                            <a href="{{ route('storefront.quote.create') }}">Request a quote</a>
+                        @endif
+                        <a href="{{ route('storefront.cart.index') }}">Cart</a>
+                        <div class="mobile-nav-divider"></div>
+                        @if(session('storefront_buyer_id'))
+                            <a href="{{ route('storefront.buyer.notifications.index') }}">Notifications @if($buyerUnreadNotifications > 0)({{ $buyerUnreadNotifications }})@endif</a>
+                            <a href="{{ route('storefront.buyer.orders.index') }}">My orders</a>
+                            <a href="{{ route('storefront.buyer.quotes.index') }}">My quotes</a>
+                        @else
+                            @auth
+                                <a href="{{ route('notifications.index') }}">Notifications @if(auth()->user()->unreadNotifications()->count() > 0)({{ auth()->user()->unreadNotifications()->count() }})@endif</a>
+                                @if($customerAccountsEnabled)
+                                    <a href="{{ route('storefront.account.dashboard') }}">My account</a>
+                                @endif
+                                <a href="{{ route('storefront.account.orders.index') }}">My orders</a>
+                            @else
+                                <a href="{{ route('storefront.buyer.login') }}">Sign In <span aria-hidden="true">&rarr;</span></a>
+                            @endauth
+                        @endif
+                    </nav>
+                </details>
             </div>
         </div>
     </nav>
 
     <main class="shop-page-bg shop-content">
-        @if(session('success'))
-            <div class="container-wrap pt-4"><div class="rounded-2xl border border-emerald-200 bg-white/90 px-4 py-3 text-sm font-semibold text-[var(--green-700)] shadow-sm">{{ session('success') }}</div></div>
-        @endif
-        @if(session('error'))
-            <div class="container-wrap pt-4"><div class="rounded-2xl border border-red-200 bg-white/90 px-4 py-3 text-sm font-semibold text-red-700 shadow-sm">{{ session('error') }}</div></div>
-        @endif
+        @include('layouts.partials.flash-messages')
 
         {{ $slot }}
     </main>

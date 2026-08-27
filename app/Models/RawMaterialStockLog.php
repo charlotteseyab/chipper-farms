@@ -21,6 +21,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  */
 class RawMaterialStockLog extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganization;
+
     protected $fillable = [
         'raw_material_id',
         'type',

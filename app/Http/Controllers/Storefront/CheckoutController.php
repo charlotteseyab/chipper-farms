@@ -41,6 +41,7 @@ class CheckoutController extends Controller
         protected CustomerAccountService $accounts,
         protected PaystackService $paystack,
         protected CartOwnerResolver $owners,
+        protected \App\Storefront\Services\OrderService $orders,
     ) {
     }
 
@@ -138,6 +139,12 @@ class CheckoutController extends Controller
                     callbackUrl: route('storefront.account.paystack.callback'),
                 );
             } catch (PaymentException $e) {
+                $this->orders->markFailed(
+                    $order,
+                    'Paystack payment could not be initialized. Reference: ' . $e->correlationId(),
+                    $request->user(),
+                );
+
                 return redirect()->to($destination)
                     ->with('error', 'Could not start payment: ' . $e->getMessage());
             }

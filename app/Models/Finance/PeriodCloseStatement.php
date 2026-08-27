@@ -10,6 +10,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class PeriodCloseStatement extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganizationThroughRelation;
+
+    protected static function organizationRelation(): string
+    {
+        return 'run';
+    }
+
     public const TYPE_TRIAL_BALANCE    = 'trial_balance';
     public const TYPE_INCOME_STATEMENT = 'income_statement';
     public const TYPE_BALANCE_SHEET    = 'balance_sheet';

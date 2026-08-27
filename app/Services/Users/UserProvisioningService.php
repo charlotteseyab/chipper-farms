@@ -55,7 +55,17 @@ class UserProvisioningService
      */
     public function provision(array $attributes, ?User $actor = null): User
     {
-        $organizationId = $this->resolveOrganizationId($attributes, $actor);
+        $role = User::normalizeRoleName((string) ($attributes['role'] ?? ''));
+
+        if ($role === 'superuser' && $actor !== null && ! $actor->isSuperuser()) {
+            throw ValidationException::withMessages([
+                'role' => 'Only a platform superuser can create another platform superuser.',
+            ]);
+        }
+
+        $organizationId = $role === 'superuser'
+            ? null
+            : $this->resolveOrganizationId($attributes, $actor);
 
         $email = strtolower(trim((string) ($attributes['email'] ?? '')));
 
@@ -73,8 +83,6 @@ class UserProvisioningService
                 'email' => 'A user with this email address already exists.',
             ]);
         }
-
-        $role = (string) ($attributes['role'] ?? '');
 
         if ($role === '') {
             throw ValidationException::withMessages([
@@ -118,6 +126,7 @@ class UserProvisioningService
                 'password'        => Hash::make($password),
                 'active_status'   => $activeStatus,
                 'organization_id' => $organizationId,
+                'onboarding_required' => ! in_array($role, ['superuser', 'customer'], true),
             ]);
 
             try {
@@ -145,7 +154,7 @@ class UserProvisioningService
 
             // Post-condition: refuse to hand back an account that cannot make
             // an authenticated request. This is the invariant CF-P0-001 broke.
-            if (empty($user->organization_id) || empty($user->role_id)) {
+            if (($user->role !== 'superuser' && empty($user->organization_id)) || empty($user->role_id)) {
                 throw ValidationException::withMessages([
                     'organization' => 'User creation failed to establish organization and role context.',
                 ]);
@@ -217,6 +226,12 @@ class UserProvisioningService
         // Inherit from the actor when they are bound to exactly one organisation.
         if ($actor !== null && ! empty($actor->organization_id)) {
             return (int) $actor->organization_id;
+        }
+
+        if ($actor !== null && $actor->isSuperuser()) {
+            throw ValidationException::withMessages([
+                'organization_id' => 'Select the organization this farm user belongs to.',
+            ]);
         }
 
         // System contexts, or an actor that somehow lost its organisation link:

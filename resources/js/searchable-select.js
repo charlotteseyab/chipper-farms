@@ -26,6 +26,12 @@ class SearchableSelect {
         this.optionsContainer.className = 'searchable-select__options';
         this.optionsContainer.setAttribute('role', 'listbox');
 
+        // Keep scrolling inside a long option list. Without this, wheel/touch
+        // movement can chain to an enclosing modal or page and trigger its
+        // outside/close behaviour, making the dropdown appear to disappear.
+        this.optionsContainer.addEventListener('wheel', (event) => event.stopPropagation(), { passive: true });
+        this.optionsContainer.addEventListener('touchmove', (event) => event.stopPropagation(), { passive: true });
+
         this.menu.append(this.search, this.optionsContainer);
         this.root.append(this.trigger, this.menu);
         select.insertAdjacentElement('afterend', this.root);
@@ -72,7 +78,12 @@ class SearchableSelect {
         this.trigger.setAttribute('aria-expanded', 'true');
         this.search.value = '';
         this.render();
-        requestAnimationFrame(() => this.search.focus());
+        document.body.appendChild(this.menu);
+        this.menu.classList.add('is-portalled');
+        requestAnimationFrame(() => {
+            this.positionMenu();
+            this.search.focus();
+        });
     }
 
     close({ focusTrigger = false } = {}) {
@@ -81,7 +92,39 @@ class SearchableSelect {
         this.root.classList.remove('is-open');
         this.trigger.setAttribute('aria-expanded', 'false');
         this.search.value = '';
+        this.menu.classList.remove('is-portalled', 'opens-up');
+        this.menu.removeAttribute('style');
+        this.root.appendChild(this.menu);
         if (focusTrigger) this.trigger.focus();
+    }
+
+    positionMenu() {
+        if (!this.isOpen) return;
+
+        const triggerRect = this.trigger.getBoundingClientRect();
+        const viewportPadding = 10;
+        const gap = 6;
+        const availableBelow = window.innerHeight - triggerRect.bottom - viewportPadding - gap;
+        const availableAbove = triggerRect.top - viewportPadding - gap;
+        const opensUp = availableBelow < 260 && availableAbove > availableBelow;
+        const available = Math.max(120, opensUp ? availableAbove : availableBelow);
+        const menuHeight = Math.min(320, available);
+        const width = Math.min(triggerRect.width, window.innerWidth - viewportPadding * 2);
+        const left = Math.min(
+            Math.max(viewportPadding, triggerRect.left),
+            window.innerWidth - width - viewportPadding,
+        );
+
+        this.menu.classList.toggle('opens-up', opensUp);
+        Object.assign(this.menu.style, {
+            left: `${left}px`,
+            right: 'auto',
+            top: opensUp ? 'auto' : `${triggerRect.bottom + gap}px`,
+            bottom: opensUp ? `${window.innerHeight - triggerRect.top + gap}px` : 'auto',
+            width: `${width}px`,
+            maxHeight: `${menuHeight}px`,
+            '--searchable-options-height': `${Math.max(64, menuHeight - 68)}px`,
+        });
     }
 
     render(query = '') {
@@ -189,9 +232,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 document.addEventListener('click', (event) => {
     instances.forEach((instance) => {
-        if (!instance.root.contains(event.target)) instance.close();
+        if (!instance.root.contains(event.target) && !instance.menu.contains(event.target)) instance.close();
     });
 });
 document.addEventListener('change', () => queueMicrotask(() => instances.forEach((instance) => instance.sync())));
+window.addEventListener('resize', () => instances.forEach((instance) => instance.positionMenu()));
+window.addEventListener('scroll', () => instances.forEach((instance) => instance.positionMenu()), true);
 
 window.initialiseSearchableSelects = initialiseSearchableSelects;

@@ -14,8 +14,8 @@
                                         </svg>
                                     </div>
                                     <div>
-                                        <h3 class="text-lg font-semibold text-slate-900">Email Configuration</h3>
-                                        <p class="text-sm text-slate-500 mt-1">Set up server connection details and maintain email-related preferences.</p>
+                                        <h3 class="text-lg font-semibold text-slate-900">{{ $canManageEmailServer ? 'Email Configuration' : 'Email Templates' }}</h3>
+                                        <p class="text-sm text-slate-500 mt-1">{{ $canManageEmailServer ? 'Manage the shared email server and organization templates.' : 'Control the messages sent for your farm. Email delivery is managed securely by the platform.' }}</p>
                                     </div>
                                 </div>
                             </div>
@@ -24,12 +24,14 @@
                         <!-- Inner Tab Navigation -->
                         <div class="px-6 pt-6">
                             <div class="inline-flex rounded-2xl bg-slate-100 p-1 border border-slate-200">
+                                @if($canManageEmailServer)
                                 <button onclick="switchTab('server')" id="tab-server"
                                         class="rounded-xl px-4 py-2.5 text-sm font-semibold transition bg-white text-green-700 shadow-sm">
                                     Server Settings
                                 </button>
+                                @endif
                                 <button onclick="switchTab('templates')" id="tab-templates"
-                                        class="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:text-slate-900 transition">
+                                        class="rounded-xl px-4 py-2.5 text-sm font-semibold transition {{ $canManageEmailServer ? 'text-slate-600 hover:text-slate-900' : 'bg-white text-green-700 shadow-sm' }}">
                                     Email Templates
                                 </button>
                             </div>
@@ -37,6 +39,7 @@
 
                         <div class="p-6">
                             <!-- Server Settings Tab -->
+                            @if($canManageEmailServer)
                             <div id="tab-content-server" class="tab-content">
                                 <form id="emailSettingsForm" action="{{ route('settings.email.update') }}" method="POST" class="space-y-8">
                                     @csrf
@@ -178,18 +181,11 @@
                                     </section>
                                 </div>
                             </div>
+                            @endif
 
                             <!-- Email Templates Tab -->
-                            <div id="tab-content-templates" class="tab-content hidden">
-                                <section class="rounded-3xl border border-dashed border-slate-300 bg-slate-50/70 p-12 text-center">
-                                    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                                        <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
-                                        </svg>
-                                    </div>
-                                    <h3 class="mt-4 text-lg font-semibold text-slate-900">Coming Soon</h3>
-                                    <p class="mt-2 text-sm text-slate-500">Email templates feature will be available soon.</p>
-                                </section>
+                            <div id="tab-content-templates" class="tab-content {{ $canManageEmailServer ? 'hidden' : '' }}">
+                                @include('settings.partials.email-templates')
                             </div>
                         </div>
                     </div>
@@ -207,16 +203,22 @@
             const serverTab = document.getElementById('tab-server');
             const templatesTab = document.getElementById('tab-templates');
 
-            [serverTab, templatesTab].forEach(btn => {
+            [serverTab, templatesTab].filter(Boolean).forEach(btn => {
                 btn.classList.remove('bg-white', 'text-green-700', 'shadow-sm');
                 btn.classList.add('text-slate-600');
             });
 
-            document.getElementById('tab-content-' + tab).classList.remove('hidden');
+            const content = document.getElementById('tab-content-' + tab);
+            if (!content) return;
+            content.classList.remove('hidden');
 
             const activeTab = document.getElementById('tab-' + tab);
             activeTab.classList.remove('text-slate-600');
             activeTab.classList.add('bg-white', 'text-green-700', 'shadow-sm');
+        }
+
+        if (new URLSearchParams(window.location.search).get('tab') === 'templates' || !@js($canManageEmailServer)) {
+            switchTab('templates');
         }
 
         function testConnection() {

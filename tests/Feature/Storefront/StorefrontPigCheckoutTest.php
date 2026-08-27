@@ -219,6 +219,72 @@ class StorefrontPigCheckoutTest extends StorefrontTestCase
         );
     }
 
+    public function test_a_customer_selected_carcass_animal_is_reserved_by_identity(): void
+    {
+        $this->poolListing([100, 120]);
+        $buyer = $this->makeUser('customer');
+        $row   = $this->poolRowIds()[0];
+
+        $this->lines()->addSelectedCarcassLines(CartOwner::from($buyer), $this->listing, [$row]);
+
+        $order = $this->checkout($buyer);
+        $hold  = StorefrontInventoryHold::where('order_id', $order->id)->firstOrFail();
+        $item  = StorefrontOrderItem::where('order_id', $order->id)->firstOrFail();
+
+        $this->assertSame(StorefrontInventoryHold::TYPE_EXACT_PIGS, $hold->hold_type);
+        $this->assertSame([$row], array_map('intval', $hold->selected_listing_pig_ids));
+        $this->assertSame(Pricing::PURCHASE_CARCASS, $item->purchase_type);
+        $this->assertSame('100.0000', (string) $item->requested_kg);
+        $this->assertSame('5000.00', (string) $item->line_total);
+    }
+
+    public function test_a_failed_selected_carcass_payment_releases_the_animal_and_hold(): void
+    {
+        $this->poolListing([100]);
+        $buyer = $this->makeUser('customer');
+        $rowId = $this->poolRowIds()[0];
+
+        $this->lines()->addSelectedCarcassLines(CartOwner::from($buyer), $this->listing, [$rowId]);
+        $order = $this->app->make(CheckoutService::class)->checkout(
+            $buyer,
+            CheckoutData::fromArray(['payment_method' => 'paystack', 'fulfilment_method' => 'pickup']),
+        );
+
+        $this->app->make(\App\Storefront\Services\OrderService::class)
+            ->markFailed($order, 'Gateway initialization failed.', $buyer);
+
+        $this->assertSame(
+            StorefrontListingPig::STATUS_AVAILABLE,
+            StorefrontListingPig::findOrFail($rowId)->status,
+        );
+        $this->assertSame(
+            StorefrontInventoryHold::STATUS_RELEASED,
+            StorefrontInventoryHold::where('order_id', $order->id)->firstOrFail()->status,
+        );
+    }
+
+    public function test_an_exact_hold_does_not_hide_a_different_available_pool_animal(): void
+    {
+        $this->poolListing([100, 120]);
+        [$firstRow, $secondRow] = $this->poolRowIds();
+        $firstBuyer  = $this->makeUser('customer');
+        $secondBuyer = $this->makeUser('customer');
+
+        $this->lines()->addSelectedCarcassLines(CartOwner::from($firstBuyer), $this->listing, [$firstRow]);
+        $this->checkout($firstBuyer);
+
+        $this->assertSame('1.0000', (string) $this->listing->fresh()->quantity_available);
+
+        $this->lines()->addSelectedCarcassLines(CartOwner::from($secondBuyer), $this->listing->fresh(), [$secondRow]);
+        $secondOrder = $this->checkout($secondBuyer);
+
+        $this->assertDatabaseHas('storefront_inventory_holds', [
+            'order_id'  => $secondOrder->id,
+            'hold_type' => StorefrontInventoryHold::TYPE_EXACT_PIGS,
+            'status'    => StorefrontInventoryHold::STATUS_ACTIVE,
+        ]);
+    }
+
     /**
      * A buyer wanting two named animals AND some meat from the same listing
      * gets two holds. Under the old key the second would have overwritten the

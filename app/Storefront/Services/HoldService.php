@@ -269,11 +269,23 @@ class HoldService
      */
     public function availableToSell(StorefrontListing $listing, ?int $excludingOrderId = null): string
     {
-        $held = StorefrontInventoryHold::query()
+        $heldQuery = StorefrontInventoryHold::query()
             ->where('listing_id', $listing->getKey())
             ->when($excludingOrderId !== null, fn ($q) => $q->where('order_id', '!=', $excludingOrderId))
-            ->live()
-            ->pluck('quantity');
+            ->live();
+
+        // A named pig is moved to ALLOCATED immediately after its exact hold
+        // is placed, and syncListingAvailability() has already removed that
+        // row from quantity_available. Subtracting the exact hold as well
+        // counts the same animal twice and hides the next available pig.
+        // Listing locks make the hold + allocation transaction atomic to
+        // competing checkouts, so no other transaction can observe the brief
+        // between those two writes.
+        if ($listing->usesPigPool()) {
+            $heldQuery->where('hold_type', '!=', StorefrontInventoryHold::TYPE_EXACT_PIGS);
+        }
+
+        $held = $heldQuery->pluck('quantity');
 
         $total = '0';
         foreach ($held as $quantity) {
@@ -479,6 +491,10 @@ class HoldService
      */
     protected function holdTypeFor(StorefrontOrderItem $item): string
     {
+        if ((array) ($item->selected_listing_pig_ids ?? []) !== []) {
+            return StorefrontInventoryHold::TYPE_EXACT_PIGS;
+        }
+
         return match ($item->purchase_type) {
             StorefrontPigPricingService::PURCHASE_LIVE    => StorefrontInventoryHold::TYPE_EXACT_PIGS,
             StorefrontPigPricingService::PURCHASE_CARCASS => StorefrontInventoryHold::TYPE_CARCASS_KG,

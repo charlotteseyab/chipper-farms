@@ -419,10 +419,10 @@
 
                                 <div class="pig-field">
                                     <label class="pig-label">Breed</label>
-                                    <select name="breed" required class="pig-select">
-                                        <option value="LW" @if(old('breed', $breedingStock->breed) === 'LW') selected @endif>Large White</option>
-                                        <option value="DR" @if(old('breed', $breedingStock->breed) === 'DR') selected @endif>Duroc</option>
-                                        <option value="LWDR" @if(old('breed', $breedingStock->breed) === 'LWDR') selected @endif>Large White Duroc</option>
+                                    <select name="breed" required class="pig-select" data-searchable-select>
+                                        @foreach($animalBreeds as $code => $name)
+                                            <option value="{{ $code }}" @selected(old('breed', $breedingStock->breed) === $code)>{{ $name }} ({{ $code }})</option>
+                                        @endforeach
                                     </select>
                                 </div>
                             </div>

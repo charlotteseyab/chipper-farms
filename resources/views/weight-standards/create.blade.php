@@ -23,12 +23,12 @@
                 <!-- Breed -->
                 <div>
                     <label for="breed" class="block text-sm font-medium text-gray-700 mb-1">Breed *</label>
-                    <select name="breed" id="breed" required 
+                    <select name="breed" id="breed" required data-searchable-select
                             class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 @error('breed') border-red-300 @enderror">
                         <option value="">Select Breed</option>
-                        <option value="LW" {{ old('breed') === 'LW' ? 'selected' : '' }}>Large White</option>
-                        <option value="DR" {{ old('breed') === 'DR' ? 'selected' : '' }}>Duroc</option>
-                        <option value="LWDR" {{ old('breed') === 'LWDR' ? 'selected' : '' }}>Large White Duroc</option>
+                        @foreach($animalBreeds as $code => $name)
+                            <option value="{{ $code }}" @selected(old('breed') === $code)>{{ $name }} ({{ $code }})</option>
+                        @endforeach
                     </select>
                     @error('breed')
                         <p class="mt-1 text-sm text-red-600">{{ $message }}</p>

@@ -21,7 +21,7 @@ class StorefrontQuoteRequestedNotification extends Notification implements Shoul
 
     public function via($notifiable): array
     {
-        return ['database'];
+        return ['database', \App\Notifications\Channels\TemplateMailChannel::class];
     }
 
     public function toDatabase($notifiable): array

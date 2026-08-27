@@ -49,6 +49,79 @@ class ReceiveAgainstPurchaseRequestServiceTest extends TestCase
         $this->assertEquals('60.0000', $prItem->quantity_received);
     }
 
+    public function test_receives_against_fully_paid_pr(): void
+    {
+        $rm = $this->mkRm();
+        $prItem = $this->mkPrItem($rm, 100, 5);
+        $prItem->purchaseRequest->update([
+            'status' => 'paid',
+            'payment_progress' => 'paid',
+        ]);
+
+        $result = $this->service->execute(
+            prItem: $prItem,
+            actor: $this->user,
+            data: ['quantity' => 40.0, 'unit_cost' => 5.0],
+        );
+
+        $this->assertNotNull($result['log']);
+        $this->assertEquals('40.0000', $prItem->fresh()->quantity_received);
+    }
+
+    public function test_receives_multiple_materials_in_one_delivery(): void
+    {
+        $pr = $this->mkPr();
+        $maize = $this->mkRm();
+        $soy = $this->mkRm();
+        $maizeItem = $this->mkItemForPr($pr, $maize, 100, 5);
+        $soyItem = $this->mkItemForPr($pr, $soy, 50, 8);
+
+        $results = $this->service->executeMany(
+            purchaseRequest: $pr,
+            actor: $this->user,
+            receipts: [
+                ['purchase_request_item_id' => $maizeItem->id, 'quantity' => 100, 'unit_cost' => 5],
+                ['purchase_request_item_id' => $soyItem->id, 'quantity' => 25, 'unit_cost' => 8],
+            ],
+            reference: 'GRN-MULTI-001',
+        );
+
+        $this->assertCount(2, $results);
+        $this->assertEquals('100.0000', $maizeItem->fresh()->quantity_received);
+        $this->assertEquals('25.0000', $soyItem->fresh()->quantity_received);
+        $this->assertDatabaseCount('raw_material_stock_logs', 2);
+        $this->assertSame(2, \App\Models\RawMaterialStockLog::where('reference', 'GRN-MULTI-001')->count());
+    }
+
+    public function test_invalid_line_rolls_back_every_material_in_the_delivery(): void
+    {
+        $pr = $this->mkPr();
+        $maize = $this->mkRm();
+        $soy = $this->mkRm();
+        $maizeItem = $this->mkItemForPr($pr, $maize, 100, 5);
+        $soyItem = $this->mkItemForPr($pr, $soy, 50, 8);
+
+        try {
+            $this->service->executeMany(
+                purchaseRequest: $pr,
+                actor: $this->user,
+                receipts: [
+                    ['purchase_request_item_id' => $maizeItem->id, 'quantity' => 100, 'unit_cost' => 5],
+                    ['purchase_request_item_id' => $soyItem->id, 'quantity' => 500, 'unit_cost' => 8],
+                ],
+                reference: 'GRN-ROLLBACK-001',
+            );
+            $this->fail('Expected the over-receipt to reject the delivery.');
+        } catch (\DomainException) {
+            // Expected: the second line fails and the outer transaction rolls back the first.
+        }
+
+        $this->assertEquals('0.0000', $maizeItem->fresh()->quantity_received);
+        $this->assertEquals('0.0000', $soyItem->fresh()->quantity_received);
+        $this->assertEquals('0.00', $maize->fresh()->quantity_in_stock);
+        $this->assertDatabaseMissing('raw_material_stock_logs', ['reference' => 'GRN-ROLLBACK-001']);
+    }
+
     public function test_full_receipt_closes_the_pr_item(): void
     {
         $rm = $this->mkRm();
@@ -191,6 +264,11 @@ class ReceiveAgainstPurchaseRequestServiceTest extends TestCase
     protected function mkPrItem(RawMaterial $rm, float $qty, float $price): PurchaseRequestItem
     {
         $pr = $this->mkPr();
+        return $this->mkItemForPr($pr, $rm, $qty, $price);
+    }
+
+    protected function mkItemForPr(PurchaseRequest $pr, RawMaterial $rm, float $qty, float $price): PurchaseRequestItem
+    {
         return PurchaseRequestItem::create([
             'purchase_request_id' => $pr->id,
             'item_name' => $rm->name,

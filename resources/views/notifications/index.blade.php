@@ -1,178 +1,148 @@
 <x-app-layout>
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10">
+    @php
+        $user = auth()->user();
+        $unreadCount = $user->unreadNotifications()->count();
+        $totalCount = $user->notifications()->count();
+        $pageModules = $notifications->getCollection()
+            ->map(fn ($notification) => $notification->data['module'] ?? null)
+            ->filter()->unique()->count();
+    @endphp
 
-        <!-- Notification List Container -->
-        <div class="bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden">
-             <!-- Header and Controls -->
-        <div class="flex items-center justify-between mb-6 pt-4">
-            <!-- <h1 class="text-3xl font-extrabold text-gray-900">Farm Notifications</h1> -->
-            <form action="{{ route('notifications.readAll') }}" method="POST">
-                @csrf
-                <button class="px-4 py-2 ml-2 text-sm rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium transition duration-150 shadow-sm flex items-center">
-                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    Mark all as read
-                </button>
-            </form>
-        </div>
-            <ul class="divide-y divide-gray-100">
-                @forelse($notifications as $notification)
-                    @php 
-                        $data = $notification->data; 
-                        $isUnread = is_null($notification->read_at); 
-                        $type = $data['type'] ?? 'notification';
+    <div class="mx-auto w-full max-w-6xl py-3 sm:py-6">
+        <section class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-700 px-5 py-7 text-white shadow-xl sm:px-8 sm:py-9">
+            <div class="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/10 blur-2xl"></div>
+            <div class="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-emerald-300/10 blur-2xl"></div>
 
-                        // Icon and color mapping for clarity
-                        $iconClass = 'text-gray-500';
-                        $iconPath = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.427 6 9.125 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v2a3 3 0 11-6 0v-2m6 0H9"/>';
-                        
-                        if (Str::contains($type, ['birth', 'farrowing'])) {
-                            $iconPath = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6m-6 0h-2M15 5a2 2 0 012 2v3M9 5a2 2 0 002 2v3m-2-5a2 2 0 012-2M12 11v1"/>'; // Piglet icon (abstract)
-                            $iconClass = 'text-pink-500';
-                        } elseif ($type === 'feed_purchase_request') {
-                            $iconPath = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/>'; // Shopping cart icon
-                            $iconClass = 'text-green-600';
-                        } elseif (Str::contains($type, 'inventory')) {
-                            $iconPath = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10h16V7M4 7h16M4 7L12 3l8 4"/>'; // Box/Stock icon
-                            $iconClass = 'text-blue-500';
-                        } elseif (Str::contains($type, 'weigh')) {
-                            $iconPath = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 3M14 10a5 5 0 100-8 5 5 0 000 8zM14 10v3M10 17l-2 3m2-3h4m0-7v3M10 17a5 5 0 10-8 0 5 5 0 008 0z"/>'; // Scale/Weight icon
-                            $iconClass = 'text-yellow-600';
-                        }
-                    @endphp
-
-                    <li class="p-4 sm:p-6 transition duration-200" 
-                        x-data="{ localRead: {{ $isUnread ? 'false' : 'true' }} }" 
-                        :class="localRead ? 'hover:bg-gray-50' : 'bg-indigo-50 hover:bg-indigo-100'"
-                    >
-                        <div class="flex items-start">
-                            <!-- Icon -->
-                            <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mr-4 
-                                        {{ $isUnread ? 'bg-white border-2 border-indigo-300' : 'bg-gray-100' }}">
-                                <svg class="w-5 h-5 {{ $iconClass }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    {!! $iconPath !!}
-                                </svg>
-                            </div>
-
-                            <!-- Content -->
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between">
-                                    <div class="flex-1">
-                                        <!-- Main Title -->
-                                        <div class="text-base font-semibold text-gray-900 truncate">
-                                            @if(isset($data['title']))
-                                                {{ $data['title'] }}
-                                            @else
-                                                {{ ucfirst(str_replace('_',' ', $type)) }} Alert
-                                            @endif
-                                            <span class="text-sm font-medium text-indigo-600 ml-1" x-show="!localRead">• New</span>
-                                        </div>
-                                        
-                                        <!-- Subtitle/Context -->
-                                        <div class="text-sm text-gray-600 mt-1">
-                                            @if($type === 'feed_purchase_request')
-                                                {{-- Purchase Request Notifications --}}
-                                                @if(isset($data['body']))
-                                                    {{ $data['body'] }}
-                                                @elseif(isset($data['item_name']))
-                                                    <span class="font-medium text-gray-800">{{ $data['title'] ?? 'Purchase Request' }}</span>
-                                                    @if(isset($data['item_name']))
-                                                        <br><span class="text-gray-600">{{ $data['item_name'] }}</span>
-                                                        @if(isset($data['quantity']))
-                                                            <span class="text-gray-500">({{ $data['quantity'] }})</span>
-                                                        @endif
-                                                    @endif
-                                                    @if(isset($data['cost']))
-                                                        <br><span class="text-gray-500">Cost: {{ $data['cost'] }}</span>
-                                                    @endif
-                                                @endif
-                                            @elseif(isset($data['ear_tag']))
-                                                {{-- Pig/Weight Notifications --}}
-                                                Pig: <a href="{{ route('pigs.show', $data['pig_id']) ?? '#' }}" class="font-medium text-gray-800 hover:text-indigo-600">{{ $data['ear_tag'] }}</a>
-                                                @if(isset($data['days_since']) || isset($data['last_weighed']))
-                                                    <span class="ml-2 text-yellow-600">
-                                                        <span class="font-semibold">Weight Check Needed:</span> 
-                                                        @if(isset($data['days_since']))
-                                                            Last weighed {{ $data['days_since'] }} days ago
-                                                        @elseif(isset($data['last_weighed']))
-                                                            Since {{ \Carbon\Carbon::parse($data['last_weighed'])->format('M j, Y') }}
-                                                        @endif
-                                                    </span>
-                                                @endif
-                                            @elseif(isset($data['item_name']) && $type !== 'feed_purchase_request')
-                                                {{-- Inventory Low (but not purchase requests) --}}
-                                                Inventory Low: <span class="font-medium text-red-600">{{ $data['item_name'] }}</span> (Only {{ $data['quantity'] ?? 'N/A' }} left)
-                                            @elseif(isset($data['feed_name']))
-                                                {{-- Feed Stock Notifications --}}
-                                                Feed Stock: <span class="font-medium text-orange-600">{{ $data['feed_name'] }}</span> (Stock: {{ $data['current_stock'] ?? 'N/A' }} kg)
-                                            @elseif(isset($data['body']))
-                                                {{-- Generic body text --}}
-                                                {{ $data['body'] }}
-                                            @elseif(isset($data['title']))
-                                                {{-- Fallback to title --}}
-                                                {{ $data['title'] }}
-                                            @endif
-                                        </div>
-                                    </div>
-
-                                    <!-- Actions -->
-                                    <div class="flex-shrink-0 flex items-center gap-3 ml-4">
-                                        @if(isset($data['link']))
-                                            <a href="{{ $data['link'] }}" class="px-3 py-1.5 text-xs rounded-full bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition shadow-md">
-                                                {{ $data['action_text'] ?? 'View Record' }}
-                                            </a>
-                                        @endif
-                                        
-                                        <!-- Mark Read Button -->
-                                        <form x-show="!localRead" x-on:submit.prevent="
-                                                fetch('{{ route('notifications.read', $notification->id) }}', { 
-                                                    method: 'POST', 
-                                                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-                                                })
-                                                .then(response => { if(response.ok) localRead = true; })
-                                            "
-                                            method="POST">
-                                            @csrf
-                                            <button type="submit" class="px-3 py-1.5 text-xs rounded-full bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 transition shadow-sm">
-                                                Mark Read
-                                            </button>
-                                        </form>
-
-                                        <!-- Read Status -->
-                                        <span x-show="localRead" class="px-3 py-1.5 text-xs rounded-full bg-gray-100 text-gray-500 font-medium">Read</span>
-                                    </div>
-                                </div>
-                                
-                                <!-- Timestamp -->
-                                <div class="text-xs text-gray-400 mt-2">
-                                    <span class="font-medium">Received:</span> {{ $notification->created_at->diffForHumans() }}
-                                </div>
-                            </div>
-                        </div>
-                    </li>
-                @empty
-                    <li class="p-12 text-center">
-                        <svg class="mx-auto h-10 w-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                        <h3 class="mt-2 text-lg font-semibold text-gray-900">All caught up!</h3>
-                        <p class="mt-1 text-sm text-gray-500">
-                            You have no new notifications.
-                        </p>
-                    </li>
-                @endforelse
-            </ul>
-            
-            <!-- Pagination -->
-            @if ($notifications->hasPages())
-                <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
-                    <div class="flex items-center justify-between">
-                        <div class="text-sm text-gray-600">
-                            Showing <span class="font-semibold">{{ $notifications->firstItem() }}</span> to <span class="font-semibold">{{ $notifications->lastItem() }}</span> of <span class="font-semibold">{{ $notifications->total() }}</span> results
-                        </div>
-                        <div class="flex items-center space-x-2">
-                            <x-simple-pagination :paginator="$notifications" />
-                        </div>
+            <div class="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                <div class="max-w-2xl">
+                    <div class="mb-3 flex items-center gap-3">
+                        <span class="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
+                            <x-ui-icon name="notification" class="h-6 w-6" />
+                        </span>
+                        <p class="text-xs font-bold uppercase tracking-[0.22em] text-emerald-100">Notification centre</p>
                     </div>
+                    <h1 class="text-2xl font-black tracking-tight sm:text-4xl">Updates that need your attention</h1>
+                    <p class="mt-3 max-w-xl text-sm leading-6 text-emerald-100 sm:text-base">A private activity feed for your farm and the modules you are allowed to access.</p>
                 </div>
+
+                @if($unreadCount > 0)
+                    <form action="{{ route('notifications.readAll') }}" method="POST">
+                        @csrf
+                        <button class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-emerald-900 shadow-lg transition hover:-translate-y-0.5 hover:bg-emerald-50 sm:w-auto">
+                            <i class="fa-solid fa-check-double"></i>
+                            Mark all as read
+                        </button>
+                    </form>
+                @endif
+            </div>
+
+            <div class="relative mt-7 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div class="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-emerald-100">Unread</p>
+                    <p class="mt-1 text-2xl font-black">{{ number_format($unreadCount) }}</p>
+                </div>
+                <div class="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-emerald-100">All notifications</p>
+                    <p class="mt-1 text-2xl font-black">{{ number_format($totalCount) }}</p>
+                </div>
+                <div class="rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-emerald-100">Modules on this page</p>
+                    <p class="mt-1 text-2xl font-black">{{ number_format($pageModules) }}</p>
+                </div>
+            </div>
+        </section>
+
+        <div class="mt-7 flex items-center justify-between gap-4">
+            <div>
+                <h2 class="text-lg font-extrabold text-slate-900 sm:text-xl">Recent activity</h2>
+                <p class="mt-1 text-sm text-slate-500">Newest updates appear first.</p>
+            </div>
+            @if($unreadCount === 0 && $totalCount > 0)
+                <span class="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-bold text-emerald-700">All caught up</span>
             @endif
         </div>
+
+        <div class="mt-4 space-y-3">
+            @forelse($notifications as $notification)
+                @php
+                    $data = $notification->data;
+                    $type = $data['type'] ?? class_basename($notification->type);
+                    $title = $data['title'] ?? ucfirst(str_replace(['_', '.'], ' ', $type));
+                    $message = $data['message'] ?? $data['body'] ?? null;
+                    $module = $data['module'] ?? match(true) {
+                        str_contains($type, 'weight') => 'Weight management',
+                        str_contains($type, 'gestation'), str_contains($type, 'weaning') => 'Breeding and lifecycle',
+                        str_contains($type, 'quote'), str_contains($type, 'storefront') => 'Storefront',
+                        str_contains($type, 'feed'), str_contains($type, 'purchase') => 'Feed and procurement',
+                        default => 'Farm operations',
+                    };
+                    $severity = $data['severity'] ?? $data['color'] ?? 'info';
+                    [$iconTone, $badgeTone, $icon] = match($severity) {
+                        'high', 'critical', 'red', 'error' => ['bg-red-100 text-red-700', 'bg-red-50 text-red-700 ring-red-200', 'fa-triangle-exclamation'],
+                        'medium', 'warning', 'yellow', 'orange' => ['bg-amber-100 text-amber-700', 'bg-amber-50 text-amber-700 ring-amber-200', 'fa-circle-exclamation'],
+                        'success', 'green' => ['bg-emerald-100 text-emerald-700', 'bg-emerald-50 text-emerald-700 ring-emerald-200', 'fa-circle-check'],
+                        default => ['bg-blue-100 text-blue-700', 'bg-blue-50 text-blue-700 ring-blue-200', 'fa-bell'],
+                    };
+                    $link = filled($data['link'] ?? null) ? $data['link'] : null;
+                @endphp
+
+                <article class="relative overflow-hidden rounded-2xl border bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md sm:p-5 {{ $notification->read_at ? 'border-slate-200' : 'border-emerald-200 ring-1 ring-emerald-100' }}">
+                    @if(!$notification->read_at)<span class="absolute inset-y-0 left-0 w-1 bg-emerald-500"></span>@endif
+                    <div class="flex items-start gap-3 sm:gap-4">
+                        <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl {{ $iconTone }}">
+                            <i class="fa-solid {{ $icon }}"></i>
+                        </span>
+
+                        <div class="min-w-0 flex-1">
+                            <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                <div class="min-w-0">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <h3 class="text-base font-extrabold text-slate-900">{{ $title }}</h3>
+                                        @if(!$notification->read_at)
+                                            <span class="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white">New</span>
+                                        @endif
+                                    </div>
+                                    <span class="mt-2 inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ring-inset {{ $badgeTone }}">{{ $module }}</span>
+                                </div>
+                                <div class="shrink-0 text-left sm:text-right">
+                                    <time class="block text-xs font-semibold text-slate-500" datetime="{{ $notification->created_at->toIso8601String() }}">{{ $notification->created_at->diffForHumans() }}</time>
+                                    <span class="mt-1 block text-[11px] text-slate-400">{{ $notification->created_at->format('d M Y, g:i A') }}</span>
+                                </div>
+                            </div>
+
+                            @if($message)
+                                <p class="mt-3 max-w-4xl text-sm leading-6 text-slate-600">{{ $message }}</p>
+                            @endif
+
+                            <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                                @if($link)
+                                    <a href="{{ $link }}" class="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-800">
+                                        {{ $data['action_text'] ?? 'View details' }} <i class="fa-solid fa-arrow-right text-xs"></i>
+                                    </a>
+                                @endif
+                                @if(!$notification->read_at)
+                                    <form method="POST" action="{{ route('notifications.read', $notification->id) }}">
+                                        @csrf
+                                        <button class="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50 sm:w-auto">
+                                            <i class="fa-solid fa-check text-xs"></i> Mark as read
+                                        </button>
+                                    </form>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                </article>
+            @empty
+                <div class="rounded-3xl border border-dashed border-slate-300 bg-white px-5 py-16 text-center shadow-sm">
+                    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700"><i class="fa-solid fa-check-double text-2xl"></i></div>
+                    <h3 class="mt-5 text-lg font-extrabold text-slate-800">You’re all caught up</h3>
+                    <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">Relevant farm activity, approvals and reminders will appear here when there is something to review.</p>
+                </div>
+            @endforelse
+        </div>
+
+        @if($notifications->hasPages())
+            <div class="mt-7 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">{{ $notifications->links() }}</div>
+        @endif
     </div>
 </x-app-layout>

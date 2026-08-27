@@ -38,7 +38,7 @@ class PaystackWebhookController extends Controller
         $reference = (string) $request->query('reference', '');
 
         if ($reference === '') {
-            return redirect()->route('storefront.account.orders.index')
+            return redirect()->route('storefront.home')
                 ->with('error', 'Missing payment reference.');
         }
 
@@ -52,9 +52,7 @@ class PaystackWebhookController extends Controller
         try {
             $this->paystack->verify($reference);
         } catch (PaymentException $e) {
-            $target = $order
-                ? redirect()->route('storefront.account.orders.show', $order)
-                : redirect()->route('storefront.account.orders.index');
+            $target = redirect()->to($this->orderDestination($request, $order));
 
             // CF-P1-020: this used to concatenate $e->getMessage(), which
             // HttpPaystackClient built from the raw gateway response body — so
@@ -64,10 +62,37 @@ class PaystackWebhookController extends Controller
             return $target->with('error', $e->customerMessage());
         }
 
-        return ($order
-            ? redirect()->route('storefront.account.orders.show', $order)
-            : redirect()->route('storefront.account.orders.index'))
+        $order?->refresh();
+
+        return redirect()->to($this->orderDestination($request, $order))
             ->with('success', 'Payment received. Your order is now awaiting confirmation.');
+    }
+
+    protected function orderDestination(Request $request, ?StorefrontOrder $order): string
+    {
+        if (! $order) {
+            return route('storefront.home');
+        }
+
+        if ($order->guest_claim_token) {
+            return route('storefront.order.track', [
+                'reference' => $order->reference,
+                'token' => $order->guest_claim_token,
+            ]);
+        }
+
+        $buyerId = $request->session()->get('storefront_buyer_id');
+        if ($buyerId && (int) $order->storefront_buyer_id === (int) $buyerId) {
+            return route('storefront.buyer.orders.show', $order);
+        }
+
+        if ($request->user() && (int) $order->customer_user_id === (int) $request->user()->id) {
+            return route('storefront.account.orders.show', $order);
+        }
+
+        return route('storefront.buyer.login', [
+            'email' => $order->guest_email,
+        ]);
     }
 
     /**

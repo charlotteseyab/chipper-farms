@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class CashTransfer extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, \App\Models\Concerns\BelongsToOrganization;
 
     public const STATUS_DRAFT  = 'draft';
     public const STATUS_POSTED = 'posted';

@@ -83,9 +83,7 @@
                             @endif
 
                             @if($quote->status === \App\Models\Storefront\StorefrontQuote::STATUS_QUOTED)
-                                <form method="POST" action="{{ route('storefront.admin.quotes.accept', $quote) }}" class="border-t border-slate-100 pt-3">@csrf
-                                    <button class="w-full px-3 py-2 rounded-xl bg-emerald-600 text-white text-sm">Mark accepted</button>
-                                </form>
+                                <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">The price has been sent. The buyer must accept it from their quote page.</div>
                             @endif
 
                             @if($quote->status === \App\Models\Storefront\StorefrontQuote::STATUS_ACCEPTED)

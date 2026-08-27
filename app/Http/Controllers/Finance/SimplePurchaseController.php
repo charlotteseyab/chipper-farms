@@ -76,6 +76,8 @@ class SimplePurchaseController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $organizationId = $this->currentOrganization->get()?->id;
+
         $validated = $request->validate([
             'purchase_date'              => ['required', 'date'],
             'supplier_id'                => ['nullable', 'integer', 'exists:counterparties,id'],
@@ -86,7 +88,7 @@ class SimplePurchaseController extends Controller
             ])],
             'money_account_id'           => ['nullable', 'integer',
                 Rule::exists('bank_accounts', 'id')
-                    ->where(fn ($q) => $q->where('organization_id', $orgId)
+                    ->where(fn ($q) => $q->where('organization_id', $organizationId)
                         ->where('is_active', true))],
             'payment_method_key'         => ['nullable', Rule::in(array_keys(config('expense_categories.payment_accounts')))],
             'external_reference'         => ['nullable', 'string', 'max:120'],

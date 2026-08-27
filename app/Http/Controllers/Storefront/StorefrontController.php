@@ -28,6 +28,20 @@ use Illuminate\View\View;
  */
 class StorefrontController extends Controller
 {
+    /** Public marketing homepage with the configured storefront spotlight. */
+    public function landing(): View
+    {
+        $orgId = $this->resolveOrganizationId();
+
+        return view('welcome', [
+            'pinnedListing' => $this->placementListings(
+                $orgId,
+                StorefrontPlacement::CODE_HOME_HERO,
+                1,
+            )->first(),
+        ]);
+    }
+
     public function home(): View
     {
         $orgId = $this->resolveOrganizationId();
@@ -45,7 +59,9 @@ class StorefrontController extends Controller
             'breeding_stock'  => $this->placementListings($orgId, StorefrontPlacement::CODE_BREEDING_STOCK, 4),
             'feed'            => $this->placementListings($orgId, StorefrontPlacement::CODE_FEED, 4),
             'manure'          => $this->placementListings($orgId, StorefrontPlacement::CODE_MANURE, 4),
+            'bulk_orders'     => $this->placementListings($orgId, StorefrontPlacement::CODE_BULK_ORDERS, 4),
             'new_arrivals'    => $this->placementListings($orgId, StorefrontPlacement::CODE_NEW_ARRIVALS, 4),
+            'best_sellers'    => $this->placementListings($orgId, StorefrontPlacement::CODE_BEST_SELLERS, 4),
         ];
 
         // Fallback: if no placements configured yet, surface latest published.
@@ -213,8 +229,8 @@ class StorefrontController extends Controller
         $pricing = app(\App\Storefront\Services\StorefrontPigPricingService::class);
         $lines   = app(\App\Storefront\Services\StorefrontPurchaseLineService::class);
 
-        $liveRate    = $listing->live_price_per_kg_snapshot;
-        $carcassRate = $listing->carcass_price_per_kg_snapshot;
+        $liveRate    = $pricing->effectiveLiveRate($listing);
+        $carcassRate = $pricing->effectiveCarcassRate($listing);
         $animalSearch = trim($request->string('animal_q')->toString());
 
         $animalQuery = \App\Models\Storefront\StorefrontListingPig::query()
@@ -223,12 +239,17 @@ class StorefrontController extends Controller
             ->with('pig.latestWeight')
             ->when($animalSearch !== '', function ($q) use ($animalSearch) {
                 $term = '%' . $animalSearch . '%';
+                $matchingBreedCodes = collect(\App\Models\Setting::animalBreeds())
+                    ->filter(fn (string $name, string $code) => str_contains(strtolower($name.' '.$code), strtolower($animalSearch)))
+                    ->keys()
+                    ->all();
 
-                $q->whereHas('pig', function ($pigs) use ($term) {
+                $q->whereHas('pig', function ($pigs) use ($term, $matchingBreedCodes) {
                     $pigs->where('ear_tag_number', 'like', $term)
                         ->orWhere('code', 'like', $term)
                         ->orWhere('local_id', 'like', $term)
                         ->orWhere('breed', 'like', $term)
+                        ->when($matchingBreedCodes !== [], fn ($breedQuery) => $breedQuery->orWhereIn('breed', $matchingBreedCodes))
                         ->orWhere('gender', 'like', $term)
                         ->orWhere('current_weight_kg_cache', 'like', $term)
                         ->orWhereHas('latestWeight', fn ($weights) => $weights->where('weight', 'like', $term));
@@ -240,20 +261,23 @@ class StorefrontController extends Controller
             ->paginate(8, ['*'], 'animal_page')
             ->withQueryString()
             ->fragment('live-animals')
-            ->through(function ($row) use ($pricing, $liveRate) {
+            ->through(function ($row) use ($pricing, $liveRate, $carcassRate) {
                 $pig    = $row->pig;
                 $weight = $pig === null ? null : $pricing->latestWeightKg($pig);
 
                 return [
                     'row_id'  => $row->getKey(),
                     'ear_tag' => $pig?->ear_tag_number ?: ('Pig #' . $row->pig_id),
-                    'breed'   => $pig?->breed,
+                    'breed'   => \App\Models\Setting::breedName($pig?->breed),
                     'weight'  => $weight,
                     // An animal with no weight cannot be priced, and is offered
                     // as "ask us" rather than quietly sold for nothing.
                     'price'   => $weight === null || $liveRate === null
                         ? null
                         : bcmul($weight, (string) $liveRate, 2),
+                    'carcass_price' => $weight === null || $carcassRate === null
+                        ? null
+                        : bcmul($weight, (string) $carcassRate, 2),
                 ];
             });
 
@@ -275,13 +299,15 @@ class StorefrontController extends Controller
             ->where('organization_id', $orgId)
             ->forCode($code)
             ->activeNow()
+            ->whereNotNull('listing_id')
+            ->whereHas('listing', fn ($query) => $query
+                ->visible()
+                ->whereIn('kind', StorefrontCatalog::enabledKinds($orgId)))
             ->with(['listing.media'])
             ->limit($limit)
             ->get()
             ->map(fn (StorefrontPlacement $p) => $p->listing)
-            ->filter(fn ($l) => $l
-                && $l->status === StorefrontListing::STATUS_PUBLISHED
-                && StorefrontCatalog::isKindEnabled($l->kind, $orgId))
+            ->filter()
             ->values();
     }
 

@@ -6,6 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 
 class Litter extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganizationThroughRelation;
+
+    protected static function organizationRelation(): string
+    {
+        return 'sow';
+    }
+
     protected $fillable = [
         'sow_id',
         'farrowing_date',

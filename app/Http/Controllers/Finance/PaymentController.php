@@ -10,6 +10,7 @@ use App\Models\Finance\PaymentAllocation;
 use App\Models\Finance\PaymentRun;
 use App\Models\Finance\VendorInvoice;
 use App\Models\PaymentMethod;
+use App\Models\PurchaseRequest;
 use App\Services\Finance\Cash\MoneyAccountService;
 use App\Services\Finance\JournalReversalService;
 use App\Services\Finance\Payments\PaymentAllocationService;
@@ -143,6 +144,17 @@ class PaymentController extends Controller
         // Optional preselect from query.
         $preselectSupplierId = $request->get('supplier_id');
         $preselectVendorInvoice = null;
+        $preselectPurchaseRequest = null;
+        if ($request->filled('purchase_request_id')) {
+            $candidate = PurchaseRequest::query()
+                ->when($orgId, fn ($q) => $q->where('organization_id', $orgId))
+                ->whereIn('status', ['approved', 'paid'])
+                ->find($request->integer('purchase_request_id'));
+            if ($candidate) {
+                $preselectPurchaseRequest = $candidate;
+                $preselectSupplierId = $candidate->supplier_id;
+            }
+        }
         if ($request->filled('vendor_invoice_id')) {
             $vi = VendorInvoice::find($request->get('vendor_invoice_id'));
             if ($vi && $vi->organization_id == $orgId && $vi->isPosted()) {
@@ -154,6 +166,7 @@ class PaymentController extends Controller
         return view('finance.payments.create', compact(
             'suppliers', 'methods', 'moneyAccounts',
             'preselectSupplierId', 'preselectVendorInvoice'
+            , 'preselectPurchaseRequest'
         ));
     }
 
@@ -182,7 +195,16 @@ class PaymentController extends Controller
                 Rule::exists('vendor_invoices', 'id')
                     ->where(fn ($q) => $q->where('organization_id', $orgId))],
             'allocation_amount'  => ['nullable', 'numeric', 'gt:0'],
+            'purchase_request_id'=> ['nullable', 'integer', Rule::exists('purchase_requests', 'id')->where(fn ($q) => $q->where('organization_id', $orgId))],
+            'purchase_payment_stage' => ['nullable', Rule::in(['advance', 'deposit', 'balance', 'full'])],
         ]);
+
+        $purchaseRequest = ! empty($validated['purchase_request_id'])
+            ? PurchaseRequest::findOrFail($validated['purchase_request_id'])
+            : null;
+        if ($purchaseRequest && (int) $purchaseRequest->supplier_id !== (int) $validated['counterparty_id']) {
+            return back()->withInput()->with('error', 'The payment supplier must match the purchase request supplier.');
+        }
 
         $supplier = Counterparty::findOrFail($validated['counterparty_id']);
         $moneyAccounts = app(MoneyAccountService::class);
@@ -216,6 +238,8 @@ class PaymentController extends Controller
                     'external_reference' => $validated['external_reference'] ?? null,
                     'description'        => $validated['description'] ?? null,
                     'notes'              => $validated['notes'] ?? null,
+                    'purchase_request_id'=> $purchaseRequest?->id,
+                    'purchase_payment_stage' => $validated['purchase_payment_stage'] ?? null,
                 ],
             );
 
@@ -254,7 +278,13 @@ class PaymentController extends Controller
             return back()->withInput()->with('error', $e->getMessage());
         }
 
-        return redirect()
+        if ($purchaseRequest) {
+            $purchaseRequest->syncPaymentProgressFromFinance();
+        }
+
+        return $purchaseRequest
+            ? redirect()->route('purchase-requests.show', $purchaseRequest)->with('success', "Payment {$payment->payment_number} posted and linked to {$purchaseRequest->request_no}.")
+            : redirect()
             ->route('finance.payments.show', $payment)
             ->with('success', "Payment {$payment->payment_number} posted.");
     }
@@ -369,6 +399,9 @@ class PaymentController extends Controller
                     'reversed_by_journal_batch_id' => $reversalBatch->id,
                 ]);
             });
+
+            $payment->purchaseRequest?->syncPaymentProgressFromFinance();
+
             return back()->with('success', "Payment {$payment->payment_number} reversed.");
         } catch (\DomainException | \App\Finance\Exceptions\PostingException $e) {
             return back()->with('error', $e->getMessage());

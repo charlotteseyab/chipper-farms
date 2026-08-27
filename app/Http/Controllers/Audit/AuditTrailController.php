@@ -16,11 +16,15 @@ class AuditTrailController extends Controller
     {
         $this->authorizeAccess($request);
 
-        $activeTab = $request->query('tab') === 'archived' ? 'archived' : 'activity';
+        $canViewArchives = $request->user()->isSuperuser()
+            || $request->user()->isAdmin()
+            || $request->user()->isManager();
+        $activeTab = $canViewArchives && $request->query('tab') === 'archived' ? 'archived' : 'activity';
         $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
 
         return view('audit-trail.index', [
             'activeTab' => $activeTab,
+            'canViewArchives' => $canViewArchives,
             'logs' => $this->auditLogs($request),
             'summary' => $this->summary($request),
             'modules' => $this->modules(),
@@ -37,7 +41,10 @@ class AuditTrailController extends Controller
     {
         $user = $request->user();
 
-        abort_unless($user && ($user->isAdmin() || $user->isManager() || $user->isSuperuser()), 403);
+        abort_unless(
+            $user && ($user->isSuperuser() || ($user->organization_id && ! $user->hasRoleName('customer'))),
+            403,
+        );
     }
 
     protected function auditLogs(Request $request)
@@ -45,12 +52,7 @@ class AuditTrailController extends Controller
         $query = ActivityLog::with('user')->latest();
         $user = $request->user();
 
-        if (! $user->isSuperuser() && $user->organization_id) {
-            $query->where(function ($q) use ($user) {
-                $q->whereNull('organization_id')
-                    ->orWhere('organization_id', $user->organization_id);
-            });
-        }
+        $this->scopeActivityForViewer($query, $user);
 
         if ($request->filled('q')) {
             $search = trim((string) $request->query('q'));
@@ -74,7 +76,7 @@ class AuditTrailController extends Controller
             $query->where('action', $request->query('action'));
         }
 
-        if ($request->filled('user_id')) {
+        if ($request->filled('user_id') && ($user->isSuperuser() || $user->isAdmin())) {
             $query->where('user_id', $request->integer('user_id'));
         }
 
@@ -94,12 +96,7 @@ class AuditTrailController extends Controller
         $base = ActivityLog::query();
         $user = $request->user();
 
-        if (! $user->isSuperuser() && $user->organization_id) {
-            $base->where(function ($q) use ($user) {
-                $q->whereNull('organization_id')
-                    ->orWhere('organization_id', $user->organization_id);
-            });
-        }
+        $this->scopeActivityForViewer($base, $user);
 
         return [
             'today' => (clone $base)->whereDate('created_at', today())->count(),
@@ -153,6 +150,12 @@ class AuditTrailController extends Controller
 
     protected function users(Request $request)
     {
+        if (! $request->user()->isSuperuser() && ! $request->user()->isAdmin()) {
+            return User::query()
+                ->whereKey($request->user()->id)
+                ->get(['id', 'name', 'email']);
+        }
+
         $query = User::query()->orderBy('name');
 
         if (! $request->user()->isSuperuser() && $request->user()->organization_id) {
@@ -160,6 +163,23 @@ class AuditTrailController extends Controller
         }
 
         return $query->get(['id', 'name', 'email']);
+    }
+
+    protected function scopeActivityForViewer($query, User $user): void
+    {
+        if ($user->isSuperuser()) {
+            return;
+        }
+
+        // Farm administrators oversee the complete audit history for their
+        // own organization. Every other staff role sees only actions performed
+        // by that individual account. Organization-less legacy/platform rows
+        // are never exposed to a farm user.
+        $query->where('organization_id', $user->organization_id);
+
+        if (! $user->isAdmin()) {
+            $query->where('user_id', $user->id);
+        }
     }
 
     protected function modules(): array

@@ -46,10 +46,12 @@
                    class="pb-3 text-sm font-semibold border-b-2 {{ $activeTab === 'activity' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
                     All Activity
                 </a>
-                <a href="{{ route('audit-trail.index', array_merge(request()->except(['tab', 'audit_page']), ['tab' => 'archived'])) }}"
-                   class="pb-3 text-sm font-semibold border-b-2 {{ $activeTab === 'archived' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
-                    Archived Records
-                </a>
+                @if($canViewArchives)
+                    <a href="{{ route('audit-trail.index', array_merge(request()->except(['tab', 'audit_page']), ['tab' => 'archived'])) }}"
+                       class="pb-3 text-sm font-semibold border-b-2 {{ $activeTab === 'archived' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
+                        Archived Records
+                    </a>
+                @endif
             </nav>
         </div>
 

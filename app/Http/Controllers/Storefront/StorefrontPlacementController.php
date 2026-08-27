@@ -8,6 +8,7 @@ use App\Models\Storefront\StorefrontPlacement;
 use App\Support\CurrentOrganization;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Illuminate\Validation\Rule;
 
@@ -33,16 +34,18 @@ class StorefrontPlacementController extends Controller
             ->get()
             ->groupBy('code');
 
-        // Listings eligible to be pinned (published).
+        // Only listings that a guest can see right now are eligible.
         $publishedListings = StorefrontListing::query()
             ->where('organization_id', $orgId)
-            ->published()
+            ->visible()
             ->orderBy('title')
-            ->get(['id', 'title', 'reference', 'kind']);
+            ->get(['id', 'title', 'reference', 'kind', 'sale_mode']);
 
         return view('storefront.admin.placements.index', [
             'placements'        => $placements,
             'codes'             => StorefrontPlacement::CODES,
+            'labels'            => StorefrontPlacement::LABELS,
+            'descriptions'      => StorefrontPlacement::DESCRIPTIONS,
             'publishedListings' => $publishedListings,
         ]);
     }
@@ -68,21 +71,49 @@ class StorefrontPlacementController extends Controller
             return back()->with('error', 'Listing not found in your organization.');
         }
 
-        if ($listing->status !== StorefrontListing::STATUS_PUBLISHED) {
-            return back()->with('error', 'Only published listings can be featured.');
+        if (! StorefrontListing::query()->whereKey($listing->id)->visible()->exists()) {
+            return back()->with('error', 'Only currently visible listings can be placed on the homepage. Check its status, sale mode, and availability dates.');
         }
 
-        StorefrontPlacement::create([
-            'organization_id'    => $orgId,
-            'code'               => $validated['code'],
-            'listing_id'         => $listing->id,
-            'position'           => $validated['position'] ?? 0,
-            'is_active'          => true,
-            'note'               => $validated['note'] ?? null,
-            'created_by_user_id' => $request->user()->id,
-        ]);
+        $duplicate = StorefrontPlacement::query()
+            ->where('organization_id', $orgId)
+            ->where('code', $validated['code'])
+            ->where('listing_id', $listing->id)
+            ->exists();
 
-        return back()->with('success', "Listing {$listing->reference} pinned to {$validated['code']}.");
+        if ($duplicate) {
+            return back()->with('error', 'That listing is already pinned in the selected homepage section.');
+        }
+
+        DB::transaction(function () use ($orgId, $validated, $listing, $request): void {
+            if ($validated['code'] === StorefrontPlacement::CODE_HOME_HERO) {
+                StorefrontPlacement::query()
+                    ->where('organization_id', $orgId)
+                    ->where('code', StorefrontPlacement::CODE_HOME_HERO)
+                    ->whereNotNull('listing_id')
+                    ->delete();
+            }
+
+            $position = array_key_exists('position', $validated) && $validated['position'] !== null
+                ? (int) $validated['position']
+                : (int) StorefrontPlacement::query()
+                    ->where('organization_id', $orgId)
+                    ->where('code', $validated['code'])
+                    ->whereNotNull('listing_id')
+                    ->max('position') + 1;
+
+            StorefrontPlacement::create([
+                'organization_id'    => $orgId,
+                'code'               => $validated['code'],
+                'listing_id'         => $listing->id,
+                'position'           => $validated['code'] === StorefrontPlacement::CODE_HOME_HERO ? 0 : $position,
+                'is_active'          => true,
+                'note'               => $validated['note'] ?? null,
+                'created_by_user_id' => $request->user()->id,
+            ]);
+        });
+
+        return back()->with('success', "{$listing->title} is now pinned to " . StorefrontPlacement::LABELS[$validated['code']] . '.');
     }
 
     public function destroy(StorefrontPlacement $placement): RedirectResponse

@@ -125,13 +125,15 @@
 
         .su-range-wrap{
             display: inline-flex;
+            max-width: 100%;
             border-radius: 14px;
             border: 1px solid #e2e8f0;
             background: #f8fafc;
-            overflow: hidden;
+            overflow-x: auto;
         }
 
         .su-range-btn{
+            flex: 0 0 auto;
             padding: 9px 12px;
             font-size: .76rem;
             font-weight: 700;
@@ -340,6 +342,7 @@
             border-radius: 22px;
             box-shadow: 0 8px 22px rgba(15,23,42,.04);
             overflow: hidden;
+            min-width: 0;
         }
 
         .su-chart-head{
@@ -361,14 +364,25 @@
 
         .su-chart-body{
             padding: 0 20px 20px;
+            min-width: 0;
         }
 
         .su-chart-shell{
             height: 320px;
+            position: relative;
+            width: 100%;
+            min-width: 0;
             border-radius: 18px;
             background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
             border: 1px solid #eef2f7;
             padding: 12px;
+        }
+
+        .su-chart-shell canvas{
+            display:block;
+            width:100% !important;
+            height:100% !important;
+            max-width:100%;
         }
 
         .su-section{
@@ -521,6 +535,7 @@
             font-weight: 900;
             color: #0f172a;
             line-height: 1;
+            overflow-wrap: anywhere;
         }
 
         .su-main-grid{
@@ -676,6 +691,7 @@
         .su-risk-grid{
             display: grid;
             gap: 8px;
+            overflow-x: auto;
         }
 
         .su-risk-row{
@@ -793,6 +809,10 @@
             font-weight: 700;
         }
 
+        .su-user-hero-inner > *{ min-width:0; }
+        .su-user-hero-inner p,
+        .su-user-hero-inner h2{ overflow-wrap:anywhere; }
+
         @media (max-width: 1280px){
             .su-kpi-grid,
             .su-user-kpi-grid{
@@ -828,6 +848,21 @@
                 padding: 20px;
             }
 
+            .su-filter{ padding:16px; }
+            .su-filter-row,
+            .su-filter-group,
+            .su-custom-controls{ width:100%; }
+            .su-filter-group{ align-items:stretch !important; }
+            .su-filter-group .su-select{ min-width:0 !important; }
+            .su-range-wrap{ display:flex; width:100%; }
+            .su-chart-shell{ height:280px; padding:8px; }
+            .su-info-head,
+            .su-chart-head{ padding-left:16px; padding-right:16px; }
+            .su-info-body,
+            .su-chart-body{ padding-left:16px; padding-right:16px; padding-bottom:16px; }
+            .su-user-hero-inner{ align-items:flex-start !important; }
+            .su-user-hero-inner .text-right{ width:100%; text-align:left; }
+
             .su-risk-row{
                 grid-template-columns: 1fr repeat(4, minmax(46px, 1fr));
             }
@@ -838,6 +873,21 @@
             .su-user-kpi-grid{
                 grid-template-columns: 1fr;
             }
+
+            .su-panel,
+            .su-info-card,
+            .su-chart-card,
+            .su-table-card,
+            .su-detail-card{ border-radius:18px; }
+            .su-custom-controls{ flex-direction:column; align-items:stretch !important; }
+            .su-custom-controls > *{ width:100%; }
+            .su-custom-controls > span{ width:auto; text-align:center; }
+            .su-export-actions{ display:grid !important; grid-template-columns:1fr 1fr; width:100%; }
+            .su-command-metric{ padding:12px; }
+            .su-command-metric strong{ font-size:1rem; }
+            .su-risk-row{ min-width:320px; grid-template-columns:104px repeat(4, minmax(42px,1fr)); }
+            .su-weight-alert{ flex-wrap:wrap; }
+            .su-chart-shell{ height:250px; }
         }
     </style>
 
@@ -864,8 +914,8 @@
             <div class="su-panel su-filter">
                 <div class="su-filter-title">Dashboard Filters</div>
                 <form method="GET" action="{{ route('superuser.dashboard') }}" id="dashboardFilterForm" class="flex flex-col gap-4">
-                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                        <div class="flex items-center gap-3 flex-wrap">
+                    <div class="su-filter-row flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div class="su-filter-group flex items-center gap-3 flex-wrap">
                             <span class="su-soft-label">Timeframe</span>
                             @php
                                 $currentRange = $range ?? 'all';
@@ -890,7 +940,7 @@
                             <input type="hidden" name="range" id="rangeInput" value="{{ $currentRange }}">
                         </div>
 
-                        <div class="flex items-center gap-3 flex-wrap">
+                        <div class="su-filter-group flex items-center gap-3 flex-wrap">
                             <span class="su-soft-label">View as</span>
                             <select
                                 id="user_id"
@@ -914,7 +964,7 @@
 
                     <div class="flex items-center gap-3 flex-wrap border-t border-gray-200 pt-3" id="customDateRange" style="display: {{ $currentRange === 'custom' ? 'flex' : 'none' }};">
                         <span class="su-soft-label">Custom Range</span>
-                        <div class="flex items-center gap-2 flex-wrap">
+                        <div class="su-custom-controls flex items-center gap-2 flex-wrap">
                             <input
                                 type="date"
                                 name="start_date"
@@ -956,7 +1006,7 @@
                             <h3 class="text-sm font-semibold text-gray-900">System Snapshot</h3>
                             <p class="text-xs text-gray-500 mt-1">Export the current superuser view using the selected filters.</p>
                         </div>
-                        <div class="flex gap-2 flex-wrap">
+                        <div class="su-export-actions flex gap-2 flex-wrap">
                             <a href="{{ route('superuser.dashboard.export.pdf', request()->query()) }}"
                                class="su-btn su-btn-red flex items-center gap-2">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1418,7 +1468,7 @@
                     @php $fm = $userFarmMetrics; @endphp
 
                     <div class="su-user-hero">
-                        <div class="flex items-center justify-between gap-4 flex-wrap">
+                        <div class="su-user-hero-inner flex items-center justify-between gap-4 flex-wrap">
                             <div>
                                 <h2 class="text-2xl font-bold">{{ $fm['workspace']->name }}</h2>
                                 <p class="text-emerald-100 mt-1">Workspace Code: {{ $fm['workspace']->code }}</p>
@@ -1716,6 +1766,15 @@
     @if(!empty($financialTrends) && !empty($workspaceRevenueComparison))
         <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
         <script>
+            const compactChartLayout = window.matchMedia('(max-width: 640px)').matches;
+            const compactMoney = (value) => {
+                const amount = Number(value) || 0;
+                return '₵' + new Intl.NumberFormat('en-GH', {
+                    notation: compactChartLayout ? 'compact' : 'standard',
+                    maximumFractionDigits: compactChartLayout ? 1 : 0,
+                }).format(amount);
+            };
+
             const revenueCtx = document.getElementById('revenueTrendChart');
             if (revenueCtx) {
                 const revenueData = @json($financialTrends['revenue_by_month']);
@@ -1758,10 +1817,25 @@
                     },
                     options: {
                         responsive: true,
-                        maintainAspectRatio: true,
+                        maintainAspectRatio: false,
+                        resizeDelay: 120,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        layout: {
+                            padding: compactChartLayout ? 2 : 8,
+                        },
                         plugins: {
                             legend: {
                                 position: 'top',
+                                align: 'start',
+                                labels: {
+                                    boxWidth: compactChartLayout ? 10 : 16,
+                                    boxHeight: compactChartLayout ? 10 : 12,
+                                    padding: compactChartLayout ? 10 : 16,
+                                    font: { size: compactChartLayout ? 10 : 12 },
+                                },
                             },
                             tooltip: {
                                 callbacks: {
@@ -1775,10 +1849,25 @@
                             y: {
                                 beginAtZero: true,
                                 ticks: {
+                                    maxTicksLimit: compactChartLayout ? 5 : 7,
+                                    font: { size: compactChartLayout ? 10 : 12 },
                                     callback: function(value) {
-                                        return '₵' + value.toLocaleString();
+                                        return compactMoney(value);
                                     }
+                                },
+                                grid: {
+                                    color: 'rgba(148, 163, 184, 0.16)',
                                 }
+                            },
+                            x: {
+                                ticks: {
+                                    autoSkip: true,
+                                    maxTicksLimit: compactChartLayout ? 4 : 8,
+                                    maxRotation: 0,
+                                    minRotation: 0,
+                                    font: { size: compactChartLayout ? 10 : 12 },
+                                },
+                                grid: { display: false },
                             }
                         }
                     }
@@ -1791,6 +1880,10 @@
 
                 const workspaceNames = workspaceData.map(w => w.workspace_name);
                 const revenues = workspaceData.map(w => parseFloat(w.revenue) || 0);
+
+                if (compactChartLayout && workspaceCtx.parentElement) {
+                    workspaceCtx.parentElement.style.height = Math.min(520, Math.max(250, workspaceNames.length * 44 + 56)) + 'px';
+                }
 
                 new Chart(workspaceCtx, {
                     type: 'bar',
@@ -1805,8 +1898,13 @@
                         }]
                     },
                     options: {
+                        indexAxis: compactChartLayout ? 'y' : 'x',
                         responsive: true,
-                        maintainAspectRatio: true,
+                        maintainAspectRatio: false,
+                        resizeDelay: 120,
+                        layout: {
+                            padding: compactChartLayout ? 2 : 8,
+                        },
                         plugins: {
                             legend: {
                                 display: false
@@ -1814,19 +1912,50 @@
                             tooltip: {
                                 callbacks: {
                                     label: function(context) {
-                                        return 'Revenue: ₵' + context.parsed.y.toLocaleString();
+                                        const value = compactChartLayout ? context.parsed.x : context.parsed.y;
+                                        return 'Revenue: ₵' + Number(value).toLocaleString();
                                     }
                                 }
                             }
                         },
                         scales: {
-                            y: {
+                            x: {
                                 beginAtZero: true,
                                 ticks: {
+                                    autoSkip: true,
+                                    maxTicksLimit: compactChartLayout ? 4 : 7,
+                                    maxRotation: compactChartLayout ? 0 : 35,
+                                    minRotation: 0,
+                                    font: { size: compactChartLayout ? 10 : 12 },
                                     callback: function(value) {
-                                        return '₵' + value.toLocaleString();
+                                        if (compactChartLayout) {
+                                            return compactMoney(value);
+                                        }
+
+                                        const label = this.getLabelForValue(value);
+                                        return label.length > 16 ? label.slice(0, 15) + '…' : label;
                                     }
+                                },
+                                grid: {
+                                    display: compactChartLayout,
+                                    color: 'rgba(148, 163, 184, 0.16)',
                                 }
+                            },
+                            y: {
+                                beginAtZero: !compactChartLayout,
+                                ticks: {
+                                    autoSkip: false,
+                                    font: { size: compactChartLayout ? 10 : 12 },
+                                    callback: function(value) {
+                                        if (!compactChartLayout) return compactMoney(value);
+                                        const label = this.getLabelForValue(value);
+                                        return label.length > 13 ? label.slice(0, 12) + '…' : label;
+                                    }
+                                },
+                                grid: {
+                                    display: !compactChartLayout,
+                                    color: 'rgba(148, 163, 184, 0.16)',
+                                },
                             }
                         }
                     }

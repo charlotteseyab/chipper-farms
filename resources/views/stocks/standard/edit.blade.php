@@ -19,7 +19,11 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Breed</label>
-                            <input type="text" name="breed" value="{{ old('breed', $pig->breed) }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600" required>
+                            <select name="breed" data-searchable-select class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600" required>
+                                @foreach($animalBreeds as $code => $name)
+                                    <option value="{{ $code }}" @selected(old('breed', $pig->breed) === $code)>{{ $name }} ({{ $code }})</option>
+                                @endforeach
+                            </select>
                             @error('breed') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>
@@ -92,4 +96,3 @@
     </main>
     <xopyright-minimal />
 </x-app-layout>
-

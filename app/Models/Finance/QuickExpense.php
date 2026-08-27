@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class QuickExpense extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, \App\Models\Concerns\BelongsToOrganization;
 
     public const SETTLEMENT_PAID_NOW  = 'paid_now';
     public const SETTLEMENT_PAY_LATER = 'pay_later';

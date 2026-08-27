@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class FiscalPeriod extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Models\Concerns\BelongsToOrganization;
 
     public const STATUS_OPEN   = 'open';
     public const STATUS_CLOSED = 'closed';

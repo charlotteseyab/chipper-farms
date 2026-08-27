@@ -102,9 +102,9 @@ class RecordPigSaleService
 
             if (! $explicitPrice) {
                 if (($data['weight_type'] ?? null) === 'live') {
-                    $data['price_per_kg'] = (float) Setting::get('sales.pricing.live_weight_price', 30.00);
+                    $data['price_per_kg'] = (float) Setting::get('sales.pricing.live_weight_price', 0);
                 } elseif (($data['weight_type'] ?? null) === 'carcass') {
-                    $data['price_per_kg'] = (float) Setting::get('sales.pricing.carcass_weight_price', 50.00);
+                    $data['price_per_kg'] = (float) Setting::get('sales.pricing.carcass_weight_price', 0);
                 }
             }
             unset($data['price_source']);

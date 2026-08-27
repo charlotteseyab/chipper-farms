@@ -11,7 +11,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/favicon.svg">
 
     <link rel="preconnect" href="https://fonts.bunny.net">
-    <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.bunny.net/css?family=outfit:300,400,500,600,700,800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -160,7 +160,7 @@
                 @include('navigation-menu', ['user' => $user, 'searchItems' => $searchItems])
             @endif
 
-            <div class="px-4 pb-8 {{ $user ? 'pt-24 sm:px-6 lg:px-8' : 'pt-8' }}">
+            <div class="flex min-h-screen flex-col px-4 {{ $user ? 'pt-24 sm:px-6 lg:px-8' : 'pt-8' }}" style="padding-bottom: var(--app-footer-clearance, 7rem);">
                 @if (isset($header))
                     <header class="mb-5 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm sm:px-6">
                         {{ $header }}
@@ -169,7 +169,14 @@
 
                 @include('layouts.partials.flash-messages')
 
-                <main>
+                @if($user?->isSuperuser() && request()->routeIs('settings.*'))
+                    <div class="mb-5 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 shadow-sm">
+                        <p class="font-bold">Platform settings mode</p>
+                        <p class="mt-1">You are not inside a farm. Shared settings changed here become defaults for all organizations; organization-specific controls are identified on their page.</p>
+                    </div>
+                @endif
+
+                <main class="flex-1">
                     {{ $slot }}
                 </main>
 
@@ -192,6 +199,20 @@
             const navSearchItems = Array.from(document.querySelectorAll('[data-nav-search-item]'));
             const sectionEls = Array.from(document.querySelectorAll('[data-sidebar-section]'));
             const emptyState = document.getElementById('sidebarSearchEmptyState');
+            const appFooter = document.getElementById('appFooter');
+
+            const reserveFooterSpace = () => {
+                if (!appFooter) return;
+                const clearance = Math.ceil(appFooter.getBoundingClientRect().height + 32);
+                document.documentElement.style.setProperty('--app-footer-clearance', `${clearance}px`);
+            };
+
+            reserveFooterSpace();
+            window.addEventListener('resize', reserveFooterSpace);
+
+            if (appFooter && 'ResizeObserver' in window) {
+                new ResizeObserver(reserveFooterSpace).observe(appFooter);
+            }
 
             const openSidebar = () => {
                 if (!sidebar || !overlay) return;
@@ -353,16 +374,6 @@
             });
 
             closeNotificationDropdown();
-
-            document.querySelectorAll('[data-flash-dismiss]').forEach((button) => {
-                button.addEventListener('click', () => {
-                    button.closest('[data-flash-item]')?.remove();
-                });
-            });
-
-            document.querySelectorAll('[data-flash-item][data-auto-dismiss="true"]').forEach((item) => {
-                window.setTimeout(() => item.remove(), 5000);
-            });
 
             updateClock();
             window.setInterval(updateClock, 30000);

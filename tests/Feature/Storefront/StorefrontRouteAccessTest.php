@@ -32,6 +32,18 @@ class StorefrontRouteAccessTest extends StorefrontTestCase
         $this->get(route('storefront.home'))->assertOk();
     }
 
+    public function test_public_website_navbar_links_guests_to_the_storefront(): void
+    {
+        $this->withoutVite();
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('Storefront')
+            ->assertSee('Open navigation menu')
+            ->assertSee('Mobile navigation')
+            ->assertSee('href="'.route('storefront.home').'"', false);
+    }
+
     public function test_public_shop_is_reachable_without_auth(): void
     {
         $this->get(route('storefront.shop'))->assertOk();

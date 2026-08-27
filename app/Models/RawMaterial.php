@@ -28,7 +28,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class RawMaterial extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganization;
+
     protected $fillable = [
+        'organization_id',
         'name',
         'category',
         'unit',
@@ -100,6 +103,26 @@ class RawMaterial extends Model
         }
 
         // Fallback uses legacy fields.
+        return (float) $this->quantity_in_stock * (float) $this->unit_cost;
+    }
+
+    /** Consistent presentation status used by the inventory table and filters. */
+    public function getStockStatusAttribute(): string
+    {
+        $quantity = (float) $this->quantity_in_stock;
+
+        if ($quantity <= 0) {
+            return 'out_of_stock';
+        }
+
+        return $quantity <= (float) $this->reorder_level
+            ? 'low_stock'
+            : 'in_stock';
+    }
+
+    /** Legacy-column value displayed beside the same quantity used by the cards. */
+    public function getStockValueAttribute(): float
+    {
         return (float) $this->quantity_in_stock * (float) $this->unit_cost;
     }
 }

@@ -5,9 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Concerns\BelongsToOrganizationThroughRelation;
 class HealthRecord extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToOrganizationThroughRelation;
+
+    protected static function organizationRelation(): string
+    {
+        return 'pig';
+    }
 
     protected $fillable = [
         'pig_id',
@@ -39,5 +45,4 @@ class HealthRecord extends Model
         return $this->belongsTo(User::class, 'recorded_by');
     }
 }
-
 

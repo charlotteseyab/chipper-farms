@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class OrganizationFeatureFlag extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganization;
+
     protected $table = 'organization_feature_flags';
 
     protected $fillable = [

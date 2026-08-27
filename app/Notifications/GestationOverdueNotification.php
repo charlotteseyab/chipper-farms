@@ -16,7 +16,7 @@ class GestationOverdueNotification extends Notification implements ShouldQueue
 
     public function via($notifiable): array
     {
-        return ['database'];
+        return ['database', \App\Notifications\Channels\TemplateMailChannel::class];
     }
 
     public function toDatabase($notifiable): array
@@ -34,5 +34,4 @@ class GestationOverdueNotification extends Notification implements ShouldQueue
         ];
     }
 }
-
 

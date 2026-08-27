@@ -14,6 +14,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class PeriodCloseCheck extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganizationThroughRelation;
+
+    protected static function organizationRelation(): string
+    {
+        return 'run';
+    }
+
     public const STATUS_PASS       = 'pass';
     public const STATUS_FAIL       = 'fail';
     public const STATUS_OVERRIDDEN = 'overridden';

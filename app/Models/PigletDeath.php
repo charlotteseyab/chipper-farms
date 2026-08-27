@@ -5,10 +5,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Concerns\BelongsToOrganizationThroughRelation;
 
 class PigletDeath extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, BelongsToOrganizationThroughRelation;
+
+    protected static function organizationRelation(): string
+    {
+        return 'farrowing.sow';
+    }
     protected $fillable = [
         'farrowing_id',
         'death_date',

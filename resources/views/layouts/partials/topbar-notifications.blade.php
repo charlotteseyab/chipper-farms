@@ -1,26 +1,25 @@
 @php
-    $isSuperuser = $user && $user->isSuperuser();
-
-    if ($isSuperuser) {
-        $unreadStoredCount = \Illuminate\Notifications\DatabaseNotification::whereNull('read_at')->count();
-        $recentNotifications = \Illuminate\Notifications\DatabaseNotification::latest()->limit(7)->get();
-    } else {
-        $unreadStoredCount = $user ? $user->unreadNotifications()->count() : 0;
-        $recentNotifications = $user ? $user->notifications()->latest()->limit(7)->get() : collect();
-    }
+    $unreadStoredCount = $user ? $user->unreadNotifications()->count() : 0;
+    $recentNotifications = $user ? $user->notifications()->latest()->limit(7)->get() : collect();
 
     try {
         $realTimeAlerts = \App\Services\RealTimeNotificationService::getAllAlerts();
-        $realTimeAlertCount = \App\Services\RealTimeNotificationService::getTotalAlertCount();
         $allAlertItems = collect();
+        $allowedGroups = collect([
+            'weight' => ['view_weights'],
+            'gestation' => ['view_gestation'],
+            'ingredient' => ['view_raw_materials', 'view_inventory_value'],
+        ])->filter(fn ($permissions) => $user && ($user->isSuperuser() || $user->isAdmin() || collect($permissions)->contains(fn ($permission) => $user->hasPermission($permission))))->keys();
 
-        foreach ($realTimeAlerts as $data) {
+        foreach ($realTimeAlerts as $group => $data) {
+            if (! $allowedGroups->contains($group)) continue;
             foreach (($data['alerts'] ?? []) as $alert) {
                 $allAlertItems->push($alert);
             }
         }
 
         $allAlertItems = $allAlertItems->sortByDesc(fn ($alert) => $alert['severity'] === 'high' ? 2 : ($alert['severity'] === 'medium' ? 1 : 0));
+        $realTimeAlertCount = $allAlertItems->sum(fn ($alert) => (int) ($alert['count'] ?? 1));
     } catch (\Throwable $e) {
         $realTimeAlertCount = 0;
         $allAlertItems = collect();
@@ -28,6 +27,66 @@
 
     $totalNotificationCount = $unreadStoredCount + $realTimeAlertCount;
 @endphp
+
+<style>
+    #notificationDropdownPanel{
+        z-index:60;
+    }
+
+    #notificationDropdownPanel:not(.hidden){
+        display:flex;
+        flex-direction:column;
+    }
+
+    .notification-dropdown-scroll{
+        min-height:0;
+    }
+
+    @media (max-width: 640px){
+        #notificationDropdownPanel{
+            position:fixed !important;
+            top:6.75rem !important;
+            right:12px !important;
+            left:12px !important;
+            width:auto !important;
+            max-width:none !important;
+            max-height:calc(100dvh - 7.5rem);
+            margin-top:0 !important;
+            border-radius:20px;
+        }
+
+        .notification-dropdown-head{
+            align-items:flex-start !important;
+            gap:12px;
+        }
+
+        .notification-dropdown-head > div{
+            min-width:0;
+        }
+
+        .notification-dropdown-head p{
+            overflow-wrap:anywhere;
+        }
+
+        .notification-dropdown-scroll{
+            flex:1 1 auto;
+            max-height:none !important;
+            overflow-y:auto;
+            overscroll-behavior:contain;
+        }
+    }
+
+    @media (max-width: 380px){
+        #notificationDropdownPanel{
+            right:8px !important;
+            left:8px !important;
+        }
+
+        .notification-dropdown-head{
+            flex-direction:column;
+        }
+    }
+</style>
 
 <div id="notificationDropdown" data-open="false" class="relative">
     <button
@@ -46,7 +105,7 @@
     </button>
 
     <div id="notificationDropdownPanel" class="absolute right-0 mt-3 hidden w-[22rem] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
-        <div class="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-3">
+        <div class="notification-dropdown-head flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-3">
             <div>
                 <p class="text-sm font-semibold text-slate-900">Notifications</p>
                 <p class="text-xs text-slate-500">Stored alerts and real-time farm reminders.</p>
@@ -59,7 +118,7 @@
             @endif
         </div>
 
-        <div class="max-h-96 overflow-y-auto">
+        <div class="notification-dropdown-scroll max-h-96 overflow-y-auto">
             @if($allAlertItems->isNotEmpty())
                 <div class="border-b border-slate-100 px-4 py-3">
                     <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Real-time alerts</p>

@@ -9,9 +9,17 @@ use App\Helpers\BreedingCalculator;
 use App\Models\User; // Added for relationship consistency
 use App\Models\PigManagement; // Added for relationship consistency
 use App\Models\Concerns\ResolvesOrganization;
+use App\Models\Concerns\BelongsToOrganizationThroughRelation;
 
 class Mating extends Model implements ResolvesOrganization
 {
+    use BelongsToOrganizationThroughRelation;
+
+    protected static function organizationRelation(): string
+    {
+        return 'female';
+    }
+
     /**
      * The `matings` table has no organization_id column, so tenancy is derived
      * from the female (then the male) pig (CF-P0-005). Before this,

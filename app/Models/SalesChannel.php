@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class SalesChannel extends Model
 {
-    use HasFactory;
+    use HasFactory, \App\Models\Concerns\BelongsToOrganization;
 
     protected $fillable = [
         'organization_id',

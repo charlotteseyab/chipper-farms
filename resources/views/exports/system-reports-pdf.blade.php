@@ -1,595 +1,85 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>System Reports - {{ now()->format('F j, Y') }}</title>
+    <title>Farm performance report</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            font-size: 11px;
-            line-height: 1.3;
-            color: #333;
-            margin: 0;
-            padding: 10px;
-        }
-        
-        .header {
-            text-align: center;
-            margin-bottom: 15px;
-            border-bottom: 2px solid #2563eb;
-            padding-bottom: 10px;
-        }
-        
-        .header h1 {
-            color: #2563eb;
-            font-size: 20px;
-            margin: 0;
-        }
-        
-        .header p {
-            color: #666;
-            margin: 5px 0 0 0;
-        }
-        
-        .section {
-            margin-bottom: 15px;
-            page-break-inside: avoid;
-        }
-        
-        .section h2 {
-            background-color: #f3f4f6;
-            color: #374151;
-            font-size: 14px;
-            margin: 0 0 8px 0;
-            padding: 6px;
-            border-left: 4px solid #2563eb;
-        }
-        
-        .section h3 {
-            color: #374151;
-            font-size: 12px;
-            margin: 8px 0 5px 0;
-            border-bottom: 1px solid #e5e7eb;
-            padding-bottom: 3px;
-        }
-        
-        .stats-grid {
-            display: table;
-            width: 100%;
-            margin-bottom: 10px;
-        }
-        
-        .stats-row {
-            display: table-row;
-        }
-        
-        .stats-cell {
-            display: table-cell;
-            width: 20%;
-            padding: 6px;
-            text-align: center;
-            border: 1px solid #e5e7eb;
-            background-color: #f9fafb;
-        }
-        
-        .stats-cell.blue { background-color: #eff6ff; }
-        .stats-cell.green { background-color: #f0fdf4; }
-        .stats-cell.purple { background-color: #faf5ff; }
-        .stats-cell.orange { background-color: #fff7ed; }
-        .stats-cell.indigo { background-color: #eef2ff; }
-        
-        .stats-value {
-            font-size: 14px;
-            font-weight: bold;
-            color: #111827;
-            margin-bottom: 3px;
-        }
-        
-        .stats-label {
-            font-size: 9px;
-            color: #6b7280;
-            text-transform: uppercase;
-        }
-        
-        .data-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 8px;
-        }
-        
-        .data-table th,
-        .data-table td {
-            border: 1px solid #d1d5db;
-            padding: 5px;
-            text-align: left;
-        }
-        
-        .data-table th {
-            background-color: #f3f4f6;
-            font-weight: bold;
-            color: #374151;
-        }
-        
-        .data-table tr:nth-child(even) {
-            background-color: #f9fafb;
-        }
-        
-        .two-column {
-            display: table;
-            width: 100%;
-        }
-        
-        .column {
-            display: table-cell;
-            width: 50%;
-            vertical-align: top;
-            padding-right: 8px;
-        }
-        
-        .column:last-child {
-            padding-right: 0;
-            padding-left: 8px;
-        }
-        
-        .metric-row {
-            display: table;
-            width: 100%;
-            margin-bottom: 4px;
-        }
-        
-        .metric-label {
-            display: table-cell;
-            width: 60%;
-            font-weight: normal;
-        }
-        
-        .metric-value {
-            display: table-cell;
-            width: 40%;
-            font-weight: bold;
-            text-align: right;
-        }
-        
-        .footer {
-            position: fixed;
-            bottom: 10px;
-            left: 10px;
-            right: 10px;
-            text-align: center;
-            font-size: 9px;
-            color: #6b7280;
-            border-top: 1px solid #e5e7eb;
-            padding-top: 5px;
-        }
-        
-        .page-break {
-            page-break-before: always;
-        }
+        @page { margin: 30px 34px 42px; }
+        body { color:#172033; font-family:DejaVu Sans, sans-serif; font-size:10px; line-height:1.45; }
+        h1,h2,p { margin:0; } h1 { font-size:22px; } h2 { font-size:13px; margin-bottom:9px; }
+        .muted { color:#64748b; } .green { color:#087f5b; } .red { color:#be123c; }
+        .header { border-bottom:2px solid #087f5b; padding-bottom:14px; margin-bottom:18px; }
+        .header-table,.kpis,.two-col,.data { width:100%; border-collapse:collapse; }
+        .header-table td { vertical-align:bottom; } .right { text-align:right; }
+        .kpis td { border:1px solid #dfe5eb; padding:11px; width:20%; vertical-align:top; }
+        .label { color:#64748b; font-size:8px; text-transform:uppercase; letter-spacing:.5px; }
+        .value { font-size:15px; font-weight:bold; margin-top:4px; }
+        .section { margin-top:18px; page-break-inside:avoid; }
+        .two-col td { width:50%; vertical-align:top; } .two-col td:first-child { padding-right:7px; } .two-col td:last-child { padding-left:7px; }
+        .panel { border:1px solid #dfe5eb; border-radius:6px; padding:12px; }
+        .data th { background:#f4f7f9; color:#64748b; font-size:8px; text-transform:uppercase; text-align:left; padding:7px; }
+        .data td { border-bottom:1px solid #edf0f3; padding:7px; }
+        .badge { color:#087f5b; background:#e8f7f0; padding:3px 6px; }
+        .footer { position:fixed; bottom:-28px; left:0; right:0; border-top:1px solid #dfe5eb; padding-top:7px; color:#94a3b8; text-align:center; font-size:8px; }
+        .page-break { page-break-before:always; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>Chipper Farms - System Reports</h1>
-        <p>Generated on {{ now()->format('F j, Y \a\t g:i A') }}</p>
+        <table class="header-table"><tr><td><div class="label green">Management reporting</div><h1>Farm performance report</h1><p class="muted">{{ $from->format('d M Y') }} – {{ $to->format('d M Y') }}</p></td><td class="right muted">Generated {{ now()->format('d M Y, g:i A') }}</td></tr></table>
     </div>
 
-    <!-- Executive Summary -->
-    <div class="section">
-        <h2>Executive Summary</h2>
-        <div class="stats-grid">
-            <div class="stats-row">
-                <div class="stats-cell blue">
-                    <div class="stats-value">{{ number_format($summary['total_pigs']) }}</div>
-                    <div class="stats-label">Total Pigs</div>
-                </div>
-                <div class="stats-cell green">
-                    <div class="stats-value">{{ number_format($summary['active_pigs']) }}</div>
-                    <div class="stats-label">Active Pigs</div>
-                </div>
-                <div class="stats-cell purple">
-                    <div class="stats-value">GHS {{ number_format($summary['total_sales_revenue'], 2) }}</div>
-                    <div class="stats-label">Total Revenue</div>
-                </div>
-                <div class="stats-cell orange">
-                    <div class="stats-value">{{ number_format($summary['total_weights_recorded']) }}</div>
-                    <div class="stats-label">Weights Recorded</div>
-                </div>
-                <div class="stats-cell indigo">
-                    <div class="stats-value">{{ number_format($summary['total_structures']) }}</div>
-                    <div class="stats-label">Structures</div>
-                </div>
-            </div>
-        </div>
+    <table class="kpis"><tr>
+        <td><div class="label">Closing herd</div><div class="value">{{ number_format($current['closing_herd']) }}</div></td>
+        <td><div class="label">Sales revenue</div><div class="value">GHS {{ number_format($current['revenue'], 2) }}</div></td>
+        <td><div class="label">Average sale</div><div class="value">GHS {{ number_format($current['average_sale'], 2) }}</div></td>
+        <td><div class="label">Mortality</div><div class="value">{{ $current['mortality_rate'] === null ? 'N/A' : number_format($current['mortality_rate'], 2).'%' }}</div></td>
+        <td><div class="label">Average / kg</div><div class="value">GHS {{ number_format($current['average_price_per_kg'], 2) }}</div></td>
+    </tr></table>
+
+    <div class="section panel">
+        <h2>Herd movement reconciliation</h2>
+        <table class="data"><thead><tr>@foreach(['Opening','Manually added','Purchased','Sold','Deaths','Closing','Variance'] as $heading)<th>{{ $heading }}</th>@endforeach</tr></thead><tbody><tr>@foreach(['opening','manually_added','purchased','sold','deaths','closing','variance'] as $key)<td class="{{ in_array($key, ['sold','deaths']) ? 'red' : ($key === 'closing' ? 'green' : '') }}">{{ number_format($herdMovement[$key]) }}</td>@endforeach</tr></tbody></table>
+        <p class="muted" style="margin-top:8px">Opening herd + additions − recorded sales − recorded deaths = closing herd.</p>
     </div>
 
-    <!-- Pig Distribution -->
-    <div class="section">
-        <h2>Pig Distribution</h2>
-        <div class="two-column">
-            <div class="column">
-                <h3>By Stock Type</h3>
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Stock Type</th>
-                            <th>Count</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($pigDistribution['by_stock_type'] as $type => $count)
-                            <tr>
-                                <td>{{ ucfirst($type) }}</td>
-                                <td>{{ number_format($count) }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+    <table class="two-col section"><tr>
+        <td><div class="panel"><h2>Breeding performance</h2><table class="data"><tbody>
+            <tr><td>Matings</td><td class="right">{{ number_format($breeding['matings']) }}</td></tr>
+            <tr><td>Farrowings</td><td class="right">{{ number_format($breeding['farrowings']) }}</td></tr>
+            <tr><td>Weanings</td><td class="right">{{ number_format($breeding['weanings']) }}</td></tr>
+            <tr><td>Average litter size</td><td class="right">{{ number_format($breeding['average_litter_size'], 1) }}</td></tr>
+            <tr><td>Pregnancy rate</td><td class="right">{{ $breeding['pregnancy_rate'] === null ? 'N/A' : $breeding['pregnancy_rate'].'%' }}</td></tr>
+        </tbody></table></div></td>
+        <td><div class="panel"><h2>Growth and health</h2><table class="data"><tbody>
+            <tr><td>Weight records</td><td class="right">{{ number_format($weights['records']) }}</td></tr>
+            <tr><td>Average recorded weight</td><td class="right">{{ number_format($weights['average_kg'], 1) }} kg</td></tr>
+            <tr><td>Deaths</td><td class="right">{{ number_format($current['deaths']) }}</td></tr>
+            <tr><td>Mortality rate</td><td class="right">{{ $current['mortality_rate'] === null ? 'N/A' : number_format($current['mortality_rate'], 2).'%' }}</td></tr>
+        </tbody></table></div></td>
+    </tr></table>
 
-                <h3>By Gender</h3>
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Gender</th>
-                            <th>Count</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($pigDistribution['by_gender'] as $gender => $count)
-                            <tr>
-                                <td>{{ ucfirst($gender) }}</td>
-                                <td>{{ number_format($count) }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-            <div class="column">
-                <h3>By Breed</h3>
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Breed</th>
-                            <th>Count</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($pigDistribution['by_breed'] as $breed => $count)
-                            <tr>
-                                <td>{{ $breed }}</td>
-                                <td>{{ number_format($count) }}</td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </div>
+    <div class="section panel"><h2>Piglet tracking</h2><table class="data"><thead><tr><th>Litters</th><th>Total born</th><th>Live births</th><th>Stillbirths</th><th>Pre-weaning deaths</th><th>Weaned</th><th>Survival</th></tr></thead><tbody><tr><td>{{ $pigletTracking['litters'] }}</td><td>{{ $pigletTracking['total_born'] }}</td><td>{{ $pigletTracking['live_births'] }}</td><td>{{ $pigletTracking['stillbirths'] }}</td><td>{{ $pigletTracking['pre_weaning_deaths'] }}</td><td>{{ $pigletTracking['weaned'] }}</td><td>{{ $pigletTracking['survival_rate'] === null ? 'N/A' : $pigletTracking['survival_rate'].'%' }}</td></tr></tbody></table></div>
+
+    <table class="two-col section"><tr>
+        <td><div class="panel"><h2>Storefront</h2><table class="data"><tbody>
+            <tr><td>Orders placed</td><td class="right">{{ $storefront['orders'] }}</td></tr><tr><td>Completed</td><td class="right">{{ $storefront['completed'] }}</td></tr><tr><td>Open pipeline</td><td class="right">GHS {{ number_format($storefront['pipeline'], 2) }}</td></tr><tr><td>Realised revenue</td><td class="right">GHS {{ number_format($storefront['realised_revenue'], 2) }}</td></tr>
+        </tbody></table></div></td>
+        <td><div class="panel"><h2>Finance ledger</h2><table class="data"><tbody>
+            <tr><td>Revenue</td><td class="right">GHS {{ number_format($finance['revenue'], 2) }}</td></tr><tr><td>Cost of sales</td><td class="right">GHS {{ number_format($finance['cost_of_sales'], 2) }}</td></tr><tr><td>Gross profit</td><td class="right">GHS {{ number_format($finance['gross_profit'], 2) }}</td></tr><tr><td>Net profit</td><td class="right">GHS {{ number_format($finance['net_profit'], 2) }}</td></tr>
+        </tbody></table></div></td>
+    </tr></table>
+
+    <table class="two-col section"><tr>
+        <td><div class="panel"><h2>Active herd composition</h2><table class="data"><thead><tr><th>Stock type</th><th class="right">Head</th></tr></thead><tbody>@forelse($distribution as $row)<tr><td>{{ str($row->label)->replace('_', ' ')->title() }}</td><td class="right">{{ number_format($row->total) }}</td></tr>@empty<tr><td colspan="2">No active herd data.</td></tr>@endforelse</tbody></table></div></td>
+        <td><div class="panel"><h2>Operational exceptions</h2><table class="data"><tbody>@forelse($exceptions as $exception)<tr><td><strong>{{ $exception['title'] }}</strong><br><span class="muted">{{ $exception['detail'] }}</span></td><td class="right">{{ ucfirst($exception['severity']) }}</td></tr>@empty<tr><td><span class="badge">No exceptions detected</span></td></tr>@endforelse</tbody></table></div></td>
+    </tr></table>
+
+    <div class="page-break"></div>
+    <div class="section"><h2>Facility occupancy</h2><p class="muted" style="margin-bottom:8px">{{ $facilities['structures'] }} structures · {{ $facilities['rooms'] }} rooms · {{ $facilities['utilization_rate'] === null ? 'Capacity not configured' : $facilities['utilization_rate'].'% occupied' }}</p>
+        <table class="data"><thead><tr><th>Structure</th><th>Room</th><th>Animals</th><th>Capacity</th><th>Utilization</th></tr></thead><tbody>@forelse($facilities['details'] as $room) @php $utilization = $room->capacity > 0 ? round(($room->pigs_count / $room->capacity) * 100, 1) : null; @endphp<tr><td>{{ $room->structure?->name ?? 'Unassigned' }}</td><td>{{ $room->name }}</td><td>{{ $room->pigs_count }}</td><td>{{ $room->capacity ?: 'Not set' }}</td><td>{{ $utilization === null ? 'N/A' : $utilization.'%' }}</td></tr>@empty<tr><td colspan="5">No rooms available.</td></tr>@endforelse</tbody></table>
     </div>
 
-    <!-- Financial Overview -->
-    <div class="section">
-        <h2>Financial Overview</h2>
-        <div class="two-column">
-            <div class="column">
-                <h3>Revenue Summary</h3>
-                <div class="metric-row">
-                    <div class="metric-label">Total Revenue:</div>
-                    <div class="metric-value">GHS {{ number_format($financialOverview['total_revenue'], 2) }}</div>
-                </div>
-                <div class="metric-row">
-                    <div class="metric-label">Average Sale Price:</div>
-                    <div class="metric-value">GHS {{ number_format($financialOverview['average_price_per_kg'], 2) }}</div>
-                </div>
-            </div>
-            <div class="column">
-                <h3>Monthly Sales</h3>
-                @if($financialOverview['sales_by_month']->count() > 0)
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Month</th>
-                                <th>Revenue</th>
-                                <th>Sales</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($financialOverview['sales_by_month'] as $month)
-                                <tr>
-                                    <td>{{ \Carbon\Carbon::createFromFormat('Y-m', $month->month)->format('M Y') }}</td>
-                                    <td>GHS {{ number_format($month->revenue, 2) }}</td>
-                                    <td>{{ $month->count }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                @else
-                    <p>No sales data available.</p>
-                @endif
-            </div>
-        </div>
-    </div>
-
-    <!-- Breeding Statistics & Health & Mortality -->
-    <div class="section">
-        <div class="two-column">
-            <div class="column">
-                <h2>Breeding Statistics</h2>
-                <div class="metric-row">
-                    <div class="metric-label">Total Matings:</div>
-                    <div class="metric-value">{{ number_format($breedingStats['total_matings']) }}</div>
-                </div>
-                <div class="metric-row">
-                    <div class="metric-label">Total Farrowings:</div>
-                    <div class="metric-value">{{ number_format($breedingStats['total_farrowings']) }}</div>
-                </div>
-                <div class="metric-row">
-                    <div class="metric-label">Total Weanings:</div>
-                    <div class="metric-value">{{ number_format($breedingStats['total_weanings']) }}</div>
-                </div>
-                <div class="metric-row">
-                    <div class="metric-label">Average Litter Size:</div>
-                    <div class="metric-value">{{ number_format($breedingStats['average_litter_size'], 1) }}</div>
-                </div>
-                @php
-                    $pregNum = \App\Models\Mating::where('pregnancy_status', 'pregnant')->count();
-                    $pregDenom = \App\Models\Mating::whereNotNull('female_id')->count();
-                    $pregnancyRate = $pregDenom > 0 ? round($pregNum / $pregDenom * 100, 1) : 0;
-                    $totalMatings = \App\Models\Mating::count();
-                    $totalFarrowings = \App\Models\Farrowing::where('farrowing_date', '!=', null)->count();
-                    $farrowingRate = $totalMatings > 0 ? round($totalFarrowings / $totalMatings * 100, 1) : 0;
-                    $totalWeaned = \App\Models\Weaning::count();
-                    $totalBorn = \App\Models\Farrowing::sum('live_births');
-                    $weaningPercentage = $totalBorn > 0 ? round($totalWeaned / $totalBorn * 100, 1) : 0;
-                    $avgStillborns = \App\Models\Farrowing::avg('stillbirths');
-                    $avgBirthWeight = \App\Models\Farrowing::whereNotNull('average_birth_weight')->avg('average_birth_weight');
-                @endphp
-                <div class="metric-row">
-                    <div class="metric-label">Pregnancy Rate:</div>
-                    <div class="metric-value">{{ $pregnancyRate }}%</div>
-                </div>
-                <div class="metric-row">
-                    <div class="metric-label">Farrowing Rate:</div>
-                    <div class="metric-value">{{ $farrowingRate }}%</div>
-                </div>
-                <div class="metric-row">
-                    <div class="metric-label">Weaning Percentage:</div>
-                    <div class="metric-value">{{ $weaningPercentage }}%</div>
-                </div>
-                <div class="metric-row">
-                    <div class="metric-label">Average Stillbirths/Litter:</div>
-                    <div class="metric-value">{{ number_format($avgStillborns, 1) }}</div>
-                </div>
-                <div class="metric-row">
-                    <div class="metric-label">Average Birth Weight:</div>
-                    <div class="metric-value">{{ number_format($avgBirthWeight, 1) }} kg</div>
-                </div>
-            </div>
-            <div class="column">
-                <h2>Health & Mortality</h2>
-                <div class="metric-row">
-                    <div class="metric-label">Total Deaths:</div>
-                    <div class="metric-value">{{ number_format($healthStats['total_deaths']) }}</div>
-                </div>
-                @if($healthStats['deaths_by_cause']->count() > 0)
-                    <h3>Deaths by Cause</h3>
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Cause</th>
-                                <th>Count</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($healthStats['deaths_by_cause'] as $cause => $count)
-                                <tr>
-                                    <td>{{ $cause }}</td>
-                                    <td>{{ $count }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                @endif
-            </div>
-        </div>
-    </div>
-
-
-
-    <!-- Weight Analytics -->
-    <div class="section">
-        <h2>Weight Analytics</h2>
-        <div class="metric-row">
-            <div class="metric-label">Average Weight:</div>
-            <div class="metric-value">{{ number_format($weightAnalytics['average_weight'], 1) }} kg</div>
-        </div>
-        <div class="metric-row">
-            <div class="metric-label">Total Weight Records:</div>
-            <div class="metric-value">{{ number_format($weightAnalytics['total_weight_records']) }}</div>
-        </div>
-    </div>
-
-    <!-- Structure & Room Utilization -->
-    <div class="section">
-        <h2>Structure & Room Utilization</h2>
-        <div class="two-column">
-            <div class="column">
-                <h3>Structures by Status</h3>
-                @if($structureStats['structures_by_status']->count() > 0)
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Status</th>
-                                <th>Count</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($structureStats['structures_by_status'] as $status => $count)
-                                <tr>
-                                    <td>{{ ucfirst(str_replace('_', ' ', $status)) }}</td>
-                                    <td>{{ number_format($count) }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                @else
-                    <p>No structure data available.</p>
-                @endif
-            </div>
-            <div class="column">
-                <h3>Room Utilization</h3>
-                @if($structureStats['room_utilization']->count() > 0)
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Room Name</th>
-                                <th>Structure</th>
-                                <th>Pigs</th>
-                                <th>Capacity</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($structureStats['room_utilization'] as $room)
-                                <tr>
-                                    <td>{{ $room->name }}</td>
-                                    <td>{{ $room->structure->name ?? 'N/A' }}</td>
-                                    <td>{{ $room->pigs_count }}</td>
-                                    <td>{{ $room->capacity ?? 'N/A' }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                @else
-                    <p>No room data available.</p>
-                @endif
-            </div>
-        </div>
-    </div>
-
-    <!-- Detailed Structure Table -->
-    <div class="section">
-        <h2>Structure Details & Capacity</h2>
-        @if($structureStats['detailed_structures']->count() > 0)
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Structure Name</th>
-                        <th>Status</th>
-                        <th>Capacity</th>
-                        <th>Current Rooms</th>
-                        <th>Available</th>
-                        <th>Utilization</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($structureStats['detailed_structures'] as $structure)
-                        @php
-                            $capacity = $structure->capacity ?? 'Unlimited';
-                            $currentRooms = $structure->rooms_count;
-                            $available = $structure->available_capacity;
-                            $utilization = $structure->capacity ? round(($currentRooms / $structure->capacity) * 100, 1) : 'N/A';
-                        @endphp
-                        <tr>
-                            <td>
-                                <strong>{{ $structure->name }}</strong>
-                                @if($structure->description)
-                                    <br><small>{{ Str::limit($structure->description, 40) }}</small>
-                                @endif
-                            </td>
-                            <td>{{ ucfirst(str_replace('_', ' ', $structure->status)) }}</td>
-                            <td>{{ $capacity }}</td>
-                            <td>{{ $currentRooms }}</td>
-                            <td>
-                                @if($available === -1)
-                                    Unlimited
-                                @else
-                                    {{ $available }}
-                                @endif
-                            </td>
-                            <td>
-                                @if($utilization === 'N/A')
-                                    N/A
-                                @else
-                                    {{ $utilization }}%
-                                @endif
-                            </td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        @else
-            <p>No structure data available.</p>
-        @endif
-    </div>
-
-    <!-- System Notifications & Alerts -->
-    <div class="section">
-        <h2>System Notifications & Alerts</h2>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Type</th><th>Value</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr><td>Stored Notifications (Unread / Total)</td><td>{{ $storedNotifications['unread'] ?? 0 }} / {{ $storedNotifications['total'] ?? 0 }}</td></tr>
-                <tr><td>Live Weighing Alerts</td><td>{{ $realTimeAlerts['weight'] ?? 0 }}</td></tr>
-                <tr><td>Critical Alerts</td><td>{{ $realTimeAlerts['critical'] ?? 0 }}</td></tr>
-                <tr><td>Pending Weaning Alerts</td><td>{{ $realTimeAlerts['pending_weaning_alerts'] ?? 0 }}</td></tr>
-            </tbody>
-        </table>
-    </div>
-    <!-- Archival & Soft-deleted Records -->
-    <div class="section">
-        <h2>Archival & Soft-deleted Records</h2>
-        <table class="data-table"><tbody>
-            <tr><td>Archived Pigs</td><td>{{ $softDeletes['pigs_archived'] ?? 0 }}</td></tr>
-            <tr><td>Archived Piglet Deaths</td><td>{{ $softDeletes['piglet_deaths_archived'] ?? 0 }}</td></tr>
-            <tr><td>Archived Sales</td><td>{{ $softDeletes['sales_archived'] ?? 0 }}</td></tr>
-            <tr><td>Archived Deaths</td><td>{{ $softDeletes['deaths_archived'] ?? 0 }}</td></tr>
-            <tr><td>Active Pigs</td><td>{{ $softDeletes['pigs_active'] ?? 0 }}</td></tr>
-        </tbody></table>
-    </div>
-    <!-- Piglet Survivability Analytics -->
-    <div class="section">
-        <h2>Piglet Survivability Summary</h2>
-        <table class="data-table"><tbody>
-            <tr><td>Total Live Births</td><td>{{ number_format($liveBirths ?? 0) }}</td></tr>
-            <tr><td>Pre-Weaning Deaths</td><td>{{ number_format($preWeaningDeaths ?? 0) }}</td></tr>
-            <tr><td>Piglet Survival Rate</td><td>{{ $pigletSurvivalRate !== null ? $pigletSurvivalRate.'%' : 'N/A' }}</td></tr>
-        </tbody></table>
-    </div>
-    <!-- Weaning Summary -->
-    <div class="section">
-        <h2>Weaning Statistics</h2>
-        <table class="data-table"><tbody>
-            <tr><td>Total Litters Weaned</td><td>{{ number_format($totalLittersWeaned ?? 0) }}</td></tr>
-            <tr><td>Total Piglets Weaned</td><td>{{ number_format($totalPigletsWeaned ?? 0) }}</td></tr>
-            <tr><td>Avg Weaning Age (days)</td><td>{{ $avgWeaningAge !== null ? number_format($avgWeaningAge,1) : 'N/A' }}</td></tr>
-            <tr><td>Avg Weaning Weight (kg)</td><td>{{ $avgWeaningWeight !== null ? number_format($avgWeaningWeight,1) : 'N/A' }}</td></tr>
-        </tbody></table>
-    </div>
-    <!-- Sales/Procurement Card -->
-    <div class="section">
-        <h2>Sales & Procurement</h2>
-        <table class="data-table"><tbody>
-            <tr><td>Paid Sales</td><td>{{ $paidSales ?? 0 }}</td></tr>
-            <tr><td>Unpaid Sales</td><td>{{ $unpaidSales ?? 0 }}</td></tr>
-            <tr><td>Approved Purchase Req.</td><td>{{ $approvedFprs ?? 0 }}</td></tr>
-            <tr><td>Pending Purchase Req.</td><td>{{ $pendingFprs ?? 0 }}</td></tr>
-            <tr><td>Paid Purchase Req.</td><td>{{ $paidFprs ?? 0 }}</td></tr>
-        </tbody></table>
-    </div>
-    <!-- User Roles Card -->
-    <div class="section">
-        <h2>User Role Breakdown</h2>
-        <table class="data-table"><thead><tr><th>Role</th><th>Count</th></tr></thead><tbody>
-        @foreach($roleCounts ?? [] as $role => $count)
-            <tr><td>{{ ucfirst($role) }}</td><td>{{ $count }}</td></tr>
-        @endforeach
-        </tbody></table>
-    </div>
-
-    <div class="footer">
-        <p>This report was generated automatically by the Chipper Farms Management System</p>
-    </div>
+    <div class="footer">Farm performance report · Values are scoped to the current organisation and selected business-event dates.</div>
 </body>
 </html>

@@ -108,7 +108,15 @@
                 @endphp
                 {{ $roleDisplay }}
             </div>
-            <p class="mt-1 text-sm text-gray-500">Your role is managed by the system administrator.</p>
+            <p class="mt-1 text-sm text-gray-500">Your role is managed by {{ $this->user->isSuperuser() ? 'another system superuser' : 'your organization administrator' }}.</p>
+        </div>
+
+        <div class="col-span-6 sm:col-span-3">
+            <x-label for="organization" value="{{ $this->user->isSuperuser() ? __('Account Scope') : __('Organization') }}" />
+            <div id="organization" class="mt-1 block w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-gray-700">
+                {{ $this->user->isSuperuser() ? 'Platform-wide — no organization assigned' : ($this->user->organization?->name ?? 'Not assigned') }}
+            </div>
+            <p class="mt-1 text-sm text-gray-500">This assignment cannot be changed from your profile.</p>
         </div>
 
     </x-slot>

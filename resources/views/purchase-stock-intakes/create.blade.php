@@ -270,7 +270,12 @@
                     </label>
                     <label class="field">
                         <span>Breed</span>
-                        <input name="breed" value="{{ old('breed') }}" placeholder="LW, DR, LWDR, mixed, or unknown">
+                        <select name="breed" data-searchable-select>
+                            <option value="">Select breed</option>
+                            @foreach($breeds as $code => $name)
+                                <option value="{{ $code }}" @selected(old('breed') === $code)>{{ $name }} ({{ $code }})</option>
+                            @endforeach
+                        </select>
                     </label>
                     <label class="field">
                         <span>Estimated Age Days</span>

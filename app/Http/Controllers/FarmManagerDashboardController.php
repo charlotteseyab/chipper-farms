@@ -8,13 +8,20 @@ use App\Models\PigDeath;
 use App\Models\PigManagement;
 use App\Models\PigWeight;
 use App\Models\WeightAlert;
+use App\Models\ActivityLog;
+use App\Models\FeedBatch;
+use App\Models\HealthRecord;
+use App\Models\MedicationAdministration;
+use App\Models\PurchaseRequest;
+use App\Models\RawMaterial;
+use App\Models\Setting;
 use App\Services\Stock\PurchasedStockDashboardMetrics;
 
 class FarmManagerDashboardController extends Controller
 {
     public function __invoke()
-{
-    $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
+    {
+        $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
 
     $activeBaseQuery = PigManagement::active();
 
@@ -54,10 +61,6 @@ class FarmManagerDashboardController extends Controller
         ->where('gender', 'M')
         ->count();
 
-    $criticalAlerts = WeightAlert::where('severity', 'high')
-        ->where('acknowledged', false)
-        ->count();
-
     $totalWeaned = PigManagement::count();
 
     $totalPiglets = Farrowing::where('farrowing_date', '>=', now()->subDays($weaningAge))
@@ -69,8 +72,10 @@ class FarmManagerDashboardController extends Controller
     $totalDeaths = PigDeath::count();
     $mortalityRate = $totalPigsAll > 0 ? ($totalDeaths / $totalPigsAll) * 100 : 0;
 
-    $totalMatings = Mating::count();
-    $successfulMatings = Mating::where('pregnancy_status', 'pregnant')->count();
+    $totalMatings = Mating::whereDate('actual_date', '>=', now()->subDays(89)->toDateString())->count();
+    $successfulMatings = Mating::whereDate('actual_date', '>=', now()->subDays(89)->toDateString())
+        ->where('pregnancy_status', 'pregnant')
+        ->count();
     $fertilityRate = $totalMatings > 0 ? ($successfulMatings / $totalMatings) * 100 : 0;
 
     $overdueForWeighing = PigManagement::countOverdueForWeighing();
@@ -79,6 +84,31 @@ class FarmManagerDashboardController extends Controller
     $mediumAlerts = WeightAlert::where('severity', 'medium')->where('acknowledged', false)->count();
     $lowAlerts = WeightAlert::where('severity', 'low')->where('acknowledged', false)->count();
 
+    $openHealthQuery = HealthRecord::query()
+        ->whereNull('resolved_at')
+        ->where(function ($query) {
+            $query->whereNull('treatment_status')
+                ->orWhereIn('treatment_status', ['planned', 'ongoing']);
+        });
+    $openHealthCases = (clone $openHealthQuery)->count();
+    $criticalHealthCases = (clone $openHealthQuery)
+        ->whereIn('severity', ['high', 'severe'])
+        ->count();
+    $activeWithdrawals = MedicationAdministration::underWithdrawal()->count();
+
+    $rawMaterialsOut = RawMaterial::where('quantity_in_stock', '<=', 0)->count();
+    $rawMaterialsLow = RawMaterial::where('quantity_in_stock', '>', 0)
+        ->whereColumn('quantity_in_stock', '<=', 'reorder_level')
+        ->count();
+    $rawMaterialValue = (float) RawMaterial::sum(\DB::raw('quantity_in_stock * unit_cost'));
+    $feedProducedThisWeek = (float) FeedBatch::whereDate('batch_date', '>=', now()->subDays(6)->toDateString())
+        ->sum('batch_size_kg');
+
+    $purchaseRequestsPending = PurchaseRequest::where('status', 'pending')->count();
+    $purchaseRequestsApproved = PurchaseRequest::whereIn('status', ['approved', 'paid'])->count();
+
+    $criticalAlerts = $highAlerts + $criticalHealthCases + $rawMaterialsOut + $purchaseRequestsPending;
+
     $totalWeightRecords = PigWeight::count();
     $recentWeightRecords = PigWeight::where('created_at', '>=', now()->subDays(30))->count();
 
@@ -86,7 +116,9 @@ class FarmManagerDashboardController extends Controller
         'breeding_stock_ratio' => $totalStockActive > 0 ? round(($breedingStockActive / $totalStockActive) * 100) : 0,
         'avg_weight_records' => $totalPigsAll > 0 ? round($totalWeightRecords / max($totalPigsAll, 1), 1) : 0,
         'recent_activity_rate' => $totalPigsAll > 0 ? round(($recentWeightRecords / $totalPigsAll) * 100) : 0,
-        'data_completeness' => $totalPigsAll > 0 ? round((PigManagement::whereHas('weights')->count() / $totalPigsAll) * 100) : 0,
+        'data_completeness' => $weanedActive > 0
+            ? round(((clone $activeBaseQuery)->whereHas('weights')->count() / $weanedActive) * 100)
+            : 0,
     ];
 
     $stockDistributionTotals = [
@@ -95,11 +127,13 @@ class FarmManagerDashboardController extends Controller
         'piglets' => $activePigletsAdjusted,
     ];
 
-    $breedCounts = [
-        'lw' => (clone $activeBaseQuery)->where('breed', 'LW')->count(),
-        'dr' => (clone $activeBaseQuery)->where('breed', 'DR')->count(),
-        'lwdr' => (clone $activeBaseQuery)->where('breed', 'LWDR')->count(),
-    ];
+    $breedCounts = collect(Setting::animalBreeds())->map(function (string $name, string $code) use ($activeBaseQuery) {
+        return [
+            'code' => $code,
+            'name' => $name,
+            'count' => (clone $activeBaseQuery)->where('breed', $code)->count(),
+        ];
+    })->values();
 
     $upcomingEvents = $this->buildUpcomingEvents();
     $pregnancyChecksDue = Mating::pregnancyCheckDue()->count();
@@ -126,7 +160,8 @@ class FarmManagerDashboardController extends Controller
         ])
         ->count();
 
-    $allOverduePigs = PigManagement::query()
+    $allOverduePigs = PigManagement::active()
+    ->with(['weights' => fn ($query) => $query->orderByDesc('weigh_date')])
     ->get()
     ->filter(function ($pig) {
         return $pig->isOverdueForWeighing();
@@ -134,7 +169,7 @@ class FarmManagerDashboardController extends Controller
     ->values();
 
     $overduePigsPreview = $allOverduePigs->take(5)->map(function ($pig) {
-        $lastWeight = $pig->weights()->latest('weigh_date')->first();
+        $lastWeight = $pig->weights->first();
         $lastWeighing = $lastWeight?->weigh_date ? \Carbon\Carbon::parse($lastWeight->weigh_date) : null;
         $daysSince = $lastWeighing ? $lastWeighing->diffInDays(now()) : null;
     
@@ -153,7 +188,7 @@ class FarmManagerDashboardController extends Controller
     });
     
     $allOverduePigsDetails = $allOverduePigs->map(function ($pig) {
-        $lastWeight = $pig->weights()->latest('weigh_date')->first();
+        $lastWeight = $pig->weights->first();
         $lastWeighing = $lastWeight?->weigh_date ? \Carbon\Carbon::parse($lastWeight->weigh_date) : null;
         $daysSince = $lastWeighing ? $lastWeighing->diffInDays(now()) : null;
     
@@ -172,6 +207,15 @@ class FarmManagerDashboardController extends Controller
     });
 
     $managerWorkQueue = collect([
+        [
+            'type' => 'Health',
+            'item' => 'Open health cases',
+            'details' => 'Animals with unresolved treatment or observation records.',
+            'count' => $openHealthCases,
+            'due' => $criticalHealthCases > 0 ? 'Immediate' : 'Today',
+            'severity' => $criticalHealthCases > 0 ? 'high' : 'medium',
+            'route' => route('health.index'),
+        ],
         [
             'type' => 'Weight',
             'item' => 'Overdue weighing',
@@ -209,13 +253,22 @@ class FarmManagerDashboardController extends Controller
             'route' => route('weaning.dashboard'),
         ],
         [
-            'type' => 'Health',
-            'item' => 'Critical health/weight alerts',
-            'details' => 'Unacknowledged high-severity alerts need review.',
-            'count' => $criticalAlerts,
+            'type' => 'Inventory',
+            'item' => 'Raw materials out of stock',
+            'details' => 'Feed ingredients with no available balance.',
+            'count' => $rawMaterialsOut,
             'due' => 'Today',
-            'severity' => $criticalAlerts > 0 ? 'high' : 'low',
-            'route' => route('weight-alerts.index'),
+            'severity' => 'high',
+            'route' => route('raw-materials.index', ['status' => 'out_of_stock']),
+        ],
+        [
+            'type' => 'Procurement',
+            'item' => 'Purchase requests awaiting approval',
+            'details' => 'Submitted requests waiting for a management decision.',
+            'count' => $purchaseRequestsPending,
+            'due' => 'Today',
+            'severity' => 'medium',
+            'route' => route('purchase-requests.index', ['status' => 'pending']),
         ],
         [
             'type' => 'Stock',
@@ -249,32 +302,53 @@ class FarmManagerDashboardController extends Controller
         'not_ready' => max(0, $breedingStockActive - PigManagement::availableForBreeding()->count()),
     ];
 
-    $recentActivity = collect([
-        [
-            'label' => 'Weight records',
-            'description' => $recentWeightRecords . ' records added in the last 30 days',
-            'when' => '30 days',
-            'severity' => 'low',
-        ],
-        [
-            'label' => 'High alerts',
-            'description' => $highAlerts . ' unacknowledged high-severity alerts',
-            'when' => 'Now',
-            'severity' => $highAlerts > 0 ? 'high' : 'low',
-        ],
-        [
-            'label' => 'Pregnancy checks',
-            'description' => $pregnancyChecksDue . ' checks due',
-            'when' => 'Today',
-            'severity' => $pregnancyChecksOverdue > 0 ? 'high' : 'medium',
-        ],
-        [
-            'label' => 'Weaning review',
-            'description' => $readyToWean . ' litters ready',
-            'when' => 'This week',
-            'severity' => $overdueWeaning > 0 ? 'high' : 'medium',
-        ],
-    ]);
+    $recentActivity = ActivityLog::query()
+        ->with('user:id,name')
+        ->when(auth()->user()?->organization_id, fn ($query, $orgId) => $query->where('organization_id', $orgId))
+        ->whereNotIn('action', ['login', 'logout'])
+        ->latest()
+        ->limit(8)
+        ->get()
+        ->map(fn (ActivityLog $activity) => [
+            'label' => $activity->record_label ?: \Illuminate\Support\Str::headline($activity->action),
+            'description' => $activity->description ?: trim(($activity->user?->name ?: 'System') . ' · ' . \Illuminate\Support\Str::headline($activity->module ?: $activity->action)),
+            'when' => $activity->created_at?->diffForHumans() ?: 'Recently',
+            'actor' => $activity->user?->name ?: 'System',
+            'severity' => in_array($activity->action, ['deleted', 'declined', 'failed'], true) ? 'high' : 'low',
+        ]);
+
+    $recentDeaths30 = PigDeath::whereDate('death_date', '>=', now()->subDays(29)->toDateString())->count();
+    $mortalityRate30 = ($totalStockActive + $recentDeaths30) > 0
+        ? ($recentDeaths30 / ($totalStockActive + $recentDeaths30)) * 100
+        : 0;
+
+    $immediateAttention = collect([
+        ['label' => 'Critical health cases', 'count' => $criticalHealthCases, 'route' => route('health.index', ['severity' => 'high']), 'tone' => 'red'],
+        ['label' => 'Pregnancy checks overdue', 'count' => $pregnancyChecksOverdue, 'route' => route('mating.manage'), 'tone' => 'red'],
+        ['label' => 'Weaning overdue', 'count' => $overdueWeaning, 'route' => route('weaning.dashboard'), 'tone' => 'amber'],
+        ['label' => 'Raw materials out', 'count' => $rawMaterialsOut, 'route' => route('raw-materials.index', ['status' => 'out_of_stock']), 'tone' => 'red'],
+        ['label' => 'Requests awaiting approval', 'count' => $purchaseRequestsPending, 'route' => route('purchase-requests.index', ['status' => 'pending']), 'tone' => 'amber'],
+    ])->filter(fn ($item) => $item['count'] > 0)->values();
+
+    $healthSummary = [
+        'open_cases' => $openHealthCases,
+        'critical_cases' => $criticalHealthCases,
+        'active_withdrawals' => $activeWithdrawals,
+        'deaths_30_days' => $recentDeaths30,
+        'mortality_rate_30_days' => $mortalityRate30,
+    ];
+    $inventorySummary = [
+        'out_of_stock' => $rawMaterialsOut,
+        'low_stock' => $rawMaterialsLow,
+        'stock_value' => $rawMaterialValue,
+        'feed_produced_7_days' => $feedProducedThisWeek,
+    ];
+    $procurementSummary = [
+        'requests_pending' => $purchaseRequestsPending,
+        'requests_in_progress' => $purchaseRequestsApproved,
+        'pending_intakes' => $purchasedStockMetrics['pending_intakes'] ?? 0,
+        'quarantined' => $purchasedStockMetrics['quarantined'] ?? 0,
+    ];
 
     return view('manager.dashboard', [
         'totalStockActive' => $totalStockActive,
@@ -318,6 +392,11 @@ class FarmManagerDashboardController extends Controller
         'breedingReadiness' => $breedingReadiness,
         'recentActivity' => $recentActivity,
         'purchasedStockMetrics' => $purchasedStockMetrics,
+        'immediateAttention' => $immediateAttention,
+        'healthSummary' => $healthSummary,
+        'inventorySummary' => $inventorySummary,
+        'procurementSummary' => $procurementSummary,
+        'refreshedAt' => now(),
     ]);
 }
 

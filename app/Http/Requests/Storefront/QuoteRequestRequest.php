@@ -36,13 +36,17 @@ class QuoteRequestRequest extends FormRequest
 
             'source'                => ['nullable', Rule::in([StorefrontQuote::SOURCE_LISTING, StorefrontQuote::SOURCE_BULK])],
             'fulfilment_preference' => ['nullable', Rule::in(['pickup', 'delivery'])],
-            'delivery_city'         => ['nullable', 'string', 'max:120'],
-            'delivery_region'       => ['nullable', 'string', 'max:120'],
+            'delivery_city'         => ['nullable', 'required_if:fulfilment_preference,delivery', 'string', 'max:120'],
+            'delivery_region'       => ['nullable', 'required_if:fulfilment_preference,delivery', 'string', 'max:120'],
             'message'               => ['nullable', 'string', 'max:5000'],
 
             'items'                  => ['required', 'array', 'min:1', 'max:50'],
-            'items.*.listing_id'     => ['nullable', 'integer', 'exists:storefront_listings,id'],
-            'items.*.kind'           => ['nullable', 'string', 'max:30'],
+            'items.*.listing_id'     => ['nullable', 'integer', Rule::exists('storefront_listings', 'id')->where(function ($query) {
+                $query->where('organization_id', \App\Storefront\Support\StorefrontSettings::organizationId())
+                    ->where('status', \App\Models\Storefront\StorefrontListing::STATUS_PUBLISHED)
+                    ->where('sale_mode', '!=', \App\Models\Storefront\StorefrontListing::MODE_HIDDEN);
+            })],
+            'items.*.kind'           => ['nullable', Rule::in(\App\Models\Storefront\StorefrontListing::KINDS)],
             'items.*.description'    => ['required', 'string', 'max:300'],
             'items.*.quantity'       => ['required', 'numeric', 'min:0.0001', 'max:99999999'],
             'items.*.quantity_unit'  => ['nullable', 'string', 'max:20'],
@@ -56,6 +60,8 @@ class QuoteRequestRequest extends FormRequest
             'contact_email.required_without' => 'Provide an email or a phone number so we can reach you.',
             'contact_phone.required_without' => 'Provide a phone number or an email so we can reach you.',
             'items.required' => 'Add at least one item to request a quote.',
+            'delivery_city.required_if' => 'Enter the delivery town or city.',
+            'delivery_region.required_if' => 'Select or enter the delivery region.',
         ];
     }
 

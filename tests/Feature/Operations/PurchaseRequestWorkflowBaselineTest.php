@@ -9,6 +9,7 @@ use App\Models\Role;
 use App\Models\User;
 use App\Support\CurrentOrganization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 /**
@@ -18,7 +19,7 @@ use Tests\TestCase;
  *   - create
  *   - approve (emits PurchaseRequestApproved)
  *   - decline (emits PurchaseRequestDeclined)
- *   - markAsPaid (emits PurchaseRequestPaid)
+ *   - payment status cannot be changed outside the finance payment flow
  *   - state transitions refused when not in the right prior state
  *
  * Prerequisite: Batch A policies registered, Batch B source integration
@@ -155,39 +156,9 @@ class PurchaseRequestWorkflowBaselineTest extends TestCase
         $this->assertSame('Budget exhausted for this quarter', $event->payload['decline_reason']);
     }
 
-    public function test_accountant_can_mark_approved_request_paid_and_event_is_emitted(): void
+    public function test_legacy_status_only_mark_paid_route_is_not_available(): void
     {
-        $pr = $this->makePendingRequest($this->dataEntry);
-        $pr->update([
-            'status' => 'approved',
-            'approved_by' => $this->admin->id,
-            'approved_at' => now(),
-        ]);
-
-        $this->actingAs($this->accountant)
-            ->post(route('purchase-requests.mark-paid', $pr))
-            ->assertRedirect();
-
-        $this->assertSame('paid', $pr->fresh()->status);
-
-        $event = DomainEvent::where('event_type', 'purchase_request.paid')
-            ->where('source_id', $pr->id)
-            ->first();
-
-        $this->assertNotNull($event);
-        $this->assertSame($this->accountant->id, $event->dispatched_by_user_id);
-    }
-
-    public function test_marking_pending_request_paid_is_rejected(): void
-    {
-        $pr = $this->makePendingRequest($this->dataEntry);
-
-        $this->actingAs($this->accountant)
-            ->post(route('purchase-requests.mark-paid', $pr))
-            ->assertForbidden();
-
-        // No state change — only approved requests can be marked paid.
-        $this->assertSame('pending', $pr->fresh()->status);
+        $this->assertFalse(Route::has('purchase-requests.mark-paid'));
     }
 
     public function test_data_entry_cannot_approve(): void

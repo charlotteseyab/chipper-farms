@@ -46,12 +46,12 @@ class RawMaterialController extends Controller
             });
         }
 
-        if ($status === 'low') {
+        if ($status === 'low_stock') {
             $query->whereColumn('quantity_in_stock', '<=', 'reorder_level')
                 ->where('quantity_in_stock', '>', 0);
-        } elseif ($status === 'out') {
-            $query->where('quantity_in_stock', '=', 0);
-        } elseif ($status === 'ok') {
+        } elseif ($status === 'out_of_stock') {
+            $query->where('quantity_in_stock', '<=', 0);
+        } elseif ($status === 'in_stock') {
             $query->whereColumn('quantity_in_stock', '>', 'reorder_level');
         }
 
@@ -59,11 +59,11 @@ class RawMaterialController extends Controller
 
         $stats = [
             'total_materials'   => RawMaterial::count(),
-            'low_stock_count'   => RawMaterial::whereColumn('quantity_in_stock', '<=', 'reorder_level')
+            'low_stock'         => RawMaterial::whereColumn('quantity_in_stock', '<=', 'reorder_level')
                                               ->where('quantity_in_stock', '>', 0)
                                               ->count(),
-            'out_of_stock_count'=> RawMaterial::where('quantity_in_stock', '=', 0)->count(),
-            'total_stock_value' => RawMaterial::sum(DB::raw('quantity_in_stock * unit_cost')),
+            'out_of_stock'      => RawMaterial::where('quantity_in_stock', '<=', 0)->count(),
+            'stock_value'       => RawMaterial::sum(DB::raw('quantity_in_stock * unit_cost')),
         ];
 
         $lowStockAlerts = RawMaterial::query()

@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class SimplePurchaseLine extends Model
 {
+    use \App\Models\Concerns\BelongsToOrganization;
+
     public const KIND_STOCK   = 'stock';
     public const KIND_EXPENSE = 'expense';
 

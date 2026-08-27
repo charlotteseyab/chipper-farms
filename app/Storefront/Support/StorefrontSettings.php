@@ -283,8 +283,8 @@ class StorefrontSettings
     public static function defaultPriceForBasis(string $basis): ?string
     {
         return match ($basis) {
-            'live'    => (string) (float) Setting::get(self::KEY_LIVE_PRICE, 30.00),
-            'carcass' => (string) (float) Setting::get(self::KEY_CARCASS_PRICE, 50.00),
+            'live'    => (string) (float) Setting::get(self::KEY_LIVE_PRICE, 0),
+            'carcass' => (string) (float) Setting::get(self::KEY_CARCASS_PRICE, 0),
             default   => null,
         };
     }

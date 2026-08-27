@@ -114,6 +114,45 @@ class StorefrontPurchaseLineService
     }
 
     /**
+     * Add a carcass purchase for animals explicitly chosen by the buyer.
+     * Each animal is its own line and is priced from its recorded weight at
+     * the listing's snapshotted carcass rate.
+     *
+     * @param  array<int, mixed>  $listingPigIds
+     * @return Collection<int, StorefrontCartItem>
+     */
+    public function addSelectedCarcassLines(CartOwner $owner, StorefrontListing $listing, array $listingPigIds): Collection
+    {
+        $this->assertPigListing($listing);
+
+        $ids = array_values(array_unique(array_map('intval', array_filter($listingPigIds))));
+
+        if ($ids === []) {
+            throw new CartException('Choose at least one animal to buy.');
+        }
+
+        $rate = $this->carcassRate($listing);
+
+        return DB::transaction(function () use ($owner, $listing, $ids, $rate) {
+            $this->lockListing($listing);
+
+            $rows = StorefrontListingPig::query()
+                ->where('storefront_listing_id', $listing->getKey())
+                ->whereKey($ids)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->with('pig.latestWeight')
+                ->get();
+
+            $this->assertEveryPigWasFound($rows, $ids);
+
+            $cart = $this->cartFor($owner, $listing);
+
+            return $rows->map(fn (StorefrontListingPig $row) => $this->carcassLineFor($cart, $listing, $row, $rate));
+        });
+    }
+
+    /**
      * Add a carcass purchase: one line for the kilograms requested.
      */
     public function addCarcassLine(CartOwner $owner, StorefrontListing $listing, string $requestedKg): StorefrontCartItem
@@ -276,6 +315,57 @@ class StorefrontPurchaseLineService
         ]);
     }
 
+    protected function carcassLineFor(
+        StorefrontCart $cart,
+        StorefrontListing $listing,
+        StorefrontListingPig $row,
+        string $rate,
+    ): StorefrontCartItem {
+        $pig = $row->pig;
+
+        if ($pig === null) {
+            throw new CartException('One of the animals chosen is no longer on the farm.');
+        }
+
+        $weight = $this->pricing->latestWeightKg($pig);
+
+        if ($weight === null) {
+            throw new CartException('Animal ' . ($pig->ear_tag_number ?: ('#' . $pig->getKey())) . ' has no recorded weight, so it cannot be priced. Please request a quote.');
+        }
+
+        $existing = $cart->items()->where('listing_id', $listing->id)->where('line_key', (string) $row->getKey())->first();
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $total = bcmul($weight, $rate, 2);
+
+        return StorefrontCartItem::create([
+            'organization_id'              => $listing->organization_id,
+            'cart_id'                      => $cart->id,
+            'listing_id'                   => $listing->id,
+            'line_key'                     => (string) $row->getKey(),
+            'purchase_type'                => StorefrontPigPricingService::PURCHASE_CARCASS,
+            'source_category'              => $listing->source_category,
+            'quantity'                     => '1',
+            'requested_kg'                 => $weight,
+            'price_per_kg_snapshot'        => $rate,
+            'line_weight_kg'               => $weight,
+            'price_snapshot'               => $total,
+            'price_basis'                  => StorefrontListing::BASIS_CARCASS,
+            'selected_listing_pig_ids'     => [$row->getKey()],
+            'selected_pig_weight_snapshot' => [
+                (string) $row->getKey() => ['pig_id' => $pig->getKey(), 'ear_tag' => $pig->ear_tag_number, 'kg' => $weight],
+            ],
+            'calculation_snapshot' => [
+                'basis' => 'carcass', 'weight_kg' => $weight, 'rate_per_kg' => $rate,
+                'line_total' => $total,
+                'rate_source' => $listing->pricing_source ?? StorefrontPigPricingService::SOURCE_SETUP,
+                'explanation' => $weight . ' kg × ' . $rate . ' = ' . $total,
+            ],
+        ]);
+    }
+
     /**
      * @param  EloquentCollection<int, StorefrontListingPig>  $rows
      * @param  array<int, int>  $ids
@@ -320,7 +410,7 @@ class StorefrontPurchaseLineService
      */
     protected function liveRate(StorefrontListing $listing): string
     {
-        $rate = $listing->live_price_per_kg_snapshot;
+        $rate = $this->pricing->effectiveLiveRate($listing);
 
         if ($rate === null || bccomp((string) $rate, '0', 4) <= 0) {
             throw new CartException('This listing has no live price and cannot be bought online yet.');
@@ -331,7 +421,7 @@ class StorefrontPurchaseLineService
 
     protected function carcassRate(StorefrontListing $listing): string
     {
-        $rate = $listing->carcass_price_per_kg_snapshot;
+        $rate = $this->pricing->effectiveCarcassRate($listing);
 
         if ($rate === null || bccomp((string) $rate, '0', 4) <= 0) {
             throw new CartException('This listing has no carcass price and cannot be bought by weight yet.');
