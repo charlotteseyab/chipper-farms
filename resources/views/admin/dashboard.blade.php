@@ -1261,22 +1261,18 @@
                     <div class="admin-card-head">
                         <div>
                             <h3 class="admin-card-title">Breed Distribution</h3>
-                            <div class="admin-card-sub">Current breakdown by main breed groups</div>
+                            <div class="admin-card-sub">Active animals grouped using this farm's breed catalogue</div>
                         </div>
                     </div>
                     <div class="admin-list">
-                        <div class="admin-list-row">
-                            <span>LW (Large White)</span>
-                            <span>{{ number_format($breedCounts['LW'] ?? 0) }}</span>
-                        </div>
-                        <div class="admin-list-row">
-                            <span>DR (Duroc)</span>
-                            <span>{{ number_format($breedCounts['DR'] ?? 0) }}</span>
-                        </div>
-                        <div class="admin-list-row">
-                            <span>LWDR (Large White Duroc)</span>
-                            <span>{{ number_format($breedCounts['LWDR'] ?? 0) }}</span>
-                        </div>
+                        @forelse($breedCounts as $breed)
+                            <div class="admin-list-row">
+                                <span>{{ $breed['name'] }} <small class="text-slate-400">({{ $breed['code'] }})</small></span>
+                                <span>{{ number_format($breed['count']) }}</span>
+                            </div>
+                        @empty
+                            <div class="px-5 py-8 text-center text-sm text-slate-500">No active animals are available for breed distribution.</div>
+                        @endforelse
                     </div>
                 </div>
 

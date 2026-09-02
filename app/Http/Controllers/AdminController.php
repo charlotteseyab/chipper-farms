@@ -52,11 +52,31 @@ class AdminController extends Controller
         $activeFemaleCount = PigManagement::active()->where('gender', 'F')->count();
         $breedingStock = PigManagement::where('stock_type', 'breeding')->count();
         $standardStock = PigManagement::where('stock_type', 'standard')->count();
-        $breedCounts = [
-            'LW' => PigManagement::where('breed', 'LW')->count(),
-            'DR' => PigManagement::where('breed', 'DR')->count(),
-            'LWDR' => PigManagement::where('breed', 'LWDR')->count(),
-        ];
+        $breedCatalogue = Setting::animalBreeds();
+        $breedCounts = PigManagement::active()
+            ->select('breed')
+            ->selectRaw('COUNT(*) as aggregate')
+            ->groupBy('breed')
+            ->get()
+            ->reduce(function (array $distribution, PigManagement $row) use ($breedCatalogue) {
+                $storedBreed = trim((string) $row->breed);
+                $normalized = strtoupper($storedBreed);
+                $catalogueCode = collect($breedCatalogue)->search(
+                    fn (string $name, string $code) => strtoupper($code) === $normalized
+                        || strtoupper(trim($name)) === $normalized
+                );
+
+                $code = $catalogueCode !== false ? (string) $catalogueCode : $storedBreed;
+                $name = $catalogueCode !== false ? $breedCatalogue[$catalogueCode] : ($storedBreed ?: 'Unspecified');
+
+                if (! isset($distribution[$code])) {
+                    $distribution[$code] = ['code' => $code, 'name' => $name, 'count' => 0];
+                }
+                $distribution[$code]['count'] += (int) $row->aggregate;
+
+                return $distribution;
+            }, []);
+        $breedCounts = collect($breedCounts)->sortByDesc('count')->values();
         $totalDeaths = PigDeath::count() + (int) PigletDeath::sum('count');
         $mortalityRate = $totalPigs > 0 ? ($totalDeaths / $totalPigs) * 100 : 0;
 
