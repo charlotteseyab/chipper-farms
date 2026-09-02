@@ -1,7 +1,10 @@
 <x-app-layout>
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10">
         <!-- RESTORED TITLE: Gives the user immediate context -->
-        <h1 class="text-3xl font-extrabold text-gray-900 mb-8">Medication Administration Log</h1>
+        <div class="mb-8">
+            <h1 class="text-3xl font-extrabold text-gray-900">Medication Administration Log</h1>
+            <p class="mt-1 text-sm text-gray-500">One row is shown per animal using its most recent medication. Open the medication history to review every previous administration.</p>
+        </div>
 
         <!-- Filter and Action Card -->
         <div class="bg-white p-6 md:p-8 shadow-xl rounded-xl mb-8 border border-gray-100">
@@ -102,7 +105,7 @@
                             @php($dateSort = $sortLink('administration_date'))
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                 <a href="{{ $dateSort['link'] }}" class="flex items-center group hover:text-gray-900 transition duration-150">
-                                    Date
+                                    Latest date
                                     <svg class="w-4 h-4 ml-1 transition-transform duration-200 {{ $dateSort['iconClasses'] }} {{ $dateSort['isCurrent'] ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
                                     </svg>
@@ -124,7 +127,7 @@
                             @php($medNameSort = $sortLink('medication_name'))
                             <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                 <a href="{{ $medNameSort['link'] }}" class="flex items-center group hover:text-gray-900 transition duration-150">
-                                    Medication Name
+                                    Latest medication
                                     <svg class="w-4 h-4 ml-1 transition-transform duration-200 {{ $medNameSort['iconClasses'] }} {{ $medNameSort['isCurrent'] ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path>
                                     </svg>
@@ -178,7 +181,10 @@
                                     </button>
                                     <div x-show="open" x-transition:enter="transition ease-out duration-100" x-transition:enter-start="transform opacity-0 scale-95" x-transition:enter-end="transform opacity-100 scale-100" x-transition:leave="transition ease-in duration-75" x-transition:leave-start="transform opacity-100 scale-100" x-transition:leave-end="transform opacity-0 scale-95" class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 divide-y divide-gray-100 focus:outline-none z-10">
                                         <div class="py-1">
-                                            <a href="{{ route('medications.show', $m) }}" class="block px-4 py-2 text-sm text-blue-600 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left" role="menuitem">View Record</a>
+                                            @if($m->pig)
+                                                <a href="{{ route('health.show', $m->pig) }}#medication-history" class="block px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-indigo-50 hover:text-indigo-700 w-full text-left" role="menuitem">View medication history</a>
+                                            @endif
+                                            <a href="{{ route('medications.show', $m) }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left" role="menuitem">View latest record</a>
                                             <a href="{{ route('medications.edit', $m) }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left" role="menuitem">Edit Record</a>
                                             <form method="POST" action="{{ route('medications.destroy', $m) }}" onsubmit="return confirm('Are you sure you want to delete this medication record?');">
                                                 @csrf
@@ -196,7 +202,8 @@
                         <tr>
                             <td colspan="7" class="px-6 py-12 text-center text-lg text-gray-500 bg-gray-50">
                                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                                <p class="mt-1">No medication records found matching your filters.</p>
+                                <p class="mt-1">No medication records found.</p>
+                                <p class="text-sm text-gray-400">Select an animal and save its first medication record to show it here.</p>
                             </td>
                         </tr>
                         @endforelse

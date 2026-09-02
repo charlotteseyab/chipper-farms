@@ -10,7 +10,6 @@ use App\Models\PigWeight;
 use App\Models\WeightAlert;
 use App\Models\ActivityLog;
 use App\Models\FeedBatch;
-use App\Models\HealthRecord;
 use App\Models\MedicationAdministration;
 use App\Models\PurchaseRequest;
 use App\Models\RawMaterial;
@@ -84,15 +83,28 @@ class FarmManagerDashboardController extends Controller
     $mediumAlerts = WeightAlert::where('severity', 'medium')->where('acknowledged', false)->count();
     $lowAlerts = WeightAlert::where('severity', 'low')->where('acknowledged', false)->count();
 
-    $openHealthQuery = HealthRecord::query()
-        ->whereNull('resolved_at')
-        ->where(function ($query) {
-            $query->whereNull('treatment_status')
-                ->orWhereIn('treatment_status', ['planned', 'ongoing']);
+    $openHealthQuery = PigManagement::active()
+        ->whereDoesntHave('deaths')
+        ->whereDoesntHave('sales')
+        ->whereHas('healthRecords', function ($health) {
+            $health->whereNull('resolved_at')
+                ->where(function ($status) {
+                    $status->whereNull('treatment_status')
+                        ->orWhereIn('treatment_status', ['planned', 'ongoing']);
+                });
         });
     $openHealthCases = (clone $openHealthQuery)->count();
-    $criticalHealthCases = (clone $openHealthQuery)
-        ->whereIn('severity', ['high', 'severe'])
+    $criticalHealthCases = PigManagement::active()
+        ->whereDoesntHave('deaths')
+        ->whereDoesntHave('sales')
+        ->whereHas('healthRecords', function ($health) {
+            $health->whereNull('resolved_at')
+                ->where(function ($status) {
+                    $status->whereNull('treatment_status')
+                        ->orWhereIn('treatment_status', ['planned', 'ongoing']);
+                })
+                ->whereIn('severity', ['high', 'severe']);
+        })
         ->count();
     $activeWithdrawals = MedicationAdministration::underWithdrawal()->count();
 
@@ -147,11 +159,14 @@ class FarmManagerDashboardController extends Controller
             $query->where('maturity_completed', true);
         })
         ->count();
-    $overdueWeaning = Farrowing::where('status', 'active')
-        ->whereDate('farrowing_date', '<', now()->subDays($weaningAge + 7))
+    $overdueWeaning = Farrowing::with('pigletDeaths')
+        ->where('status', 'active')
+        ->whereDate('farrowing_date', '<=', now()->subDays($weaningAge + 7))
         ->whereDoesntHave('weanings', function ($query) {
             $query->where('maturity_completed', true);
         })
+        ->get()
+        ->filter(fn (Farrowing $farrowing) => max(0, (int) ($farrowing->live_births ?? 0) - (int) $farrowing->pigletDeaths->sum('count')) > 0)
         ->count();
     $maturityReviews = PigManagement::active()
         ->whereBetween('date_of_birth', [
@@ -323,9 +338,9 @@ class FarmManagerDashboardController extends Controller
         : 0;
 
     $immediateAttention = collect([
-        ['label' => 'Critical health cases', 'count' => $criticalHealthCases, 'route' => route('health.index', ['severity' => 'high']), 'tone' => 'red'],
-        ['label' => 'Pregnancy checks overdue', 'count' => $pregnancyChecksOverdue, 'route' => route('mating.manage'), 'tone' => 'red'],
-        ['label' => 'Weaning overdue', 'count' => $overdueWeaning, 'route' => route('weaning.dashboard'), 'tone' => 'amber'],
+        ['label' => 'Critical health cases', 'count' => $criticalHealthCases, 'route' => route('health.index', ['attention' => 'open_critical']), 'tone' => 'red'],
+        ['label' => 'Pregnancy checks overdue', 'count' => $pregnancyChecksOverdue, 'route' => route('mating.manage', ['attention' => 'pregnancy_checks_overdue']), 'tone' => 'red'],
+        ['label' => 'Weaning overdue', 'count' => $overdueWeaning, 'route' => route('weaning.dashboard', ['attention' => 'overdue']), 'tone' => 'amber'],
         ['label' => 'Raw materials out', 'count' => $rawMaterialsOut, 'route' => route('raw-materials.index', ['status' => 'out_of_stock']), 'tone' => 'red'],
         ['label' => 'Requests awaiting approval', 'count' => $purchaseRequestsPending, 'route' => route('purchase-requests.index', ['status' => 'pending']), 'tone' => 'amber'],
     ])->filter(fn ($item) => $item['count'] > 0)->values();

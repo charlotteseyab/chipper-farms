@@ -47,15 +47,20 @@
                             </div>
 
                             <div>
-                                <label for="boar_id" class="block text-sm font-medium text-gray-700 mb-2">Boar</label>
-                                <select name="boar_id" id="boar_id" required class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600">
-                                    <option value="">Select Boar</option>
+                                <label for="boar_id" class="block text-sm font-medium text-gray-700 mb-2">Boar <span class="font-normal text-gray-400">(optional)</span></label>
+                                <select name="boar_id" id="boar_id" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600">
+                                    <option value="">Boar not recorded / unknown</option>
                                     @foreach($boars as $boar)
                                         <option value="{{ $boar->id }}" {{ old('boar_id', $farrowing->boar_id) == $boar->id ? 'selected' : '' }}>
                                             {{ $boar->ear_tag_number }} • {{ $boar->code }}
                                         </option>
                                     @endforeach
                                 </select>
+                                @if($boars->isEmpty())
+                                    <p class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">No male breeding stock has been registered for this farm. You can save the farrowing without a boar and add one later when it is known.</p>
+                                @else
+                                    <p class="mt-1 text-xs text-gray-500">Select the recorded father, or leave this as unknown if the mating details are unavailable.</p>
+                                @endif
                                 @error('boar_id')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
@@ -139,6 +144,12 @@
                                 @error('number_of_females')
                                     <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
+                            </div>
+
+                            <div class="md:col-span-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                                Gender breakdown recorded: <span id="genderRecordedCount" class="font-bold">0</span>.
+                                Gender not recorded: <span id="genderUnknownCount" class="font-bold text-amber-700">0</span>.
+                                <span class="mt-1 block text-xs text-slate-500">Male and female counts may be incomplete, but their combined total cannot exceed live births.</span>
                             </div>
 
                             <div>
@@ -272,7 +283,7 @@
                                 <label for="status" class="block text-sm font-medium text-gray-700 mb-2">Status</label>
                                 <select name="status" id="status" required class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600">
                                     <option value="active" {{ old('status', $farrowing->status) == 'active' ? 'selected' : '' }}>Active</option>
-                                    <option value="inactive" {{ old('status', $farrowing->status) == 'inactive' ? 'selected' : '' }}>Inactive</option>
+                                    <option value="completed" {{ old('status', $farrowing->status) == 'completed' ? 'selected' : '' }}>Completed</option>
                                     <option value="archived" {{ old('status', $farrowing->status) == 'archived' ? 'selected' : '' }}>Archived</option>
                                 </select>
                                 @error('status')
@@ -324,6 +335,10 @@
         const liveInput = document.getElementById('live_births');
         const stillInput = document.getElementById('stillbirths');
         const totalInput = document.getElementById('total_piglets_born');
+        const maleInput = document.getElementById('number_of_males');
+        const femaleInput = document.getElementById('number_of_females');
+        const recordedOutput = document.getElementById('genderRecordedCount');
+        const unknownOutput = document.getElementById('genderUnknownCount');
 
         if (!liveInput || !stillInput || !totalInput) {
             return;
@@ -333,9 +348,15 @@
             const live = parseInt(liveInput.value, 10) || 0;
             const still = parseInt(stillInput.value, 10) || 0;
             totalInput.value = live + still;
+            const recorded = (parseInt(maleInput?.value, 10) || 0) + (parseInt(femaleInput?.value, 10) || 0);
+            if (recordedOutput) recordedOutput.textContent = recorded;
+            if (unknownOutput) unknownOutput.textContent = Math.max(0, live - recorded);
         };
 
         liveInput.addEventListener('input', syncTotal);
         stillInput.addEventListener('input', syncTotal);
+        maleInput?.addEventListener('input', syncTotal);
+        femaleInput?.addEventListener('input', syncTotal);
+        syncTotal();
     });
 </script>

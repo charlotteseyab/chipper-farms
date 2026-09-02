@@ -98,6 +98,69 @@ class RawMaterialStockWorkflowBaselineTest extends TestCase
         return $material->fresh();
     }
 
+    public function test_opening_stock_returns_a_form_error_when_supplier_is_missing(): void
+    {
+        $this->actingAs($this->admin)->post(route('raw-materials.store'), [
+            'name' => 'Opening Maize',
+            'category' => 'grain',
+            'unit' => 'kg',
+            'quantity_in_stock' => 100,
+            'unit_cost' => 4,
+            'reorder_level' => 20,
+        ])->assertRedirect()
+            ->assertSessionHasErrors([
+                'opening_supplier_id' => 'Select the supplier responsible for the opening stock.',
+            ]);
+
+        $this->assertDatabaseMissing('raw_materials', ['name' => 'Opening Maize']);
+    }
+
+    public function test_opening_stock_is_created_with_this_farms_supplier(): void
+    {
+        $this->actingAs($this->admin)->post(route('raw-materials.store'), [
+            'name' => 'Opening Maize',
+            'category' => 'grain',
+            'unit' => 'kg',
+            'quantity_in_stock' => 100,
+            'unit_cost' => 4,
+            'reorder_level' => 20,
+            'opening_supplier_id' => $this->supplier->id,
+        ])->assertRedirect(route('raw-materials.index'))
+            ->assertSessionHasNoErrors();
+
+        $material = RawMaterial::where('name', 'Opening Maize')->firstOrFail();
+        $this->assertSame(100.0, (float) $material->quantity_in_stock);
+        $this->assertDatabaseHas('raw_material_stock_logs', [
+            'raw_material_id' => $material->id,
+            'organization_id' => $this->org->id,
+            'supplier_id' => $this->supplier->id,
+            'receipt_reason' => 'opening_stock',
+        ]);
+    }
+
+    public function test_opening_stock_rejects_another_farms_supplier(): void
+    {
+        $other = Organization::create(['slug' => 'other-farm', 'name' => 'Other Farm']);
+        $otherSupplier = Counterparty::withoutGlobalScopes()->create([
+            'organization_id' => $other->id,
+            'type' => Counterparty::TYPE_SUPPLIER,
+            'code' => 'SUP-OTHER',
+            'name' => 'Other Supplier',
+            'currency_code' => 'GHS',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($this->admin)->post(route('raw-materials.store'), [
+            'name' => 'Private Opening Stock',
+            'unit' => 'kg',
+            'quantity_in_stock' => 50,
+            'unit_cost' => 5,
+            'opening_supplier_id' => $otherSupplier->id,
+        ])->assertSessionHasErrors('opening_supplier_id');
+
+        $this->assertDatabaseMissing('raw_materials', ['name' => 'Private Opening Stock']);
+    }
+
     public function test_receiving_stock_increments_quantity_and_writes_log(): void
     {
         $material = $this->makeMaterial(qty: 50);

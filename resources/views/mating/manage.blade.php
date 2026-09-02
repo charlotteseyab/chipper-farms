@@ -925,8 +925,11 @@
 
                 <div class="mating-card">
                     <div class="mating-card-head">
-                        <h3 class="mating-card-title">All Matings</h3>
-                        <div class="mating-card-sub">Track breeding plans, pregnancy follow-ups, and breeding outcomes.</div>
+                        <h3 class="mating-card-title">{{ match($attentionFilter) { 'pregnancy_checks_overdue' => 'Overdue pregnancy checks', 'pregnancy_followups_overdue' => 'Overdue pregnancy follow-ups', default => 'All Matings' } }}</h3>
+                        <div class="mating-card-sub">{{ match($attentionFilter) { 'pregnancy_checks_overdue' => 'Only completed matings whose pregnancy confirmation is overdue are shown.', 'pregnancy_followups_overdue' => 'Only uncertain pregnancies whose scheduled follow-up is overdue are shown.', default => 'Track breeding plans, pregnancy follow-ups, and breeding outcomes.' } }}</div>
+                        @if(in_array($attentionFilter, ['pregnancy_checks_overdue', 'pregnancy_followups_overdue'], true))
+                            <a href="{{ route('mating.manage') }}" class="mt-2 inline-flex text-sm font-bold text-emerald-700 hover:underline">Clear attention filter</a>
+                        @endif
                     </div>
 
                     <div class="mating-table-toolbar">

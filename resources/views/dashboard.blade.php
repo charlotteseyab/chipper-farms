@@ -9,6 +9,8 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <!-- Weight Analytics Summary -->
             <x-weight-analytics-summary />
+
+            <x-dashboard.livestock-overview />
             
             <div class="bg-white overflow-hidden shadow-xl sm:rounded-lg">
                 <x-welcome />

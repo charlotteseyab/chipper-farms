@@ -803,8 +803,10 @@
 
                 <div class="fm2-top-pills">
                     <div class="fm2-pill">{{ now()->format('D, M j, Y') }}</div>
-                    <div class="fm2-pill">Refreshed {{ $refreshedAt->format('g:i A') }}</div>
-                    <a href="{{ route('manager.dashboard') }}" class="fm2-pill" style="background:#166534;color:#fff;border-color:#166534;">Refresh</a>
+                    <div class="fm2-pill">Updated {{ $refreshedAt->format('g:i:s A') }}</div>
+                    <a href="{{ route('manager.dashboard', ['refresh' => $refreshedAt->timestamp]) }}" class="fm2-pill" style="background:#166534;color:#fff;border-color:#166534;" aria-label="Refresh dashboard data">
+                        <i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Refresh data
+                    </a>
                 </div>
             </header>
 
@@ -813,7 +815,7 @@
                     <div class="fm2-attention-head"><div><div class="fm2-attention-title">Immediate attention</div><div class="fm2-panel-sub">Items requiring a manager decision or operational response</div></div><span class="fm2-priority fm2-priority-high">{{ $immediateAttention->sum('count') }} open</span></div>
                     <div class="fm2-attention-list">
                         @foreach($immediateAttention as $attention)
-                            <a href="{{ $attention['route'] }}" class="fm2-attention-item"><span class="fm2-attention-label">{{ $attention['label'] }}</span><span class="fm2-attention-count">{{ $attention['count'] }}</span></a>
+                            <a href="{{ $attention['route'] }}" class="fm2-attention-item" aria-label="Show {{ $attention['count'] }} {{ strtolower($attention['label']) }}"><span class="fm2-attention-label">{{ $attention['label'] }}</span><span class="fm2-attention-count">{{ $attention['count'] }}</span></a>
                         @endforeach
                     </div>
                 </section>
@@ -830,6 +832,8 @@
                     <div class="fm2-herd-card"><div class="fm2-herd-label">Quarantined</div><div class="fm2-herd-value">{{ number_format($procurementSummary['quarantined']) }}</div><div class="fm2-herd-note">Purchased stock under quarantine</div></div>
                 </div>
             </section>
+
+            <x-dashboard.livestock-overview />
 
             <div class="fm2-main-grid">
                 <div class="fm2-panel">

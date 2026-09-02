@@ -911,6 +911,8 @@
                 </div>
             </div> -->
 
+            <x-dashboard.livestock-overview />
+
             <div class="su-panel su-filter">
                 <div class="su-filter-title">Dashboard Filters</div>
                 <form method="GET" action="{{ route('superuser.dashboard') }}" id="dashboardFilterForm" class="flex flex-col gap-4">

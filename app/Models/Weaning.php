@@ -41,6 +41,7 @@ class Weaning extends Model implements ResolvesOrganization
     use HasFactory;
 
     protected $fillable = [
+        'farrowing_id',
         'pig_id',
         'mother_id',
         'weaning_date',

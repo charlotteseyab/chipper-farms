@@ -60,7 +60,9 @@ class PigManagement extends Model
             // while fixturing the storefront pig-pool work, where selling
             // animals is the normal case.
             if (!$pig->local_id) {
-                $pig->local_id = static::nextLocalId();
+                $pig->local_id = static::nextLocalId(
+                    $pig->organization_id ? (int) $pig->organization_id : null,
+                );
             }
 
             // Auto-generate a unique code when not provided to satisfy NOT NULL + unique
@@ -163,12 +165,16 @@ class PigManagement extends Model
      * serialising every pig creation on the farm, and the constraint guarantees
      * we never silently duplicate.
      */
-    public static function nextLocalId(int $attempts = 5): int
+    public static function nextLocalId(?int $organizationId = null, int $attempts = 5): int
     {
-        $candidate = ((int) static::withTrashed()->max('local_id')) + 1;
+        $organizationId ??= app(\App\Support\CurrentOrganization::class)->id();
+        $base = static::withoutGlobalScopes()
+            ->withTrashed()
+            ->when($organizationId !== null, fn ($query) => $query->where('organization_id', $organizationId));
+        $candidate = ((int) (clone $base)->max('local_id')) + 1;
 
         for ($try = 0; $try < $attempts; $try++) {
-            $taken = static::withTrashed()->where('local_id', $candidate)->exists();
+            $taken = (clone $base)->where('local_id', $candidate)->exists();
 
             if (! $taken) {
                 return $candidate;

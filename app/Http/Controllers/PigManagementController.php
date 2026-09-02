@@ -156,9 +156,9 @@ class PigManagementController extends Controller {
         return app(MatingController::class)->planMating($request);
     }
 
-    public function matingManage()
+    public function matingManage(Request $request)
     {
-        return app(MatingController::class)->matingManage();
+        return app(MatingController::class)->matingManage($request);
     }
 
     public function destroyMating($id)
@@ -214,9 +214,9 @@ class PigManagementController extends Controller {
     }
 
     // Unified Weaning Dashboard - Litter-Based Approach
-    public function weaningDashboard()
+    public function weaningDashboard(Request $request)
     {
-        return app(WeaningController::class)->dashboard();
+        return app(WeaningController::class)->dashboard($request);
     }
 
     /**

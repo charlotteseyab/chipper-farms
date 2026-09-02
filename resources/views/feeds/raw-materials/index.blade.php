@@ -7,7 +7,7 @@
         ];
     @endphp
 
-    <div class="max-w-7xl mx-auto py-6 px-4" x-data="{ openModal: null, selectedMaterial: null }">
+    <div class="max-w-7xl mx-auto py-6 px-4" x-data="{ openModal: {{ $errors->any() ? "'add'" : 'null' }}, selectedMaterial: null, openingQuantity: {{ (float) old('quantity_in_stock', 0) }} }">
         <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
                 <h1 class="text-2xl font-bold text-gray-800">Raw Materials & Stock</h1>
@@ -356,6 +356,15 @@
                 <form action="{{ route('raw-materials.store') }}" method="POST" class="p-6 space-y-5">
                     @csrf
 
+                    @if($errors->any())
+                        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                            <p class="font-bold">Please correct the highlighted information.</p>
+                            <ul class="mt-1 list-disc pl-5">
+                                @foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach
+                            </ul>
+                        </div>
+                    @endif
+
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Material Name</label>
@@ -377,7 +386,7 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Opening Stock</label>
-                            <input type="number" step="0.01" min="0" name="quantity_in_stock" value="{{ old('quantity_in_stock', 0) }}"
+                            <input type="number" step="0.01" min="0" name="quantity_in_stock" value="{{ old('quantity_in_stock', 0) }}" x-model.number="openingQuantity"
                                    class="w-full rounded-xl border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
                         </div>
 
@@ -391,6 +400,25 @@
                             <label class="block text-sm font-medium text-gray-700 mb-2">Reorder Level</label>
                             <input type="number" step="0.01" min="0" name="reorder_level" value="{{ old('reorder_level', 0) }}"
                                    class="w-full rounded-xl border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+                        </div>
+
+                        <div x-show="openingQuantity > 0" x-cloak class="md:col-span-2 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+                            <label class="block text-sm font-semibold text-gray-800 mb-2">Opening Stock Supplier</label>
+                            @if($suppliers->isNotEmpty())
+                                <select name="opening_supplier_id" :required="openingQuantity > 0"
+                                        class="w-full rounded-xl border-gray-300 bg-white shadow-sm focus:border-green-500 focus:ring-green-500">
+                                    <option value="">Select supplier</option>
+                                    @foreach($suppliers as $supplier)
+                                        <option value="{{ $supplier->id }}" @selected((string) old('opening_supplier_id') === (string) $supplier->id)>{{ $supplier->name }}</option>
+                                    @endforeach
+                                </select>
+                                <p class="mt-2 text-xs text-gray-600">This attributes the opening receipt correctly in inventory and finance records.</p>
+                            @else
+                                <p class="text-sm font-medium text-amber-800">No supplier exists for this farm yet. Add the material with opening stock set to zero, or create a supplier first.</p>
+                                @if(Route::has('finance.suppliers.create'))
+                                    <a href="{{ route('finance.suppliers.create') }}" class="mt-2 inline-flex text-sm font-bold text-emerald-700 hover:text-emerald-800">Create supplier →</a>
+                                @endif
+                            @endif
                         </div>
 
                         <div class="md:col-span-2">
@@ -510,6 +538,26 @@
                             <label class="block text-sm font-medium text-gray-700 mb-2">Reference</label>
                             <input type="text" name="reference" placeholder="e.g. Invoice No / GRN"
                                    class="w-full rounded-xl border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Supplier</label>
+                            <select name="supplier_id" class="w-full rounded-xl border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500" required>
+                                <option value="">Select supplier</option>
+                                @foreach($suppliers as $supplier)<option value="{{ $supplier->id }}">{{ $supplier->name }}</option>@endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Reason for direct receipt</label>
+                            <select name="receipt_reason" class="w-full rounded-xl border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500" required>
+                                <option value="">Select reason</option>
+                                <option value="direct_purchase">Direct purchase</option>
+                                <option value="donation">Donation</option>
+                                <option value="sample">Supplier sample</option>
+                                <option value="returns">Stock returned</option>
+                                <option value="correction">Stock correction</option>
+                            </select>
                         </div>
 
                         <div class="md:col-span-2">

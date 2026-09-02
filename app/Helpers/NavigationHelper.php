@@ -92,6 +92,15 @@ class NavigationHelper
             ];
         }
 
+        if ($user->isAccountant()) {
+            return [
+                [
+                    'title' => 'Finance',
+                    'items' => self::financeItems($user),
+                ],
+            ];
+        }
+
         $allRoles = ['superuser', 'admin', 'farmmanager', 'dataentry'];
         $managementRoles = ['superuser', 'admin', 'farmmanager'];
         $adminRoles = ['superuser', 'admin'];
@@ -180,6 +189,7 @@ class NavigationHelper
                 'items' => array_values(array_filter([
                     self::link('General Settings', 'settings.general', 'settings/general-settings*', 'fa-solid fa-sliders', $adminRoles),
                     self::link('Breeding Setup', 'settings.setup', 'settings/setup*', 'fa-solid fa-gear', $adminRoles),
+                    self::link('Bulk Weight Standards', 'weight-standards.bulk-create', 'weight-standards-bulk*', 'fa-solid fa-ruler-combined', ['admin']),
                     self::link('Email Settings', 'settings.email', 'settings/email*', 'fa-solid fa-envelope', $adminRoles),
                     self::link('Modules & Features', 'settings.modules', 'settings/modules*', 'fa-solid fa-toggle-on', ['superuser']),
                     self::link('System Reports', 'settings.reports', 'settings/reports*', 'fa-solid fa-file-lines', $adminRoles),
@@ -214,7 +224,7 @@ class NavigationHelper
         }
 
         if ($user->isTreasurer() || $user->isAccountant()) {
-            return route('finance.dashboard');
+            return route('finance.overview');
         }
 
         return route('dashboard');
@@ -359,7 +369,7 @@ class NavigationHelper
             $user->isAdmin() => 'admin.dashboard',
             $user->isManager() => 'manager.dashboard',
             $user->isDataEntry() => 'dataentry.dashboard',
-            $user->isTreasurer() || $user->isAccountant() => 'finance.dashboard',
+            $user->isTreasurer() || $user->isAccountant() => 'finance.overview',
             default => 'dashboard',
         };
     }

@@ -1,4 +1,12 @@
 <x-app-layout>
+    @if(in_array(request('attention'), ['overdue_weighing', 'first_weight_pending'], true))
+        <div class="mx-auto mt-4 max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+                <div><strong>{{ request('attention') === 'overdue_weighing' ? 'Showing animals overdue for routine weighing.' : 'Showing animals whose first weight is overdue.' }}</strong> Record a current weight from the animal’s action menu.</div>
+                <a href="{{ route('all-stocks.index') }}" class="font-bold underline">Clear filter</a>
+            </div>
+        </div>
+    @endif
     <style>
         .allstock-page{
             min-height: 100vh;

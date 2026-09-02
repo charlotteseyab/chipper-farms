@@ -561,43 +561,27 @@
             margin-bottom: 16px;
         }
 
-        .admin-attention-table{
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .admin-attention-table th,
-        .admin-attention-table td{
-            padding: 12px 16px;
-            text-align: left;
-            border-top: 1px solid #eef2f7;
-            font-size: .8rem;
-            vertical-align: middle;
-        }
-
-        .admin-attention-table th{
-            color: #64748b;
-            font-size: .68rem;
-            font-weight: 900;
-            text-transform: uppercase;
-            background: #f8fafc;
-        }
-
-        .admin-attention-table td{
-            color: #334155;
-            font-weight: 650;
-        }
-
-        .admin-attention-link{
-            color: #0f766e;
-            font-weight: 900;
-            text-decoration: none;
-        }
-
-        .admin-attention-link:hover{
-            color: #14532d;
-            text-decoration: underline;
-        }
+        .admin-attention-body{padding:0 16px 16px;}
+        .admin-attention-filters{display:flex;gap:8px;overflow-x:auto;padding:14px 0 12px;scrollbar-width:thin;}
+        .admin-attention-filter{display:inline-flex;align-items:center;gap:8px;min-width:max-content;cursor:pointer;border:1px solid #e2e8f0;border-radius:999px;background:#fff;padding:7px 10px;color:#475569;font:inherit;font-size:.72rem;font-weight:850;text-decoration:none;transition:.18s ease;}
+        .admin-attention-filter:hover{border-color:#94a3b8;background:#f8fafc;color:#0f172a;}
+        .admin-attention-filter.is-active{border-color:#0f766e;background:#ecfdf5;color:#065f46;box-shadow:0 0 0 2px rgba(15,118,110,.08);}
+        .admin-attention-filter-count{display:inline-flex;min-width:22px;height:22px;align-items:center;justify-content:center;border-radius:999px;background:#f1f5f9;color:#334155;font-size:.66rem;font-weight:950;}
+        .admin-attention-filter.is-active .admin-attention-filter-count{background:#0f766e;color:#fff;}
+        .admin-attention-focus{border:1px solid #e2e8f0;border-radius:18px;background:linear-gradient(145deg,#fff 0%,#f8fafc 100%);padding:16px;}
+        .admin-attention-focus-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+        .admin-attention-kicker{color:#64748b;font-size:.66rem;font-weight:900;letter-spacing:.09em;text-transform:uppercase;}
+        .admin-attention-title{margin-top:4px;color:#0f172a;font-size:1rem;font-weight:950;line-height:1.25;}
+        .admin-attention-summary{margin-top:8px;color:#475569;font-size:.76rem;line-height:1.55;}
+        .admin-attention-steps{display:grid;gap:8px;margin:14px 0 0;padding:0;list-style:none;counter-reset:attention-step;}
+        .admin-attention-step{display:grid;grid-template-columns:24px minmax(0,1fr);align-items:start;gap:8px;color:#334155;font-size:.74rem;font-weight:700;line-height:1.45;counter-increment:attention-step;}
+        .admin-attention-step:before{content:counter(attention-step);display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:8px;background:#e2e8f0;color:#334155;font-size:.65rem;font-weight:950;}
+        .admin-attention-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:15px;padding-top:13px;border-top:1px solid #e2e8f0;}
+        .admin-attention-primary{display:inline-flex;align-items:center;justify-content:center;border-radius:10px;background:#0f766e;padding:9px 13px;color:#fff;font-size:.73rem;font-weight:900;text-decoration:none;}
+        .admin-attention-primary:hover{background:#115e59;}
+        .admin-attention-clear{cursor:pointer;border:0;background:transparent;padding:0;color:#64748b;font:inherit;font-size:.7rem;font-weight:800;text-decoration:none;}
+        .admin-attention-clear:hover{color:#0f172a;}
+        .admin-attention-empty{padding:24px 12px;text-align:center;color:#64748b;font-size:.8rem;}
 
         .admin-status-pill{
             display: inline-flex;
@@ -922,6 +906,16 @@
             .admin-small-value{
                 align-items: flex-start;
             }
+
+            .admin-attention-focus-head,
+            .admin-attention-actions{
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .admin-attention-primary{
+                width: 100%;
+            }
         }
     </style>
 
@@ -939,7 +933,9 @@
                     <input type="date" id="date_to" name="date_to" value="{{ $dateTo }}" class="admin-input" style="width: 160px;">
                     <button type="submit" class="admin-btn admin-btn-green">Apply</button>
                     <a href="{{ route('admin.dashboard') }}" class="admin-btn admin-btn-gray">Reset</a>
+                    <a href="{{ route('admin.dashboard', ['date_from' => $dateFrom, 'date_to' => $dateTo, 'attention' => $selectedAttentionKey ?: null, 'refresh' => $refreshedAt->timestamp]) }}" class="admin-btn admin-btn-gray" title="Reload current dashboard data"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Refresh data</a>
                 </form>
+                <div class="mt-2 text-xs font-semibold text-slate-500">Updated {{ $refreshedAt->format('g:i:s A') }}</div>
             </div>
 
             <div class="admin-command-grid">
@@ -1088,6 +1084,8 @@
                 </a>
             </div>
 
+            <x-dashboard.livestock-overview />
+
             <div class="admin-dashboard-grid">
                 <div class="admin-card">
                     <div class="admin-card-head">
@@ -1108,104 +1106,54 @@
                     <div class="admin-card-head">
                         <div>
                             <h3 class="admin-card-title">Attention Needed</h3>
-                            <div class="admin-card-sub">The items most likely to need action now</div>
+                            <div class="admin-card-sub">Choose an issue to see only what it needs next</div>
                         </div>
-                        <a href="{{ route('weight-alerts.index') }}" class="admin-command-link">View Alerts</a>
+                        <div class="admin-badge">{{ number_format($attentionItems->sum('count')) }} open</div>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="admin-attention-table">
-                            <thead>
-                                <tr>
-                                    <th>Type</th>
-                                    <th>Item</th>
-                                    <th>Severity</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @if($overdueForWeighing > 0)
-                                    <tr>
-                                        <td>Weight</td>
-                                        <td>
-                                            <a href="{{ route('weights.index') }}" class="admin-attention-link">
-                                                {{ number_format($overdueForWeighing) }} overdue
-                                            </a>
-                                        </td>
-                                        <td><span class="admin-status-pill admin-status-high">High</span></td>
-                                    </tr>
-                                @endif
-                                @if($firstWeightPending > 0)
-                                    <tr>
-                                        <td>Weight</td>
-                                        <td>
-                                            <a href="{{ route('weights.index') }}" class="admin-attention-link">
-                                                {{ number_format($firstWeightPending) }} first weight pending
-                                            </a>
-                                        </td>
-                                        <td><span class="admin-status-pill admin-status-medium">Medium</span></td>
-                                    </tr>
-                                @endif
-                                @if($pregnancyChecksOverdue > 0)
-                                    <tr>
-                                        <td>Breeding</td>
-                                        <td>
-                                            <a href="{{ route('mating.manage') }}" class="admin-attention-link">
-                                                {{ number_format($pregnancyChecksOverdue) }} pregnancy checks overdue
-                                            </a>
-                                        </td>
-                                        <td><span class="admin-status-pill admin-status-high">High</span></td>
-                                    </tr>
-                                @endif
-                                @if($pregnancyFollowUpsOverdue > 0)
-                                    <tr>
-                                        <td>Breeding</td>
-                                        <td>
-                                            <a href="{{ route('mating.manage') }}" class="admin-attention-link">
-                                                {{ number_format($pregnancyFollowUpsOverdue) }} uncertain pregnancy follow-ups overdue
-                                            </a>
-                                        </td>
-                                        <td><span class="admin-status-pill admin-status-high">High</span></td>
-                                    </tr>
-                                @endif
-                                @if($overdueGestation > 0)
-                                    <tr>
-                                        <td>Gestation</td>
-                                        <td>
-                                            <a href="{{ route('gestation.index') }}" class="admin-attention-link">
-                                                {{ number_format($overdueGestation) }} overdue farrowing preparations
-                                            </a>
-                                        </td>
-                                        <td><span class="admin-status-pill admin-status-high">High</span></td>
-                                    </tr>
-                                @endif
-                                @if($overdueWeaning > 0)
-                                    <tr>
-                                        <td>Weaning</td>
-                                        <td>
-                                            <a href="{{ route('weaning.dashboard') }}" class="admin-attention-link">
-                                                {{ number_format($overdueWeaning) }} litters overdue
-                                            </a>
-                                        </td>
-                                        <td><span class="admin-status-pill admin-status-medium">Medium</span></td>
-                                    </tr>
-                                @endif
-                                @if($criticalAlerts > 0)
-                                    <tr>
-                                        <td>Weight Alert</td>
-                                        <td>
-                                            <a href="{{ route('weight-alerts.index', ['severity' => 'high', 'acknowledged' => 0]) }}" class="admin-attention-link">
-                                                {{ number_format($criticalAlerts) }} critical alerts
-                                            </a>
-                                        </td>
-                                        <td><span class="admin-status-pill admin-status-high">High</span></td>
-                                    </tr>
-                                @endif
-                                @if($overdueForWeighing === 0 && $firstWeightPending === 0 && $pregnancyChecksOverdue === 0 && $pregnancyFollowUpsOverdue === 0 && $overdueGestation === 0 && $overdueWeaning === 0 && $criticalAlerts === 0)
-                                    <tr>
-                                        <td colspan="3">No urgent dashboard alerts for the selected period.</td>
-                                    </tr>
-                                @endif
-                            </tbody>
-                        </table>
+                    <div class="admin-attention-body" id="attention-needed">
+                        @if($attentionItems->isEmpty())
+                            <div class="admin-attention-empty">No current operational alerts need attention.</div>
+                        @else
+                            <nav class="admin-attention-filters" aria-label="Filter attention items">
+                                @foreach($attentionItems as $attention)
+                                    <button type="button" data-attention-tab="{{ $attention['key'] }}"
+                                       class="admin-attention-filter {{ $selectedAttentionKey === $attention['key'] ? 'is-active' : '' }}"
+                                       aria-pressed="{{ $selectedAttentionKey === $attention['key'] ? 'true' : 'false' }}">
+                                        <span>{{ $attention['title'] }}</span>
+                                        <span class="admin-attention-filter-count">{{ number_format($attention['count']) }}</span>
+                                    </button>
+                                @endforeach
+                            </nav>
+
+                            @foreach($attentionItems as $attention)
+                                <article class="admin-attention-focus" data-attention-panel="{{ $attention['key'] }}" @if($selectedAttentionKey !== $attention['key']) hidden @endif>
+                                    <div class="admin-attention-focus-head">
+                                        <div>
+                                            <div class="admin-attention-kicker">{{ $attention['type'] }} · action required</div>
+                                            <div class="admin-attention-title">{{ $attention['title'] }}</div>
+                                        </div>
+                                        <span class="admin-status-pill admin-status-{{ $attention['severity'] }}">
+                                            {{ ucfirst($attention['severity']) }} · {{ number_format($attention['count']) }}
+                                        </span>
+                                    </div>
+                                    <p class="admin-attention-summary">{{ $attention['summary'] }}</p>
+                                    <ol class="admin-attention-steps">
+                                        @foreach($attention['next_steps'] as $step)
+                                            <li class="admin-attention-step">{{ $step }}</li>
+                                        @endforeach
+                                    </ol>
+                                    <div class="admin-attention-actions">
+                                        <button type="button" data-attention-clear class="admin-attention-clear">Clear selection</button>
+                                        <a href="{{ $attention['action_url'] }}" class="admin-attention-primary">{{ $attention['action_label'] }} →</a>
+                                    </div>
+                                </article>
+                            @endforeach
+                            <div class="admin-attention-focus" data-attention-placeholder @if($selectedAttention) hidden @endif>
+                                <div class="admin-attention-kicker">Choose where to start</div>
+                                <div class="admin-attention-title">Select one attention item above</div>
+                                <p class="admin-attention-summary">The card will narrow to that issue and show the required next actions without mixing it with unrelated work.</p>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -1908,6 +1856,41 @@
                 }
             });
         });
+
+        (function setupAttentionTabs() {
+            const card = document.getElementById('attention-needed');
+            if (!card) return;
+
+            const tabs = Array.from(card.querySelectorAll('[data-attention-tab]'));
+            const panels = Array.from(card.querySelectorAll('[data-attention-panel]'));
+            const placeholder = card.querySelector('[data-attention-placeholder]');
+
+            function selectAttention(key) {
+                tabs.forEach(function (tab) {
+                    const active = tab.dataset.attentionTab === key;
+                    tab.classList.toggle('is-active', active);
+                    tab.setAttribute('aria-pressed', active ? 'true' : 'false');
+                });
+                panels.forEach(function (panel) {
+                    panel.hidden = panel.dataset.attentionPanel !== key;
+                });
+                if (placeholder) placeholder.hidden = Boolean(key);
+
+                const url = new URL(window.location.href);
+                if (key) url.searchParams.set('attention', key);
+                else url.searchParams.delete('attention');
+                history.replaceState({}, '', url.pathname + url.search + window.location.hash);
+            }
+
+            tabs.forEach(function (tab) {
+                tab.addEventListener('click', function () {
+                    selectAttention(tab.dataset.attentionTab);
+                });
+            });
+            card.querySelectorAll('[data-attention-clear]').forEach(function (button) {
+                button.addEventListener('click', function () { selectAttention(''); });
+            });
+        })();
 
         function toggleWeighingAlertsModal() {
             const modal = document.getElementById('weighingAlertsModal');

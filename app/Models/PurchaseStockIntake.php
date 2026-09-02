@@ -21,6 +21,11 @@ class PurchaseStockIntake extends Model
     public const STATUS_REJECTED = 'rejected';
     public const STATUS_CANCELLED = 'cancelled';
 
+    public const QUARANTINE_CLEARED = 'cleared';
+    public const QUARANTINE_EXTENDED = 'extended';
+    public const QUARANTINE_PARTIALLY_CLEARED = 'partially_cleared';
+    public const QUARANTINE_REJECTED = 'rejected';
+
     public const FINANCE_NOT_CONFIGURED = 'not_configured';
     public const FINANCE_PENDING = 'pending';
     public const FINANCE_POSTED = 'posted';
@@ -61,6 +66,12 @@ class PurchaseStockIntake extends Model
         'quarantined_by',
         'quarantined_at',
         'quarantine_release_date',
+        'quarantine_outcome',
+        'quarantine_rejected_quantity',
+        'quarantine_disposition',
+        'quarantine_review_notes',
+        'quarantine_reviewed_by',
+        'quarantine_reviewed_at',
         'approved_by',
         'approved_at',
         'added_to_stock_by',
@@ -79,6 +90,7 @@ class PurchaseStockIntake extends Model
         'received_at' => 'datetime',
         'quarantined_at' => 'datetime',
         'quarantine_release_date' => 'date',
+        'quarantine_reviewed_at' => 'datetime',
         'approved_at' => 'datetime',
         'added_to_stock_at' => 'datetime',
     ];
@@ -106,6 +118,11 @@ class PurchaseStockIntake extends Model
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function quarantineReviewedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'quarantine_reviewed_by');
     }
 
     public static function nextBatchNumber(?int $year = null): string
@@ -140,6 +157,19 @@ class PurchaseStockIntake extends Model
     public function receivedQuantity(): int
     {
         return (int) ($this->quantity_received ?? 0);
+    }
+
+    public function clearedQuantity(): int
+    {
+        return max(0, $this->receivedQuantity() - (int) $this->quarantine_rejected_quantity);
+    }
+
+    public function hasPassedQuarantineReview(): bool
+    {
+        return in_array($this->quarantine_outcome, [
+            self::QUARANTINE_CLEARED,
+            self::QUARANTINE_PARTIALLY_CLEARED,
+        ], true) && $this->clearedQuantity() > 0;
     }
 
     public function totalLandedCost(): float

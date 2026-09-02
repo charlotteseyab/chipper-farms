@@ -57,6 +57,7 @@
                     </div>
 
                     <div class="mt-6 space-y-3 text-sm text-slate-600">
+                        <p><strong class="text-slate-800">breed:</strong> use the exact farm-specific code shown in the downloaded sample</p>
                         <p><strong class="text-slate-800">gender:</strong> M or F</p>
                         <p><strong class="text-slate-800">stock_type:</strong> breeding or standard</p>
                         <p><strong class="text-slate-800">acquisition_source:</strong> born_on_farm or purchased</p>

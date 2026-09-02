@@ -25,6 +25,7 @@ class PurchaseStockIntakeService
         protected PurchaseStockFinanceService $finance,
         protected StockMovementService $stockMovements,
         protected AuditTrailService $audit,
+        protected EarTagNumberService $earTags,
     ) {
     }
 
@@ -109,7 +110,6 @@ class PurchaseStockIntakeService
 
         $intake->update([
             'room_id' => $data['room_id'] ?? $intake->room_id,
-            'group_id' => $data['group_id'] ?? $intake->group_id,
             'health_status' => $data['health_status'] ?? $intake->health_status,
             'health_notes' => $data['health_notes'] ?? $intake->health_notes,
             'quarantine_release_date' => $data['quarantine_release_date'] ?? $intake->quarantine_release_date,
@@ -125,7 +125,6 @@ class PurchaseStockIntakeService
             'description' => "Purchased stock intake {$intake->batch_number} entered quarantine/intake housing.",
             'new_values' => [
                 'room_id' => $data['room_id'] ?? $intake->room_id,
-                'group_id' => $data['group_id'] ?? $intake->group_id,
                 'health_status' => $data['health_status'] ?? $intake->health_status,
                 'status' => PurchaseStockIntake::STATUS_QUARANTINED,
             ],
@@ -136,7 +135,11 @@ class PurchaseStockIntakeService
 
     public function approve(PurchaseStockIntake $intake): PurchaseStockIntake
     {
-        $this->assertStatus($intake, [PurchaseStockIntake::STATUS_QUARANTINED, PurchaseStockIntake::STATUS_RECEIVED], 'Only received or quarantined purchases can be approved.');
+        $this->assertStatus($intake, [PurchaseStockIntake::STATUS_QUARANTINED], 'Only a quarantined purchase can be approved.');
+
+        if (! $intake->hasPassedQuarantineReview()) {
+            throw new StockValidationException('quarantine_outcome', 'Complete the quarantine review and clear at least one animal before approval.');
+        }
 
         if ($intake->receivedQuantity() <= 0) {
             throw new StockValidationException('quantity_received', 'Received quantity is required before approval.');
@@ -146,8 +149,8 @@ class PurchaseStockIntakeService
             throw new StockValidationException('total_purchase_cost', 'Purchase cost is required before approval.');
         }
 
-        if (! $intake->room_id && ! $intake->group_id) {
-            throw new StockValidationException('room_id', 'Assign quarantine housing or a group before approval.');
+        if (! $intake->room_id) {
+            throw new StockValidationException('room_id', 'Assign a physical quarantine room before approval.');
         }
 
         $intake->update([
@@ -164,6 +167,69 @@ class PurchaseStockIntakeService
             'new_values' => [
                 'approved_by' => auth()->id(),
                 'status' => PurchaseStockIntake::STATUS_APPROVED,
+            ],
+        ]);
+
+        return $intake->fresh();
+    }
+
+    public function reviewQuarantine(PurchaseStockIntake $intake, array $data): PurchaseStockIntake
+    {
+        $this->assertStatus($intake, [PurchaseStockIntake::STATUS_QUARANTINED], 'Only quarantined purchases can be reviewed.');
+
+        if (! $intake->room_id) {
+            throw new StockValidationException('room_id', 'Assign a physical quarantine room before completing the review.');
+        }
+
+        $outcome = $data['quarantine_outcome'];
+        $rejectedQuantity = match ($outcome) {
+            PurchaseStockIntake::QUARANTINE_REJECTED => $intake->receivedQuantity(),
+            PurchaseStockIntake::QUARANTINE_PARTIALLY_CLEARED => (int) $data['quarantine_rejected_quantity'],
+            default => 0,
+        };
+
+        if ($outcome === PurchaseStockIntake::QUARANTINE_PARTIALLY_CLEARED
+            && ($rejectedQuantity <= 0 || $rejectedQuantity >= $intake->receivedQuantity())) {
+            throw new StockValidationException('quarantine_rejected_quantity', 'For partial clearance, rejected animals must be at least one and fewer than the received quantity.');
+        }
+
+        $status = $outcome === PurchaseStockIntake::QUARANTINE_REJECTED
+            ? PurchaseStockIntake::STATUS_REJECTED
+            : PurchaseStockIntake::STATUS_QUARANTINED;
+
+        $intake->update([
+            'quarantine_outcome' => $outcome,
+            'quarantine_rejected_quantity' => $rejectedQuantity,
+            'quarantine_disposition' => $data['quarantine_disposition'] ?? null,
+            'quarantine_review_notes' => $data['quarantine_review_notes'] ?? null,
+            'health_status' => $data['health_status'] ?? $intake->health_status,
+            'health_notes' => $data['health_notes'] ?? $intake->health_notes,
+            'quarantine_release_date' => $outcome === PurchaseStockIntake::QUARANTINE_EXTENDED
+                ? $data['quarantine_release_date']
+                : $intake->quarantine_release_date,
+            'quarantine_reviewed_by' => auth()->id(),
+            'quarantine_reviewed_at' => now(),
+            'status' => $status,
+        ]);
+
+        $description = match ($outcome) {
+            PurchaseStockIntake::QUARANTINE_CLEARED => "Purchased stock intake {$intake->batch_number} passed quarantine.",
+            PurchaseStockIntake::QUARANTINE_PARTIALLY_CLEARED => "Purchased stock intake {$intake->batch_number} was partially cleared after quarantine.",
+            PurchaseStockIntake::QUARANTINE_EXTENDED => "Quarantine was extended for purchased stock intake {$intake->batch_number}.",
+            default => "Purchased stock intake {$intake->batch_number} was rejected after quarantine.",
+        };
+
+        $this->audit->log('purchased_stock', 'quarantine_reviewed', [
+            'auditable' => $intake,
+            'organization_id' => $intake->organization_id,
+            'record_label' => $intake->batch_number,
+            'description' => $description,
+            'new_values' => [
+                'quarantine_outcome' => $outcome,
+                'quantity_cleared' => $intake->clearedQuantity(),
+                'quarantine_rejected_quantity' => $rejectedQuantity,
+                'quarantine_disposition' => $data['quarantine_disposition'] ?? null,
+                'status' => $status,
             ],
         ]);
 
@@ -223,7 +289,7 @@ class PurchaseStockIntakeService
                 'record_label' => $lockedIntake->batch_number,
                 'description' => "Purchased stock intake {$lockedIntake->batch_number} was added to stock.",
                 'new_values' => [
-                    'quantity_added' => $lockedIntake->receivedQuantity(),
+                    'quantity_added' => $lockedIntake->clearedQuantity(),
                     'animal_category' => $lockedIntake->animal_category,
                     'status' => PurchaseStockIntake::STATUS_ADDED_TO_STOCK,
                 ],
@@ -239,45 +305,21 @@ class PurchaseStockIntakeService
     /** @return array<int,string> */
     public function proposeEarTagNumbers(int $quantity, ?int $organizationId = null): array
     {
-        if ($quantity <= 0) {
-            return [];
-        }
-
-        $organizationId ??= $this->currentOrganization->id();
-        $lastTag = PigManagement::withoutGlobalScopes()
-            ->withTrashed()
-            ->when($organizationId !== null, fn ($query) => $query->where('organization_id', $organizationId))
-            ->latest('id')
-            ->value('ear_tag_number');
-
-        if (preg_match('/^(.*?)(\d+)$/', trim((string) $lastTag), $matches)) {
-            $prefix = $matches[1];
-            $number = (int) $matches[2];
-            $padding = strlen($matches[2]);
-        } else {
-            $prefix = $lastTag ? rtrim((string) $lastTag, '-').'-' : 'TAG-';
-            $number = 0;
-            $padding = 3;
-        }
-
-        return collect(range(1, max(0, $quantity)))
-            ->map(fn (int $offset) => $prefix.str_pad((string) ($number + $offset), $padding, '0', STR_PAD_LEFT))
-            ->all();
+        return $this->earTags->propose($quantity, $organizationId);
     }
 
     protected function applyFinalHousing(PurchaseStockIntake $intake, array $housing): void
     {
-        if (array_key_exists('room_id', $housing) || array_key_exists('group_id', $housing)) {
+        if (array_key_exists('room_id', $housing)) {
             $intake->forceFill([
                 'room_id' => $housing['room_id'] !== '' ? ($housing['room_id'] ?? null) : null,
-                'group_id' => $housing['group_id'] !== '' ? ($housing['group_id'] ?? null) : null,
             ])->save();
 
             $intake->refresh();
         }
 
-        if (! $intake->room_id && ! $intake->group_id) {
-            throw new StockValidationException('room_id', 'Assign a room or group before adding purchased stock.');
+        if (! $intake->room_id) {
+            throw new StockValidationException('room_id', 'Assign a physical room before adding purchased stock.');
         }
     }
 
@@ -299,8 +341,8 @@ class PurchaseStockIntakeService
             ->count();
         $available = max(0, (int) $room->capacity - $activeCount);
 
-        if ($intake->receivedQuantity() > $available) {
-            throw new StockValidationException('room_id', "Selected room only has {$available} available space(s) for {$intake->receivedQuantity()} purchased animal(s).");
+        if ($intake->clearedQuantity() > $available) {
+            throw new StockValidationException('room_id', "Selected room only has {$available} available space(s) for {$intake->clearedQuantity()} cleared animal(s).");
         }
     }
 
@@ -327,8 +369,8 @@ class PurchaseStockIntakeService
             $earTagNumbers
         )));
 
-        if (count($tags) !== $intake->receivedQuantity()) {
-            throw new StockValidationException('ear_tag_numbers', 'Enter one ear tag number for each received animal before adding purchased stock.');
+        if (count($tags) !== $intake->clearedQuantity()) {
+            throw new StockValidationException('ear_tag_numbers', 'Enter one ear tag number for each animal cleared after quarantine.');
         }
 
         if (count($tags) !== count(array_unique($tags))) {
@@ -345,7 +387,7 @@ class PurchaseStockIntakeService
 
     protected function createIndividualPigs(PurchaseStockIntake $intake, array $earTagNumbers): void
     {
-        $count = $intake->receivedQuantity();
+        $count = $intake->clearedQuantity();
         $costPerPig = $intake->costPerReceivedAnimal();
         $dob = $intake->estimated_date_of_birth
             ? Carbon::parse($intake->estimated_date_of_birth)

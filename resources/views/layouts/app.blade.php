@@ -73,15 +73,47 @@
                     <p class="mt-1 text-xs leading-5">Operational navigation changes based on your role and access level.</p>
                 </div> -->
 
-                <nav id="sidebarNav" class="flex-1 space-y-6 overflow-y-auto px-4 py-5">
+                <nav id="sidebarNav" class="flex-1 space-y-1 overflow-y-auto px-4 py-5">
                     @foreach($sidebarSections as $section)
                         @php
-                            $sectionHasGroups = collect($section['items'] ?? [])->contains(fn ($item) => ($item['type'] ?? 'link') === 'group');
-                        @endphp
-                        <section data-sidebar-section class="space-y-3">
-                            <h2 class="px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-100/70">{{ $section['title'] }}</h2>
+                            $sectionIsActive = collect($section['items'] ?? [])->contains(function ($item) {
+                                $itemActive = collect($item['active_patterns'] ?? [])->contains(
+                                    fn ($pattern) => request()->routeIs($pattern) || request()->is($pattern)
+                                );
 
-                            <div class="space-y-1">
+                                if (($item['type'] ?? 'link') !== 'group') {
+                                    return $itemActive;
+                                }
+
+                                return $itemActive || collect($item['children'] ?? [])->contains(function ($child) {
+                                    return collect($child['active_patterns'] ?? [])->contains(
+                                        fn ($pattern) => request()->routeIs($pattern) || request()->is($pattern)
+                                    );
+                                });
+                            });
+                            $sectionIcon = match ($section['title']) {
+                                'Overview' => 'fa-solid fa-gauge-high',
+                                'Pig Operations' => 'fa-solid fa-piggy-bank',
+                                'Breeding & Lifecycle' => 'fa-solid fa-dna',
+                                'Monitoring' => 'fa-solid fa-chart-line',
+                                'Feed Management' => 'fa-solid fa-wheat-awn',
+                                'Storefront' => 'fa-solid fa-store',
+                                'Finance' => 'fa-solid fa-wallet',
+                                'System Settings' => 'fa-solid fa-gear',
+                                'Platform' => 'fa-solid fa-building-shield',
+                                default => 'fa-solid fa-folder-open',
+                            };
+                        @endphp
+                        <details data-sidebar-section class="group/section" {{ $sectionIsActive ? 'open' : '' }}>
+                            <summary class="flex cursor-pointer list-none items-center justify-between gap-3 border-l-2 px-3 py-3.5 text-sm font-bold transition {{ $sectionIsActive ? 'border-white text-white' : 'border-transparent text-emerald-50 hover:border-white/40 hover:text-white' }}">
+                                <span class="flex min-w-0 items-center gap-3">
+                                    <i class="{{ $sectionIcon }} w-4 shrink-0 text-center text-xs {{ $sectionIsActive ? 'text-white' : 'text-emerald-200/80' }}"></i>
+                                    <span class="truncate">{{ $section['title'] }}</span>
+                                </span>
+                                <i class="fa-solid fa-chevron-down text-[10px] text-emerald-100/80 transition-transform group-open/section:rotate-180"></i>
+                            </summary>
+
+                            <div class="space-y-1 pb-3 pl-4 pr-1">
                                 @foreach($section['items'] as $item)
                                     @php
                                         $patterns = $item['active_patterns'] ?? [];
@@ -145,7 +177,7 @@
                                     @endif
                                 @endforeach
                             </div>
-                        </section>
+                        </details>
                     @endforeach
 
                     <div id="sidebarSearchEmptyState" class="hidden rounded-2xl border border-white/15 bg-white/5 px-4 py-4 text-sm text-emerald-100">
@@ -200,6 +232,16 @@
             const sectionEls = Array.from(document.querySelectorAll('[data-sidebar-section]'));
             const emptyState = document.getElementById('sidebarSearchEmptyState');
             const appFooter = document.getElementById('appFooter');
+
+            sectionEls.forEach((section) => {
+                section.addEventListener('toggle', () => {
+                    if (!section.open || (searchInput?.value || '').trim()) return;
+
+                    sectionEls.forEach((otherSection) => {
+                        if (otherSection !== section) otherSection.removeAttribute('open');
+                    });
+                });
+            });
 
             const reserveFooterSpace = () => {
                 if (!appFooter) return;
@@ -292,6 +334,9 @@
                     sectionVisibleCount = section.querySelectorAll('[data-sidebar-link]:not(.hidden)').length;
                     totalVisibleLinks += sectionVisibleCount;
                     section.classList.toggle('hidden', sectionVisibleCount === 0);
+                    if (normalized && sectionVisibleCount > 0) {
+                        section.setAttribute('open', 'open');
+                    }
                 });
 
                 if (emptyState) {

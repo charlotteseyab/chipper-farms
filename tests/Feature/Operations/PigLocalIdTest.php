@@ -141,13 +141,7 @@ class PigLocalIdTest extends TestCase
         );
     }
 
-    /**
-     * A second farm must not collide with the first.
-     *
-     * `local_id` is a GLOBAL sequence — the unique index is on the column
-     * alone — so two farms share one series. That is not per-farm numbering,
-     * but it is what the schema says, and it must at least not fail.
-     */
+    /** A local id is local to one farm and may restart for another. */
     public function test_a_second_farm_can_add_pigs_without_colliding(): void
     {
         $this->makePig();
@@ -155,14 +149,42 @@ class PigLocalIdTest extends TestCase
 
         $otherFarm = Organization::create(['slug' => 'localid-farm-2', 'name' => 'Second Farm']);
 
+        $this->app->make(CurrentOrganization::class)->bind($otherFarm);
         $theirs = $this->makePig($otherFarm);
 
         $this->assertNotNull($theirs->id);
 
-        $this->assertSame(
-            1,
-            PigManagement::withTrashed()->where('local_id', $theirs->local_id)->count(),
-        );
+        $this->assertSame(1, (int) $theirs->local_id);
+        $this->assertSame(2, PigManagement::withoutGlobalScopes()->withTrashed()->where('local_id', 1)->count());
+    }
+
+    public function test_two_farms_can_reuse_the_same_ear_tag_and_code(): void
+    {
+        $first = PigManagement::create([
+            'organization_id' => $this->org->id,
+            'ear_tag_number' => 'TAG-001',
+            'breed' => 'Large White',
+            'gender' => 'female',
+            'stock_type' => 'breeding',
+            'date_of_birth' => now()->subYear()->toDateString(),
+            'code' => 'FARM-PIG-001',
+        ]);
+
+        $otherFarm = Organization::create(['slug' => 'identifier-farm-2', 'name' => 'Identifier Farm Two']);
+        $this->app->make(CurrentOrganization::class)->bind($otherFarm);
+        $second = PigManagement::create([
+            'organization_id' => $otherFarm->id,
+            'ear_tag_number' => 'TAG-001',
+            'breed' => 'Large White',
+            'gender' => 'female',
+            'stock_type' => 'breeding',
+            'date_of_birth' => now()->subYear()->toDateString(),
+            'code' => 'FARM-PIG-001',
+        ]);
+
+        $this->assertNotSame($first->id, $second->id);
+        $this->assertSame(1, (int) $first->local_id);
+        $this->assertSame(1, (int) $second->local_id);
     }
 
     /**

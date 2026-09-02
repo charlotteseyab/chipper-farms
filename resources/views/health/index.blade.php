@@ -1,6 +1,15 @@
 <x-app-layout>
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10">
-        <h1 class="text-2xl font-bold text-gray-900 mb-6">Health Records</h1>
+        <div class="mb-6">
+            <h1 class="text-2xl font-bold text-gray-900">Health Records</h1>
+            <p class="mt-1 text-sm text-gray-500">Only animals with a saved health record are shown here. Select an animal when adding a new record.</p>
+        </div>
+        @if(request('attention') === 'open_critical')
+            <div class="mb-5 flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
+                <div><strong>Showing critical cases requiring action.</strong> These animals have an unresolved high or severe health record.</div>
+                <a href="{{ route('health.index') }}" class="font-bold underline">Clear filter</a>
+            </div>
+        @endif
         <!-- Filter and Action Card -->
         <div class="bg-white p-6 md:p-8 shadow-xl rounded-xl mb-8 border border-gray-100">
             <form method="get">
@@ -209,8 +218,8 @@
                         <tr>
                             <td colspan="6" class="px-6 py-12 text-center text-lg text-gray-500 bg-gray-50">
                                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                                <p class="mt-1">No pigs found matching your filters.</p>
-                                <p class="text-sm text-gray-400">Try adjusting the filter criteria above.</p>
+                                <p class="mt-1">No health records found.</p>
+                                <p class="text-sm text-gray-400">Select an animal and add its first health record to show it here.</p>
                             </td>
                         </tr>
                         @endforelse

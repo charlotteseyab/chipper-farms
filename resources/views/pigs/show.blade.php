@@ -578,7 +578,87 @@
 
                 <div class="pigshow-main">
                     <div class="pigshow-stack">
-                        <div class="pigshow-card">
+                @if(auth()->user()?->hasPermission('view_health_records'))
+                    @php
+                        $healthSeverity = strtolower((string) ($latestHealthRecord?->severity ?? ''));
+                        $healthBadge = match (true) {
+                            in_array($healthSeverity, ['high', 'severe'], true) => 'badge-red',
+                            in_array($healthSeverity, ['medium', 'moderate'], true) => 'badge-yellow',
+                            $latestHealthRecord !== null => 'badge-blue',
+                            default => 'badge-gray',
+                        };
+                    @endphp
+                    <div id="clinical-summary" class="pigshow-card order-2 scroll-mt-28">
+                        <div class="pigshow-card-head flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h2 class="pigshow-card-title">Health &amp; Medication Summary</h2>
+                                <div class="pigshow-card-sub">The animal's latest clinical position. Full histories remain available in the health record.</div>
+                            </div>
+                            <a href="{{ route('health.show', $pig) }}" class="pigshow-link whitespace-nowrap">View complete history →</a>
+                        </div>
+                        <div class="pigshow-card-body grid gap-4 lg:grid-cols-2">
+                            <section class="rounded-2xl border border-rose-100 bg-rose-50/40 p-4 sm:p-5">
+                                <div class="flex flex-wrap items-start justify-between gap-3">
+                                    <div>
+                                        <p class="text-xs font-black uppercase tracking-[.12em] text-rose-700">Latest health record</p>
+                                        <h3 class="mt-2 text-lg font-black text-slate-950">{{ $latestHealthRecord?->condition ?? 'No health condition recorded' }}</h3>
+                                    </div>
+                                    @if($latestHealthRecord)
+                                        <span class="pigshow-badge {{ $healthBadge }}">{{ ucfirst($latestHealthRecord->severity ?: 'Not graded') }}</span>
+                                    @endif
+                                </div>
+
+                                @if($latestHealthRecord)
+                                    <p class="mt-2 text-sm font-medium text-slate-600">Recorded {{ $latestHealthRecord->record_date->format('d M Y') }}</p>
+                                    <div class="mt-4 grid gap-2 sm:grid-cols-2">
+                                        <div class="rounded-xl bg-white p-3"><p class="text-xs font-bold uppercase text-slate-400">Treatment</p><p class="mt-1 text-sm font-extrabold text-slate-800">{{ ucfirst($latestHealthRecord->treatment_status ?: 'Not set') }}</p></div>
+                                        <div class="rounded-xl bg-white p-3"><p class="text-xs font-bold uppercase text-slate-400">Outcome</p><p class="mt-1 text-sm font-extrabold text-slate-800">{{ ucfirst($latestHealthRecord->outcome ?: ($latestHealthRecord->resolved_at ? 'Resolved' : 'Not assessed')) }}</p></div>
+                                    </div>
+                                @else
+                                    <p class="mt-3 text-sm leading-6 text-slate-600">No clinical condition has been recorded for this animal yet.</p>
+                                @endif
+
+                                <div class="mt-4 flex flex-wrap gap-2 text-xs font-bold text-slate-600">
+                                    <span class="rounded-full bg-white px-3 py-1.5">{{ $healthSummary['total_records'] }} {{ \Illuminate\Support\Str::plural('record', $healthSummary['total_records']) }}</span>
+                                    <span class="rounded-full bg-white px-3 py-1.5">{{ $healthSummary['open_cases'] }} open</span>
+                                </div>
+                            </section>
+
+                            <section class="rounded-2xl border border-blue-100 bg-blue-50/50 p-4 sm:p-5">
+                                <div class="flex flex-wrap items-start justify-between gap-3">
+                                    <div>
+                                        <p class="text-xs font-black uppercase tracking-[.12em] text-blue-700">Latest medication</p>
+                                        <h3 class="mt-2 text-lg font-black text-slate-950">{{ $latestMedication?->medication_name ?? 'No medication recorded' }}</h3>
+                                    </div>
+                                    @if($healthSummary['under_withdrawal'])
+                                        <span class="pigshow-badge badge-yellow">Withdrawal active</span>
+                                    @elseif($latestMedication)
+                                        <span class="pigshow-badge badge-green">No active withdrawal</span>
+                                    @endif
+                                </div>
+
+                                @if($latestMedication)
+                                    <p class="mt-2 text-sm font-medium text-slate-600">Administered {{ $latestMedication->administration_date->format('d M Y') }}</p>
+                                    <div class="mt-4 grid gap-2 sm:grid-cols-2">
+                                        <div class="rounded-xl bg-white p-3"><p class="text-xs font-bold uppercase text-slate-400">Dosage</p><p class="mt-1 text-sm font-extrabold text-slate-800">{{ $latestMedication->dosage ?: 'Not recorded' }}</p></div>
+                                        <div class="rounded-xl bg-white p-3"><p class="text-xs font-bold uppercase text-slate-400">Route</p><p class="mt-1 text-sm font-extrabold text-slate-800">{{ ucfirst($latestMedication->route ?: 'Not recorded') }}</p></div>
+                                    </div>
+                                    @if($latestMedication->withdrawal_ends_on)
+                                        <p class="mt-3 text-xs font-bold {{ $healthSummary['under_withdrawal'] ? 'text-amber-700' : 'text-slate-500' }}">Withdrawal {{ $healthSummary['under_withdrawal'] ? 'ends' : 'ended' }} {{ $latestMedication->withdrawal_ends_on->format('d M Y') }}</p>
+                                    @endif
+                                @else
+                                    <p class="mt-3 text-sm leading-6 text-slate-600">No medication administration has been recorded for this animal yet.</p>
+                                @endif
+
+                                <div class="mt-4 flex flex-wrap gap-2 text-xs font-bold text-slate-600">
+                                    <span class="rounded-full bg-white px-3 py-1.5">{{ $healthSummary['medication_records'] }} {{ \Illuminate\Support\Str::plural('administration', $healthSummary['medication_records']) }}</span>
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                @endif
+
+                        <div class="pigshow-card order-1">
                             <div class="pigshow-card-head">
                                 <h2 class="pigshow-card-title">Basic Information</h2>
                             </div>
@@ -630,7 +710,7 @@
                             </div>
                         </div>
 
-                        <div class="pigshow-card">
+                        <div class="pigshow-card order-3">
                             <div class="pigshow-card-head">
                                 <h2 class="pigshow-card-title">Breeding Readiness Assessment</h2>
                             </div>
@@ -821,15 +901,15 @@
                                                 @if($weight->health_status)
                                                     @php
                                                         $healthConfig = [
-                                                            'excellent' => ['class' => 'badge-green', 'icon' => 'Green'],
-                                                            'good' => ['class' => 'badge-blue', 'icon' => 'Blue'],
-                                                            'fair' => ['class' => 'badge-yellow', 'icon' => 'Yellow'],
-                                                            'poor' => ['class' => 'badge-red', 'icon' => 'Red']
+                                                            'excellent' => ['class' => 'badge-green'],
+                                                            'good' => ['class' => 'badge-blue'],
+                                                            'fair' => ['class' => 'badge-gray'],
+                                                            'poor' => ['class' => 'badge-red']
                                                         ];
                                                         $config = $healthConfig[$weight->health_status] ?? $healthConfig['good'];
                                                     @endphp
                                                     <span class="pigshow-badge {{ $config['class'] }}">
-                                                        {{ $config['icon'] }} {{ ucfirst($weight->health_status) }}
+                                                        {{ ucfirst($weight->health_status) }}
                                                     </span>
                                                 @else
                                                     <span class="text-gray-400">-</span>
@@ -837,7 +917,7 @@
                                             </td>
                                             <td>
                                                 @if($weight->body_condition_score)
-                                                    <span class="pigshow-badge {{ $weight->body_condition_score <= 2 ? 'badge-red' : ($weight->body_condition_score == 3 ? 'badge-yellow' : 'badge-green') }}">
+                                                    <span class="pigshow-badge {{ $weight->body_condition_score <= 2 ? 'badge-red' : ($weight->body_condition_score == 3 ? 'badge-green' : 'badge-blue') }}">
                                                         {{ $weight->body_condition_score }}/5
                                                     </span>
                                                 @else

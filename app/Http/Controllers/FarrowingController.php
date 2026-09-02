@@ -4,11 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\Farrowing;
 use App\Models\PigletDeath;
+use App\Support\CurrentOrganization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB; // <-- REQUIRED for DATE_FORMAT
+use Illuminate\Validation\Rule;
 
 class FarrowingController extends Controller
 {
+    public function __construct(protected CurrentOrganization $currentOrganization)
+    {
+    }
+
     /**
      * Display a listing of the Farrowing Records with optional server-side search.
      *
@@ -133,7 +139,8 @@ class FarrowingController extends Controller
             ->orderBy('ear_tag_number')
             ->get();
             
-        $boars = \App\Models\PigManagement::where('gender', 'M')
+        $boars = \App\Models\PigManagement::withTrashed()
+            ->where('gender', 'M')
             ->where('stock_type', 'breeding')
             ->orderBy('ear_tag_number')
             ->get();
@@ -146,9 +153,16 @@ class FarrowingController extends Controller
 
     public function update(Request $request, Farrowing $farrowing)
     {
+        $organizationId = $this->currentOrganization->requireId();
         $data = $request->validate([
-            'sow_id' => 'required|exists:pigs_management,id',
-            'boar_id' => 'required|exists:pigs_management,id',
+            'sow_id' => ['required', 'integer', Rule::exists('pigs_management', 'id')->where(
+                fn ($query) => $query->where('organization_id', $organizationId)
+                    ->where('gender', 'F')->where('stock_type', 'breeding')
+            )],
+            'boar_id' => ['nullable', 'integer', Rule::exists('pigs_management', 'id')->where(
+                fn ($query) => $query->where('organization_id', $organizationId)
+                    ->where('gender', 'M')->where('stock_type', 'breeding')
+            )],
             'farrowing_date' => 'required|date|before_or_equal:today',
             'farrowing_time' => 'nullable|date_format:H:i',
             'total_piglets_born' => 'required|integer|min:0|max:25',
@@ -168,7 +182,7 @@ class FarrowingController extends Controller
             'functional_teats' => 'nullable|integer|min:0|max:20',
             'sow_weight_after_farrowing' => 'nullable|numeric|min:50|max:500',
             'follow_up_date' => 'nullable|date|after:farrowing_date',
-            'status' => 'required|in:active,inactive,archived',
+            'status' => 'required|in:active,completed,archived',
         ]);
 
         // Validate that live births + stillbirths = total piglets born (cast to integers to avoid strict type mismatch)
@@ -181,18 +195,15 @@ class FarrowingController extends Controller
             ])->withInput();
         }
 
-        // Validate that males + females = live births (only if at least one is provided and not empty)
-        // Skip validation if both values are 0 (likely means fields were left empty)
-        $males = (int) $data['number_of_males'];
-        $females = (int) $data['number_of_females'];
-        
-        if ($males > 0 || $females > 0) {
-            // At least one field has a non-zero value, validate the math
-            if (($males + $females) !== $data['live_births']) {
-                return back()->withErrors([
-                    'live_births' => 'Live births must equal number of males + females.'
-                ])->withInput();
-            }
+        // A historical litter may have only a partial gender breakdown. Known
+        // male/female counts may therefore be below live births, but can never
+        // claim more animals than were born alive.
+        $males = (int) ($data['number_of_males'] ?? 0);
+        $females = (int) ($data['number_of_females'] ?? 0);
+        if (($males + $females) > $liveBirths) {
+            return back()->withErrors([
+                'number_of_males' => 'Male and female counts cannot exceed live births.'
+            ])->withInput();
         }
 
         // Handle checkbox properly

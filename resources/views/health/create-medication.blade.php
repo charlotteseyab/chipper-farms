@@ -14,13 +14,14 @@
             @csrf
             @if(!isset($pig))
             <div>
-                <label class="block text-sm font-medium text-gray-700">Select Pig</label>
-                <select name="pig_id" class="mt-1 block w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" required>
-                    <option value="">Choose a pig...</option>
+                <label class="block text-sm font-medium text-gray-700">Select animal</label>
+                <select name="pig_id" data-searchable-select data-search-placeholder="Search by ear tag, code, breed, or gender..." class="mt-1 block w-full rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500" required>
+                    <option value="">Search for an animal...</option>
                     @foreach($pigs as $p)
-                    <option value="{{ $p->id }}" @selected(old('pig_id')==$p->id)>{{ $p->code ?? $p->ear_tag_number }} • {{ $p->breed }}</option>
+                    <option value="{{ $p->id }}" @selected(old('pig_id')==$p->id)>Tag {{ $p->ear_tag_number }}{{ $p->code ? ' • '.$p->code : '' }} • {{ $p->breed }} • {{ $p->gender === 'M' ? 'Male' : 'Female' }}</option>
                     @endforeach
                 </select>
+                <p class="mt-2 text-xs text-gray-500">Only active animals in this farm can be selected. The medication appears in the log after it is saved.</p>
                 @error('pig_id')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
             </div>
             @endif
@@ -83,11 +84,10 @@
 
             <div class="flex items-center justify-end gap-3">
                 <a href="{{ isset($pig) ? route('health.show', $pig) : route('health.index') }}" class="px-4 py-2 rounded-md border border-gray-300 text-gray-700">Cancel</a>
-                <button type="submit" class="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700">Save</button>
+                <button type="submit" class="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700">Save medication record</button>
             </div>
         </form>
     </div>
 </div>
 </x-app-layout>
-
 

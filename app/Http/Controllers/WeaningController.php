@@ -8,7 +8,12 @@ use App\Domain\Events\Support\SourceReference;
 use App\Models\Farrowing;
 use App\Models\PigManagement;
 use App\Models\Weaning;
+use App\Models\Room;
+use App\Models\Setting;
 use App\Services\DomainEvents\DispatchDomainEvent;
+use App\Services\Stock\EarTagNumberService;
+use App\Services\Stock\StockValidationException;
+use App\Services\Stock\WeanLitterToStockService;
 use App\Support\CurrentOrganization;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
@@ -17,6 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 /**
  * Weaning dashboard + per-status views + weaning write paths.
@@ -37,12 +43,15 @@ class WeaningController extends Controller
     public function __construct(
         protected DispatchDomainEvent $dispatcher,
         protected CurrentOrganization $currentOrganization,
+        protected EarTagNumberService $earTags,
+        protected WeanLitterToStockService $weanLitterToStock,
     ) {
     }
 
-    public function dashboard()
+    public function dashboard(Request $request)
     {
         $this->authorize('viewAny', Weaning::class);
+        $attentionFilter = $request->string('attention')->toString();
         $weaningAge  = config('breeding.cycle.birth_to_weaning_days', 45);
         $maturityAge = config('breeding.cycle.birth_to_maturity_days', 180);
 
@@ -55,6 +64,11 @@ class WeaningController extends Controller
             ->get();
 
         $filteredReady = $rawReadyNow->filter(fn ($l) => max(0, ($l->live_births ?? 0) - $l->pigletDeaths->sum('count')) > 0)->values();
+        if ($attentionFilter === 'overdue') {
+            $filteredReady = $filteredReady
+                ->filter(fn ($l) => $l->farrowing_date->diffInDays(now()) >= ($weaningAge + 7))
+                ->values();
+        }
 
         $readyPage = request()->input('ready_page', 1);
         $perPage   = 15;
@@ -149,71 +163,81 @@ class WeaningController extends Controller
         ];
 
         return view('weaning.dashboard', compact(
-            'readyNowLitters', 'dueSoonLitters', 'inProgress', 'completed', 'stats', 'weaningAge', 'maturityAge'
+            'readyNowLitters', 'dueSoonLitters', 'inProgress', 'completed', 'stats', 'weaningAge', 'maturityAge', 'attentionFilter'
         ));
+    }
+
+    public function previewLitterWeaning(Farrowing $farrowing)
+    {
+        $this->authorize('create', Farrowing::class);
+        $farrowing->load(['sow', 'boar', 'pigletDeaths']);
+
+        if ($farrowing->status !== 'active') {
+            return redirect()->route('weaning.dashboard')->withErrors(['weaning' => 'This litter is not active or may have already been processed for weaning.']);
+        }
+
+        $surviving = max(0, (int) $farrowing->live_births - (int) $farrowing->pigletDeaths->sum('count'));
+        $weaningAge = (int) config('breeding.cycle.birth_to_weaning_days', 45);
+        $currentAge = (int) $farrowing->farrowing_date->diffInDays(now());
+        if ($surviving <= 0 || $currentAge < $weaningAge || $farrowing->weanings()->exists()) {
+            return redirect()->route('weaning.dashboard')->withErrors(['weaning' => 'This litter is not currently eligible for weaning.']);
+        }
+
+        $maleCount = min($surviving, max(0, (int) $farrowing->number_of_males));
+        $suggestedGenders = collect(range(0, $surviving - 1))
+            ->map(fn (int $index) => $index < $maleCount ? 'M' : 'F')
+            ->all();
+        $organizationId = $this->currentOrganization->requireId();
+
+        return view('weaning.litter-preview', [
+            'farrowing' => $farrowing,
+            'surviving' => $surviving,
+            'currentAge' => $currentAge,
+            'proposedEarTags' => $this->earTags->propose($surviving, $organizationId),
+            'suggestedGenders' => $suggestedGenders,
+            'breeds' => Setting::animalBreeds(),
+            'rooms' => Room::with('structure')
+                ->withCount(['pigs as active_pigs_count' => fn ($query) => $query->active()])
+                ->orderBy('name')->get()
+                ->filter(fn (Room $room) => $room->capacity === null || (int) $room->capacity <= 0 || (int) $room->active_pigs_count < (int) $room->capacity)
+                ->values(),
+        ]);
     }
 
     public function weanLitter(Request $request, Farrowing $farrowing)
     {
         $this->authorize('create', Farrowing::class);
+        $farrowing->load('pigletDeaths');
+        $surviving = max(0, (int) $farrowing->live_births - (int) $farrowing->pigletDeaths->sum('count'));
+        $organizationId = $this->currentOrganization->requireId();
+
         $data = $request->validate([
             'weaning_date' => ['required', 'date', 'before_or_equal:today'],
-            'notes'        => ['nullable', 'string', 'max:1000'],
+            'weaning_method' => ['required', Rule::in(['natural', 'forced', 'gradual'])],
+            'weaning_reason' => ['required', Rule::in(['age_appropriate', 'health_issue', 'mother_issue', 'management_decision'])],
+            'post_weaning_status' => ['required', Rule::in(['healthy', 'stressed', 'sick', 'monitoring'])],
+            'notes' => ['nullable', 'string', 'max:1000'],
+            'animals' => ['required', 'array', 'size:' . $surviving],
+            'animals.*.ear_tag_number' => [
+                'required', 'string', 'max:50', 'distinct',
+                Rule::unique('pigs_management', 'ear_tag_number')->where(fn ($query) => $query->where('organization_id', $organizationId)),
+            ],
+            'animals.*.gender' => ['required', Rule::in(['M', 'F'])],
+            'animals.*.breed' => ['required', Rule::in(array_keys(Setting::animalBreeds()))],
+            'animals.*.room_id' => ['required', 'integer', Rule::exists('rooms', 'id')->where(fn ($query) => $query->where('organization_id', $organizationId))],
+            'animals.*.weaning_weight' => ['nullable', 'numeric', 'min:0.1', 'max:500'],
         ]);
 
-        if ($farrowing->status !== 'active') {
-            return back()->withErrors(['weaning' => 'This litter is not active or may have already been processed for weaning.']);
+        try {
+            $completed = $this->weanLitterToStock->execute($farrowing, $data);
+        } catch (StockValidationException $exception) {
+            return back()->withErrors([$exception->field => $exception->getMessage()])->withInput();
         }
 
-        $weaningAge   = (int) config('breeding.cycle.birth_to_weaning_days', 45);
-        $farrowingDate = $farrowing->farrowing_date;
-
-        if ($farrowingDate) {
-            $weaningDate         = Carbon::parse($data['weaning_date'])->endOfDay();
-            $litterAgeAtWeaning  = (int) $farrowingDate->copy()->startOfDay()->diffInDays($weaningDate);
-            if ($litterAgeAtWeaning < $weaningAge) {
-                return back()->withErrors(['weaning' => "Litter is too young for weaning. Minimum age is {$weaningAge} days."]);
-            }
-        }
-
-        $existingNotes = trim((string) $farrowing->notes);
-        $litterNote    = 'Litter weaned on ' . $data['weaning_date'];
-        if (! empty($data['notes'])) {
-            $litterNote .= ' - ' . $data['notes'];
-        }
-
-        DB::transaction(function () use ($farrowing, $data, $existingNotes, $litterNote) {
-            $farrowing->status       = 'completed';
-            $farrowing->date_weaned  = $data['weaning_date'];
-            $farrowing->notes        = trim($existingNotes . (empty($existingNotes) ? '' : PHP_EOL) . $litterNote);
-            $farrowing->save();
-
-            $organizationId = $this->currentOrganization->id();
-            if ($organizationId !== null) {
-                $farrowing->loadMissing(['sow', 'pigletDeaths']);
-                $surviving = max(0, (int) ($farrowing->live_births ?? 0) - (int) $farrowing->pigletDeaths->sum('count'));
-
-                $this->dispatcher->dispatch(new LitterWeaned(
-                    source: new SourceReference(
-                        module: 'lifecycle',
-                        sourceType: Farrowing::class,
-                        sourceId: (int) $farrowing->id,
-                        organizationId: $organizationId,
-                    ),
-                    occurredAt: CarbonImmutable::parse($data['weaning_date']),
-                    dispatchedByUserId: auth()->id(),
-                    farrowingId: (int) $farrowing->id,
-                    sowId: (int) $farrowing->sow_id,
-                    groupId: $farrowing->sow?->group_id ? (int) $farrowing->sow->group_id : null,
-                    survivingPiglets: $surviving,
-                    averageBirthWeightKg: $farrowing->average_birth_weight !== null
-                        ? (float) $farrowing->average_birth_weight
-                        : null,
-                ));
-            }
-        });
-
-        return back()->with('success', 'Litter weaning recorded for sow ' . optional($farrowing->sow)->ear_tag_number . '.');
+        return redirect()->route('weaning.dashboard')->with(
+            'success',
+            $completed->weanings->count() . ' piglets were weaned and added to main stock successfully.'
+        );
     }
 
     public function inProgress()

@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Counterparty;
 use App\Models\Finance\SimplePurchase;
 use App\Models\Finance\SimplePurchaseLine;
+use App\Models\Finance\Payment;
+use App\Models\Finance\VendorInvoice;
+use App\Models\PurchaseRequest;
 use App\Models\RawMaterial;
 use App\Services\Finance\Cash\MoneyAccountService;
 use App\Services\Finance\Purchases\RecordSimplePurchaseService;
@@ -40,17 +43,77 @@ class SimplePurchaseController extends Controller
     ) {
     }
 
-    public function index(): View
+    public function index(Request $request): View
     {
         $organizationId = $this->currentOrganization->get()?->id;
+        $tab = in_array($request->string('tab')->toString(), ['all', 'requests', 'direct', 'invoices', 'payments'], true)
+            ? $request->string('tab')->toString()
+            : 'all';
+        $search = trim($request->string('search')->toString());
+
+        $directQuery = SimplePurchase::query()->when($organizationId, fn ($q) => $q->forOrganization($organizationId));
+        $requestQuery = PurchaseRequest::query()->when($organizationId, fn ($q) => $q->forOrganization($organizationId));
+        $invoiceQuery = VendorInvoice::query()->when($organizationId, fn ($q) => $q->forOrganization($organizationId))->whereNotNull('purchase_request_id');
+        $paymentQuery = Payment::query()->when($organizationId, fn ($q) => $q->forOrganization($organizationId))->whereNotNull('purchase_request_id')->where('status', Payment::STATUS_POSTED);
+
+        $directTotal = (float) (clone $directQuery)->where('status', SimplePurchase::STATUS_POSTED)->sum('total_amount');
+        $requestedTotal = (float) (clone $requestQuery)->whereNotIn('status', ['declined', 'draft'])->sum('total_amount');
+        $paidTotal = (float) (clone $paymentQuery)->sum('amount');
+        $openRequestCount = (clone $requestQuery)->whereIn('status', ['pending', 'approved', 'paid'])->count();
+
+        $directPurchases = (clone $directQuery)
+            ->with(['supplier:id,name', 'lines'])
+            ->when($search !== '', fn ($query) => $query->where(function ($nested) use ($search) {
+                $nested->where('purchase_number', 'like', "%{$search}%")
+                    ->orWhere('supplier_invoice_reference', 'like', "%{$search}%")
+                    ->orWhereHas('supplier', fn ($supplier) => $supplier->where('name', 'like', "%{$search}%"));
+            }))
+            ->orderByDesc('purchase_date')->orderByDesc('id')
+            ->paginate(15, ['*'], 'direct_page')->withQueryString();
+
+        $purchaseRequests = (clone $requestQuery)
+            ->with([
+                'supplier:id,name',
+                'items:id,purchase_request_id,quantity,quantity_received,is_receipt_closed',
+                'vendorInvoices:id,purchase_request_id,vendor_invoice_number,status,total,balance_due',
+            ])
+            ->withSum(['payments as posted_payment_total' => fn ($query) => $query->where('status', Payment::STATUS_POSTED)], 'amount')
+            ->when($search !== '', fn ($query) => $query->where(function ($nested) use ($search) {
+                $nested->where('request_no', 'like', "%{$search}%")
+                    ->orWhere('purpose', 'like', "%{$search}%")
+                    ->orWhereHas('supplier', fn ($supplier) => $supplier->where('name', 'like', "%{$search}%"));
+            }))
+            ->latest('request_date')->latest('id')
+            ->paginate(15, ['*'], 'requests_page')->withQueryString();
+
+        $vendorInvoices = (clone $invoiceQuery)
+            ->with(['supplier:id,name', 'purchaseRequest:id,request_no'])
+            ->when($search !== '', fn ($query) => $query->where(function ($nested) use ($search) {
+                $nested->where('vendor_invoice_number', 'like', "%{$search}%")
+                    ->orWhere('supplier_invoice_number', 'like', "%{$search}%")
+                    ->orWhereHas('purchaseRequest', fn ($pr) => $pr->where('request_no', 'like', "%{$search}%"));
+            }))
+            ->latest('invoice_date')->latest('id')
+            ->paginate(15, ['*'], 'invoices_page')->withQueryString();
+
+        $payments = (clone $paymentQuery)
+            ->with(['supplier:id,name', 'purchaseRequest:id,request_no'])
+            ->when($search !== '', fn ($query) => $query->where(function ($nested) use ($search) {
+                $nested->where('payment_number', 'like', "%{$search}%")
+                    ->orWhere('external_reference', 'like', "%{$search}%")
+                    ->orWhereHas('purchaseRequest', fn ($pr) => $pr->where('request_no', 'like', "%{$search}%"));
+            }))
+            ->latest('payment_date')->latest('id')
+            ->paginate(15, ['*'], 'payments_page')->withQueryString();
 
         return view('finance.purchases.index', [
-            'purchases' => SimplePurchase::query()
-                ->when($organizationId, fn ($q) => $q->forOrganization($organizationId))
-                ->with(['supplier:id,name', 'lines'])
-                ->orderByDesc('purchase_date')
-                ->orderByDesc('id')
-                ->paginate(25),
+            'tab' => $tab,
+            'search' => $search,
+            'directPurchases' => $directPurchases,
+            'purchaseRequests' => $purchaseRequests,
+            'vendorInvoices' => $vendorInvoices,
+            'payments' => $payments,
+            'summary' => compact('directTotal', 'requestedTotal', 'paidTotal', 'openRequestCount'),
         ]);
     }
 

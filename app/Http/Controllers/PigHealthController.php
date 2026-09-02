@@ -7,6 +7,7 @@ use App\Models\HealthRecord;
 use App\Models\MedicationAdministration;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PigHealthController extends Controller
 {
@@ -16,7 +17,10 @@ class PigHealthController extends Controller
             $q->latest('record_date')->latest('id')->limit(1);
         }, 'medicationAdministrations' => function($q) {
             $q->latest('administration_date')->latest('id')->limit(1);
-        }])->whereDoesntHave('deaths')->whereDoesntHave('sales');
+        }])
+            ->whereHas('healthRecords')
+            ->whereDoesntHave('deaths')
+            ->whereDoesntHave('sales');
 
         if ($search = $request->get('q')) {
             $query->where(function($q) use ($search) {
@@ -32,7 +36,18 @@ class PigHealthController extends Controller
         $from = $request->date('from');
         $to = $request->date('to');
 
-        if ($condition || $severity || $from || $to) {
+        if ($request->string('attention')->toString() === 'open_critical') {
+            $query->whereHas('healthRecords', function ($health) {
+                $health->whereNull('resolved_at')
+                    ->where(function ($status) {
+                        $status->whereNull('treatment_status')
+                            ->orWhereIn('treatment_status', ['planned', 'ongoing']);
+                    })
+                    ->whereIn('severity', ['high', 'severe']);
+            });
+        }
+
+        if (($condition || $severity || $from || $to) && $request->string('attention')->toString() !== 'open_critical') {
             $query->whereHas('healthRecords', function($hr) use ($condition, $severity, $from, $to) {
                 if ($condition) {
                     $hr->where('condition', 'like', "%{$condition}%");
@@ -149,8 +164,7 @@ class PigHealthController extends Controller
     public function createHealth(PigManagement $pig = null)
     {
         if (!$pig) {
-            // If no pig is provided, get all pigs for selection
-            $pigs = PigManagement::orderBy('code')->get();
+            $pigs = $this->selectablePigs();
             return view('health.create-health', compact('pigs'));
         }
         return view('health.create-health', compact('pig'));
@@ -169,7 +183,15 @@ class PigHealthController extends Controller
             'outcome' => 'nullable|in:recovered,improved,unchanged,worsened',
             'resolved_at' => 'nullable|date|after_or_equal:record_date',
             'resolution_notes' => 'nullable|string',
-            'pig_id' => 'nullable|exists:pigs_management,id',
+            'pig_id' => [
+                $pig ? 'nullable' : 'required',
+                'integer',
+                Rule::exists('pigs_management', 'id')->where(
+                    fn ($query) => $query
+                        ->where('organization_id', (int) $request->user()->organization_id)
+                        ->whereNull('deleted_at')
+                ),
+            ],
         ]);
 
         // If pig_id is provided in the form, use it; otherwise use the route parameter
@@ -223,8 +245,7 @@ class PigHealthController extends Controller
     public function createMedication(PigManagement $pig = null)
     {
         if (!$pig) {
-            // If no pig is provided, get all pigs for selection
-            $pigs = PigManagement::orderBy('code')->get();
+            $pigs = $this->selectablePigs();
             return view('health.create-medication', compact('pigs'));
         }
         return view('health.create-medication', compact('pig'));
@@ -249,7 +270,15 @@ class PigHealthController extends Controller
             // a year is a typo, not a medicine.
             'withdrawal_period_days' => 'nullable|integer|min:0|max:365',
             'notes' => 'nullable|string',
-            'pig_id' => 'nullable|exists:pigs_management,id',
+            'pig_id' => [
+                $pig ? 'nullable' : 'required',
+                'integer',
+                Rule::exists('pigs_management', 'id')->where(
+                    fn ($query) => $query
+                        ->where('organization_id', (int) $request->user()->organization_id)
+                        ->whereNull('deleted_at')
+                ),
+            ],
         ]);
 
         // If pig_id is provided in the form, use it; otherwise use the route parameter
@@ -264,7 +293,18 @@ class PigHealthController extends Controller
 
     public function medicationsIndex(Request $request)
     {
-        $query = MedicationAdministration::with('pig');
+        $query = MedicationAdministration::with('pig')
+            ->whereRaw(
+                'medication_administrations.id = (select latest_medication.id from medication_administrations as latest_medication where latest_medication.pig_id = medication_administrations.pig_id order by latest_medication.administration_date desc, latest_medication.id desc limit 1)'
+            );
+        if ($pigSearch = $request->get('pig_q')) {
+            $query->whereHas('pig', function ($pig) use ($pigSearch) {
+                $pig->where(function ($match) use ($pigSearch) {
+                    $match->where('ear_tag_number', 'like', "%{$pigSearch}%")
+                        ->orWhere('code', 'like', "%{$pigSearch}%");
+                });
+            });
+        }
         if ($search = $request->get('q')) {
             $query->where('medication_name', 'like', "%{$search}%");
         }
@@ -284,7 +324,11 @@ class PigHealthController extends Controller
         if ($to) {
             $query->whereDate('administration_date', '<=', $to);
         }
-        $medications = $query->latest('administration_date')->paginate(15)->withQueryString();
+        $medications = $query
+            ->orderByDesc('administration_date')
+            ->orderByDesc('id')
+            ->paginate(15)
+            ->withQueryString();
         return view('health.medications-index', compact('medications'));
     }
 
@@ -317,6 +361,16 @@ class PigHealthController extends Controller
     {
         $medication->delete();
         return redirect()->route('medications.index')->with('success', 'Medication record deleted');
+    }
+
+    private function selectablePigs()
+    {
+        return PigManagement::query()
+            ->select(['id', 'ear_tag_number', 'code', 'breed', 'gender'])
+            ->whereDoesntHave('deaths')
+            ->whereDoesntHave('sales')
+            ->orderBy('ear_tag_number')
+            ->get();
     }
 
     public function reports(Request $request)

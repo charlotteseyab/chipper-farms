@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Models\Role;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -40,5 +41,23 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertGuest();
+    }
+
+    public function test_accountants_land_on_the_finance_overview_after_login(): void
+    {
+        $role = Role::firstOrCreate(['name' => 'accountant']);
+        $user = User::factory()->create([
+            'role' => 'accountant',
+            'role_id' => $role->id,
+            'onboarding_required' => false,
+        ]);
+
+        $response = $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticatedAs($user);
+        $response->assertRedirect(route('finance.overview'));
     }
 }

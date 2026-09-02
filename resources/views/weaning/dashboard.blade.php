@@ -1,4 +1,12 @@
 <x-app-layout>
+    @if(($attentionFilter ?? '') === 'overdue')
+        <div class="mx-auto mt-4 max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col gap-3 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900 sm:flex-row sm:items-center sm:justify-between">
+                <div><strong>Showing overdue litters.</strong> The Ready Now list is limited to litters at least seven days beyond the configured weaning age.</div>
+                <a href="{{ route('weaning.dashboard') }}" class="font-bold underline">Clear filter</a>
+            </div>
+        </div>
+    @endif
 <div class="container mx-auto px-4 py-2">
     <!-- Header -->
     <div class="flex justify-between items-center mb-8">
@@ -33,6 +41,7 @@
             </div>
         </div>
         
+        @if(($attentionFilter ?? '') !== 'overdue')
         <div class="bg-white p-6 rounded-xl shadow border-l-4 border-yellow-500">
             <div class="flex items-center justify-between">
                 <div>
@@ -47,6 +56,7 @@
                 </div>
             </div>
         </div>
+        @endif
         
         <!-- <div class="bg-white p-6 rounded-xl shadow border-l-4 border-blue-500">
             <div class="flex items-center justify-between">
@@ -84,9 +94,11 @@
         <!-- Tab Navigation -->
         <div class="border-b border-gray-200">
             <nav class="flex space-x-8 px-6" aria-label="Tabs">
-            <button @click="activeTab = 'soon'" :class="activeTab === 'soon' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+            @if(($attentionFilter ?? '') !== 'overdue')
+                <button @click="activeTab = 'soon'" :class="activeTab === 'soon' ? 'border-yellow-500 text-yellow-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                     Due Soon ({{ $stats['due_soon'] }})
                 </button>
+            @endif
                 <button @click="activeTab = 'ready'" :class="activeTab === 'ready' ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
                     Ready Now ({{ $stats['ready_now'] }})
                 </button>
@@ -180,12 +192,12 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                             <div class="flex space-x-2">
-                                                <button onclick="openLitterWeaningModal({{ $litter->id }}, '{{ $litter->sow->ear_tag_number }}', {{ $litter->surviving_piglets }}, {{ $litter->current_age }})" class="inline-flex items-center px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700">
+                                                <a href="{{ route('weaning.litter-preview', $litter) }}" class="inline-flex items-center px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700">
                                                     <svg class="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
                                                     </svg>
                                                     Wean Litter
-                                                </button>
+                                                </a>
                                                 <a href="{{ route('pigs.show', $litter->sow->id) }}" class="inline-flex items-center px-3 py-1 bg-gray-600 text-white text-xs rounded-md hover:bg-gray-700">
                                                     View Sow
                                                 </a>
@@ -220,6 +232,7 @@
             </div>
 
             <!-- DUE SOON TAB -->
+            @if(($attentionFilter ?? '') !== 'overdue')
             <div x-show="activeTab === 'soon'" x-transition>
                 <div class="mb-4">
                     <h3 class="text-lg font-semibold text-gray-900">Litters Due Soon (38-44 days old)</h3>
@@ -301,6 +314,7 @@
                     </div>
                 @endif
             </div>
+            @endif
 
             <!-- IN PROGRESS TAB -->
             <div x-show="activeTab === 'progress'" x-transition>
@@ -494,42 +508,7 @@
     </div>
 </div>
 
-<!-- Include the litter weaning modal -->
-@include('weaning.partials.litter-weaning-modal')
-
 <script>
-function openLitterWeaningModal(litterId, sowTag, pigletCount, litterAge) {
-    document.getElementById('litterModalTitle').textContent = `Wean Litter - Sow ${sowTag}`;
-    document.getElementById('litterWeaningForm').action = `/weaning/litter/${litterId}/wean`;
-    document.getElementById('litterWeaningModal').classList.remove('hidden');
-
-    const form = document.getElementById('litterWeaningForm');
-    let litterInfo = form.querySelector('.litter-info');
-    if (!litterInfo) {
-        litterInfo = document.createElement('div');
-        litterInfo.className = 'litter-info mb-4 p-3 bg-green-50 rounded-md border border-green-200';
-        form.insertBefore(litterInfo, form.firstChild);
-    }
-    litterInfo.innerHTML = `
-        <div class="text-sm text-green-800">
-            <strong>READY FOR WEANING</strong><br>
-            <strong>Mother:</strong> ${sowTag}<br>
-            <strong>Litter Age:</strong> ${litterAge} days<br>
-            <strong>Surviving Piglets:</strong> ${pigletCount}<br>
-            <strong>Status:</strong> Ready for weaning
-        </div>
-    `;
-}
-
-function closeLitterWeaningModal() {
-    document.getElementById('litterWeaningModal').classList.add('hidden');
-    document.getElementById('litterWeaningForm').reset();
-    const litterInfo = document.querySelector('.litter-info');
-    if (litterInfo) {
-        litterInfo.remove();
-    }
-}
-
 function completeMaturity(pigId, pigCode) {
     if (confirm(`Complete maturity for ${pigCode}? This will move the animal to the completed section.`)) {
         fetch(`/weaning/${pigId}/complete-maturity`, {
@@ -554,11 +533,5 @@ function completeMaturity(pigId, pigCode) {
     }
 }
 
-// Close modal when clicking outside
-document.getElementById('litterWeaningModal')?.addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeLitterWeaningModal();
-    }
-});
 </script>
 </x-app-layout>

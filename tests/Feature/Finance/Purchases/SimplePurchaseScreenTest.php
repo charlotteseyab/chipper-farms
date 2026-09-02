@@ -8,6 +8,7 @@ use App\Models\Finance\SimplePurchase;
 use App\Models\Finance\SimplePurchaseLine;
 use App\Models\Organization;
 use App\Models\Permission;
+use App\Models\PurchaseRequest;
 use App\Models\RawMaterial;
 use App\Models\Role;
 use App\Models\User;
@@ -221,5 +222,43 @@ class SimplePurchaseScreenTest extends TestCase
             ->get(route('finance.purchases.index'))
             ->assertOk()
             ->assertDontSee('PUR-2026-99999');
+    }
+
+    public function test_purchase_requests_appear_in_the_workspace_without_leaking_other_farms(): void
+    {
+        $user = $this->userWith(['record_purchases', 'view_finance']);
+        $other = Organization::create([
+            'slug' => 'other-pr-' . uniqid(), 'name' => 'Other PR Farm', 'is_active' => true,
+        ]);
+
+        PurchaseRequest::forceCreate([
+            'organization_id' => $this->org->id,
+            'request_no' => 'PR-CURRENT-001',
+            'request_date' => '2026-06-20',
+            'requested_by' => $user->id,
+            'status' => 'approved',
+            'payment_arrangement' => 'after_delivery',
+            'payment_progress' => 'not_paid',
+            'total_amount' => '275.00',
+            'purpose' => 'Current farm materials',
+        ]);
+        PurchaseRequest::forceCreate([
+            'organization_id' => $other->id,
+            'request_no' => 'PR-OTHER-999',
+            'request_date' => '2026-06-20',
+            'requested_by' => $user->id,
+            'status' => 'approved',
+            'payment_arrangement' => 'after_delivery',
+            'payment_progress' => 'not_paid',
+            'total_amount' => '999.00',
+            'purpose' => 'Other farm materials',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('finance.purchases.index', ['tab' => 'requests']))
+            ->assertOk()
+            ->assertSee('PR-CURRENT-001')
+            ->assertSee('GHS 275.00')
+            ->assertDontSee('PR-OTHER-999');
     }
 }

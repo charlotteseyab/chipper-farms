@@ -4,6 +4,7 @@ namespace App\Services\Stock\Imports;
 
 use App\Models\PigManagement;
 use App\Models\Room;
+use App\Models\Setting;
 use App\Models\Structure;
 use App\Services\Audit\AuditTrailService;
 use App\Services\Stock\PigStockService;
@@ -151,12 +152,30 @@ class StockExcelImportService
 
         $samplePrefix = 'SAMPLE-' . now()->format('YmdHis');
 
-        return [
-            ['ear_tag_number', 'breed', 'gender', 'stock_type', 'date_of_birth', 'Structure', 'room_name', 'father_ear_tag', 'mother_ear_tag', 'acquisition_source', 'acquisition_date', 'acquisition_cost', 'notes'],
-            [$samplePrefix . '-001', 'LW', 'F', 'breeding', '2025-01-10', $structureName, $roomName, '', '', 'born_on_farm', '2025-01-10', '', 'Healthy sow'],
-            [$samplePrefix . '-002', 'DR', 'M', 'standard', '2025-03-15', $structureName, $roomName, '', '', 'purchased', '2025-04-01', '450', 'Purchased grower'],
-            [$samplePrefix . '-003', 'LWDR', 'F', 'standard', '2025-04-20', '', '', '', '', 'born_on_farm', '2025-04-20', '', 'Optional parents can be filled with existing ear tags'],
-        ];
+        $rows = [self::HEADERS];
+
+        foreach (array_slice(Setting::animalBreeds(), 0, 3, true) as $code => $name) {
+            $index = count($rows);
+            $purchased = $index === 2;
+
+            $rows[] = [
+                $samplePrefix . '-' . str_pad((string) $index, 3, '0', STR_PAD_LEFT),
+                $code,
+                $index % 2 === 0 ? 'M' : 'F',
+                $index === 1 ? 'breeding' : 'standard',
+                now()->subMonths(8 + $index)->format('Y-m-d'),
+                $structureName,
+                $roomName,
+                '',
+                '',
+                $purchased ? 'purchased' : 'born_on_farm',
+                now()->subMonths($purchased ? 3 : 8 + $index)->format('Y-m-d'),
+                $purchased ? '450' : '',
+                "Example breed: {$name} ({$code})",
+            ];
+        }
+
+        return $rows;
     }
 
     public function buildXlsx(iterable $rows): string
@@ -295,7 +314,7 @@ class StockExcelImportService
     {
         $errors = [];
         $data['ear_tag_number'] = $this->normalizeTextInput($data['ear_tag_number'] ?? '');
-        $data['breed'] = $this->normalizeTextInput($data['breed'] ?? '');
+        $data['breed'] = strtoupper($this->normalizeTextInput($data['breed'] ?? ''));
         $data['structure'] = $this->normalizeTextInput($data['structure'] ?? '');
         $data['room_name'] = $this->normalizeTextInput($data['room_name'] ?? '');
         $data['father_ear_tag'] = $this->normalizeTextInput($data['father_ear_tag'] ?? '');
@@ -328,6 +347,16 @@ class StockExcelImportService
 
         if ($data['stock_type'] !== '' && ! in_array($data['stock_type'], ['breeding', 'standard'], true)) {
             $errors[] = 'Stock type must be breeding or standard.';
+        }
+
+        $breeds = Setting::animalBreeds();
+        if ($data['breed'] !== '' && ! array_key_exists($data['breed'], $breeds)) {
+            $accepted = collect($breeds)
+                ->map(fn (string $name, string $code) => "{$code} ({$name})")
+                ->implode(', ');
+            $errors[] = $accepted === ''
+                ? 'No animal breeds have been configured for this farm. Add them under Settings > Setup > Breeds first.'
+                : 'Breed must use one of this farm\'s configured codes: ' . $accepted . '.';
         }
 
         if ($data['date_of_birth'] !== '' && ! $this->validDate($data['date_of_birth'])) {

@@ -104,6 +104,8 @@
             </div>
         </div>
 
+        <x-dashboard.livestock-overview />
+
         {{-- Trial balance summary --}}
         @if($tbSummary)
             <div class="mb-6 rounded-2xl border border-slate-100 bg-white shadow-sm p-5">

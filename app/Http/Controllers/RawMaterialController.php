@@ -11,6 +11,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 /**
  * Raw materials — Phase 4 updates the receive/adjust UX:
@@ -115,7 +116,14 @@ class RawMaterialController extends Controller
             'unit_cost'         => ['nullable', 'numeric', 'min:0'],
             'reorder_level'     => ['nullable', 'numeric', 'min:0'],
             'notes'             => ['nullable', 'string'],
-            'opening_supplier_id' => ['nullable', 'integer', 'exists:counterparties,id'],
+            'opening_supplier_id' => [
+                Rule::requiredIf(fn () => (float) $request->input('quantity_in_stock', 0) > 0),
+                'nullable',
+                'integer',
+                'exists:counterparties,id',
+            ],
+        ], [
+            'opening_supplier_id.required' => 'Select the supplier responsible for the opening stock.',
         ]);
 
         DB::transaction(function () use ($validated, $receiveService, $request) {
@@ -139,10 +147,7 @@ class RawMaterialController extends Controller
             // We require a supplier so the resulting receipt posts to
             // Inventory Suspense with proper attribution.
             if ($openingQty > 0) {
-                $supplierId = $validated['opening_supplier_id'] ?? null;
-                if (! $supplierId) {
-                    abort(422, 'When opening stock > 0, a supplier must be selected.');
-                }
+                $supplierId = (int) $validated['opening_supplier_id'];
 
                 $receiveService->execute(
                     material: $rawMaterial,
@@ -152,7 +157,7 @@ class RawMaterialController extends Controller
                         'unit_cost'       => $unitCost,
                         'reference'       => 'Opening Stock',
                         'notes'           => 'Initial stock entered during material creation.',
-                        'supplier_id'     => (int) $supplierId,
+                        'supplier_id'     => $supplierId,
                         'receipt_reason'  => 'opening_stock',
                     ],
                 );

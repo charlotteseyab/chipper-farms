@@ -171,11 +171,14 @@ class AdminController extends Controller
             ->whereDoesntHave('weanings', function ($query) {
                 $query->where('maturity_completed', true);
             })->count();
-        $overdueWeaning = Farrowing::where('status', 'active')
-            ->whereDate('farrowing_date', '<', now()->subDays($weaningAge + 7))
+        $overdueWeaning = Farrowing::with('pigletDeaths')
+            ->where('status', 'active')
+            ->whereDate('farrowing_date', '<=', now()->subDays($weaningAge + 7))
             ->whereDoesntHave('weanings', function ($query) {
                 $query->where('maturity_completed', true);
-            })->count();
+            })->get()
+            ->filter(fn (Farrowing $farrowing) => max(0, (int) ($farrowing->live_births ?? 0) - (int) $farrowing->pigletDeaths->sum('count')) > 0)
+            ->count();
         $completedWeanings = Weaning::where('maturity_completed', true)->count();
         $avgWeaningAge = Weaning::whereNotNull('age_at_weaning_days')->avg('age_at_weaning_days');
         $avgWeaningWeight = Weaning::whereNotNull('weaning_weight')->avg('weaning_weight');
@@ -227,8 +230,97 @@ class AdminController extends Controller
     $totalFarmValue = $totalWeight * $liveWeightPrice;
     $weightsThisWeek = PigWeight::where('created_at', '>=', now()->subWeek())->count();
     $weightsThisMonth = PigWeight::whereMonth('created_at', now()->month)->count();
-    $criticalAlerts = WeightAlert::where('severity', 'high')->where('acknowledged', false)->count();
+    $latestAlertIds = DB::table('weight_alerts as latest_weight_alerts')
+        ->selectRaw('MAX(id)')
+        ->groupBy('pig_id');
+    $criticalAlerts = WeightAlert::whereIn('id', $latestAlertIds)
+        ->where('severity', 'high')
+        ->where('acknowledged', false)
+        ->count();
     $totalAlerts = WeightAlert::where('acknowledged', false)->count();
+
+    $attentionItems = collect([
+        [
+            'key' => 'overdue_weighing',
+            'type' => 'Weight',
+            'title' => 'Overdue weighing',
+            'count' => $overdueForWeighing,
+            'severity' => 'high',
+            'summary' => 'These pigs have passed their routine weighing date, so growth and sale-readiness information may be unreliable.',
+            'next_steps' => ['Review the overdue animals.', 'Record each animal’s current weight.', 'Investigate animals whose growth is outside the expected range.'],
+            'action_label' => 'Review overdue pigs',
+            'action_url' => route('all-stocks.index', ['attention' => 'overdue_weighing', 'has_weights' => 'yes', 'has_recent_weigh_date' => 'no', 'recent_weigh_days' => 30]),
+        ],
+        [
+            'key' => 'first_weight_pending',
+            'type' => 'Weight',
+            'title' => 'First weight pending',
+            'count' => $firstWeightPending,
+            'severity' => 'medium',
+            'summary' => 'These animals do not yet have a baseline weight, so their growth cannot be measured accurately.',
+            'next_steps' => ['Confirm the animal is available for weighing.', 'Record its first weight.', 'Check that the weight date and unit are correct.'],
+            'action_label' => 'Record first weights',
+            'action_url' => route('all-stocks.index', ['attention' => 'first_weight_pending', 'has_weights' => 'no', 'has_recent_weigh_date' => 'no', 'recent_weigh_days' => 30]),
+        ],
+        [
+            'key' => 'pregnancy_checks',
+            'type' => 'Breeding',
+            'title' => 'Pregnancy checks overdue',
+            'count' => $pregnancyChecksOverdue,
+            'severity' => 'high',
+            'summary' => 'Completed matings have passed their pregnancy-check date without a confirmed result.',
+            'next_steps' => ['Review the overdue matings.', 'Perform and record the pregnancy check.', 'Schedule a follow-up where the result is uncertain.'],
+            'action_label' => 'Review pregnancy checks',
+            'action_url' => route('mating.manage', ['attention' => 'pregnancy_checks_overdue']),
+        ],
+        [
+            'key' => 'pregnancy_followups',
+            'type' => 'Breeding',
+            'title' => 'Pregnancy follow-ups overdue',
+            'count' => $pregnancyFollowUpsOverdue,
+            'severity' => 'high',
+            'summary' => 'Uncertain pregnancy results still need a follow-up decision and updated breeding record.',
+            'next_steps' => ['Open the uncertain pregnancy records.', 'Perform the follow-up check.', 'Confirm pregnant or not pregnant and plan the next activity.'],
+            'action_label' => 'Review follow-ups',
+            'action_url' => route('mating.manage', ['attention' => 'pregnancy_followups_overdue']),
+        ],
+        [
+            'key' => 'farrowing_preparation',
+            'type' => 'Gestation',
+            'title' => 'Farrowing preparations overdue',
+            'count' => $overdueGestation,
+            'severity' => 'high',
+            'summary' => 'Pregnant sows have passed their expected farrowing date and require an immediate status review.',
+            'next_steps' => ['Check each overdue sow’s condition.', 'Confirm whether farrowing has started or occurred.', 'Update the gestation record and escalate health concerns.'],
+            'action_label' => 'Review overdue gestations',
+            'action_url' => route('gestation.index', ['attention' => 'overdue']),
+        ],
+        [
+            'key' => 'weaning_overdue',
+            'type' => 'Weaning',
+            'title' => 'Litters overdue for weaning',
+            'count' => $overdueWeaning,
+            'severity' => 'medium',
+            'summary' => 'These active litters are beyond the farm’s configured weaning age without a completed weaning record.',
+            'next_steps' => ['Review litter health and readiness.', 'Complete the weaning activity.', 'Record piglet counts, weights and destination.'],
+            'action_label' => 'Review litters',
+            'action_url' => route('weaning.dashboard', ['attention' => 'overdue']),
+        ],
+        [
+            'key' => 'critical_weight_alerts',
+            'type' => 'Weight alert',
+            'title' => 'Critical weight alerts',
+            'count' => $criticalAlerts,
+            'severity' => 'high',
+            'summary' => 'High-severity weight exceptions are still open and may indicate poor growth, illness or incorrect records.',
+            'next_steps' => ['Open each critical alert.', 'Verify the recorded weight and animal condition.', 'Take corrective action, then acknowledge the alert.'],
+            'action_label' => 'Open critical alerts',
+            'action_url' => route('weight-alerts.index', ['severity' => 'high', 'acknowledged' => 0]),
+        ],
+    ])->filter(fn (array $item) => $item['count'] > 0)->values();
+
+    $selectedAttentionKey = trim((string) $request->query('attention', ''));
+    $selectedAttention = $attentionItems->firstWhere('key', $selectedAttentionKey);
 
     $mapPig = function ($pig) {
         $weighingStatus = $pig->getWeighingStatus();
@@ -337,6 +429,8 @@ class AdminController extends Controller
         $maleSales = PigSale::whereHas('pig', fn($q) => $q->where('gender', 'M'))->count();
         $femaleSales = PigSale::whereHas('pig', fn($q) => $q->where('gender', 'F'))->count();
 
+        $refreshedAt = now();
+
         return view('admin.dashboard', compact(
             // Filter
             'dateFrom', 'dateTo',
@@ -365,13 +459,14 @@ class AdminController extends Controller
             'totalFarmValue', 'weightsThisWeek', 'weightsThisMonth', 'criticalAlerts', 'totalAlerts',
             'overduePigsData', 'allOverduePigsData', 'weightLabels', 'weightValues', 'weightMonthlyLabels', 'weightMonthlyAvg',
             'firstWeightPending', 'firstWeightPendingData', 'allFirstWeightPendingData',
+            'attentionItems', 'selectedAttention', 'selectedAttentionKey',
             // Health
             'totalHealthRecords', 'healthRecordsThisMonth', 'totalMedications', 'medicationsThisMonth',
             'topConditions', 'severityCounts', 'recentHealthRecords', 'recentMedications',
             'healthTrendsLabels', 'healthTrendsRecords', 'healthTrendsMedications',
             // Sales
             'totalSales', 'totalRevenue', 'avgSalePrice', 'salesThisMonth', 'maleSales', 'femaleSales',
-            'liveWeightPrice'
+            'liveWeightPrice', 'refreshedAt'
         ));
     }
 

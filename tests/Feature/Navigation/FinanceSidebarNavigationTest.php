@@ -109,6 +109,17 @@ class FinanceSidebarNavigationTest extends TestCase
         $this->assertContains('finance.investors.allocate.form', $routes);
     }
 
+    public function test_accountant_sidebar_contains_only_the_finance_section(): void
+    {
+        Role::firstOrCreate(['name' => 'accountant']);
+        $accountant = $this->makeUser('accountant');
+        $this->actingAs($accountant);
+
+        $sections = NavigationHelper::sidebarSections($accountant);
+
+        $this->assertSame(['Finance'], array_column($sections, 'title'));
+    }
+
     /**
      * Switch on the advanced finance features this fixture's farm uses.
      *

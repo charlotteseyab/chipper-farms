@@ -223,6 +223,8 @@ class WeightStandardsController extends Controller
      */
     public function bulkCreate()
     {
+        $this->authorizeFarmAdmin();
+
         return view('weight-standards.bulk-create');
     }
 
@@ -231,6 +233,9 @@ class WeightStandardsController extends Controller
      */
     public function bulkStore(Request $request)
     {
+        $this->authorizeFarmAdmin();
+        $organizationId = app(\App\Support\CurrentOrganization::class)->requireId();
+
         $data = $request->validate([
             'breed' => ['required', \Illuminate\Validation\Rule::in(array_keys(\App\Models\Setting::animalBreeds()))],
             'gender' => 'required|in:M,F',
@@ -250,6 +255,7 @@ class WeightStandardsController extends Controller
         for ($week = $data['week_from']; $week <= $data['week_to']; $week++) {
             // If a standard already exists for this combination, delete it so we overwrite
             $existing = ExpectedWeightStandard::where('breed', $data['breed'])
+                                             ->where('organization_id', $organizationId)
                                              ->where('gender', $data['gender'])
                                              ->where('stock_type', $data['stock_type'])
                                              ->where('week_number', $week)
@@ -269,6 +275,7 @@ class WeightStandardsController extends Controller
             $optimalWeight = $data['optimal_weight_start'] + $growthAmount;
 
             ExpectedWeightStandard::create([
+                'organization_id' => $organizationId,
                 'breed' => $data['breed'],
                 'gender' => $data['gender'],
                 'stock_type' => $data['stock_type'],
@@ -305,5 +312,12 @@ class WeightStandardsController extends Controller
         }
 
         return FlashHelper::successAndRedirect($message, 'weight-standards.index');
+    }
+
+    private function authorizeFarmAdmin(): void
+    {
+        $user = auth()->user();
+
+        abort_unless($user && $user->isAdmin() && $user->organization_id, 403);
     }
 }

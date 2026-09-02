@@ -95,6 +95,9 @@ class PurchaseStockIntakeTest extends TestCase
         $intake = $service->quarantine($intake, ['room_id' => $room->id]);
         $this->assertSame(0, PurchaseStockIntake::activePigletQuantity());
 
+        $intake = $service->reviewQuarantine($intake, [
+            'quarantine_outcome' => PurchaseStockIntake::QUARANTINE_CLEARED,
+        ]);
         $intake = $service->approve($intake);
         $this->assertSame(0, PurchaseStockIntake::activePigletQuantity());
 
@@ -103,6 +106,96 @@ class PurchaseStockIntakeTest extends TestCase
         $this->assertSame(PurchaseStockIntake::STATUS_ADDED_TO_STOCK, $intake->status);
         $this->assertSame(4, PigManagement::where('purchase_stock_intake_id', $intake->id)->count());
         $this->assertSame(0, StockMovement::where('source_id', $intake->id)->count(), 'Individual pigs must not also be counted as a batch movement.');
+    }
+
+    public function test_quarantine_step_shows_room_without_a_group_field(): void
+    {
+        $this->makeRoom(capacity: 10);
+        $intake = $this->makePendingIntake(PurchaseStockIntake::CATEGORY_GROWER, 1);
+        $intake->update([
+            'quantity_received' => 1,
+            'quantity_rejected' => 0,
+            'status' => PurchaseStockIntake::STATUS_RECEIVED,
+        ]);
+
+        $this->actingAs($this->manager)
+            ->get(route('purchase-stock-intakes.show', $intake))
+            ->assertOk()
+            ->assertSee('Quarantine Room')
+            ->assertSee('name="room_id"', false)
+            ->assertDontSee('name="group_id"', false);
+    }
+
+    public function test_quarantine_requires_a_physical_room(): void
+    {
+        $intake = $this->makePendingIntake(PurchaseStockIntake::CATEGORY_GROWER, 1);
+        $intake->update([
+            'quantity_received' => 1,
+            'quantity_rejected' => 0,
+            'status' => PurchaseStockIntake::STATUS_RECEIVED,
+        ]);
+
+        $this->actingAs($this->manager)
+            ->post(route('purchase-stock-intakes.quarantine', $intake), [
+                'group_id' => 999,
+                'health_status' => 'healthy',
+            ])
+            ->assertSessionHasErrors('room_id');
+
+        $this->assertSame(PurchaseStockIntake::STATUS_RECEIVED, $intake->fresh()->status);
+    }
+
+    public function test_quarantined_animals_cannot_be_approved_before_review(): void
+    {
+        $this->actingAs($this->manager);
+        $room = $this->makeRoom(capacity: 10);
+        $intake = $this->makePendingIntake(PurchaseStockIntake::CATEGORY_GROWER, 2);
+        $intake = app(PurchaseStockIntakeService::class)->receive($intake, ['quantity_received' => 2]);
+        $intake = app(PurchaseStockIntakeService::class)->quarantine($intake, ['room_id' => $room->id]);
+
+        $this->expectException(StockValidationException::class);
+        app(PurchaseStockIntakeService::class)->approve($intake);
+    }
+
+    public function test_partial_quarantine_clearance_only_adds_cleared_animals(): void
+    {
+        $this->actingAs($this->manager);
+        $service = app(PurchaseStockIntakeService::class);
+        $room = $this->makeRoom(capacity: 10);
+        $intake = $this->makePendingIntake(PurchaseStockIntake::CATEGORY_GROWER, 4);
+        $intake = $service->receive($intake, ['quantity_received' => 4]);
+        $intake = $service->quarantine($intake, ['room_id' => $room->id]);
+        $intake = $service->reviewQuarantine($intake, [
+            'quarantine_outcome' => PurchaseStockIntake::QUARANTINE_PARTIALLY_CLEARED,
+            'quarantine_rejected_quantity' => 1,
+            'quarantine_disposition' => 'returned_to_supplier',
+            'quarantine_review_notes' => 'One animal remained unfit after observation.',
+        ]);
+
+        $this->assertSame(3, $intake->clearedQuantity());
+        $intake = $service->approve($intake);
+        $service->addToStock($intake, ['PARTIAL-001', 'PARTIAL-002', 'PARTIAL-003']);
+
+        $this->assertSame(3, PigManagement::where('purchase_stock_intake_id', $intake->id)->count());
+    }
+
+    public function test_full_quarantine_rejection_ends_the_stock_entry_flow(): void
+    {
+        $this->actingAs($this->manager);
+        $service = app(PurchaseStockIntakeService::class);
+        $room = $this->makeRoom(capacity: 10);
+        $intake = $this->makePendingIntake(PurchaseStockIntake::CATEGORY_GROWER, 2);
+        $intake = $service->receive($intake, ['quantity_received' => 2]);
+        $intake = $service->quarantine($intake, ['room_id' => $room->id]);
+        $intake = $service->reviewQuarantine($intake, [
+            'quarantine_outcome' => PurchaseStockIntake::QUARANTINE_REJECTED,
+            'quarantine_disposition' => 'died_in_quarantine',
+            'quarantine_review_notes' => 'Animals did not recover during quarantine.',
+        ]);
+
+        $this->assertSame(PurchaseStockIntake::STATUS_REJECTED, $intake->status);
+        $this->assertSame(0, $intake->clearedQuantity());
+        $this->assertSame(0, PigManagement::where('purchase_stock_intake_id', $intake->id)->count());
     }
 
     public function test_individual_purchased_pigs_are_created_with_purchase_metadata_after_add_to_stock(): void
@@ -190,15 +283,23 @@ class PurchaseStockIntakeTest extends TestCase
     {
         PigManagement::create([
             'organization_id' => $this->org->id,
-            'ear_tag_number' => 'CF-009',
+            'ear_tag_number' => '9',
             'breed' => 'LW',
             'gender' => 'F',
             'stock_type' => 'standard',
             'date_of_birth' => now()->subDays(90)->toDateString(),
         ]);
+        PigManagement::create([
+            'organization_id' => $this->org->id,
+            'ear_tag_number' => 'DEMO-WEAN-SOW-04',
+            'breed' => 'LW',
+            'gender' => 'F',
+            'stock_type' => 'breeding',
+            'date_of_birth' => now()->subYears(2)->toDateString(),
+        ]);
 
         $this->assertSame(
-            ['CF-010', 'CF-011', 'CF-012'],
+            ['10', '11', '12'],
             app(PurchaseStockIntakeService::class)->proposeEarTagNumbers(3, $this->org->id),
         );
     }

@@ -174,6 +174,7 @@ Route::middleware($protectedMiddleware)->group(function () {
         ->parameters(['purchase-stock-intakes' => 'purchaseStockIntake']);
     Route::post('purchase-stock-intakes/{purchaseStockIntake}/receive', [App\Http\Controllers\PurchaseStockIntakeController::class, 'receive'])->name('purchase-stock-intakes.receive');
     Route::post('purchase-stock-intakes/{purchaseStockIntake}/quarantine', [App\Http\Controllers\PurchaseStockIntakeController::class, 'quarantine'])->name('purchase-stock-intakes.quarantine');
+    Route::post('purchase-stock-intakes/{purchaseStockIntake}/quarantine-review', [App\Http\Controllers\PurchaseStockIntakeController::class, 'reviewQuarantine'])->name('purchase-stock-intakes.quarantine-review');
     Route::post('purchase-stock-intakes/{purchaseStockIntake}/approve', [App\Http\Controllers\PurchaseStockIntakeController::class, 'approve'])->name('purchase-stock-intakes.approve');
     Route::post('purchase-stock-intakes/{purchaseStockIntake}/add-to-stock', [App\Http\Controllers\PurchaseStockIntakeController::class, 'addToStock'])->name('purchase-stock-intakes.add-to-stock');
 
@@ -232,6 +233,7 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::get('weaning/weaned', function() { return redirect()->route('weaning.dashboard'); });
     Route::get('weaning/overdue', function() { return redirect()->route('weaning.dashboard'); });
     Route::post('weaning/{id}/wean', [App\Http\Controllers\PigManagementController::class, 'recordWeaning'])->name('weaning.record');
+    Route::get('weaning/litter/{farrowing}/preview', [App\Http\Controllers\WeaningController::class, 'previewLitterWeaning'])->name('weaning.litter-preview');
     Route::post('weaning/litter/{farrowing}/wean', [App\Http\Controllers\PigManagementController::class, 'weanLitter'])->name('weaning.litter-wean');
     Route::post('weaning/{id}/complete-maturity', [App\Http\Controllers\PigManagementController::class, 'completeMaturity'])->name('weaning.complete-maturity');
     Route::post('weaning/{id}/update-status', [App\Http\Controllers\PigManagementController::class, 'updateWeaningStatus'])->name('weaning.update-status');
@@ -283,9 +285,12 @@ Route::middleware($protectedMiddleware)->group(function () {
     // PDF export for all weights (filtered)
     Route::get('weights/export/pdf', [App\Http\Controllers\WeightManagementController::class, 'exportAllPDF'])->middleware('permission:view_weights')->name('weights.index.export-pdf');
 
-    // Weight Standards Routes (Admin, Manager and Superuser only)
+    // Weight-standard review remains available to farm management. Bulk setup
+    // is a farm-owned system setting and is deliberately admin-only.
     Route::middleware(['role:admin,manager,superuser'])->group(function () {
         Route::resource('weight-standards', App\Http\Controllers\WeightStandardsController::class);
+    });
+    Route::middleware('role:admin')->group(function () {
         Route::get('weight-standards-bulk/create', [App\Http\Controllers\WeightStandardsController::class, 'bulkCreate'])->name('weight-standards.bulk-create');
         Route::post('weight-standards-bulk', [App\Http\Controllers\WeightStandardsController::class, 'bulkStore'])->name('weight-standards.bulk-store');
     });

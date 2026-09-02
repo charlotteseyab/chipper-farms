@@ -391,6 +391,20 @@ class PigStockController extends Controller
     {
         $breedingReadiness  = $pig->breeding_readiness;
         $availabilityStatus = $pig->availability_status;
+        $latestHealthRecord = $pig->healthRecords()
+            ->latest('record_date')
+            ->latest('id')
+            ->first();
+        $latestMedication = $pig->medicationAdministrations()
+            ->latest('administration_date')
+            ->latest('id')
+            ->first();
+        $healthSummary = [
+            'total_records' => $pig->healthRecords()->count(),
+            'open_cases' => $pig->healthRecords()->whereNull('resolved_at')->count(),
+            'medication_records' => $pig->medicationAdministrations()->count(),
+            'under_withdrawal' => $pig->medicationAdministrations()->underWithdrawal()->exists(),
+        ];
 
         $offspring = PigManagement::where(function ($query) use ($pig) {
             if ($pig->gender === 'M') {
@@ -463,7 +477,18 @@ class PigStockController extends Controller
             }
         }
 
-        return compact('pig', 'breedingReadiness', 'availabilityStatus', 'offspring', 'siblings', 'stats', 'analytics');
+        return compact(
+            'pig',
+            'breedingReadiness',
+            'availabilityStatus',
+            'offspring',
+            'siblings',
+            'stats',
+            'analytics',
+            'latestHealthRecord',
+            'latestMedication',
+            'healthSummary',
+        );
     }
 
     // ---------------------------------------------------------------- exports
@@ -605,6 +630,11 @@ class PigStockController extends Controller
     public function allImportSample(StockExcelImportService $service)
     {
         $this->authorize('viewAny', PigManagement::class);
+
+        if (\App\Models\Setting::animalBreeds() === []) {
+            return redirect()->route('all-stocks.import.create')
+                ->withErrors(['stock_file' => 'Add at least one animal breed under Settings > Setup > Breeds before downloading the sample.']);
+        }
 
         $path = $service->buildXlsx($service->sampleRows());
 

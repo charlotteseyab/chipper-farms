@@ -877,6 +877,8 @@
                 </div>
             </div>
 
+            <x-dashboard.livestock-overview />
+
             <div class="content-grid">
                 <div class="surface-card">
                     <div class="surface-head">

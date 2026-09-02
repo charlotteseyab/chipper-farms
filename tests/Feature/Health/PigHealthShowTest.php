@@ -144,6 +144,85 @@ class PigHealthShowTest extends TestCase
             ->assertSee('Outcome: Not assessed');
     }
 
+    public function test_health_index_only_lists_animals_with_a_saved_health_record(): void
+    {
+        $unrecordedPig = PigManagement::create([
+            'organization_id' => $this->organization->id,
+            'ear_tag_number' => 'HEALTH-UNRECORDED',
+            'code' => 'PIG-WITHOUT-HEALTH',
+            'breed' => 'Duroc',
+            'gender' => 'M',
+            'stock_type' => 'standard',
+            'date_of_birth' => now()->subMonths(5)->toDateString(),
+        ]);
+
+        $this->makeHealthRecord(1);
+
+        $this->actingAs($this->user)
+            ->get(route('health.index'))
+            ->assertOk()
+            ->assertSee($this->pig->code)
+            ->assertDontSee($unrecordedPig->code);
+    }
+
+    public function test_medication_index_shows_only_the_latest_record_for_each_animal(): void
+    {
+        MedicationAdministration::create([
+            'pig_id' => $this->pig->id,
+            'administration_date' => now()->subDay()->toDateString(),
+            'medication_name' => 'Older treatment',
+            'dosage' => '2 ml',
+            'administered_by' => $this->user->id,
+        ]);
+
+        MedicationAdministration::create([
+            'pig_id' => $this->pig->id,
+            'administration_date' => now()->toDateString(),
+            'medication_name' => 'Latest treatment',
+            'dosage' => '3 ml',
+            'administered_by' => $this->user->id,
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('medications.index'))
+            ->assertOk()
+            ->assertViewHas('medications', fn ($records) => $records->total() === 1)
+            ->assertSee('Latest treatment')
+            ->assertDontSee('Older treatment')
+            ->assertSee('View medication history');
+    }
+
+    public function test_pig_details_include_latest_health_and_medication_summary(): void
+    {
+        $this->makeHealthRecord(3);
+        $latestHealth = $this->makeHealthRecord(1);
+        $latestHealth->update([
+            'condition' => 'Latest respiratory review',
+            'severity' => 'medium',
+            'treatment_status' => 'ongoing',
+        ]);
+
+        MedicationAdministration::create([
+            'pig_id' => $this->pig->id,
+            'administration_date' => now()->toDateString(),
+            'medication_name' => 'Respiratory medication',
+            'dosage' => '4 ml',
+            'route' => 'injection',
+            'withdrawal_period_days' => 14,
+            'administered_by' => $this->user->id,
+        ]);
+
+        $this->actingAs($this->user)
+            ->get(route('pigs.show', $this->pig))
+            ->assertOk()
+            ->assertSee('Health &amp; Medication Summary', false)
+            ->assertSee('Latest respiratory review')
+            ->assertSee('Respiratory medication')
+            ->assertSee('2 records')
+            ->assertSee('Withdrawal active')
+            ->assertSee('View complete history');
+    }
+
     public function test_index_and_show_use_the_same_latest_record_when_dates_are_equal(): void
     {
         $planned = $this->makeHealthRecord(1);

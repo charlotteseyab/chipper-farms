@@ -201,6 +201,8 @@ class FortifyServiceProvider extends ServiceProvider
                         return redirect('/manager/dashboard');
                     } elseif ($user->isDataEntry()) {
                         return redirect('/dataentry/dashboard');
+                    } elseif ($user->isAccountant() || $user->isTreasurer()) {
+                        return redirect()->route('finance.overview');
                     } elseif (method_exists($user, 'isCustomer') && $user->isCustomer()) {
                         // Storefront customers land in their account area, not
                         // the operational dashboard.

@@ -1,4 +1,12 @@
 <x-app-layout>
+    @if(($attentionFilter ?? '') === 'overdue')
+        <div class="mx-auto mt-4 max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
+                <div><strong>Showing overdue gestations.</strong> Only pregnant sows past their expected farrowing date are listed.</div>
+                <a href="{{ route('gestation.index') }}" class="font-bold underline">Clear filter</a>
+            </div>
+        </div>
+    @endif
     <style>
         .gestation-page{
             min-height: 100vh;

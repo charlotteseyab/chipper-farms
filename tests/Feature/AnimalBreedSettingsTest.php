@@ -6,6 +6,7 @@ use App\Models\Organization;
 use App\Models\PigManagement;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\Stock\Imports\StockExcelImportService;
 use App\Support\CurrentOrganization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -47,5 +48,26 @@ class AnimalBreedSettingsTest extends TestCase
             'breed_names' => ['LW' => 'Large White', 'DR' => 'Duroc', 'LWDR' => 'Large White Duroc'],
             'remove_breeds' => ['LW'],
         ])->assertSessionHasErrors('breeds');
+    }
+
+    public function test_stock_import_sample_uses_only_the_current_farms_breed_codes(): void
+    {
+        $farmA = Organization::create(['name' => 'Farm A', 'slug' => 'farm-a']);
+        $farmB = Organization::create(['name' => 'Farm B', 'slug' => 'farm-b']);
+        $organization = $this->app->make(CurrentOrganization::class);
+
+        $organization->bind($farmA);
+        Setting::setAnimalBreeds(['HAMP' => 'Hampshire']);
+
+        $organization->bind($farmB);
+        Setting::setAnimalBreeds(['YORK' => 'Yorkshire']);
+
+        $organization->bind($farmA);
+        $rows = $this->app->make(StockExcelImportService::class)->sampleRows();
+
+        $this->assertSame(StockExcelImportService::HEADERS, $rows[0]);
+        $this->assertSame('HAMP', $rows[1][1]);
+        $this->assertStringContainsString('Hampshire (HAMP)', $rows[1][12]);
+        $this->assertStringNotContainsString('YORK', json_encode($rows));
     }
 }

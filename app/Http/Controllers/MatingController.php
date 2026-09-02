@@ -83,12 +83,16 @@ class MatingController extends Controller
         ];
     }
 
-    public function matingManage()
+    public function matingManage(Request $request)
     {
         $this->authorize('viewAny', Mating::class);
+        $attentionFilter = $request->string('attention')->toString();
         $matings = Mating::with(['male', 'female', 'createdBy', 'checkedBy'])
+            ->when($attentionFilter === 'pregnancy_checks_overdue', fn ($query) => $query->pregnancyCheckOverdue())
+            ->when($attentionFilter === 'pregnancy_followups_overdue', fn ($query) => $query->pregnancyFollowUpOverdue())
             ->orderBy('planned_date', 'desc')
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
 
         $stats = [
             'total'                     => Mating::count(),
@@ -106,7 +110,7 @@ class MatingController extends Controller
             'not_pregnant'              => Mating::notPregnant()->count(),
         ];
 
-        return view('mating.manage', compact('matings', 'stats'));
+        return view('mating.manage', compact('matings', 'stats', 'attentionFilter'));
     }
 
     // ------------------------------------------------------------- write paths
@@ -310,6 +314,7 @@ class MatingController extends Controller
         $this->authorize('viewAny', Mating::class);
         $q          = trim((string) $request->input('q'));
         $filterDate = $request->input('filter_date');
+        $attentionFilter = $request->string('attention')->toString();
 
         $averageGestation = Mating::where('pregnancy_status', 'farrowed')
             ->whereNotNull('actual_farrowing_date')
@@ -318,7 +323,10 @@ class MatingController extends Controller
             ?? config('breeding.cycle.gestation_days', 114);
 
         $query = Mating::with(['male', 'female', 'createdBy', 'checkedBy'])
-            ->whereIn('pregnancy_status', ['pregnant', 'farrowed']);
+            ->whereIn('pregnancy_status', ['pregnant', 'farrowed'])
+            ->when($attentionFilter === 'overdue', fn ($query) => $query
+                ->where('pregnancy_status', 'pregnant')
+                ->where('expected_farrowing_date', '<', now()));
 
         if ($q) {
             $query->where(function ($subQuery) use ($q) {
@@ -341,7 +349,7 @@ class MatingController extends Controller
             ->orderByRaw("CASE WHEN pregnancy_status = 'pregnant' THEN 0 ELSE 1 END")
             ->orderBy('expected_farrowing_date', 'asc')
             ->paginate(10)
-            ->appends(['q' => $q, 'filter_date' => $filterDate]);
+            ->withQueryString();
 
         $overdueFilteredCount = (clone $query)
             ->where('pregnancy_status', 'pregnant')
@@ -365,7 +373,7 @@ class MatingController extends Controller
             'average_gestation' => round($averageGestation),
         ];
 
-        return view('gestation.index', compact('pregnantMatings', 'q', 'stats', 'filterDate'));
+        return view('gestation.index', compact('pregnantMatings', 'q', 'stats', 'filterDate', 'attentionFilter'));
     }
 
     public function destroyGestation(Mating $mating)

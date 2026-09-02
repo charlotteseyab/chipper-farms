@@ -49,6 +49,12 @@ class PurchaseStockIntakePolicy
             && ($user->isAdmin() || $user->isManager());
     }
 
+    public function reviewQuarantine(User $user, PurchaseStockIntake $purchaseStockIntake): bool
+    {
+        return $this->sameOrganization($user, $purchaseStockIntake)
+            && ($user->isAdmin() || $user->isManager());
+    }
+
     public function addToStock(User $user, PurchaseStockIntake $purchaseStockIntake): bool
     {
         return $this->sameOrganization($user, $purchaseStockIntake)

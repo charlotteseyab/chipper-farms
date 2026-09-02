@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Group;
 use App\Models\PurchaseStockIntake;
 use App\Models\Room;
 use App\Models\Structure;
@@ -74,7 +73,6 @@ class PurchaseStockIntakeController extends Controller
             'categories' => $this->categories(),
             'structures' => $this->activeStructures(),
             'rooms' => Room::with('structure')->orderBy('name')->get(),
-            'groups' => Group::orderBy('name')->get(),
             'breeds' => \App\Models\Setting::animalBreeds(),
         ]);
     }
@@ -113,9 +111,8 @@ class PurchaseStockIntakeController extends Controller
                 }])
                 ->orderBy('name')
                 ->get(),
-            'groups' => Group::orderBy('name')->get(),
             'statuses' => $this->statuses(),
-            'proposedEarTags' => $this->service->proposeEarTagNumbers($purchaseStockIntake->receivedQuantity(), (int) $purchaseStockIntake->organization_id),
+            'proposedEarTags' => $this->service->proposeEarTagNumbers($purchaseStockIntake->clearedQuantity(), (int) $purchaseStockIntake->organization_id),
             'canMaterializeLegacyPiglets' => $canMaterializeLegacyPiglets,
         ]);
     }
@@ -139,14 +136,14 @@ class PurchaseStockIntakeController extends Controller
         $this->authorize('quarantine', $purchaseStockIntake);
 
         $data = $request->validate([
-            'room_id' => ['nullable', 'required_without:group_id', 'exists:rooms,id'],
-            'group_id' => ['nullable', 'required_without:room_id', 'exists:groups,id'],
+            'room_id' => ['required', 'integer', Rule::exists('rooms', 'id')->where(
+                fn ($query) => $query->where('organization_id', $this->currentOrganization->requireId())
+            )],
             'health_status' => ['nullable', 'string', 'max:40'],
             'health_notes' => ['nullable', 'string'],
             'quarantine_release_date' => ['nullable', 'date'],
         ], [
-            'room_id.required_without' => 'Assign a quarantine room or group before moving purchased stock into quarantine.',
-            'group_id.required_without' => 'Assign a quarantine room or group before moving purchased stock into quarantine.',
+            'room_id.required' => 'Select the physical room where these animals will be quarantined.',
         ]);
 
         return $this->runAction(fn () => $this->service->quarantine($purchaseStockIntake, $data), 'Purchased stock moved into quarantine/intake housing.');
@@ -159,6 +156,40 @@ class PurchaseStockIntakeController extends Controller
         return $this->runAction(fn () => $this->service->approve($purchaseStockIntake), 'Purchased stock intake approved.');
     }
 
+    public function reviewQuarantine(Request $request, PurchaseStockIntake $purchaseStockIntake)
+    {
+        $this->authorize('reviewQuarantine', $purchaseStockIntake);
+
+        $data = $request->validate([
+            'quarantine_outcome' => ['required', Rule::in([
+                PurchaseStockIntake::QUARANTINE_CLEARED,
+                PurchaseStockIntake::QUARANTINE_EXTENDED,
+                PurchaseStockIntake::QUARANTINE_PARTIALLY_CLEARED,
+                PurchaseStockIntake::QUARANTINE_REJECTED,
+            ])],
+            'quarantine_rejected_quantity' => ['nullable', 'required_if:quarantine_outcome,partially_cleared', 'integer', 'min:1'],
+            'quarantine_disposition' => ['nullable', 'required_if:quarantine_outcome,partially_cleared,rejected', Rule::in([
+                'returned_to_supplier', 'euthanized', 'died_in_quarantine', 'isolated_elsewhere',
+            ])],
+            'quarantine_review_notes' => ['nullable', 'required_if:quarantine_outcome,partially_cleared,rejected', 'string', 'max:3000'],
+            'quarantine_release_date' => ['nullable', 'required_if:quarantine_outcome,extended', 'date', 'after_or_equal:today'],
+            'health_status' => ['nullable', 'string', 'max:40'],
+            'health_notes' => ['nullable', 'string', 'max:3000'],
+        ]);
+
+        $messages = [
+            PurchaseStockIntake::QUARANTINE_CLEARED => 'Quarantine completed. The cleared animals can now be approved for stock entry.',
+            PurchaseStockIntake::QUARANTINE_EXTENDED => 'Quarantine extended. Review the animals again on the new date.',
+            PurchaseStockIntake::QUARANTINE_PARTIALLY_CLEARED => 'Quarantine completed with a partial clearance. Only cleared animals can enter stock.',
+            PurchaseStockIntake::QUARANTINE_REJECTED => 'The intake was rejected after quarantine and cannot enter main stock.',
+        ];
+
+        return $this->runAction(
+            fn () => $this->service->reviewQuarantine($purchaseStockIntake, $data),
+            $messages[$data['quarantine_outcome']]
+        );
+    }
+
     public function addToStock(Request $request, PurchaseStockIntake $purchaseStockIntake)
     {
         $this->authorize('addToStock', $purchaseStockIntake);
@@ -168,7 +199,6 @@ class PurchaseStockIntakeController extends Controller
         return $this->runAction(
             fn () => $this->service->addToStock($purchaseStockIntake, $data['ear_tag_numbers'] ?? [], [
                 'room_id' => $data['room_id'] ?? null,
-                'group_id' => $data['group_id'] ?? null,
             ]),
             'Purchased stock added to stock.'
         );
@@ -256,9 +286,10 @@ class PurchaseStockIntakeController extends Controller
     protected function addToStockRules(PurchaseStockIntake $intake): array
     {
         return [
-            'room_id' => ['nullable', 'exists:rooms,id'],
-            'group_id' => ['nullable', 'exists:groups,id'],
-            'ear_tag_numbers' => ['required', 'array', 'size:' . $intake->receivedQuantity()],
+            'room_id' => ['required', 'integer', Rule::exists('rooms', 'id')->where(
+                fn ($query) => $query->where('organization_id', $this->currentOrganization->requireId())
+            )],
+            'ear_tag_numbers' => ['required', 'array', 'size:' . $intake->clearedQuantity()],
             'ear_tag_numbers.*' => ['required', 'string', 'max:50', 'distinct', 'unique:pigs_management,ear_tag_number'],
         ];
     }
