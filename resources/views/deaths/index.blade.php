@@ -4,8 +4,8 @@
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 <div class="flex items-center justify-between">
                     <div>
-                        <h1 class="text-3xl font-bold text-gray-900">Deceased Pigs</h1>
-                        <p class="text-gray-600 mt-1">Records of pig deaths and disposal</p>
+                        <h1 class="text-3xl font-bold text-gray-900">Mortality Records</h1>
+                        <p class="text-gray-600 mt-1">Recorded animal losses, causes and disposal details</p>
                     </div>
                     <div class="flex items-center space-x-4">
                         <a href="{{ route('deaths.export.csv', request()->query()) }}" 
@@ -22,7 +22,7 @@
                             </svg>
                             Download PDF
                         </a>
-                        <a href="{{ route('all-stocks.index') }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Record Death</a>
+                        <a href="{{ route('all-stocks.index') }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Record Mortality</a>
                         <a href="{{ route('audit-trail.index', ['tab' => 'archived']) }}" class="inline-flex items-center px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-black/80">
                             Archived Records
                         </a>
@@ -34,18 +34,18 @@
         <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                 <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
-                    <div class="text-sm text-gray-600">Total Deaths</div>
+                    <div class="text-sm text-gray-600">Total Mortality</div>
                     <div class="text-2xl font-semibold text-gray-900">{{ $stats['total_deaths'] ?? 0 }}</div>
                     <div class="text-xs text-gray-500 mt-1">
                         {{ $stats['total_adult_deaths'] ?? 0 }} pigs • {{ $stats['total_piglet_deaths'] ?? 0 }} piglets
                     </div>
                 </div>
                 <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
-                    <div class="text-sm text-gray-600">Adult Deaths</div>
+                    <div class="text-sm text-gray-600">Adult Mortality</div>
                     <div class="text-2xl font-semibold text-gray-900">{{ $stats['total_adult_deaths'] ?? 0 }}</div>
                 </div>
                 <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
-                    <div class="text-sm text-gray-600">Piglet Deaths</div>
+                    <div class="text-sm text-gray-600">Piglet Mortality</div>
                     <div class="text-2xl font-semibold text-red-600">{{ $stats['total_piglet_deaths'] ?? 0 }}</div>
                 </div>
                 <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
@@ -57,8 +57,8 @@
             <div data-ajax-table>
                 <div class="bg-white rounded-lg shadow border border-gray-200 mb-6">
                     <div class="px-6 py-4 border-b border-gray-200">
-                        <h2 class="text-lg font-semibold text-gray-900">Filter Death Records</h2>
-                        <p class="text-sm text-gray-500 mt-1">Applies to adult deaths and piglet death events.</p>
+                        <h2 class="text-lg font-semibold text-gray-900">Filter Mortality Records</h2>
+                        <p class="text-sm text-gray-500 mt-1">Applies to adult and piglet mortality records.</p>
                     </div>
                     <form method="GET" action="{{ route('deaths.index') }}" data-ajax-table-form class="p-6">
                         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">

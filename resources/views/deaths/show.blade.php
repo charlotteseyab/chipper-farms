@@ -5,8 +5,8 @@
     <div class="bg-gray-100 border-b border-gray-200 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between">
             <div>
-                <h1 class="text-3xl font-extrabold text-gray-800">Death Record Details</h1>
-                <p class="text-gray-500 mt-1 font-medium">Detailed information on the animal's demise and final handling.</p>
+                <h1 class="text-3xl font-extrabold text-gray-800">Mortality Record Details</h1>
+                <p class="text-gray-500 mt-1 font-medium">Recorded loss details, cause and final handling.</p>
             </div>
             
             <!-- Action Buttons -->
@@ -33,7 +33,7 @@
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
                     </svg>
-                    Back to Death List
+                    Back to Mortality Records
                 </a>
             </div>
         </div>
@@ -72,7 +72,7 @@
                     </div>
                     @if($death->age_at_death)
                         <div class="flex justify-between">
-                            <span class="text-gray-600 font-medium">Age at Death:</span>
+                            <span class="text-gray-600 font-medium">Age at Mortality:</span>
                             <span class="text-gray-900 font-semibold">{{ $death->age_at_death_display }}</span>
                         </div>
                     @endif
@@ -89,12 +89,12 @@
                     </div>
                     <div>
                         <h3 class="text-xl font-bold text-gray-800">Incident Details</h3>
-                        <p class="text-gray-500 text-sm">Death Information</p>
+                        <p class="text-gray-500 text-sm">Mortality Information</p>
                     </div>
                 </div>
                 <div class="space-y-3 pt-2">
                     <div class="flex justify-between border-b border-gray-100 pb-2">
-                        <span class="text-gray-600 font-medium">Death Date:</span>
+                        <span class="text-gray-600 font-medium">Mortality Date:</span>
                         <span class="text-red-600 font-extrabold">{{ $death->death_date?->format('M d, Y') }}</span>
                     </div>
                     <div class="flex justify-between border-b border-gray-100 pb-2">

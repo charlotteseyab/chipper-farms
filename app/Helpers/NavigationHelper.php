@@ -114,7 +114,7 @@ class NavigationHelper
                 ])),
             ],
             [
-                'title' => 'Pig Operations',
+                'title' => 'Stock',
                 'items' => array_values(array_filter([
                     self::link('All Stock', 'all-stocks.index', 'all-stocks*', 'fa-solid fa-list', $allRoles),
                     self::link('Purchased Stock Intake', 'purchase-stock-intakes.index', 'purchase-stock-intakes*', 'fa-solid fa-truck-ramp-box', $managementRoles),
@@ -153,7 +153,7 @@ class NavigationHelper
                         self::link('Medications', 'medications.index', 'medications*', 'fa-solid fa-capsules', $allRoles),
                         self::link('Health Reports', 'health.reports', 'health-reports*', 'fa-solid fa-notes-medical', $allRoles),
                     ], $allRoles),
-                    self::link('Deaths', 'deaths.index', 'deaths*', 'fa-solid fa-skull-crossbones', $allRoles),
+                    self::link('Mortality', 'deaths.index', 'deaths*', 'fa-solid fa-skull-crossbones', $allRoles),
                     self::link('Sales', 'sales.index', 'sales*', 'fa-solid fa-coins', $allRoles),
                     self::link('Performance Metrics', 'performance_metrics.index', 'metrics*', 'fa-solid fa-chart-pie', $adminRoles),
                 ])),

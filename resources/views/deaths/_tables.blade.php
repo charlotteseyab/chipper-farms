@@ -1,13 +1,13 @@
 <div class="bg-white rounded-lg shadow border border-gray-200 mb-6">
     <div class="px-6 py-4 border-b border-gray-200">
-        <h2 class="text-lg font-semibold text-gray-900">Adult Deaths (60+ days)</h2>
+        <h2 class="text-lg font-semibold text-gray-900">Adult Mortality (60+ days)</h2>
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
                 <tr>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pig</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age at Death</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Age at Mortality</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cause</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disposal</th>
@@ -44,7 +44,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-12 text-center text-gray-500">No adult death records found.</td>
+                        <td colspan="6" class="px-6 py-12 text-center text-gray-500">No adult mortality records found.</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -60,8 +60,8 @@
 
 <div class="bg-white rounded-lg shadow border border-gray-200 mt-6">
     <div class="px-6 py-4 border-b border-gray-200">
-        <h2 class="text-lg font-semibold text-gray-900">Piglet Death Events (Litters)</h2>
-        <p class="text-sm text-gray-600 mt-1">Events recorded against farrowings</p>
+        <h2 class="text-lg font-semibold text-gray-900">Piglet Mortality (Litters)</h2>
+        <p class="text-sm text-gray-600 mt-1">Mortality recorded against farrowings</p>
     </div>
     <div class="overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
@@ -88,7 +88,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="5" class="px-6 py-12 text-center text-gray-500">No piglet death events recorded.</td>
+                        <td colspan="5" class="px-6 py-12 text-center text-gray-500">No piglet mortality records found.</td>
                     </tr>
                 @endforelse
             </tbody>
