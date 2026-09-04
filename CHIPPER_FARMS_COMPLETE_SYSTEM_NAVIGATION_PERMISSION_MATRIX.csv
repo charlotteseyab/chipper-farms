@@ -1,0 +1,22 @@
+Menu,Route,Primary Permission,Roles Expected,Audit Evidence,Status,Notes
+Dashboard,/dashboard,view_dashboard,"admin,farmmanager,manager,dataentry,accountant,superuser",Route/permission suites partial,PASS/PARTIAL,Default suite still fails globally
+All Stock,/all-stocks,view_pigs,"admin,farmmanager,manager,dataentry,superuser",Feature/security suites partial,PASS/PARTIAL,No browser certification
+Purchased Stock Intake,/purchase-stock-intakes,view_purchase_stock_intakes,"admin,farmmanager,manager,dataentry,superuser",PurchaseStockIntakeTest,FAIL,Create and cross-org assertions fail
+Breeding Stock,/breeding-stocks,view_pigs,"admin,farmmanager,manager,dataentry,superuser",Route inventory,PARTIAL,Not independently browser-clicked
+Standard Stock,/standard-stocks,view_pigs,"admin,farmmanager,manager,dataentry,superuser",Feature suites partial,PARTIAL,No browser certification
+Sales,/sales,view_sales,"admin,farmmanager,manager,accountant,dataentry,superuser",Authorization test,FAIL,Cross-org expected 403 got 404
+Weights,/weights,view_weights,"admin,farmmanager,manager,dataentry,superuser",WeightAuditTest,PARTIAL,Weight standards audit failure remains
+Storefront Dashboard,/storefront-admin,view_storefront_dashboard,"admin,superuser,salesperson,manager,accountant",StorefrontPermissionsTest,PASS/PARTIAL,Farm manager coverage passes in feature test
+Storefront Listings,/storefront-admin/listings,view_storefront_listings,"admin,superuser,salesperson,manager,accountant",StorefrontPermissionsTest,PASS/PARTIAL,Delete path fails for superuser
+Storefront Push,/storefront-admin/push,push_to_storefront,"admin,superuser,salesperson,manager",StorefrontPushCategoryTest,PASS/PARTIAL,Feature passes; browser blocked
+Storefront Orders,/storefront-admin/orders,view_storefront_orders,"admin,superuser,salesperson,farmmanager,accountant",StorefrontOrderPermissionsSeeder tests,PASS/PARTIAL,Global gates red
+Storefront Settings,/storefront-admin/settings,manage_storefront_settings,"admin,superuser,manager",HumanQaSidebarNavigationTest,FAIL,Unexpected Settings label in sidebar test
+Finance Overview,/finance,view_finance,"admin,accountant,superuser,farmmanager",PermissionMatrixTest,PASS/PARTIAL,NeedsAttention failures remain
+Sales & Money In,/finance/sales,view_receivables,"admin,accountant,superuser,farmmanager",MoneyInTest,PASS/PARTIAL,Storefront manual posting failure affects reality
+Cash Bank & MoMo,/finance/bank-accounts,view_bank_accounts,"admin,accountant,treasurer,superuser",FinanceRouteAuthorizationTest,PASS/PARTIAL,GL/account UX business review pending
+Expenses,/finance/expenses,record_expenses,"admin,accountant,treasurer,farmmanager,dataentry,superuser",QuickExpenseAttachmentTest,FAIL,Cross-org attachment expected 403 got 404
+Purchases,/finance/purchases,record_purchases,"admin,accountant,treasurer,farmmanager,superuser",SimplePurchase tests,PASS/PARTIAL,Default suite global failure remains
+Loans,/finance/loans,view_loans,"admin,accountant,farmmanager,manager,superuser",Loans tests,PASS/PARTIAL,No browser certification
+Reports,/finance/reports,view_financial_reports,"admin,accountant,farmmanager,manager,superuser",SystemReportsTest,PASS/PARTIAL,No browser certification
+General Settings,/settings,manage_settings,"admin,superuser",Route inventory,PARTIAL,Module subpage fails
+Modules & Features,/settings/modules,manage_feature_flags,"superuser",ModuleSettingsScreenTest,FAIL,Missing Organization import causes 500
