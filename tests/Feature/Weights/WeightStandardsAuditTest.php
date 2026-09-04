@@ -6,6 +6,7 @@ use App\Models\ActivityLog;
 use App\Models\ExpectedWeightStandard;
 use App\Models\Organization;
 use App\Models\Role;
+use App\Models\Setting;
 use App\Models\User;
 use App\Support\CurrentOrganization;
 use Database\Seeders\FarmOperationsPermissionsSeeder;
@@ -28,6 +29,7 @@ class WeightStandardsAuditTest extends TestCase
             'is_active' => true,
         ]);
         $this->app->make(CurrentOrganization::class)->bind($organization);
+        Setting::setAnimalBreeds(['DR' => 'Duroc']);
         $this->seed(FarmOperationsPermissionsSeeder::class);
 
         $role = Role::where('name', 'admin')->firstOrFail();

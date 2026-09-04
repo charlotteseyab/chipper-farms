@@ -233,7 +233,7 @@ class QuickExpenseAttachmentTest extends TestCase
             ->post(route('finance.attachments.store', [
                 'type' => 'quick-expenses', 'id' => $expense->id,
             ]), ['file' => $this->pdf()])
-            ->assertForbidden();
+            ->assertNotFound();
 
         $this->assertSame(0, $expense->attachments()->count());
     }

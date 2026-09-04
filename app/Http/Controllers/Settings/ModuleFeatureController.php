@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Models\Organization;
 use App\Models\OrganizationFeatureFlag;
 use App\Services\Organizations\OrganizationFeatureService;
 use App\Support\CurrentOrganization;

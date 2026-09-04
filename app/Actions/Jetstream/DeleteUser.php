@@ -14,6 +14,9 @@ class DeleteUser implements DeletesUsers
     {
         $user->deleteProfilePhoto();
         $user->tokens->each->delete();
-        $user->delete();
+        // User removal is intentionally permanent. Reusing a deleted user's
+        // email address must be possible, and retaining a soft-deleted account
+        // would keep that unique identity occupied.
+        $user->forceDelete();
     }
 }

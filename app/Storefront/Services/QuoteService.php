@@ -455,7 +455,10 @@ class QuoteService
             ->where('active_status', true)
             ->with('role.permissions')
             ->get()
-            ->filter(fn (User $user) => $user->isSuperuser() || $user->isAdmin() || $user->hasPermission('view_storefront_quotes'));
+            ->filter(fn (User $user) => $user->isSuperuser()
+                || $user->isAdmin()
+                || $user->isSalesperson()
+                || $user->hasPermission('view_storefront_quotes'));
 
         if ($recipients->isNotEmpty()) {
             Notification::send($recipients, new StorefrontQuoteRequestedNotification($quote));

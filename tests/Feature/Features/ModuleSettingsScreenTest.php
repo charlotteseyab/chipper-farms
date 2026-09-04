@@ -115,7 +115,7 @@ class ModuleSettingsScreenTest extends TestCase
 
         $this->service()->forget();
         $this->assertTrue(
-            $this->service()->enabled(FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING)
+            $this->service()->enabled(FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING, $this->org)
         );
     }
 

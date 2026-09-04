@@ -309,6 +309,22 @@ class StorefrontPigCheckoutTest extends StorefrontTestCase
         );
     }
 
+    public function test_a_live_buyer_cannot_take_weight_already_reserved_for_carcass(): void
+    {
+        $this->poolListing([100, 100]);
+        $rows = $this->poolRowIds();
+        $carcassBuyer = $this->makeUser('customer');
+        $liveBuyer = $this->makeUser('customer');
+
+        $this->lines()->addCarcassLine(CartOwner::from($carcassBuyer), $this->listing, '150');
+        $this->checkout($carcassBuyer);
+
+        $this->lines()->addLiveLines(CartOwner::from($liveBuyer), $this->listing->fresh(), [$rows[0]]);
+
+        $this->expectException(InventoryConflictException::class);
+        $this->checkout($liveBuyer);
+    }
+
     /**
      * The farm cannot promise meat it does not have, even across two buyers.
      */

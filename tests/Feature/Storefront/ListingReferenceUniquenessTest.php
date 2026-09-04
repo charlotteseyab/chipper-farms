@@ -45,7 +45,7 @@ class ListingReferenceUniquenessTest extends StorefrontTestCase
         ]);
 
         $this->assertSame('LIST-000001', $listing->reference);
-        $this->assertSame(2, StorefrontListing::where('reference', 'LIST-000001')->count());
+        $this->assertSame(2, StorefrontListing::withoutGlobalScopes()->where('reference', 'LIST-000001')->count());
     }
 
     /**

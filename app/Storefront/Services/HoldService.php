@@ -91,6 +91,7 @@ class HoldService
             // and in a fixed order, so two checkouts contending for the same
             // listing queue rather than deadlock.
             $this->assertHeadAvailable($listing, $order, $byType);
+            $this->assertLiveSelectionLeavesCarcassCapacity($listing, $order, $byType);
             $this->assertCarcassKgAvailable($listing, $order, $byType);
 
             foreach ($byType as $type => $reservation) {
@@ -183,12 +184,11 @@ class HoldService
 
         $capacity = $pricing->carcassCapacityKg($listing);
 
-        // Animals other buyers have named, and the ones this very order is
-        // naming: all of them are meat that can no longer be cut for anybody.
-        $claimedKg = bcadd(
-            $this->liveClaimedKg($listing, excludingOrderId: $order->getKey()),
-            $this->weightOfListingPigs($byType[StorefrontInventoryHold::TYPE_EXACT_PIGS]['listing_pig_ids'] ?? []),
-            4,
+        // Existing exact allocations are already absent from carcassCapacityKg(),
+        // because it sums only sellable pool rows. Only this order's selection
+        // is still present in that snapshot and must be removed here.
+        $claimedKg = $this->weightOfListingPigs(
+            $byType[StorefrontInventoryHold::TYPE_EXACT_PIGS]['listing_pig_ids'] ?? []
         );
 
         $spokenFor = $this->carcassKgHeld($listing, excludingOrderId: $order->getKey());
@@ -200,6 +200,42 @@ class HoldService
                 '"%s" — only %s kg left. Someone else is checking out with the rest right now.',
                 $listing->title,
                 $this->trim(bccomp($available, '0', 4) < 0 ? '0' : $available),
+            ));
+        }
+    }
+
+    /**
+     * A live buyer must not take an animal whose weight is already promised to
+     * carcass buyers. The reciprocal check in assertCarcassKgAvailable()
+     * protects carcass-after-live; this protects live-after-carcass. Both run
+     * while the listing row is locked, making the invariant independent of
+     * which checkout reaches the database first.
+     *
+     * @param  array<string, array<string, mixed>>  $byType
+     */
+    protected function assertLiveSelectionLeavesCarcassCapacity(
+        StorefrontListing $listing,
+        StorefrontOrder $order,
+        array $byType,
+    ): void {
+        $selectedIds = $byType[StorefrontInventoryHold::TYPE_EXACT_PIGS]['listing_pig_ids'] ?? [];
+
+        if ($selectedIds === []) {
+            return;
+        }
+
+        $capacity = app(StorefrontPigPricingService::class)->carcassCapacityKg($listing);
+        // Other orders' exact allocations are already excluded from the
+        // sellable-pool capacity. Subtracting them again would double-count
+        // the same animals and incorrectly reject the next available pig.
+        $claimedKg = $this->weightOfListingPigs($selectedIds);
+        $carcassHeld = $this->carcassKgHeld($listing, excludingOrderId: $order->getKey());
+        $remaining = bcsub($capacity, $claimedKg, 4);
+
+        if (bccomp($carcassHeld, $remaining, 4) > 0) {
+            throw new InventoryConflictException(sprintf(
+                '"%s" no longer has enough unclaimed carcass weight for this animal to be sold live.',
+                $listing->title,
             ));
         }
     }

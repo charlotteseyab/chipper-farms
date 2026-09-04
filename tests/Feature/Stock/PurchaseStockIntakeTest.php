@@ -7,6 +7,7 @@ use App\Models\PigManagement;
 use App\Models\PurchaseStockIntake;
 use App\Models\Role;
 use App\Models\Room;
+use App\Models\Setting;
 use App\Models\StockMovement;
 use App\Models\Structure;
 use App\Models\User;
@@ -37,6 +38,7 @@ class PurchaseStockIntakeTest extends TestCase
         $this->accountant = $this->makeUser('accountant');
 
         $this->app->make(CurrentOrganization::class)->bind($this->org);
+        Setting::setAnimalBreeds(['LWDR' => 'Large White Duroc']);
     }
 
     public function test_creating_a_purchase_intake_does_not_increase_stock(): void
@@ -358,14 +360,14 @@ class PurchaseStockIntakeTest extends TestCase
 
         $this->actingAs($this->manager)
             ->get(route('purchase-stock-intakes.show', $otherIntake))
-            ->assertForbidden();
+            ->assertNotFound();
 
         $this->actingAs($this->manager)
             ->post(route('purchase-stock-intakes.receive', $otherIntake), [
                 'quantity_received' => 2,
                 'quantity_rejected' => 0,
             ])
-            ->assertForbidden();
+            ->assertNotFound();
     }
 
     public function test_wrong_status_transitions_are_rejected(): void

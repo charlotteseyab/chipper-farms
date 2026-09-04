@@ -57,6 +57,17 @@ class FinanceIntegrationTest extends StorefrontTestCase
             'status'          => \App\Models\FiscalPeriod::STATUS_OPEN,
             'posting_count'   => 0,
         ]);
+
+        \App\Models\FiscalPeriod::create([
+            'organization_id' => $this->org->id,
+            'fiscal_year_id'  => $year->id,
+            'period_number'   => 9,
+            'name'            => 'September 2026',
+            'start_date'      => '2026-09-01',
+            'end_date'        => '2026-09-30',
+            'status'          => \App\Models\FiscalPeriod::STATUS_OPEN,
+            'posting_count'   => 0,
+        ]);
     }
 
     protected function feedType(): FeedType

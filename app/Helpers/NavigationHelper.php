@@ -457,7 +457,9 @@ class NavigationHelper
             self::storefrontQuotesLink($user),
             self::permissionLinkFor($user, 'Placements', 'storefront.admin.placements.index', 'storefront-admin/placements*', 'fa-solid fa-star', 'manage_storefront_placements'),
             self::permissionLinkFor($user, 'Reports', 'storefront.admin.reports.sales', 'storefront-admin/reports*', 'fa-solid fa-chart-column', 'view_storefront_reports'),
-            self::permissionLinkFor($user, 'Settings', 'storefront.admin.settings.index', 'storefront-admin/settings*', 'fa-solid fa-sliders', 'manage_storefront_settings'),
+            $user->isAdmin()
+                ? self::permissionLinkFor($user, 'Settings', 'storefront.admin.settings.index', 'storefront-admin/settings*', 'fa-solid fa-sliders', 'manage_storefront_settings')
+                : null,
             self::storefrontShopLink($user),
         ]));
 

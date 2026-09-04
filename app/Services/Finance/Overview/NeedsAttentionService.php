@@ -128,7 +128,7 @@ class NeedsAttentionService
             return null;
         }
 
-        $count = DomainEvent::query()
+        $count = DomainEvent::withoutGlobalScopes()
             ->where('organization_id', $organizationId)
             ->where('status', DomainEvent::STATUS_FAILED)
             ->count();
@@ -167,7 +167,7 @@ class NeedsAttentionService
 
         $threshold = now()->subMinutes(30);
 
-        $count = DomainEvent::query()
+        $count = DomainEvent::withoutGlobalScopes()
             ->where('organization_id', $organizationId)
             ->where('status', DomainEvent::STATUS_PROCESSING)
             ->whereNotNull('claimed_at')
@@ -204,7 +204,7 @@ class NeedsAttentionService
             return null;
         }
 
-        $count = StorefrontOrder::query()
+        $count = StorefrontOrder::withoutGlobalScopes()
             ->where('organization_id', $organizationId)
             ->where('payment_method', StorefrontOrder::METHOD_COD)
             ->whereIn('status', [
@@ -245,7 +245,7 @@ class NeedsAttentionService
             return null;
         }
 
-        $count = StorefrontOrder::query()
+        $count = StorefrontOrder::withoutGlobalScopes()
             ->where('organization_id', $organizationId)
             ->where('payment_status', StorefrontOrder::PAY_REFUND_PENDING)
             ->count();
@@ -254,7 +254,7 @@ class NeedsAttentionService
             return null;
         }
 
-        $stale = StorefrontOrder::query()
+        $stale = StorefrontOrder::withoutGlobalScopes()
             ->where('organization_id', $organizationId)
             ->where('payment_status', StorefrontOrder::PAY_REFUND_PENDING)
             ->where('updated_at', '<', now()->subDays(3))
@@ -281,7 +281,7 @@ class NeedsAttentionService
             return null;
         }
 
-        $count = StorefrontOrder::query()
+        $count = StorefrontOrder::withoutGlobalScopes()
             ->where('organization_id', $organizationId)
             ->where('status', StorefrontOrder::STATUS_PENDING_CONFIRMATION)
             ->count();
@@ -360,7 +360,7 @@ class NeedsAttentionService
 
         // Paid at the gateway, but the sale never reached finance. The money is
         // real and the books do not show it.
-        $verifiedNotPosted = StorefrontOrder::query()
+        $verifiedNotPosted = StorefrontOrder::withoutGlobalScopes()
             ->where('organization_id', $organizationId)
             ->where('payment_status', StorefrontOrder::PAY_PAYSTACK_VERIF)
             ->whereIn('status', [
@@ -375,7 +375,7 @@ class NeedsAttentionService
 
         // Still waiting for the buyer to come back from the gateway, long after
         // any reasonable payment attempt would have finished.
-        $stalePending = StorefrontOrder::query()
+        $stalePending = StorefrontOrder::withoutGlobalScopes()
             ->where('organization_id', $organizationId)
             ->where('status', StorefrontOrder::STATUS_PENDING_PAYMENT)
             ->where('placed_at', '<', now()->subDay())

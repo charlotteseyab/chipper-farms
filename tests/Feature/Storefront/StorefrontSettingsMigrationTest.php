@@ -80,7 +80,7 @@ class StorefrontSettingsMigrationTest extends StorefrontTestCase
         StorefrontDeliveryZone::create(['organization_id' => $this->org->id, 'name' => 'Accra', 'fee' => '40.00']);
         StorefrontDeliveryZone::create(['organization_id' => $other->id, 'name' => 'Accra', 'fee' => '55.00']);
 
-        $this->assertSame(2, StorefrontDeliveryZone::where('name', 'Accra')->count());
+        $this->assertSame(2, StorefrontDeliveryZone::withoutGlobalScopes()->where('name', 'Accra')->count());
     }
 
     /**

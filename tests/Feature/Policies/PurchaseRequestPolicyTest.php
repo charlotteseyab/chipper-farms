@@ -14,7 +14,9 @@ use Tests\TestCase;
  * PurchaseRequestPolicy: covers the state-dependent rules.
  *
  * Only PENDING requests can be updated/approved/declined/deleted.
- * Only APPROVED requests can be markPaid.
+ * Approved or paid requests can be completed by finance. Payment itself is
+ * recorded through the linked finance payment workflow, not a status-only
+ * mark-paid action.
  *
  * This test set locks down those transitions so accidental regressions
  * (e.g. removing a status guard) fail immediately.
@@ -85,25 +87,25 @@ class PurchaseRequestPolicyTest extends TestCase
         $this->assertFalse(Gate::allows('approve', $pr));
     }
 
-    public function test_accountant_can_mark_approved_request_paid(): void
+    public function test_accountant_can_complete_approved_request(): void
     {
         $this->actingAs($this->makeUser('accountant'));
         $pr = new PurchaseRequest(['status' => 'approved', 'organization_id' => $this->org->id]);
-        $this->assertTrue(Gate::allows('markPaid', $pr));
+        $this->assertTrue(Gate::allows('complete', $pr));
     }
 
-    public function test_accountant_cannot_mark_pending_request_paid(): void
+    public function test_accountant_cannot_complete_pending_request(): void
     {
         $this->actingAs($this->makeUser('accountant'));
         $pr = new PurchaseRequest(['status' => 'pending', 'organization_id' => $this->org->id]);
-        $this->assertFalse(Gate::allows('markPaid', $pr));
+        $this->assertFalse(Gate::allows('complete', $pr));
     }
 
-    public function test_manager_cannot_mark_paid(): void
+    public function test_manager_cannot_complete_request(): void
     {
         $this->actingAs($this->makeUser('farmmanager'));
         $pr = new PurchaseRequest(['status' => 'approved', 'organization_id' => $this->org->id]);
-        $this->assertFalse(Gate::allows('markPaid', $pr));
+        $this->assertFalse(Gate::allows('complete', $pr));
     }
 
     public function test_dataentry_can_create(): void

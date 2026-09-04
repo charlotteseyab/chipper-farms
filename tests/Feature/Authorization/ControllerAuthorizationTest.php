@@ -185,6 +185,6 @@ class ControllerAuthorizationTest extends TestCase
 
         $this->actingAs($otherUser)
             ->get("/sales/{$sale->id}")
-            ->assertForbidden();
+            ->assertNotFound();
     }
 }

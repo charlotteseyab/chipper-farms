@@ -118,7 +118,7 @@ class ListingServiceTest extends StorefrontTestCase
         ]);
     }
 
-    public function test_superuser_can_delete_a_listing_and_release_unsold_pigs(): void
+    public function test_platform_superuser_cannot_delete_a_farms_listing(): void
     {
         $this->seedStorefrontPermissions();
 
@@ -134,23 +134,11 @@ class ListingServiceTest extends StorefrontTestCase
 
         $this->actingAs($superuser)
             ->delete(route('storefront.admin.listings.destroy', $listing))
-            ->assertRedirect(route('storefront.admin.listings.index'));
+            ->assertForbidden();
 
-        $this->assertSoftDeleted('storefront_listings', ['id' => $listing->id]);
+        $this->assertNotSoftDeleted('storefront_listings', ['id' => $listing->id]);
         $this->assertDatabaseHas('storefront_listing_pigs', [
             'storefront_listing_id' => $listing->id,
-            'pig_id' => $pig->id,
-            'status' => StorefrontListingPig::STATUS_REMOVED,
-        ]);
-
-        $replacement = $this->makePublishedListing([
-            'title' => 'Replacement listing',
-            'kind' => StorefrontListing::KIND_LIVE_PIG,
-        ]);
-        $pool->attachPigs($replacement, [$pig->id], $superuser);
-
-        $this->assertDatabaseHas('storefront_listing_pigs', [
-            'storefront_listing_id' => $replacement->id,
             'pig_id' => $pig->id,
             'status' => StorefrontListingPig::STATUS_AVAILABLE,
         ]);
