@@ -19,6 +19,16 @@ class GestationDueSoonNotification extends Notification implements ShouldQueue
         return ['database', \App\Notifications\Channels\TemplateMailChannel::class];
     }
 
+    /**
+     * The in-app notification is written straight away; only the email waits
+     * for the queue. Queued in-app rows appeared only when a worker ran, and
+     * the scheduler's "already sent today?" check could not see them yet.
+     */
+    public function viaConnections(): array
+    {
+        return ['database' => 'sync'];
+    }
+
     public function toDatabase($notifiable): array
     {
         $sow = $this->mating->female;
