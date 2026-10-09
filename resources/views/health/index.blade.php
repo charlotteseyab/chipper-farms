@@ -192,7 +192,7 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
                                 @if($hr)
                                     <div class="font-medium text-gray-900">{{ $hr->record_date->format('M d, Y') }}</div>
-                                    <div class="text-sm text-gray-600">{{ $hr->condition }} ({{ ucfirst($hr->severity) }})</div>
+                                    <div class="text-sm text-gray-600">{{ $hr->condition }}@if($hr->severity) ({{ ucfirst($hr->severity) }})@endif</div>
                                     <div class="text-xs {{ $healthStatusClass }}">{{ $healthStatusText }}</div>
                                     <div class="mt-1 text-[11px] text-gray-500">
                                         Treatment: {{ ucfirst($hr->treatment_status ?: 'Not set') }}
