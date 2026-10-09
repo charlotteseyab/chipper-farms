@@ -1,4 +1,5 @@
 <x-app-layout>
+    <x-feed-hub hub="store" />
     <div class="max-w-5xl mx-auto py-6 px-4">
         <div class="mb-6 flex items-center justify-between">
             <div>
@@ -52,7 +53,7 @@
 
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Purpose</label>
-                        <input type="text" name="purpose" value="{{ old('purpose') }}"
+                        <input type="text" name="purpose" value="{{ old('purpose', $prefillNotes ? 'Feed planning shortage' : '') }}"
                                placeholder="Enter purpose" class="w-full rounded-lg border-gray-300 shadow-sm">
                     </div>
 
@@ -75,7 +76,7 @@
                     <div class="md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
                         <textarea name="notes" rows="3" placeholder="Additional notes"
-                                  class="w-full rounded-lg border-gray-300 shadow-sm">{{ old('notes') }}</textarea>
+                                  class="w-full rounded-lg border-gray-300 shadow-sm">{{ old('notes', $prefillNotes ?? '') }}</textarea>
                     </div>
                 </div>
             </div>
@@ -104,7 +105,7 @@
                             </tr>
                         </thead>
                         <tbody id="purchase-request-items">
-                            @foreach(old('items', [['raw_material_id' => '', 'description' => '', 'unit' => '', 'quantity' => 1, 'unit_price' => 0]]) as $index => $item)
+                            @foreach(old('items', $prefillItems ?? [['raw_material_id' => '', 'description' => '', 'unit' => '', 'quantity' => 1, 'unit_price' => 0]]) as $index => $item)
                                 @include('feeds.purchase-requests._item-row', ['index' => $index, 'item' => $item])
                             @endforeach
                         </tbody>

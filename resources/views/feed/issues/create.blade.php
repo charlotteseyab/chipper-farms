@@ -1,124 +1,158 @@
 <x-app-layout>
-    <div class="max-w-3xl mx-auto py-6 px-4">
+    <x-feed-hub hub="today" />
+    <div class="max-w-5xl mx-auto pt-6 pb-24 px-4">
         <div class="mb-6">
-            <a href="{{ route('finance.feed.issues.index') }}" class="text-sm text-slate-500 hover:text-slate-700">← Back to feed issues</a>
-            <h1 class="text-2xl font-bold text-slate-800 mt-2">Issue Feed to Group</h1>
-            <p class="text-sm text-slate-500">Records feed leaving the mill. Cost is captured at current finished-feed WAC and capitalised into Live Pig Inventory for the chosen group.</p>
+            <a href="{{ route('feed.issues.index') }}" class="text-sm text-slate-500 hover:text-slate-700">← Back to feedings</a>
+            <h1 class="text-2xl font-bold text-slate-800 mt-2">Record Feeding</h1>
+            <p class="text-sm text-slate-500">Enter the kg of feed given to each stage. Leave a stage blank if it was not fed. Confirming deducts the feed from finished-feed stock.</p>
         </div>
 
         @if($errors->any())
-            <div class="mb-4 px-4 py-3 rounded-xl bg-red-50 text-red-700 text-sm">
+            <div role="alert" class="mb-4 px-4 py-3 rounded-xl bg-red-50 text-red-700 text-sm">
                 <ul class="list-disc list-inside">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>
             </div>
         @endif
-        @if(session('error'))<div class="mb-4 px-4 py-3 rounded-xl bg-red-50 text-red-700 text-sm">{{ session('error') }}</div>@endif
+        @if(session('error'))<div role="alert" class="mb-4 px-4 py-3 rounded-xl bg-red-50 text-red-700 text-sm">{{ session('error') }}</div>@endif
 
         @if($feedTypes->isEmpty())
             <div class="rounded-2xl border border-amber-200 bg-amber-50 text-amber-900 p-6 text-sm">
                 <p class="font-semibold mb-2">No finished feed in stock.</p>
-                <p>Produce a feed batch first (or import opening balances for finished feed) before issuing.</p>
+                <p>Mix a feed batch first (or import opening balances for finished feed) before recording a feeding.</p>
+                @if(auth()->user()->hasPermission('view_feed_production'))
+                    <a href="{{ route('feed-production.index') }}" class="mt-3 inline-block font-semibold underline">Go to feed production</a>
+                @endif
             </div>
         @else
-            <form method="POST" action="{{ route('finance.feed.issues.store') }}" class="space-y-4"
+            @unless($demandComplete)
+                <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    <p class="font-semibold">Some expected amounts are missing</p>
+                    <p class="mt-1">Some animals have no feeding standard or no known stage, so expected amounts may be low or blank. You can still record what was fed.</p>
+                    @if(auth()->user()->hasPermission('view_feed_production'))
+                        <a href="{{ route('feed-setup.index').'#step-standards' }}" class="mt-1 inline-block font-semibold underline">Set feeding standards</a>
+                    @endif
+                </div>
+            @endunless
+
+            @php
+                $oldEntries = collect(old('entries', []))->keyBy('stage');
+            @endphp
+
+            <form method="POST" action="{{ route('feed.issues.store') }}" class="space-y-5"
                   x-data="{
-                      qty: '{{ old('quantity_kg', 0) }}',
-                      feedTypeId: '{{ old('feed_type_id', '') }}',
-                      feeds: @js($feedTypes->all()),
-                      get selected() {
-                          return this.feeds.find(f => String(f.id) === String(this.feedTypeId)) ?? null;
+                      feeds: @js($feedTypes->keyBy('id')->all()),
+                      rows: @js($stages->map(fn ($s) => [
+                          'stage' => $s['stage'],
+                          'expected' => $s['expected_kg'],
+                          'feed' => (string) ($oldEntries[$s['stage']]['feed_type_id'] ?? ($feedTypes->contains('id', $s['feed_type_id']) ? $s['feed_type_id'] : '')),
+                          'qty' => (string) ($oldEntries[$s['stage']]['quantity_kg'] ?? ''),
+                      ])->values()),
+                      get totals() {
+                          const byFeed = {};
+                          for (const row of this.rows) {
+                              const qty = parseFloat(row.qty) || 0;
+                              if (!row.feed || qty <= 0) continue;
+                              byFeed[row.feed] = (byFeed[row.feed] || 0) + qty;
+                          }
+                          return Object.entries(byFeed).map(([id, qty]) => ({
+                              name: this.feeds[id]?.name ?? 'Feed',
+                              qty,
+                              onHand: parseFloat(this.feeds[id]?.on_hand) || 0,
+                              cost: qty * (parseFloat(this.feeds[id]?.wac) || 0),
+                          }));
                       },
-                      get totalCost() {
-                          if (!this.selected) return 0;
-                          return (parseFloat(this.qty) || 0) * (parseFloat(this.selected.wac) || 0);
-                      },
+                      get totalCost() { return this.totals.reduce((sum, t) => sum + t.cost, 0); },
                   }">
                 @csrf
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Pig group receiving this feed</label>
-                        @if($groups->isEmpty())
-                            <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 mb-3">
-                                No pig groups exist yet. Create one below, then this feed issue will be attached to it.
-                            </div>
-                        @else
-                            <select name="group_id" class="w-full rounded-lg border-slate-200">
-                                <option value="">— pick an existing group —</option>
-                                @foreach($groups as $g)
-                                    <option value="{{ $g->id }}" @selected(old('group_id') == $g->id)>
-                                        {{ $g->name }} ({{ $g->type }})
-                                    </option>
-                                @endforeach
-                            </select>
-                            <p class="mt-1 text-xs text-slate-500">Or create a new group for this issue:</p>
-                        @endif
-                    </div>
-
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                     <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">New group name</label>
-                        <input type="text" name="new_group_name" value="{{ old('new_group_name') }}" maxlength="120"
-                               placeholder="e.g. Grower Pen 1"
-                               class="w-full rounded-lg border-slate-200">
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">New group type</label>
-                        <select name="new_group_type" class="w-full rounded-lg border-slate-200">
-                            @foreach(['pen' => 'Pen', 'age_group' => 'Age group', 'stage' => 'Stage'] as $value => $label)
-                                <option value="{{ $value }}" @selected(old('new_group_type', 'pen') === $value)>{{ $label }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Feed type</label>
-                        <select name="feed_type_id" x-model="feedTypeId" required class="w-full rounded-lg border-slate-200">
-                            <option value="">— pick feed —</option>
-                            @foreach($feedTypes as $ft)
-                                <option value="{{ $ft['id'] }}" @selected(old('feed_type_id') == $ft['id'])>
-                                    {{ $ft['name'] }} (on hand: {{ number_format((float) $ft['on_hand'], 2) }} kg @ {{ number_format((float) $ft['wac'], 4) }}/kg)
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Quantity (kg)</label>
-                        <input type="number" step="0.0001" min="0.0001" required name="quantity_kg" x-model="qty"
-                               class="w-full rounded-lg border-slate-200 font-mono text-right">
-                        <p class="mt-1 text-xs text-slate-500" x-show="selected">
-                            On hand: <span class="font-mono" x-text="parseFloat(selected.on_hand).toFixed(4)"></span> kg
-                        </p>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Issued at</label>
-                        <input type="datetime-local" name="issued_at"
+                        <label for="issued_at" class="block text-xs font-semibold uppercase text-slate-500 mb-1">Fed at</label>
+                        <input id="issued_at" type="datetime-local" name="issued_at"
                                value="{{ old('issued_at', now()->format('Y-m-d\TH:i')) }}"
                                max="{{ now()->format('Y-m-d\TH:i') }}"
                                class="w-full rounded-lg border-slate-200">
                     </div>
-
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Reference (e.g. delivery note no.)</label>
-                        <input type="text" name="reference" value="{{ old('reference') }}" maxlength="200"
+                    <div>
+                        <label for="reference" class="block text-xs font-semibold uppercase text-slate-500 mb-1">Reference (optional)</label>
+                        <input id="reference" type="text" name="reference" value="{{ old('reference') }}" maxlength="200"
+                               placeholder="e.g. Morning feeding"
                                class="w-full rounded-lg border-slate-200">
                     </div>
+                </div>
 
-                    <div class="sm:col-span-2">
-                        <label class="block text-xs font-semibold uppercase text-slate-500 mb-1">Notes</label>
-                        <textarea name="notes" rows="2" maxlength="2000" class="w-full rounded-lg border-slate-200">{{ old('notes') }}</textarea>
+                <div class="space-y-3">
+                    @foreach($stages as $i => $stage)
+                        <div class="rounded-2xl border bg-white p-4 shadow-sm transition"
+                             :class="(parseFloat(rows[{{ $i }}].qty) || 0) > 0 ? 'border-emerald-300 ring-1 ring-emerald-100' : 'border-slate-100'">
+                            <input type="hidden" name="entries[{{ $i }}][stage]" value="{{ $stage['stage'] }}">
+                            <input type="hidden" name="entries[{{ $i }}][submission_key]" value="{{ $oldEntries[$stage['stage']]['submission_key'] ?? $stage['submission_key'] }}">
+
+                            <div class="flex flex-col gap-4 md:flex-row md:items-center">
+                                <div class="md:w-56 shrink-0">
+                                    <p class="font-bold text-slate-900">{{ $stage['label'] }}</p>
+                                    <p class="text-xs text-slate-500">
+                                        {{ $stage['animal_count'] }} {{ \Illuminate\Support\Str::plural('animal', $stage['animal_count']) }}
+                                        @if($stage['expected_kg'] !== null)
+                                            · expected <span class="font-semibold text-slate-700">{{ rtrim(rtrim(number_format($stage['expected_kg'], 2), '0'), '.') }} kg</span>/day
+                                        @endif
+                                    </p>
+                                </div>
+
+                                <div class="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-[1fr_11rem]">
+                                    <div>
+                                        <label for="feed-{{ $i }}" class="sr-only">Feed for {{ $stage['label'] }}</label>
+                                        <select id="feed-{{ $i }}" name="entries[{{ $i }}][feed_type_id]" x-model="rows[{{ $i }}].feed"
+                                                class="w-full rounded-lg border-slate-200 text-sm">
+                                            <option value="">— choose feed —</option>
+                                            @foreach($feedTypes as $ft)
+                                                <option value="{{ $ft['id'] }}">{{ $ft['name'] }} ({{ number_format((float) $ft['on_hand'], 2) }} kg in stock)</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="relative">
+                                        <label for="qty-{{ $i }}" class="sr-only">Kg fed to {{ $stage['label'] }}</label>
+                                        <input id="qty-{{ $i }}" type="number" step="0.0001" min="0.0001" inputmode="decimal"
+                                               name="entries[{{ $i }}][quantity_kg]" x-model="rows[{{ $i }}].qty"
+                                               placeholder="{{ $stage['expected_kg'] !== null ? rtrim(rtrim(number_format($stage['expected_kg'], 2), '0'), '.') : '0' }}"
+                                               class="w-full rounded-lg border-slate-200 pr-10 text-right font-mono">
+                                        <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">kg</span>
+                                    </div>
+                                </div>
+
+                                @if($stage['expected_kg'] !== null)
+                                    <button type="button" @click="rows[{{ $i }}].qty = String(rows[{{ $i }}].expected)"
+                                            class="shrink-0 rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                                        Use expected
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+
+                <div>
+                    <label for="notes" class="block text-xs font-semibold uppercase text-slate-500 mb-1">Notes (optional)</label>
+                    <textarea id="notes" name="notes" rows="2" maxlength="2000" class="w-full rounded-lg border-slate-200">{{ old('notes') }}</textarea>
+                </div>
+
+                <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4" x-show="totals.length" x-cloak>
+                    <p class="text-xs font-semibold uppercase text-emerald-800">This feeding</p>
+                    <template x-for="t in totals" :key="t.name">
+                        <div class="mt-2 flex items-center justify-between text-sm">
+                            <span class="text-emerald-900"><span x-text="t.name"></span>: <span class="font-mono" x-text="t.qty.toFixed(2)"></span> kg</span>
+                            <span x-show="t.qty > t.onHand" class="font-semibold text-red-700">Only <span x-text="t.onHand.toFixed(2)"></span> kg in stock</span>
+                        </div>
+                    </template>
+                    @if(auth()->user()->hasPermission('view_finance'))
+                    <div class="mt-3 flex items-center justify-between border-t border-emerald-200 pt-3">
+                        <span class="text-sm text-emerald-800">Estimated feed cost</span>
+                        <span class="text-lg font-bold text-emerald-900 font-mono">GH₵ <span x-text="totalCost.toFixed(2)"></span></span>
                     </div>
+                    @endif
                 </div>
 
-                <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 flex items-center justify-between" x-show="selected">
-                    <span class="text-sm text-emerald-800">Estimated total cost at current WAC:</span>
-                    <span class="text-lg font-bold text-emerald-900 font-mono">
-                        GH₵ <span x-text="totalCost.toFixed(2)"></span>
-                    </span>
-                </div>
-
-                <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl">
-                    Record issue
+                <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-xl">
+                    Record feeding
                 </button>
             </form>
         @endif

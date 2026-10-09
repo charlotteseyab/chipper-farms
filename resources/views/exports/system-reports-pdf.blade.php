@@ -39,8 +39,8 @@
 
     <div class="section panel">
         <h2>Herd movement reconciliation</h2>
-        <table class="data"><thead><tr>@foreach(['Opening','Manually added','Purchased','Sold','Deaths','Closing','Variance'] as $heading)<th>{{ $heading }}</th>@endforeach</tr></thead><tbody><tr>@foreach(['opening','manually_added','purchased','sold','deaths','closing','variance'] as $key)<td class="{{ in_array($key, ['sold','deaths']) ? 'red' : ($key === 'closing' ? 'green' : '') }}">{{ number_format($herdMovement[$key]) }}</td>@endforeach</tr></tbody></table>
-        <p class="muted" style="margin-top:8px">Opening herd + additions − recorded sales − recorded deaths = closing herd.</p>
+        <table class="data"><thead><tr>@foreach(['Opening','Manually added','Purchased','Sold','Deaths','Transferred / culled','Closing','Variance'] as $heading)<th>{{ $heading }}</th>@endforeach</tr></thead><tbody><tr>@foreach(['opening','manually_added','purchased','sold','deaths','transferred_or_culled','closing','variance'] as $key)<td class="{{ in_array($key, ['sold','deaths','transferred_or_culled']) ? 'red' : ($key === 'closing' ? 'green' : '') }}">{{ number_format($herdMovement[$key]) }}</td>@endforeach</tr></tbody></table>
+        <p class="muted" style="margin-top:8px">Opening herd + additions − recorded sales − recorded deaths − transfers and culls = closing herd.</p>
     </div>
 
     <table class="two-col section"><tr>

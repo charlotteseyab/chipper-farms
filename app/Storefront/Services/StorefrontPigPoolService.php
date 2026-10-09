@@ -765,6 +765,33 @@ class StorefrontPigPoolService
         }
     }
 
+    /**
+     * A pig left the herd without a sale (transferred out or culled): take it
+     * off any listing so the shop stops offering it. Same tolerance as
+     * markPigSoldDirectly — no pool row is the ordinary case.
+     */
+    public function markPigLeftHerd(PigManagement $pig, string $reason, ?User $actor = null): void
+    {
+        $rows = StorefrontListingPig::query()
+            ->where('pig_id', $pig->getKey())
+            ->whereIn('status', StorefrontListingPig::ACTIVE_STATUSES)
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($rows as $row) {
+            $row->status             = StorefrontListingPig::STATUS_REMOVED;
+            $row->removed_at         = now();
+            $row->removal_reason     = $reason;
+            $row->removed_by_user_id = $actor?->getKey();
+            $row->save();
+
+            $listing = StorefrontListing::query()->whereKey($row->storefront_listing_id)->lockForUpdate()->first();
+            if ($listing !== null) {
+                $this->syncListingAvailability($listing, $actor);
+            }
+        }
+    }
+
     /* ------------------------------------------------------------------ */
 
     /**

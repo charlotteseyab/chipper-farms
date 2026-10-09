@@ -2,292 +2,114 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\FeedingStandard;
 use App\Models\FeedType;
+use App\Models\Group;
+use App\Models\Organization;
 use App\Models\PigManagement;
+use App\Models\Room;
 use App\Models\Setting;
+use App\Models\Structure;
+use App\Services\Feed\FeedConfigurationService;
+use App\Services\Feed\FeedPlanningService;
+use App\Services\Feed\FeedStageResolver;
+use App\Support\CurrentOrganization;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class FeedPlanningController extends Controller
 {
-    public function index(Request $request)
+    /** Mill → Plan. */
+    public function plan(Request $request, FeedPlanningService $service)
     {
-        $period = $request->get('period', 'weekly');
+        return $this->index($request->merge(['tab' => 'plan']), $service);
+    }
 
-        $days = match ($period) {
-            'bi-weekly' => 14,
-            'monthly' => 30,
-            default => 7,
+    /** Feed Today → Planned vs actual. */
+    public function consumption(Request $request, FeedPlanningService $service)
+    {
+        return $this->index($request->merge(['tab' => 'consumption']), $service);
+    }
+
+    /** Feed Setup → Ration history & settings. */
+    public function settings(Request $request, FeedPlanningService $service)
+    {
+        return $this->index($request->merge(['tab' => 'setup']), $service);
+    }
+
+    public function index(Request $request, FeedPlanningService $service)
+    {
+        $organizationId = app(CurrentOrganization::class)->requireId();
+        $input = $request->validate([
+            'tab' => ['nullable', Rule::in(['plan', 'consumption', 'setup'])],
+            'period' => ['nullable', Rule::in(['today', 'weekly', 'bi-weekly', 'monthly', 'custom'])],
+            'from' => ['required_if:period,custom', 'nullable', 'date_format:Y-m-d'], 'to' => ['required_if:period,custom', 'nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+            'stage' => ['nullable', Rule::in(array_keys(FeedStageResolver::STAGES))],
+            'feed_type_id' => ['nullable', 'integer', Rule::exists('feed_types', 'id')->where('organization_id', $organizationId)],
+            'group_id' => ['nullable', 'integer', Rule::exists('groups', 'id')->where('organization_id', $organizationId)],
+            'room_id' => ['nullable', 'integer', Rule::exists('rooms', 'id')->where('organization_id', $organizationId)],
+            'structure_id' => ['nullable', 'integer', Rule::exists('structures', 'id')->where('organization_id', $organizationId)],
+        ]);
+        $tab = $input['tab'] ?? 'plan';
+        $period = $input['period'] ?? ($tab === 'consumption' ? 'monthly' : 'weekly');
+        $today = CarbonImmutable::today();
+        [$from, $to] = match ($period) {
+            'today' => [$today, $today],
+            'monthly' => [$today->startOfMonth(), $today->endOfMonth()],
+            'bi-weekly' => $tab === 'consumption' ? [$today->subDays(13), $today] : [$today, $today->addDays(13)],
+            'custom' => [CarbonImmutable::parse($input['from'] ?? $today), CarbonImmutable::parse($input['to'] ?? $today)],
+            default => $tab === 'consumption' ? [$today->subDays(6), $today] : [$today, $today->addDays(6)],
         };
+        $plan = $service->calculate($organizationId, $from->toDateString(), $to->toDateString(), $input);
+        $consumption = $service->consumption($organizationId, $plan['from'], $plan['to'], $input);
+        $feedTypes = FeedType::where('is_active', true)->orderBy('name')->get();
+        $standards = $tab === 'setup' ? FeedingStandard::with('feedType')->orderBy('stage')->orderByDesc('effective_from')->get() : collect();
+        $stages = FeedStageResolver::STAGES;
+        $groups = Group::animalGroups()->orderBy('name')->get();
+        $rooms = Room::orderBy('name')->get();
+        $structures = Structure::orderBy('name')->get();
+        $animals = $tab === 'setup' ? PigManagement::active()->orderBy('code')->get() : collect();
 
-        $stagePlan = $this->buildStagePlan();
-
-        $feedTypes = FeedType::with(['recipes.rawMaterial'])
-            ->get()
-            ->keyBy(fn ($feedType) => strtolower(trim($feedType->name)));
-
-        $feedProjectionRows = [];
-        $ingredientTotals = [];
-        $missingRecipes = [];
-        $totalFeedNeeded = 0;
-        $totalRequiredValue = 0;
-        $totalPurchaseCost = 0;
-
-        foreach ($stagePlan as $plan) {
-            $feedNeeded = $plan['animal_count'] * $plan['kg_per_animal_per_day'] * $days;
-            $totalFeedNeeded += $feedNeeded;
-
-            $feedProjectionRows[] = [
-                'stage' => $plan['stage'],
-                'feed_type_name' => $plan['feed_type_name'],
-                'animal_count' => $plan['animal_count'],
-                'kg_per_animal_per_day' => $plan['kg_per_animal_per_day'],
-                'days' => $days,
-                'feed_needed' => $feedNeeded,
-            ];
-
-            $feedType = $feedTypes->get(strtolower(trim($plan['feed_type_name'])));
-
-            if (!$feedType || $feedType->recipes->isEmpty()) {
-                $missingRecipes[] = $plan['feed_type_name'];
-                continue;
-            }
-
-            $multiplier = $feedNeeded / 100;
-
-            foreach ($feedType->recipes as $recipe) {
-                $requiredQty = (float) $recipe->quantity_per_100kg * $multiplier;
-                $material = $recipe->rawMaterial;
-
-                if (!$material) {
-                    continue;
-                }
-
-                if (!isset($ingredientTotals[$material->id])) {
-                    $ingredientTotals[$material->id] = [
-                        'name' => $material->name,
-                        'category' => $material->category,
-                        'unit' => $material->unit,
-                        'required_quantity' => 0,
-                        'available_quantity' => (float) $material->quantity_in_stock,
-                        'unit_cost' => (float) $material->unit_cost,
-                        'required_value' => 0,
-                    ];
-                }
-
-                $ingredientTotals[$material->id]['required_quantity'] += $requiredQty;
-                $ingredientTotals[$material->id]['required_value'] += $requiredQty * (float) $material->unit_cost;
-                $totalRequiredValue += $requiredQty * (float) $material->unit_cost;
-            }
-        }
-
-        $ingredientProjectionRows = [];
-        $shortageRows = [];
-
-        foreach ($ingredientTotals as $row) {
-            $shortage = max(0, $row['required_quantity'] - $row['available_quantity']);
-            $bagWeight = $this->getBagWeightForMaterial($row['name']);
-            $bagsNeeded = $shortage > 0 && $bagWeight > 0
-                ? (int) ceil($shortage / $bagWeight)
-                : 0;
-
-            $purchaseCost = $shortage * (float) $row['unit_cost'];
-            $totalPurchaseCost += $purchaseCost;
-
-            $row['shortage_quantity'] = $shortage;
-            $row['bag_weight_kg'] = $bagWeight;
-            $row['bags_to_buy'] = $bagsNeeded;
-            $row['purchase_cost'] = $purchaseCost;
-            $row['status'] = $shortage > 0 ? 'shortage' : 'enough';
-
-            $ingredientProjectionRows[] = $row;
-
-            if ($shortage > 0) {
-                $shortageRows[] = $row;
-            }
-        }
-
-        usort($ingredientProjectionRows, fn ($a, $b) => strcmp($a['name'], $b['name']));
-        usort($shortageRows, fn ($a, $b) => $b['shortage_quantity'] <=> $a['shortage_quantity']);
-
-        $stats = [
-            'total_feed_needed' => $totalFeedNeeded,
-            'total_required_value' => $totalRequiredValue,
-            'total_purchase_cost' => $totalPurchaseCost,
-            'ingredients_needed' => count($ingredientProjectionRows),
-            'shortages' => count($shortageRows),
-        ];
-
-        return view('feeds.planning-reports.index', compact(
-            'period',
-            'days',
-            'stats',
-            'feedProjectionRows',
-            'ingredientProjectionRows',
-            'shortageRows',
-            'missingRecipes'
-        ));
+        return view('feeds.planning-reports.index', compact('tab', 'period', 'plan', 'consumption',
+            'standards', 'stages', 'feedTypes', 'groups', 'rooms', 'structures', 'animals'));
     }
 
-    protected function buildStagePlan(): array
+    public function alerts(Request $request, FeedConfigurationService $service)
     {
-        $activePigs = PigManagement::query()
-            ->active()
-            ->with(['femaleMatings', 'maleMatings'])
-            ->get();
-
-        $feedRates = [
-            'piglet_starter' => $this->getFeedSettingFloat('feed.stages.piglet_starter', 0.50),
-            'weaner' => $this->getFeedSettingFloat('feed.stages.weaner', 1.00),
-            'grower' => $this->getFeedSettingFloat('feed.stages.grower', 1.50),
-            'finisher' => $this->getFeedSettingFloat('feed.stages.finisher', 2.00),
-            'boar' => $this->getFeedSettingFloat('feed.stages.boar', 2.50),
-            'pregnant_sow' => $this->getFeedSettingFloat('feed.stages.pregnant_sow', 3.00),
-            'other_sows' => $this->getFeedSettingFloat('feed.stages.other_sows', 3.00),
-        ];
-
-        $counts = [
-            'Piglet Starter' => 0,
-            'Weaner' => 0,
-            'Grower' => 0,
-            'Finisher' => 0,
-            'Boar' => 0,
-            'Pregnant Sow' => 0,
-            'Other Sows' => 0,
-        ];
-
-        foreach ($activePigs as $pig) {
-            $ageDays = (int) $pig->current_age_in_days;
-            $stockType = strtolower((string) $pig->stock_type);
-            $gender = strtoupper((string) $pig->gender);
-
-            if ($stockType === 'breeding') {
-                if ($gender === 'M') {
-                    $counts['Boar']++;
-                    continue;
-                }
-
-                if ($gender === 'F') {
-                    $isPregnant = $pig->femaleMatings()
-                        ->where('status', 'completed')
-                        ->whereIn('pregnancy_status', ['pregnant', 'pending', 'uncertain'])
-                        ->exists();
-
-                    if ($isPregnant) {
-                        $counts['Pregnant Sow']++;
-                    } else {
-                        $counts['Other Sows']++;
-                    }
-
-                    continue;
-                }
+        $data = $request->validate([
+            'variance_percent' => ['nullable', 'numeric', 'gt:0', 'max:10000'],
+            'cover_days'       => ['nullable', 'numeric', 'gt:0', 'max:366'],
+            'wastage_percent'  => ['nullable', 'numeric', 'min:0', 'max:50'],
+        ]);
+        DB::transaction(function () use ($request, $data, $service) {
+            Organization::whereKey($request->user()->organization_id)->lockForUpdate()->firstOrFail();
+            $old = ['variance_percent' => Setting::get('feed.alerts.variance_percent'), 'cover_days' => Setting::get('feed.alerts.cover_days'),
+                'wastage_percent' => Setting::get(FeedPlanningService::WASTAGE_SETTING)];
+            foreach (['variance_percent', 'cover_days'] as $key) {
+                Setting::set('feed.alerts.'.$key, $data[$key] ?? '');
             }
+            Setting::set(FeedPlanningService::WASTAGE_SETTING, $data['wastage_percent'] ?? '');
+            $service->audit($request->user(), 'feed_alert_thresholds_updated', $request->user()->organization, $old, $data, 'Feed planning settings saved. Blank disables that setting.');
+        });
 
-            if ($ageDays <= 56) {
-                $counts['Piglet Starter']++;
-            } elseif ($ageDays <= 98) {
-                $counts['Weaner']++;
-            } elseif ($ageDays <= 154) {
-                $counts['Grower']++;
-            } else {
-                $counts['Finisher']++;
-            }
-        }
-
-        $rows = [];
-
-        if ($counts['Piglet Starter'] > 0) {
-            $rows[] = [
-                'stage' => 'Piglet Starter',
-                'feed_type_name' => 'Piglet Starter',
-                'animal_count' => $counts['Piglet Starter'],
-                'kg_per_animal_per_day' => $feedRates['piglet_starter'],
-            ];
-        }
-
-        if ($counts['Weaner'] > 0) {
-            $rows[] = [
-                'stage' => 'Weaner',
-                'feed_type_name' => 'Weaner',
-                'animal_count' => $counts['Weaner'],
-                'kg_per_animal_per_day' => $feedRates['weaner'],
-            ];
-        }
-
-        if ($counts['Grower'] > 0) {
-            $rows[] = [
-                'stage' => 'Grower',
-                'feed_type_name' => 'Grower',
-                'animal_count' => $counts['Grower'],
-                'kg_per_animal_per_day' => $feedRates['grower'],
-            ];
-        }
-
-        if ($counts['Finisher'] > 0) {
-            $rows[] = [
-                'stage' => 'Finisher',
-                'feed_type_name' => 'Finisher',
-                'animal_count' => $counts['Finisher'],
-                'kg_per_animal_per_day' => $feedRates['finisher'],
-            ];
-        }
-
-        if ($counts['Boar'] > 0) {
-            $rows[] = [
-                'stage' => 'Boar',
-                'feed_type_name' => 'Boar',
-                'animal_count' => $counts['Boar'],
-                'kg_per_animal_per_day' => $feedRates['boar'],
-            ];
-        }
-
-        if ($counts['Pregnant Sow'] > 0) {
-            $rows[] = [
-                'stage' => 'Pregnant Sow',
-                'feed_type_name' => 'Pregnant Sow',
-                'animal_count' => $counts['Pregnant Sow'],
-                'kg_per_animal_per_day' => $feedRates['pregnant_sow'],
-            ];
-        }
-
-        if ($counts['Other Sows'] > 0) {
-            $rows[] = [
-                'stage' => 'Other Sows',
-                'feed_type_name' => 'Pregnant Sow',
-                'animal_count' => $counts['Other Sows'],
-                'kg_per_animal_per_day' => $feedRates['other_sows'],
-            ];
-        }
-
-        return $rows;
+        return back()->with('success', 'Feed planning settings saved.');
     }
 
-    protected function getFeedSettingFloat(string $key, float $default): float
+    public function standard(Request $request, FeedConfigurationService $service)
     {
-        $value = Setting::get($key, $default);
-        return is_numeric($value) ? (float) $value : $default;
+        $service->standard($request->user(), $request->all());
+
+        return back()->with('success', 'Feeding standard version saved. Earlier versions remain unchanged.');
     }
 
-    protected function getBagWeightForMaterial(string $materialName): float
+    public function override(Request $request, FeedConfigurationService $service)
     {
-        $name = strtolower(trim($materialName));
+        $data = $request->validate(['pig_id' => ['required', 'integer'], 'stage' => ['nullable', 'string'], 'reason' => ['required', 'string']]);
+        $pig = PigManagement::where('organization_id', $request->user()->organization_id)->findOrFail($data['pig_id']);
+        $service->override($request->user(), $pig, $data['stage'] ?? null, $data['reason']);
 
-        $map = [
-            'maize' => 'feed.units.maize_bag_weight_kg',
-            'soybean meal' => 'feed.units.soybean_meal_bag_weight_kg',
-            'wheat bran' => 'feed.units.wheat_bran_bag_weight_kg',
-            'premix' => 'feed.units.premix_bag_weight_kg',
-            'concentrate' => 'feed.units.concentrate_bag_weight_kg',
-        ];
-
-        foreach ($map as $keyword => $settingKey) {
-            if (str_contains($name, $keyword)) {
-                return $this->getFeedSettingFloat(
-                    $settingKey,
-                    $this->getFeedSettingFloat('feed.units.default_bag_weight_kg', 50)
-                );
-            }
-        }
-
-        return $this->getFeedSettingFloat('feed.units.default_bag_weight_kg', 50);
+        return back()->with('success', 'Stage override recorded with its reason.');
     }
 }

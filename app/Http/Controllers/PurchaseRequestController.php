@@ -96,11 +96,34 @@ class PurchaseRequestController extends Controller
         ));
     }
 
-    public function create()
+    public function create(Request $request)
     {
         $this->authorize('create', PurchaseRequest::class);
 
+        $prefillItems = null;
+        $prefillNotes = null;
+        if ($request->filled('planning_material')) {
+            $input = $request->validate(['planning_material' => ['required', 'integer'],
+                'planning_from' => ['required', 'date_format:Y-m-d'], 'planning_to' => ['required', 'date_format:Y-m-d'],
+                'stage' => ['nullable', 'string'], 'group_id' => ['nullable', 'integer'], 'room_id' => ['nullable', 'integer'],
+                'structure_id' => ['nullable', 'integer'], 'feed_type_id' => ['nullable', 'integer']]);
+            $plan = app(\App\Services\Feed\FeedPlanningService::class)->calculate((int) $request->user()->organization_id,
+                $input['planning_from'], $input['planning_to'], $input);
+            abort_unless($plan['exceptions'] === [], 422, 'Resolve the feed planning notices before creating a purchase request from this forecast.');
+            $shortage = collect($plan['materials'])->firstWhere('raw_material_id', (int) $input['planning_material']);
+            abort_unless($shortage && $shortage['shortfall_kg'] > 0, 422, 'This planning selection has no current shortage for that material.');
+            $material = RawMaterial::where('organization_id', $request->user()->organization_id)->findOrFail($input['planning_material']);
+            // Shortfalls are in kg; order whole bags for materials stocked in bags.
+            $kgPerUnit = $material->kgPerUnit() ?? 1.0;
+            $quantity = $kgPerUnit === 1.0
+                ? max(0.01, ceil($shortage['shortfall_kg'] * 100) / 100)
+                : (float) ceil($shortage['shortfall_kg'] / $kgPerUnit);
+            $prefillItems = [['raw_material_id' => $material->id, 'description' => $material->name,
+                'unit' => $material->unit, 'quantity' => $quantity, 'unit_price' => $material->unit_cost]];
+            $prefillNotes = 'Feed plan '.$plan['from'].' to '.$plan['to'].'. Required '.$shortage['required_kg'].' kg; available '.$shortage['available_kg'].' kg; shortage '.$shortage['shortfall_kg'].' kg. Review before submitting.';
+        }
         return view('feeds.purchase-requests.create', [
+            'prefillItems' => $prefillItems, 'prefillNotes' => $prefillNotes,
             'rawMaterials' => RawMaterial::orderBy('name')->get(['id', 'name', 'unit', 'category']),
             'suppliers'    => Counterparty::query()
                 ->suppliers()

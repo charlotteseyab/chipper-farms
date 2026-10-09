@@ -93,6 +93,23 @@
             @endif
         @endisset
 
+        {{-- Medicine withdrawal: the sale is refused on save (decision D8), so say so first. --}}
+        @isset($withdrawal)
+            @if($withdrawal['restricted'])
+                <div role="alert" class="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4">
+                    <p class="font-semibold text-red-900">This pig cannot be sold yet</p>
+                    <p class="mt-1 text-sm text-red-800">{{ app(\App\Services\Health\WithdrawalStatusService::class)->message($withdrawal) }}</p>
+                </div>
+            @elseif($withdrawal['cautions']->isNotEmpty())
+                <div class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <p class="font-semibold text-amber-900">Check the medicine label before selling</p>
+                    @foreach($withdrawal['cautions']->take(3) as $dose)
+                        <p class="mt-1 text-sm text-amber-800">No withdrawal period was recorded for {{ $dose->medication_name ?: 'a treatment' }} given on {{ $dose->administration_date->format('d M Y') }}.</p>
+                    @endforeach
+                </div>
+            @endif
+        @endisset
+
         <!-- Sale Form -->
         <form method="POST" action="{{ route('pigs.record-sale', $pig->id) }}" class="space-y-8">
             @csrf
@@ -242,9 +259,30 @@
                 </div>
             </div>
 
+            <div class="rounded-xl border-t-4 border-amber-500 bg-white p-8 shadow-lg">
+                <h3 class="text-xl font-bold text-amber-900">4. Physical ear tag</h3>
+                <p class="mt-2 text-sm text-gray-600">Confirm what happened to the physical tag when the animal left the farm.</p>
+                <div class="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <div>
+                        <label for="tag-outcome" class="mb-2 block text-sm font-medium text-gray-700">Tag outcome <span class="text-red-500">*</span></label>
+                        <select id="tag-outcome" name="tag_outcome" required class="w-full rounded-lg border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500">
+                            <option value="pending_recovery" @selected(old('tag_outcome', 'pending_recovery') === 'pending_recovery')>Expected back, not yet confirmed</option>
+                            <option value="available" @selected(old('tag_outcome') === 'available')>Removed and retained</option>
+                            <option value="retired" @selected(old('tag_outcome') === 'retired')>Left with the sold animal</option>
+                            <option value="lost" @selected(old('tag_outcome') === 'lost')>Lost</option>
+                            <option value="damaged" @selected(old('tag_outcome') === 'damaged')>Damaged</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="mb-2 block text-sm font-medium text-gray-700">Tag condition notes</label>
+                        <input name="tag_condition_notes" value="{{ old('tag_condition_notes') }}" placeholder="Recovery or condition details…" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500">
+                    </div>
+                </div>
+            </div>
+
             <!-- SECTION 4: NOTES AND META -->
             <div class="bg-white rounded-xl shadow-lg border-t-4 border-gray-500 p-8">
-                <h3 class="text-xl font-bold text-gray-800 mb-6">4. Additional Details</h3>
+                <h3 class="text-xl font-bold text-gray-800 mb-6">5. Additional Details</h3>
                 
                 <div class="space-y-5">
                     <!-- Sold By (display only — the recorded seller is always the authenticated user) -->

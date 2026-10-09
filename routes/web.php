@@ -14,6 +14,8 @@ use App\Http\Controllers\PurchaseRequestController;
 use App\Http\Controllers\RawMaterialController;
 use App\Http\Controllers\FeedProductionController;
 use App\Http\Controllers\FeedPlanningController;
+use App\Http\Controllers\FeedSetupController;
+use App\Http\Controllers\StockCountController;
 use App\Http\Controllers\Inventory\GrIrAgeingController;
 use App\Http\Controllers\Inventory\InventoryAccountMappingController;
 use App\Http\Controllers\Inventory\InventoryValueController;
@@ -96,31 +98,75 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.readAll');
 
     // Health
+    // Pig-level health pages bind {healthPig}, which also resolves sold and dead
+    // pigs so their history stays reachable. Record actions take the record id.
     Route::get('/health', [PigHealthController::class, 'index'])->middleware('permission:view_health_records')->name('health.index');
-    Route::put('/health/{pig}', [PigHealthController::class, 'update'])->middleware('permission:manage_health_records')->name('health.update');
-    Route::get('/health/create-health', [PigHealthController::class, 'createHealth'])->middleware('permission:manage_health_records')->name('health.create');
-    Route::get('/health/create-medication', [PigHealthController::class, 'createMedication'])->middleware('permission:administer_medication')->name('health.create-medication');
-    Route::post('/health/store-health', [PigHealthController::class, 'storeHealth'])->middleware('permission:manage_health_records')->name('health.store');
-    Route::post('/health/store-medication', [PigHealthController::class, 'storeMedication'])->middleware('permission:administer_medication')->name('medications.store');
-    Route::get('/health/{pig}', [PigHealthController::class, 'show'])->middleware('permission:view_health_records')->name('health.show');
-    Route::patch('/health/{pig}/status', [PigHealthController::class, 'updateHealthStatus'])->middleware('permission:manage_health_records')->name('health.status.update');
-    Route::get('/health/{pig}/export-pdf', [PigHealthController::class, 'exportPigHealthPdf'])->middleware('permission:view_health_records')->name('health.export-pdf');
-    Route::get('/health/{pig}/create-health', [PigHealthController::class, 'createHealth'])->middleware('permission:manage_health_records')->name('health.createForPig');
-    Route::get('/health/{pig}/create-medication', [PigHealthController::class, 'createMedication'])->middleware('permission:administer_medication')->name('medications.createForPig');
-    Route::post('/health/{pig}/health', [PigHealthController::class, 'storeHealth'])->middleware('permission:manage_health_records')->name('health.storeForPig');
-    Route::post('/health/{pig}/medication', [PigHealthController::class, 'storeMedication'])->middleware('permission:administer_medication')->name('medications.storeForPig');
+    Route::get('/health/create-health', [App\Http\Controllers\Health\HealthCaseController::class, 'create'])->middleware('permission:manage_health_records')->name('health.create');
+    Route::get('/health/create-medication', [App\Http\Controllers\Health\DoseController::class, 'create'])->middleware('permission:administer_medication')->name('health.create-medication');
+    Route::post('/health/store-health', [App\Http\Controllers\Health\HealthCaseController::class, 'store'])->middleware('permission:manage_health_records')->name('health.store');
+    Route::post('/health/store-medication', [App\Http\Controllers\Health\DoseController::class, 'store'])->middleware('permission:administer_medication')->name('medications.store');
+    // Health cases, courses, vet visits and the medicine catalogue (health upgrade Phase 2).
+    Route::get('/health/pig-search', [App\Http\Controllers\Health\HealthPigSearchController::class, 'search'])->middleware('permission:view_health_records')->name('health.pig-search');
+    Route::get('/health/rooms/{room}/pigs', [App\Http\Controllers\Health\HealthPigSearchController::class, 'room'])->middleware('permission:view_health_records')->name('health.room-pigs');
+    Route::get('/health/cases/{healthRecord}', [App\Http\Controllers\Health\HealthCaseController::class, 'show'])->middleware('permission:view_health_records')->name('health-cases.show');
+    Route::post('/health/cases/{healthRecord}/follow-ups', [App\Http\Controllers\Health\HealthCaseController::class, 'storeFollowUp'])->middleware('permission:manage_health_records')->name('health-cases.follow-ups.store');
+    Route::post('/health/cases/{healthRecord}/close', [App\Http\Controllers\Health\HealthCaseController::class, 'close'])->middleware('permission:manage_health_records')->name('health-cases.close');
+    Route::post('/health/cases/{healthRecord}/reopen', [App\Http\Controllers\Health\HealthCaseController::class, 'reopen'])->middleware('permission:manage_health_records')->name('health-cases.reopen');
+    Route::get('/health/courses/create', [App\Http\Controllers\Health\TreatmentCourseController::class, 'create'])->middleware('permission:manage_treatment_courses')->name('treatment-courses.create');
+    Route::post('/health/courses', [App\Http\Controllers\Health\TreatmentCourseController::class, 'store'])->middleware('permission:manage_treatment_courses')->name('treatment-courses.store');
+    Route::get('/health/courses/{treatmentCourse}', [App\Http\Controllers\Health\TreatmentCourseController::class, 'show'])->middleware('permission:view_health_records')->name('treatment-courses.show');
+    Route::get('/health/courses/{treatmentCourse}/amend', [App\Http\Controllers\Health\TreatmentCourseController::class, 'edit'])->middleware('permission:manage_treatment_courses')->name('treatment-courses.edit');
+    Route::put('/health/courses/{treatmentCourse}', [App\Http\Controllers\Health\TreatmentCourseController::class, 'update'])->middleware('permission:manage_treatment_courses')->name('treatment-courses.update');
+    Route::post('/health/courses/{treatmentCourse}/stop', [App\Http\Controllers\Health\TreatmentCourseController::class, 'stop'])->middleware('permission:manage_treatment_courses')->name('treatment-courses.stop');
+    Route::get('/vet-visits', [App\Http\Controllers\Health\VetVisitController::class, 'index'])->middleware('permission:view_health_records')->name('vet-visits.index');
+    Route::get('/vet-visits/create', [App\Http\Controllers\Health\VetVisitController::class, 'create'])->middleware('permission:manage_vet_visits')->name('vet-visits.create');
+    Route::post('/vet-visits', [App\Http\Controllers\Health\VetVisitController::class, 'store'])->middleware('permission:manage_vet_visits')->name('vet-visits.store');
+    Route::get('/vet-visits/{vetVisit}', [App\Http\Controllers\Health\VetVisitController::class, 'show'])->middleware('permission:view_health_records')->name('vet-visits.show');
+    Route::put('/vet-visits/{vetVisit}', [App\Http\Controllers\Health\VetVisitController::class, 'update'])->middleware('permission:manage_vet_visits,finalise_vet_visits')->name('vet-visits.update');
+    Route::post('/vet-visits/{vetVisit}/finalise', [App\Http\Controllers\Health\VetVisitController::class, 'finalise'])->middleware('permission:finalise_vet_visits')->name('vet-visits.finalise');
+    Route::post('/vet-visits/{vetVisit}/examinations', [App\Http\Controllers\Health\VetVisitController::class, 'storeExamination'])->middleware('permission:manage_vet_visits,finalise_vet_visits')->name('vet-visits.examinations.store');
+    Route::post('/vet-visits/{vetVisit}/examinations/{examination}/void', [App\Http\Controllers\Health\VetVisitController::class, 'voidExamination'])->middleware('permission:manage_vet_visits,finalise_vet_visits')->name('vet-visits.examinations.void');
+    // Files on visits, examinations, cases and follow-ups.
+    Route::post('/health/attachments/{type}/{id}', [App\Http\Controllers\Health\HealthAttachmentController::class, 'store'])->whereIn('type', ['visit', 'examination', 'case', 'follow-up'])->whereNumber('id')->middleware('permission:view_health_records')->name('health.attachments.store');
+    Route::get('/health/attachments/{attachment}', [App\Http\Controllers\Health\HealthAttachmentController::class, 'download'])->whereNumber('attachment')->middleware('permission:view_health_records')->name('health.attachments.download');
+    Route::post('/health/attachments/{attachment}/remove', [App\Http\Controllers\Health\HealthAttachmentController::class, 'remove'])->whereNumber('attachment')->middleware('permission:correct_health_records')->name('health.attachments.remove');
+    // Worklist and reports (health upgrade Phase 4).
+    Route::get('/health-reports/{tab}/export', [App\Http\Controllers\Health\HealthReportController::class, 'export'])->middleware('permission:export_health_reports')->name('health.reports.export');
+    Route::get('/health/worklist', [App\Http\Controllers\Health\HealthWorklistController::class, 'index'])->middleware('permission:view_health_records')->name('health.worklist');
+    // Doses given, medicine batches and stock (health upgrade Phase 3).
+    Route::get('/health/doses/{dosingEvent}', [App\Http\Controllers\Health\DoseController::class, 'show'])->middleware('permission:view_health_records')->name('doses.show');
+    Route::get('/health/doses/{dosingEvent}/correct', [App\Http\Controllers\Health\DoseController::class, 'edit'])->middleware('permission:correct_health_records')->name('doses.edit');
+    Route::put('/health/doses/{dosingEvent}', [App\Http\Controllers\Health\DoseController::class, 'update'])->middleware('permission:correct_health_records')->name('doses.update');
+    Route::post('/health/doses/{dosingEvent}/void', [App\Http\Controllers\Health\DoseController::class, 'void'])->middleware('permission:correct_health_records')->name('doses.void');
+    Route::post('/health/scheduled-doses/{scheduledDose}/close', [App\Http\Controllers\Health\ScheduledDoseController::class, 'close'])->middleware('permission:administer_medication')->name('scheduled-doses.close');
+    Route::get('/medicines', [App\Http\Controllers\Health\MedicineController::class, 'index'])->middleware('permission:view_health_records')->name('medicines.index');
+    Route::get('/medicines/create', [App\Http\Controllers\Health\MedicineController::class, 'create'])->middleware('permission:manage_medicine_catalogue')->name('medicines.create');
+    Route::post('/medicines', [App\Http\Controllers\Health\MedicineController::class, 'store'])->middleware('permission:manage_medicine_catalogue')->name('medicines.store');
+    Route::get('/medicines/{medicine}', [App\Http\Controllers\Health\MedicineStockController::class, 'show'])->middleware('permission:view_health_records')->name('medicines.show');
+    Route::post('/medicines/{medicine}/batches', [App\Http\Controllers\Health\MedicineStockController::class, 'receive'])->middleware('permission:manage_medicine_catalogue')->name('medicines.batches.store');
+    Route::post('/medicine-batches/{medicineBatch}/adjust', [App\Http\Controllers\Health\MedicineStockController::class, 'adjust'])->middleware('permission:manage_medicine_catalogue')->name('medicine-batches.adjust');
+    Route::get('/medicines/{medicine}/edit', [App\Http\Controllers\Health\MedicineController::class, 'edit'])->middleware('permission:manage_medicine_catalogue')->name('medicines.edit');
+    Route::put('/medicines/{medicine}', [App\Http\Controllers\Health\MedicineController::class, 'update'])->middleware('permission:manage_medicine_catalogue')->name('medicines.update');
+    Route::get('/health/records/{healthRecord}/edit', [PigHealthController::class, 'editRecord'])->middleware('permission:manage_health_records')->name('health.records.edit');
+    Route::put('/health/records/{healthRecord}', [PigHealthController::class, 'updateRecord'])->middleware('permission:manage_health_records')->name('health.records.update');
+    Route::patch('/health/records/{healthRecord}/status', [PigHealthController::class, 'updateRecordStatus'])->middleware('permission:manage_health_records')->name('health.records.status');
+    Route::post('/health/records/{healthRecord}/void', [PigHealthController::class, 'voidRecord'])->middleware('permission:correct_health_records')->name('health.records.void');
+    Route::get('/health/{healthPig}', [PigHealthController::class, 'show'])->middleware('permission:view_health_records')->name('health.show');
+    Route::get('/health/{healthPig}/export-pdf', [PigHealthController::class, 'exportPigHealthPdf'])->middleware('permission:export_health_reports')->name('health.export-pdf');
+    Route::get('/health/{healthPig}/create-health', [App\Http\Controllers\Health\HealthCaseController::class, 'create'])->middleware('permission:manage_health_records')->name('health.createForPig');
+    Route::get('/health/{healthPig}/create-medication', [App\Http\Controllers\Health\DoseController::class, 'create'])->middleware('permission:administer_medication')->name('medications.createForPig');
+    Route::post('/health/{healthPig}/health', [App\Http\Controllers\Health\HealthCaseController::class, 'store'])->middleware('permission:manage_health_records')->name('health.storeForPig');
+    Route::post('/health/{healthPig}/medication', [App\Http\Controllers\Health\DoseController::class, 'store'])->middleware('permission:administer_medication')->name('medications.storeForPig');
     Route::get('/medications/{medication}', [PigHealthController::class, 'showMedication'])->middleware('permission:view_health_records')->name('medications.show');
-    Route::get('/medications/{medication}/edit', [PigHealthController::class, 'editMedication'])->middleware('permission:manage_medication_records')->name('medications.edit');
-    Route::put('/medications/{medication}', [PigHealthController::class, 'updateMedication'])->middleware('permission:manage_medication_records')->name('medications.update');
-    Route::delete('/medications/{medication}', [PigHealthController::class, 'destroyMedication'])->middleware('permission:manage_medication_records')->name('medications.destroy');
+    Route::get('/medications/{medication}/edit', [PigHealthController::class, 'editMedication'])->middleware('permission:correct_health_records')->name('medications.edit');
+    Route::put('/medications/{medication}', [PigHealthController::class, 'correctMedication'])->middleware('permission:correct_health_records')->name('medications.update');
+    Route::post('/medications/{medication}/void', [PigHealthController::class, 'voidMedication'])->middleware('permission:correct_health_records')->name('medications.void');
 
     // Medications index & Health reports
     Route::get('/medications', [PigHealthController::class, 'medicationsIndex'])->middleware('permission:view_health_records')->name('medications.index');
-    Route::get('/health-reports', [PigHealthController::class, 'reports'])->middleware('permission:view_health_records')->name('health.reports');
-    Route::get('/health/{pig}/edit', [PigHealthController::class, 'edit'])->middleware('permission:manage_health_records')->name('health.edit');
-    Route::delete('/health/{pig}', [PigHealthController::class, 'destroy'])->middleware('permission:delete_health_records')->name('health.destroy');
-    Route::get('/export/health.csv', [PigHealthController::class, 'exportHealthCsv'])->middleware('permission:view_health_records')->name('health.export');
-    Route::get('/export/medications.csv', [PigHealthController::class, 'exportMedicationsCsv'])->middleware('permission:view_health_records')->name('medications.export');
+    Route::get('/health-reports', [App\Http\Controllers\Health\HealthReportController::class, 'index'])->middleware('permission:view_health_records')->name('health.reports');
+    Route::get('/export/health.csv', [App\Http\Controllers\Health\HealthReportController::class, 'legacyHealthExport'])->middleware('permission:export_health_reports')->name('health.export');
+    Route::get('/export/medications.csv', [App\Http\Controllers\Health\HealthReportController::class, 'legacyMedicationExport'])->middleware('permission:export_health_reports')->name('medications.export');
 
     // NOTE: the duplicate GET /dashboard that used to sit here has been removed
     // (CF-P2-024). It was byte-identical to the definition further down, which
@@ -169,6 +215,8 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::get('all-stocks-export/excel', [App\Http\Controllers\PigStockController::class, 'allExportExcel'])->name('all-stocks.export.excel');
     Route::get('all-stocks-export/csv', [App\Http\Controllers\PigManagementController::class, 'allExportCsv'])->name('all-stocks.export.csv');
     Route::get('all-stocks-export/pdf', [App\Http\Controllers\PigManagementController::class, 'allExportPdf'])->name('all-stocks.export.pdf');
+    Route::get('pigs/{pig}/ear-tag/replace', [App\Http\Controllers\PigEarTagController::class, 'edit'])->name('pigs.ear-tag.replace');
+    Route::patch('pigs/{pig}/ear-tag', [App\Http\Controllers\PigEarTagController::class, 'update'])->name('pigs.ear-tag.update');
     Route::resource('purchase-stock-intakes', App\Http\Controllers\PurchaseStockIntakeController::class)
         ->only(['index', 'create', 'store', 'show'])
         ->parameters(['purchase-stock-intakes' => 'purchaseStockIntake']);
@@ -352,6 +400,11 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::post('settings/setup/breeding', [App\Http\Controllers\SettingsController::class, 'saveBreeding'])->name('settings.setup.breeding.save');
     Route::post('settings/setup/breeds', [App\Http\Controllers\SettingsController::class, 'saveAnimalBreeds'])->name('settings.setup.breeds.save');
     Route::post('settings/setup/breeding/reset', [App\Http\Controllers\SettingsController::class, 'resetBreeding'])->name('settings.setup.breeding.reset');
+    Route::get('ear-tags/{earTag}/history', [App\Http\Controllers\Settings\EarTagReconciliationController::class, 'history'])->name('ear-tags.history');
+    Route::patch('ear-tag-assignments/{assignment}', [App\Http\Controllers\Settings\EarTagReconciliationController::class, 'correct'])->name('ear-tags.correct');
+    Route::get('settings/ear-tags/reconciliation', [App\Http\Controllers\Settings\EarTagReconciliationController::class, 'index'])->name('settings.ear-tags.reconciliation');
+    Route::post('settings/ear-tags/colors', [App\Http\Controllers\Settings\EarTagReconciliationController::class, 'storeColor'])->name('settings.ear-tags.colors.store');
+    Route::patch('settings/ear-tags/reconciliation/{earTag}', [App\Http\Controllers\Settings\EarTagReconciliationController::class, 'update'])->name('settings.ear-tags.reconciliation.update');
     Route::get('settings/activity-log', [App\Http\Controllers\SettingsController::class, 'activityLog'])->name('settings.activity-log');
 
     // Modules & Features (Phase 1). Guarded by permission only — deliberately
@@ -394,6 +447,11 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::post('/purchase-requests/{purchaseRequest}/decline', [PurchaseRequestController::class, 'decline'])->name('purchase-requests.decline');
     Route::post('/purchase-requests/{purchaseRequest}/complete', [PurchaseRequestController::class, 'complete'])->name('purchase-requests.complete');
     Route::get('/purchase-requests/{purchaseRequest}', [PurchaseRequestController::class, 'show'])->name('purchase-requests.show');
+    // Physical stock counts: either permission may count the items it manages.
+    Route::get('/stock-counts', [StockCountController::class, 'index'])->middleware('permission:manage_raw_materials,manage_feed_production')->name('stock-counts.index');
+    Route::get('/stock-counts/create', [StockCountController::class, 'create'])->middleware('permission:manage_raw_materials,manage_feed_production')->name('stock-counts.create');
+    Route::post('/stock-counts', [StockCountController::class, 'store'])->middleware('permission:manage_raw_materials,manage_feed_production')->name('stock-counts.store');
+    Route::get('/stock-counts/{stockCount}', [StockCountController::class, 'show'])->middleware('permission:manage_raw_materials,manage_feed_production')->name('stock-counts.show');
     Route::get('/raw-materials-stock', [RawMaterialController::class, 'index'])->middleware('permission:view_raw_materials')->name('raw-materials.index');
     Route::post('/raw-materials-stock', [RawMaterialController::class, 'store'])->middleware('permission:manage_raw_materials')->name('raw-materials.store');
     Route::put('/raw-materials-stock/{rawMaterial}', [RawMaterialController::class, 'update'])->middleware('permission:manage_raw_materials')->name('raw-materials.update');
@@ -401,9 +459,37 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::post('/raw-materials-stock/{rawMaterial}/adjust', [RawMaterialController::class, 'adjustStock'])->middleware('permission:manage_raw_materials')->name('raw-materials.adjust');
     Route::get('/feed-production', [FeedProductionController::class, 'index'])->middleware('permission:view_feed_production')->name('feed-production.index');
     Route::post('/feed-production/feed-types', [FeedProductionController::class, 'storeFeedType'])->middleware('permission:manage_feed_production')->name('feed-production.feed-types.store');
+    Route::put('/feed-production/feed-types/{feedType}', [FeedProductionController::class, 'updateFeedType'])->middleware('permission:manage_feed_production')->name('feed-production.feed-types.update');
+    Route::get('/feed-dashboard', [App\Http\Controllers\FeedDashboardController::class, 'index'])->middleware('permission:view_feed_production')->name('feed-dashboard.index');
+    Route::get('/feed-performance', [App\Http\Controllers\FeedDashboardController::class, 'performance'])->middleware('permission:view_feed_production')->name('feed-performance.index');
+    Route::get('/feed-setup', [FeedSetupController::class, 'index'])->middleware('permission:view_feed_production')->name('feed-setup.index');
     Route::post('/feed-production/recipes', [FeedProductionController::class, 'storeRecipe'])->middleware('permission:manage_feed_production')->name('feed-production.recipes.store');
     Route::post('/feed-production/mix', [FeedProductionController::class, 'mixFeed'])->middleware('permission:manage_feed_production')->name('feed-production.mix');
-    Route::get('/planning-reports', [FeedPlanningController::class, 'index'])->name('planning-reports.index');
+    Route::get('/mill/plan', [FeedPlanningController::class, 'plan'])->middleware('permission:view_feed_production')->name('mill.plan');
+    Route::get('/feed/planned-vs-actual', [FeedPlanningController::class, 'consumption'])->middleware('permission:view_feed_production')->name('feed.planned-vs-actual');
+    Route::get('/feed-setup/settings', [FeedPlanningController::class, 'settings'])->middleware('permission:view_feed_production')->name('feed-setup.settings');
+    Route::get('/planning-reports', [FeedPlanningController::class, 'index'])->middleware('permission:view_feed_production')->name('planning-reports.index');
+    Route::post('/planning-reports/alerts', [FeedPlanningController::class, 'alerts'])->middleware('permission:manage_feed_production')->name('planning-reports.alerts');
+    Route::post('/planning-reports/standards', [FeedPlanningController::class, 'standard'])->middleware('permission:manage_feed_production')->name('planning-reports.standards');
+    Route::post('/planning-reports/stage-override', [FeedPlanningController::class, 'override'])->middleware('permission:manage_feed_production')->name('planning-reports.override');
+    Route::post('/feed-production/plans', [FeedProductionController::class, 'plan'])->middleware('permission:manage_feed_production')->name('feed-production.plans');
+    Route::post('/feed-production/plans/{plan}/complete', [FeedProductionController::class, 'completePlan'])->middleware('permission:manage_feed_production')->name('feed-production.plans.complete');
+    Route::post('/feed-production/plans/{plan}/cancel', [FeedProductionController::class, 'cancelPlan'])->middleware('permission:manage_feed_production')->name('feed-production.plans.cancel');
+    Route::post('/feed-production/batches/{batch}/reverse', [FeedProductionController::class, 'reverseBatch'])->middleware('permission:manage_feed_production')->name('feed-production.batches.reverse');
+
+    // Feedings are farm work, not finance work: recording needs only
+    // manage_feed_issues. Costs and postings stay visible to finance users.
+    Route::prefix('feed/issues')->name('feed.issues.')->group(function () {
+        Route::get('/', [FeedIssueController::class, 'index'])->middleware('permission:view_group_pools,manage_feed_issues')->name('index');
+        Route::get('/create', [FeedIssueController::class, 'create'])->middleware('permission:manage_feed_issues')->name('create');
+        Route::post('/', [FeedIssueController::class, 'store'])->middleware('permission:manage_feed_issues')->name('store');
+        Route::get('/{issue}', [FeedIssueController::class, 'show'])->middleware('permission:view_group_pools,manage_feed_issues')->name('show');
+        Route::post('/{issue}/reverse', [FeedIssueController::class, 'reverse'])->middleware('permission:manage_feed_issues')->name('reverse');
+    });
+    // Old finance URLs, kept so bookmarks and saved links still work.
+    Route::redirect('/finance/feed/issues', '/feed/issues');
+    Route::redirect('/finance/feed/issues/create', '/feed/issues/create');
+    Route::get('/finance/feed/issues/{issue}', fn (string $issue) => redirect('/feed/issues/'.$issue))->whereNumber('issue');
 
     // Email Settings Routes (Superuser only)
     Route::get('settings/email', [App\Http\Controllers\EmailSettingController::class, 'index'])->name('settings.email');
@@ -428,6 +514,10 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::get('settings/reports/export/csv', [App\Http\Controllers\SettingsController::class, 'exportSystemReportsCsv'])->name('settings.reports.export.csv');
 
     // Death Management Routes
+    // Transfer out and cull (exits that are neither a sale nor a death).
+    Route::get('pig-exits', [App\Http\Controllers\PigExitController::class, 'index'])->name('pig-exits.index');
+    Route::get('pigs/{pig}/exit', [App\Http\Controllers\PigExitController::class, 'create'])->name('pig-exits.create');
+    Route::post('pigs/{pig}/exit', [App\Http\Controllers\PigExitController::class, 'store'])->name('pig-exits.store');
     Route::get('pigs/{id}/death', [App\Http\Controllers\PigManagementController::class, 'deathForm'])->name('pigs.death-form');
     Route::post('pigs/{id}/death', [App\Http\Controllers\PigManagementController::class, 'recordDeath'])->name('pigs.record-death');
     Route::get('deaths', [App\Http\Controllers\PigManagementController::class, 'deathsIndex'])->name('deaths.index');
@@ -1340,28 +1430,6 @@ Route::middleware($protectedMiddleware)->group(function () {
             Route::post('/', [ReceiveAgainstPurchaseRequestController::class, 'store'])->name('store');
         });
 
-
-        /*
-        |--------------------------------------------------------------------------
-        | Feed Issues (operational + read)
-        |--------------------------------------------------------------------------
-        */
-        Route::prefix('feed/issues')
-        ->name('feed.issues.')
-        ->group(function () {
-            Route::get('/',          [FeedIssueController::class, 'index'])
-                ->middleware('permission:view_group_pools,manage_feed_issues')
-                ->name('index');
-            Route::get('/create',    [FeedIssueController::class, 'create'])
-                ->middleware('permission:manage_feed_issues')
-                ->name('create');
-            Route::post('/',         [FeedIssueController::class, 'store'])
-                ->middleware('permission:manage_feed_issues')
-                ->name('store');
-            Route::get('/{issue}',   [FeedIssueController::class, 'show'])
-                ->middleware('permission:view_group_pools,manage_feed_issues')
-                ->name('show');
-        });
 
         /*
         |--------------------------------------------------------------------------

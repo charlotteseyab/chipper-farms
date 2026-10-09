@@ -51,6 +51,8 @@ class RecordPigSaleRequest extends FormRequest
 
             'transport_cost' => ['nullable', 'numeric', 'min:0'],
             'transport_method' => ['nullable', 'in:pickup,delivery,farm_gate,other'],
+            'tag_outcome' => ['sometimes', 'in:available,pending_recovery,lost,damaged,retired'],
+            'tag_condition_notes' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }

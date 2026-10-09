@@ -281,7 +281,7 @@ class PurchaseStockIntakeTest extends TestCase
         $this->assertSame(0, StockMovement::where('source_id', $intake->id)->count());
     }
 
-    public function test_ear_tag_proposals_continue_the_latest_animal_sequence(): void
+    public function test_ear_tag_proposals_use_never_registered_gaps(): void
     {
         PigManagement::create([
             'organization_id' => $this->org->id,
@@ -301,7 +301,7 @@ class PurchaseStockIntakeTest extends TestCase
         ]);
 
         $this->assertSame(
-            ['10', '11', '12'],
+            ['1', '2', '3'],
             app(PurchaseStockIntakeService::class)->proposeEarTagNumbers(3, $this->org->id),
         );
     }

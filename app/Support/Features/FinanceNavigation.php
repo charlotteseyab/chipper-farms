@@ -184,7 +184,17 @@ final class FinanceNavigation
      */
     protected static function advanced(OrganizationFeatureService $features, User $user): array
     {
-        $entries = [
+        $entries = [];
+
+        // The ledger dashboard route is intentionally permission-gated but not
+        // feature-gated. It is the accountant's stable entry point even when a
+        // farm has not enabled optional advanced features yet.
+        if ($user->isAccountant()) {
+            $entries[] = ['Accounting Dashboard', 'finance.dashboard', 'finance',
+                null, ['view_finance']];
+        }
+
+        $entries = array_merge($entries, [
             ['Chart of Accounts', 'finance.coa.index', 'finance/coa*',
                 FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING, ['view_finance']],
             ['Journal Entries', 'finance.journals.index', 'finance/journals*',
@@ -246,7 +256,7 @@ final class FinanceNavigation
                 FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL, ['view_financial_reports', 'view_finance']],
             ['Treasury', 'finance.treasury', 'finance/treasury*',
                 FeatureCatalog::FINANCE_ADVANCED_TREASURY, ['view_treasury']],
-        ];
+        ]);
 
         $out = [];
         foreach ($entries as [$label, $route, $active, $feature, $permissions]) {
@@ -265,7 +275,7 @@ final class FinanceNavigation
     /**
      * Feature on AND permission held AND route registered.
      *
-     * @param array{route:string, feature:string, permission:list<string>} $entry
+     * @param array{route:string, feature:?string, permission:list<string>} $entry
      */
     /**
      * Sub-entries for the top-level items that have more than one screen.
@@ -334,7 +344,7 @@ final class FinanceNavigation
             return false;
         }
 
-        if (! $features->usable($entry['feature'])) {
+        if (($entry['feature'] ?? null) !== null && ! $features->usable($entry['feature'])) {
             return false;
         }
 

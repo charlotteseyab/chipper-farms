@@ -57,6 +57,14 @@ class AppServiceProvider extends ServiceProvider
         PigManagement::class => PigManagementPolicy::class,
         PigSale::class => PigSalePolicy::class,
         PigDeath::class => PigDeathPolicy::class,
+        \App\Models\PigExit::class => \App\Policies\PigExitPolicy::class,
+        \App\Models\VetVisit::class => \App\Policies\VetVisitPolicy::class,
+        \App\Models\TreatmentCourse::class => \App\Policies\TreatmentCoursePolicy::class,
+        \App\Models\Medicine::class => \App\Policies\MedicinePolicy::class,
+        \App\Models\MedicationDosingEvent::class => \App\Policies\MedicationDosingEventPolicy::class,
+        \App\Models\ScheduledDose::class => \App\Policies\ScheduledDosePolicy::class,
+        \App\Models\HealthRecord::class => \App\Policies\HealthRecordPolicy::class,
+        \App\Models\MedicationAdministration::class => \App\Policies\MedicationAdministrationPolicy::class,
         Farrowing::class => FarrowingPolicy::class,
         Mating::class => MatingPolicy::class,
         Weaning::class => WeaningPolicy::class,
@@ -239,6 +247,13 @@ class AppServiceProvider extends ServiceProvider
 
         Route::bind('pig', function ($value) use ($scopeToOrganization) {
             return $scopeToOrganization(PigManagement::find($value));
+        });
+
+        // Health history stays reachable after a pig is sold or dies (they are
+        // soft-deleted). Only the health routes use this binding; every other
+        // {pig} route still refuses departed animals.
+        Route::bind('healthPig', function ($value) use ($scopeToOrganization) {
+            return $scopeToOrganization(PigManagement::withTrashed()->find($value));
         });
 
         Route::bind('farrowing', function ($value) use ($scopeToOrganization) {

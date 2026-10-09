@@ -31,8 +31,20 @@ class InventoryBalance extends Model
 
     public const ITEM_KIND_RAW_MATERIAL  = 'raw_material';
     public const ITEM_KIND_FINISHED_FEED = 'finished_feed';
+    public const ITEM_KIND_MEDICINE_BATCH = 'medicine_batch';
 
     public const ALLOWED_ITEM_KINDS = [
+        self::ITEM_KIND_RAW_MATERIAL,
+        self::ITEM_KIND_FINISHED_FEED,
+        self::ITEM_KIND_MEDICINE_BATCH,
+    ];
+
+    /**
+     * Kinds whose value is posted to the general ledger (inventory 1210/1220).
+     * Medicine stock is costed in the ledger but not posted (decision D10), so
+     * finance totals and the period-close check read only these kinds.
+     */
+    public const GL_POSTED_ITEM_KINDS = [
         self::ITEM_KIND_RAW_MATERIAL,
         self::ITEM_KIND_FINISHED_FEED,
     ];

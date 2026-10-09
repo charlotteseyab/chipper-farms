@@ -78,7 +78,7 @@ class ListingDetailPresenter
         }
 
         $attrs = [
-            'traceability_id' => $pig->ear_tag_number ?? null,
+            'traceability_id' => $pig->code ?? null,
             'breed'           => $this->cleanBreed($pig->breed ?? null),
             'sex'             => $pig->gender ?? null,
             'class'           => $pig->stock_type ?? null,

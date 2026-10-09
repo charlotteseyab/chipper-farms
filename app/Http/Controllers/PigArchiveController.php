@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PigletDeath;
 use App\Models\PigManagement;
 use App\Services\Archive\RestoreArchivedRecordService;
+use App\Services\Stock\StockValidationException;
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
@@ -29,14 +30,15 @@ class PigArchiveController extends Controller
         $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
 
         $archived = PigManagement::onlyTrashed()
-            ->with(['deaths', 'sales'])
+            ->with(['deaths', 'sales', 'earTagAssignments.tag.color'])
             ->orderByDesc('deleted_at');
 
         $search = (string) $request->string('search');
         if ($search !== '') {
             $archived->where(function ($q) use ($search) {
                 $q->where('ear_tag_number', 'like', "%{$search}%")
-                  ->orWhere('code', 'like', "%{$search}%");
+                  ->orWhere('code', 'like', "%{$search}%")
+                  ->orWhereHas('earTagAssignments.tag', fn ($tags) => $tags->where('normalized_tag_number', \App\Models\EarTag::normalizeNumber($search)));
             });
         }
 
@@ -54,7 +56,7 @@ class PigArchiveController extends Controller
         $pigs = $archived->paginate(15)->withQueryString();
 
         $pigletDeaths = PigletDeath::onlyTrashed()
-            ->with(['farrowing.sow', 'recordedBy'])
+            ->with(['farrowing.sow.earTagAssignments.tag.color', 'recordedBy'])
             ->orderByDesc('deleted_at')
             ->paginate(10);
 
@@ -68,7 +70,12 @@ class PigArchiveController extends Controller
         // Per-instance: admin only (with same-org guard).
         $this->authorize('restore', $pig);
 
-        $service->restorePig($pig, $request->user());
+        try {
+            $service->restorePig($pig, $request->user());
+        } catch (StockValidationException $exception) {
+            return redirect()->route('settings.ear-tags.reconciliation', ['q' => $pig->ear_tag_number])
+                ->withErrors(['ear_tag_number' => $exception->getMessage()]);
+        }
 
         return redirect()->route('audit-trail.index', ['tab' => 'archived'])
             ->with('success', "Pig {$pig->code} has been restored to active records.");

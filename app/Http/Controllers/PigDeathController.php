@@ -53,10 +53,10 @@ class PigDeathController extends Controller
     {
         $this->authorize('viewAny', PigDeath::class);
 
-        $adultQuery = PigDeath::with(['pig'])
+        $adultQuery = PigDeath::with(['pig.earTagAssignments.tag.color'])
             ->whereHas('pig', fn ($q) => $q->whereRaw('DATEDIFF(death_date, date_of_birth) >= 60'));
 
-        $pigletQuery = PigDeath::with(['pig'])
+        $pigletQuery = PigDeath::with(['pig.earTagAssignments.tag.color'])
             ->whereHas('pig', fn ($q) => $q->whereRaw('DATEDIFF(death_date, date_of_birth) < 60'));
 
         foreach ([$adultQuery, $pigletQuery] as $q) {

@@ -9,6 +9,8 @@ use App\Models\PigManagement;
 use App\Models\User;
 use App\Services\Audit\AuditTrailService;
 use App\Services\DomainEvents\DispatchDomainEvent;
+use App\Services\Stock\Tags\EarTagAssignmentService;
+use App\Services\Stock\Tags\EarTagShadowService;
 use App\Support\CurrentOrganization;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +38,8 @@ class RecordPigDeathService
         protected DispatchDomainEvent $dispatcher,
         protected CurrentOrganization $currentOrganization,
         protected AuditTrailService $audit,
+        protected EarTagAssignmentService $tagAssignments,
+        protected EarTagShadowService $tagShadow,
     ) {
     }
 
@@ -60,6 +64,9 @@ class RecordPigDeathService
         $organizationId = $this->currentOrganization->requireId();
 
         return DB::transaction(function () use ($pig, $actor, $data, $organizationId) {
+            $tagOutcome = $data['tag_outcome'] ?? \App\Models\EarTag::PENDING_RECOVERY;
+            $tagNotes = $data['tag_condition_notes'] ?? null;
+            unset($data['tag_outcome'], $data['tag_condition_notes']);
             $death = new PigDeath([
                 'pig_id'          => $pig->id,
                 'death_date'      => $data['death_date'],
@@ -79,6 +86,15 @@ class RecordPigDeathService
 
             $death->setRelation('pig', $pig);
             $death->save();
+
+            $tagAssignment = $pig->currentEarTagAssignment()->first()
+                ?? $this->tagShadow->syncNewPig($pig, $actor);
+            if ($tagAssignment) {
+                $this->tagAssignments->release(
+                    $tagAssignment, $tagOutcome, 'mortality', $actor,
+                    $data['death_date'], $tagNotes,
+                );
+            }
 
             if (! $pig->trashed()) {
                 $pig->delete();

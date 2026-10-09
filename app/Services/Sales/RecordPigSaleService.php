@@ -10,6 +10,8 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\Audit\AuditTrailService;
 use App\Services\DomainEvents\DispatchDomainEvent;
+use App\Services\Stock\Tags\EarTagAssignmentService;
+use App\Services\Stock\Tags\EarTagShadowService;
 use App\Support\CurrentOrganization;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -32,6 +34,8 @@ class RecordPigSaleService
         protected DispatchDomainEvent $dispatcher,
         protected CurrentOrganization $currentOrganization,
         protected AuditTrailService $audit,
+        protected EarTagAssignmentService $tagAssignments,
+        protected EarTagShadowService $tagShadow,
     ) {
     }
 
@@ -48,6 +52,9 @@ class RecordPigSaleService
         $organizationId = $this->currentOrganization->requireId();
 
         return DB::transaction(function () use ($pig, $actor, $data, $organizationId) {
+            $tagOutcome = $data['tag_outcome'] ?? \App\Models\EarTag::PENDING_RECOVERY;
+            $tagNotes = $data['tag_condition_notes'] ?? null;
+            unset($data['tag_outcome'], $data['tag_condition_notes']);
             // THE ANIMAL IS LOCKED BEFORE ANYTHING ELSE.
             //
             // Without this, two paths could sell the same pig at the same
@@ -78,6 +85,16 @@ class RecordPigSaleService
             // and already carries a sale; either is proof the race was lost.
             if ($locked->trashed() || $locked->sales()->exists()) {
                 throw new \RuntimeException('This pig has already been sold.');
+            }
+
+            // Medicine withdrawal blocks EVERY sale path — the gate, a carcass
+            // sale of a dead pig, a storefront approval — because they all end
+            // here. Checked under the lock so a dose recorded a moment ago is
+            // seen (decision D8: no override).
+            $withdrawal = app(\App\Services\Health\WithdrawalStatusService::class);
+            $status = $withdrawal->forPig($locked, CarbonImmutable::parse($data['sale_date'] ?? now())->toDateString());
+            if ($status['restricted']) {
+                throw new \App\Services\Health\Exceptions\PigUnderWithdrawalException($withdrawal->message($status));
             }
 
             // Normalise weight.
@@ -140,6 +157,15 @@ class RecordPigSaleService
             $data['pig_id'] = $pig->id;
 
             $sale = PigSale::create($data);
+
+            $tagAssignment = $locked->currentEarTagAssignment()->first()
+                ?? $this->tagShadow->syncNewPig($locked, $actor);
+            if ($tagAssignment) {
+                $this->tagAssignments->release(
+                    $tagAssignment, $tagOutcome, 'sale', $actor,
+                    $sale->sale_date, $tagNotes,
+                );
+            }
 
             if (! $pig->trashed()) {
                 $pig->delete();

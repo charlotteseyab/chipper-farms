@@ -1,4 +1,5 @@
 <x-app-layout>
+    <x-feed-hub hub="store" />
     @php
         $statusClasses = match($purchaseRequest->status) {
             'approved' => 'bg-green-100 text-green-800',

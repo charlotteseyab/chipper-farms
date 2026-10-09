@@ -59,7 +59,7 @@ class DispatchDomainEvent
         }
 
         try {
-            return DomainEventRecord::create([
+            $record = DomainEventRecord::create([
                 'organization_id'        => $event->source->organizationId,
                 'event_type'             => $event->type(),
                 'idempotency_key'        => $key,
@@ -72,6 +72,15 @@ class DispatchDomainEvent
                 'occurred_at'            => $event->occurredAt,
                 'dispatched_by_user_id'  => $event->dispatchedByUserId,
             ]);
+
+            // Post to finance as soon as the surrounding save commits. If the
+            // save rolls back, Laravel discards this callback with it.
+            if (\App\Finance\Outbox\InstantEventPoster::appliesTo($record->event_type)) {
+                $recordId = (int) $record->id;
+                DB::afterCommit(fn () => app(\App\Finance\Outbox\InstantEventPoster::class)->post($recordId));
+            }
+
+            return $record;
         } catch (QueryException $e) {
             // Race with another concurrent dispatch of the same event.
             // The unique constraint won. Return the record the other actor

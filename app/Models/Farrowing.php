@@ -84,12 +84,12 @@ class Farrowing extends Model implements ResolvesOrganization
     // Relationships
     public function sow()
     {
-        return $this->belongsTo(PigManagement::class, 'sow_id');
+        return $this->belongsTo(PigManagement::class, 'sow_id')->withTrashed();
     }
 
     public function boar()
     {
-        return $this->belongsTo(PigManagement::class, 'boar_id');
+        return $this->belongsTo(PigManagement::class, 'boar_id')->withTrashed();
     }
 
     public function recordedBy()

@@ -621,7 +621,7 @@
                                     </td>
 
                                     <td>
-                                        <div class="standard-ear">{{ $pig->ear_tag_number }}</div>
+                                        <x-ear-tag-label :pig="$pig" />
                                     </td>
 
                                     <td>

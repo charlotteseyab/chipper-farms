@@ -1,4 +1,5 @@
 <x-app-layout>
+    <x-feed-hub hub="mill" />
     <div class="max-w-7xl mx-auto py-6 px-4"
          x-data="{
             openModal: null,
@@ -10,13 +11,16 @@
             <div>
                 <h1 class="text-2xl font-bold text-gray-800">Feed Production</h1>
                 <p class="text-sm text-gray-500">Manage feed types, recipes, production batches, and material usage.</p>
+                <a href="{{ route('feed-setup.index') }}" class="mt-1 inline-block text-sm font-semibold text-emerald-700 underline">Feed setup checklist</a>
             </div>
 
+            @if(auth()->user()->hasPermission('manage_feed_production'))
             <button type="button"
                     @click="openModal = 'feed-type'"
                     class="inline-flex items-center justify-center px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl shadow-sm transition">
                 + Add Feed Type
             </button>
+            @endif
         </div>
 
         @if(session('mix_error'))
@@ -34,32 +38,27 @@
             </div>
         @endif
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-            <div class="rounded-2xl border border-slate-100 bg-white shadow-sm p-5">
-                <p class="text-sm font-medium text-gray-500">Feed Types</p>
-                <h3 class="mt-2 text-3xl font-bold text-slate-800">{{ $stats['feed_types'] ?? 0 }}</h3>
-                <p class="mt-1 text-xs text-gray-400">Available feed products</p>
-            </div>
-
-            <div class="rounded-2xl border border-blue-100 bg-white shadow-sm p-5">
-                <p class="text-sm font-medium text-gray-500">Recipe Lines</p>
-                <h3 class="mt-2 text-3xl font-bold text-blue-700">{{ $stats['recipes'] ?? 0 }}</h3>
-                <p class="mt-1 text-xs text-gray-400">Configured recipe ingredients</p>
-            </div>
-
-            <div class="rounded-2xl border border-amber-100 bg-white shadow-sm p-5">
-                <p class="text-sm font-medium text-gray-500">Batches Mixed</p>
-                <h3 class="mt-2 text-3xl font-bold text-amber-700">{{ $stats['batches'] ?? 0 }}</h3>
-                <p class="mt-1 text-xs text-gray-400">Total recorded feed batches</p>
-            </div>
-
-            <div class="rounded-2xl border border-emerald-100 bg-white shadow-sm p-5">
-                <p class="text-sm font-medium text-gray-500">Total Feed Produced</p>
-                <h3 class="mt-2 text-3xl font-bold text-emerald-700">{{ number_format($stats['total_feed_produced'] ?? 0, 2) }} kg</h3>
-                <p class="mt-1 text-xs text-gray-400">Cumulative production output</p>
-            </div>
-        </div>
-
+        @if($errors->any())<ul class="mb-4 rounded bg-red-50 p-4 text-red-700">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>@endif
+        @if(session('success'))<p class="mb-4 rounded bg-green-50 p-4 text-green-800">{{ session('success') }}</p>@endif
+    <section class="space-y-4 mb-6"><h2 class="text-xl font-bold">Production plans</h2><p class="text-sm text-slate-500">Review the ingredients and finished quantity, then confirm once production is complete.</p>
+        @forelse($productionPlans as $plan)<details class="rounded-2xl border bg-white p-4 space-y-3" @if($loop->first && $plan->status==='planned') open @endif><summary class="font-semibold cursor-pointer">Plan #{{ $plan->id }} · {{ $plan->feedType?->name }} · {{ $plan->planned_quantity_kg }} kg · {{ ['planned' => 'Awaiting production', 'completed' => 'Completed', 'cancelled' => 'Cancelled'][$plan->status] ?? $plan->status }}</summary><p>Recipe {{ $plan->recipe_snapshot['version_id'] ?? 'legacy snapshot' }} · Planned {{ $plan->production_date->toDateString() }}</p>
+            @if($plan->status==='planned' && auth()->user()->hasPermission('manage_feed_production'))
+            <form method="POST" action="{{ route('feed-production.plans.complete',$plan) }}" class="space-y-3">@csrf
+                <div class="grid sm:grid-cols-3 gap-3"><label>Production date<input name="batch_date" type="date" max="{{ now()->toDateString() }}" value="{{ now()->toDateString() }}" required class="block rounded border-slate-300"></label><label>Finished feed produced (kg)<input name="finished_quantity_kg" type="number" min="0.0001" step="0.0001" value="{{ $plan->planned_quantity_kg }}" required class="block rounded border-slate-300"></label></div>
+                @foreach($plan->recipe_snapshot['ingredients'] as $ingredient)<label class="block">{{ $ingredient['name'] }} — expected {{ number_format($plan->planned_quantity_kg*$ingredient['quantity_per_100kg']/100,4) }} kg; actual used (kg)<input name="actual_quantities[{{ $ingredient['raw_material_id'] }}]" type="number" min="0.0001" step="0.0001" value="{{ $plan->planned_quantity_kg*$ingredient['quantity_per_100kg']/100 }}" required class="block rounded border-slate-300"></label>@endforeach
+                <button class="rounded bg-emerald-700 px-4 py-2 text-white">Confirm production and post stock</button>
+            </form>
+            <details class="rounded-xl border border-red-100 p-3"><summary class="cursor-pointer text-sm font-semibold text-red-700">Not making this? Cancel the plan</summary>
+                <form method="POST" action="{{ route('feed-production.plans.cancel', $plan) }}" class="mt-3 flex flex-wrap items-end gap-3">@csrf
+                    <label class="flex-1 text-sm">Reason<input name="reason" required minlength="5" maxlength="2000" class="mt-1 block w-full rounded border-slate-300 text-sm"></label>
+                    <button class="rounded bg-red-600 px-4 py-2 text-sm font-semibold text-white">Cancel plan</button>
+                </form>
+            </details>
+            @elseif($plan->status === 'cancelled')<p class="text-sm text-slate-500">Cancelled {{ $plan->cancelled_at?->format('j M Y') }}: {{ $plan->cancellation_reason }}</p>
+            @elseif($plan->feed_batch_id)<p>Completed as batch #{{ $plan->feed_batch_id }}. Inventory already posted.</p>@endif
+        </details>@empty<p>No production plans. Create one from Feed Planning when finished feed is short.</p>@endforelse
+    </section>
+        <details class="mb-6 rounded-2xl border bg-white p-4" @if($errors->any() || session('mix_error')) open @endif><summary class="cursor-pointer font-semibold mb-4">Feed types, recipes and direct mixing</summary>
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
             <div class="xl:col-span-2 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
                 <div class="border-b border-gray-100 px-6 py-4">
@@ -76,17 +75,18 @@
                                     <p class="mt-1 text-sm text-gray-500">{{ $feedType->notes ?: 'No notes added for this feed type.' }}</p>
                                 </div>
 
+                                @if(auth()->user()->hasPermission('manage_feed_production'))
                                 <button type="button"
                                         @click="
                                             selectedFeedTypeId = '{{ $feedType->id }}';
                                             recipeItems = [
-                                                @foreach($feedType->recipes as $recipe)
+                                                @foreach($currentRecipes[$feedType->id]['ingredients'] as $recipe)
                                                     {
-                                                        raw_material_id: '{{ $recipe->raw_material_id }}',
-                                                        quantity_per_100kg: '{{ (float) $recipe->quantity_per_100kg }}'
+                                                        raw_material_id: '{{ $recipe['raw_material_id'] }}',
+                                                        quantity_per_100kg: '{{ (float) $recipe['quantity_per_100kg'] }}'
                                                     },
                                                 @endforeach
-                                                @if($feedType->recipes->isEmpty())
+                                                @if(empty($currentRecipes[$feedType->id]['ingredients']))
                                                     { raw_material_id: '', quantity_per_100kg: '' }
                                                 @endif
                                             ];
@@ -95,6 +95,7 @@
                                         class="inline-flex items-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition">
                                     Set Recipe
                                 </button>
+                                @endif
                             </div>
 
                             <div class="mt-4 overflow-x-auto max-h-64 overflow-y-auto rounded-xl border border-gray-100">
@@ -106,19 +107,19 @@
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-100 bg-white">
-                                        @forelse($feedType->recipes as $recipe)
+                                        @forelse($currentRecipes[$feedType->id]['ingredients'] as $recipe)
                                             <tr>
                                                 <td class="px-4 py-3 text-sm font-medium text-gray-800">
-                                                    {{ $recipe->rawMaterial->name ?? '—' }}
+                                                    {{ $recipe['name'] ?? '—' }}
                                                 </td>
                                                 <td class="px-4 py-3 text-sm text-gray-700">
-                                                    {{ number_format($recipe->quantity_per_100kg, 2) }} kg
+                                                    {{ number_format($recipe['quantity_per_100kg'], 2) }} kg
                                                 </td>
                                             </tr>
                                         @empty
                                             <tr>
                                                 <td colspan="2" class="px-4 py-5 text-center text-sm text-gray-500">
-                                                    No recipe has been configured yet.
+                                                    {{ $currentRecipes[$feedType->id]['error'] ?? 'No recipe has been configured yet.' }}
                                                 </td>
                                             </tr>
                                         @endforelse
@@ -130,11 +131,13 @@
                         <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center">
                             <h3 class="text-base font-semibold text-gray-700">No feed types yet</h3>
                             <p class="mt-1 text-sm text-gray-500">Create your first feed type to begin recipe setup.</p>
+                            @if(auth()->user()->hasPermission('manage_feed_production'))
                             <button type="button"
                                     @click="openModal = 'feed-type'"
                                     class="mt-4 inline-flex items-center rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
                                 + Add Feed Type
                             </button>
+                            @endif
                         </div>
                     @endforelse
                 </div>
@@ -142,11 +145,13 @@
 
             <div class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
                 <div class="border-b border-gray-100 px-6 py-4">
-                    <h2 class="text-base font-semibold text-gray-800">Mix Feed</h2>
-                    <p class="text-sm text-gray-500 mt-1">Create a production batch from an existing recipe.</p>
+                    <h2 class="text-base font-semibold text-gray-800">Record a batch without a plan</h2>
+                    <p class="text-sm text-gray-500 mt-1">For a batch without a plan. Submitting this form immediately deducts the recipe ingredients and adds finished feed.</p>
                 </div>
 
+                @if(auth()->user()->hasPermission('manage_feed_production'))
                 <form action="{{ route('feed-production.mix') }}" method="POST" class="p-6 space-y-5">
+                    <input type="hidden" name="submission_key" value="{{ old('submission_key', (string) \Illuminate\Support\Str::uuid()) }}">
                     @csrf
 
                     <div>
@@ -192,12 +197,14 @@
 
                     <button type="submit"
                             class="w-full inline-flex items-center justify-center rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 transition">
-                        Mix Feed Batch
+                        Confirm batch and update stock
                     </button>
                 </form>
+                @endif
             </div>
         </div>
 
+        </details>
         <div class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
             <div class="border-b border-gray-100 px-6 py-4">
                 <h2 class="text-base font-semibold text-gray-800">Production Log</h2>
@@ -214,14 +221,16 @@
                             <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Total Cost</th>
                             <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Mixed By</th>
                             <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Ingredients Used</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500"><span class="sr-only">Actions</span></th>
                         </tr>
                     </thead>
 
                     <tbody class="divide-y divide-gray-100 bg-white">
                         @forelse($feedBatches as $batch)
-                            <tr class="hover:bg-gray-50 transition">
+                            <tr class="hover:bg-gray-50 transition {{ $batch->isReversed() ? 'opacity-60' : '' }}">
                                 <td class="px-6 py-4 text-sm text-gray-700">
                                     {{ optional($batch->batch_date)->format('M d, Y') }}
+                                    @if($batch->isReversed())<span class="mt-1 block w-fit rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Reversed</span>@endif
                                 </td>
 
                                 <td class="px-6 py-4">
@@ -233,6 +242,7 @@
 
                                 <td class="px-6 py-4 text-sm font-semibold text-gray-800">
                                     {{ number_format($batch->batch_size_kg, 2) }} kg
+                                    @if($batch->recipe_snapshot)<p class="text-xs text-slate-500">Planned {{ $batch->planned_quantity_kg }} kg · Recipe {{ $batch->recipe_snapshot['version_id'] ?? 'legacy snapshot' }}</p><details><summary>Recipe used / expected ingredients</summary>@foreach($batch->recipe_snapshot['ingredients'] as $ingredient)<p>{{ $ingredient['name'] }}: {{ $ingredient['quantity_per_100kg'] }}% · expected {{ number_format($batch->planned_quantity_kg * $ingredient['quantity_per_100kg']/100,4) }} kg</p>@endforeach</details>@else<p class="text-xs">Legacy batch — recorded actual ingredients retained.</p>@endif
                                 </td>
 
                                 <td class="px-6 py-4 text-sm font-semibold text-gray-800">
@@ -248,15 +258,29 @@
                                         @foreach($batch->items as $item)
                                             <div class="text-xs text-gray-600">
                                                 <span class="font-medium text-gray-800">{{ $item->rawMaterial->name ?? '—' }}</span>
-                                                — {{ number_format($item->quantity_used, 2) }} kg
+                                                — {{ number_format($item->quantity_used, 2) }} {{ $item->rawMaterial->unit ?? 'kg' }}
                                             </div>
                                         @endforeach
                                     </div>
                                 </td>
+                                <td class="px-6 py-4 align-top">
+                                    @if($batch->isReversed())
+                                        <p class="max-w-[14rem] text-xs text-slate-500">{{ $batch->reversed_at->format('j M Y') }} by {{ $batch->reverser?->name ?? '—' }}: {{ $batch->reversal_reason }}</p>
+                                    @elseif(auth()->user()->hasPermission('manage_feed_production'))
+                                        <details class="text-sm">
+                                            <summary class="cursor-pointer font-semibold text-red-700">Reverse</summary>
+                                            <form method="POST" action="{{ route('feed-production.batches.reverse', $batch) }}" class="mt-2 w-56 space-y-2">@csrf
+                                                <p class="text-xs text-slate-500">Puts the ingredients back and removes the finished feed. Only possible before any of it is fed or sold.</p>
+                                                <input name="reason" required minlength="5" maxlength="2000" placeholder="Reason" class="block w-full rounded border-slate-300 text-sm">
+                                                <button class="rounded bg-red-600 px-3 py-1.5 text-xs font-semibold text-white">Reverse batch</button>
+                                            </form>
+                                        </details>
+                                    @endif
+                                </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-6 py-12 text-center">
+                                <td colspan="7" class="px-6 py-12 text-center">
                                     <div class="flex flex-col items-center justify-center">
                                         <div class="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-400">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -329,6 +353,8 @@
                 </div>
 
                 <form action="{{ route('feed-production.recipes.store') }}" method="POST" class="p-6 space-y-5">
+                    <label class="block text-sm">Recipe effective from<input type="date" name="effective_from" min="{{ now()->toDateString() }}" value="{{ now()->toDateString() }}" required class="block rounded border-slate-300"></label>
+                    <label class="block text-sm">Status<select name="is_active" class="block rounded border-slate-300"><option value="1">Active</option><option value="0">Inactive</option></select></label><p class="text-sm text-slate-500">Save a new version. Ingredients must total 100 kg per 100 kg; previous production recipes remain unchanged.</p>
                     @csrf
 
                     <input type="hidden" name="feed_type_id" :value="selectedFeedTypeId">
@@ -397,4 +423,7 @@
     <style>
         [x-cloak] { display: none !important; }
     </style>
+    <section class="max-w-7xl mx-auto p-6 !pb-24"><details class="rounded-xl border bg-white p-4"><summary class="font-bold">Recipe version history</summary>
+        @foreach($recipeVersions as $version)<article class="border-t py-3"><strong>{{ $version->feedType?->name }} · Version #{{ $version->id }}</strong><p>Effective {{ $version->effective_from->toDateString() }} · {{ $version->is_active ? 'Active' : 'Inactive' }}</p>@foreach($version->ingredients as $ingredient)<p>{{ $ingredient['name'] }}: {{ $ingredient['quantity_per_100kg'] }}%</p>@endforeach</article>@endforeach
+    </details></section>
 </x-app-layout>

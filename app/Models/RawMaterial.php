@@ -31,10 +31,12 @@ class RawMaterial extends Model
     use \App\Models\Concerns\BelongsToOrganization;
 
     protected $fillable = [
+        'is_active',
         'organization_id',
         'name',
         'category',
         'unit',
+        'kg_per_unit',
         'quantity_in_stock',
         'unit_cost',
         'reorder_level',
@@ -48,9 +50,28 @@ class RawMaterial extends Model
         'quantity_in_stock' => 'decimal:2',
         'unit_cost'         => 'decimal:2',
         'reorder_level'     => 'decimal:2',
+        'kg_per_unit'       => 'decimal:4',
         'inventory_account_id' => 'integer',
         'expense_account_id'   => 'integer',
     ];
+
+    public function isMeasuredInKg(): bool
+    {
+        return in_array(strtolower(trim((string) $this->unit)), ['kg', 'kgs', 'kilogram', 'kilograms'], true);
+    }
+
+    /**
+     * Kilograms in one stock unit: 1 for kg materials, the configured weight
+     * for bags and similar, or null when a recipe cannot use it yet.
+     */
+    public function kgPerUnit(): ?float
+    {
+        if ($this->isMeasuredInKg()) {
+            return 1.0;
+        }
+
+        return (float) $this->kg_per_unit > 0 ? (float) $this->kg_per_unit : null;
+    }
 
     public function stockLogs(): HasMany
     {
@@ -82,7 +103,7 @@ class RawMaterial extends Model
      */
     public function getCurrentWacAttribute(): float
     {
-        $balance = $this->inventoryBalance()->first();
+        $balance = $this->ledgerBalance();
 
         if ($balance !== null && (float) $balance->weighted_avg_cost > 0) {
             return (float) $balance->weighted_avg_cost;
@@ -96,7 +117,7 @@ class RawMaterial extends Model
      */
     public function getCurrentValueOnHandAttribute(): float
     {
-        $balance = $this->inventoryBalance()->first();
+        $balance = $this->ledgerBalance();
 
         if ($balance !== null) {
             return (float) $balance->on_hand_value;
@@ -120,9 +141,26 @@ class RawMaterial extends Model
             : 'in_stock';
     }
 
-    /** Legacy-column value displayed beside the same quantity used by the cards. */
+    /** Value on hand at average cost, from the stock ledger. */
     public function getStockValueAttribute(): float
     {
-        return (float) $this->quantity_in_stock * (float) $this->unit_cost;
+        return $this->current_value_on_hand;
+    }
+
+    /** Total raw material value on hand at average cost for the current farm. */
+    public static function ledgerStockValue(): float
+    {
+        return (float) InventoryBalance::query()
+            ->where('item_kind', InventoryBalance::ITEM_KIND_RAW_MATERIAL)
+            ->whereIn('item_id', static::query()->select('id'))
+            ->sum('on_hand_value');
+    }
+
+    /** Uses an eager-loaded balance when present to avoid a query per row. */
+    private function ledgerBalance(): ?InventoryBalance
+    {
+        return $this->relationLoaded('inventoryBalance')
+            ? $this->getRelation('inventoryBalance')
+            : $this->inventoryBalance()->first();
     }
 }

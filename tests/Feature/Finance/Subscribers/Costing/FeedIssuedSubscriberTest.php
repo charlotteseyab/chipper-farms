@@ -32,6 +32,7 @@ class FeedIssuedSubscriberTest extends TestCase
         $this->mkAcct('1220', 'Finished Feed Inventory', Account::TYPE_ASSET);
         $this->mkAcct('1230', 'Live Pig Inventory', Account::TYPE_ASSET);
         $this->mkAcct('1360', 'Biological Assets', Account::TYPE_ASSET);
+        $this->mkAcct('1320', 'Sows in Production', Account::TYPE_ASSET);
 
         // Ensure inventory mapping points to the ORG-SCOPED account, not global
         $acct1220 = Account::where('organization_id', $this->org->id)->where('code', '1220')->first();
@@ -122,12 +123,36 @@ class FeedIssuedSubscriberTest extends TestCase
         $this->assertEquals(0, JournalBatch::count());
     }
 
+    public function test_stage_issue_capitalises_into_that_stages_account(): void
+    {
+        [$issue, $domainEvent] = $this->issueFeed(100.0, 5.0, 40.0, stage: 'lactating_sow');
+        $this->assertSame('lactating_sow', $issue->feeding_stage);
+
+        $this->app->make(FeedIssuedSubscriber::class)->handle($domainEvent->id);
+
+        $batch = JournalBatch::query()->where('source_id', $issue->id)->firstOrFail();
+        $acct1320Id = Account::where('organization_id', $this->org->id)->where('code', '1320')->value('id');
+        $dr = JournalLine::query()
+            ->whereIn('journal_id', $batch->journals()->pluck('id'))
+            ->where('account_id', $acct1320Id)
+            ->first();
+        $this->assertNotNull($dr, 'Sow feed must debit the sows account, not the grower fallback');
+        $this->assertEquals('200.00', $dr->debit);
+
+        $balance = BiologicalAssetStageBalance::query()
+            ->where('group_id', $issue->group_id)
+            ->where('stage_key', 'sow')
+            ->first();
+        $this->assertNotNull($balance);
+        $this->assertSame('200.0000', (string) $balance->carrying_value);
+    }
+
     // -------- helpers --------
 
     /**
      * @return array{0: FeedIssue, 1: DomainEvent}
      */
-    protected function issueFeed(float $qty, float $unitCost, float $issueQty): array
+    protected function issueFeed(float $qty, float $unitCost, float $issueQty, ?string $stage = null): array
     {
         $invService = $this->app->make(InventoryService::class);
 
@@ -141,13 +166,14 @@ class FeedIssuedSubscriberTest extends TestCase
             feedBatchId: 1,
         );
 
-        $group = Group::create(['name' => 'G-' . uniqid(), 'type' => 'pen']);
+        $target = $stage !== null
+            ? ['feeding_stage' => $stage]
+            : ['group_id' => Group::create(['name' => 'G-' . uniqid(), 'type' => 'pen'])->id];
 
         $issuer = $this->app->make(IssueFeedToGroupService::class);
         $issue = $issuer->execute(
             actor: $this->user,
-            data: [
-                'group_id'     => $group->id,
+            data: $target + [
                 'feed_type_id' => $feedType->id,
                 'quantity_kg'  => $issueQty,
             ],

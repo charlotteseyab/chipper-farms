@@ -546,17 +546,29 @@
                         </div>
 
                         <div class="pig-section">
+                            <div class="pig-grid-2">
+                            <div class="pig-field">
+                                <label class="pig-label">Tag Colour</label>
+                                <select id="ear_tag_color_id" name="ear_tag_color_id" class="pig-select" data-searchable-select>
+                                    <option value="">Colour not recorded</option>
+                                    @foreach($tagColors as $color)
+                                        <option value="{{ $color->id }}" @selected((string) old('ear_tag_color_id') === (string) $color->id)>{{ $color->name }}</option>
+                                    @endforeach
+                                </select>
+                                <div class="pig-help">Optionally record the physical tag colour. @if($tagColors->isEmpty()) <a class="font-bold text-emerald-700 underline" href="{{ route('settings.ear-tags.reconciliation') }}">Manage tag colours</a>. @endif</div>
+                            </div>
                             <div class="pig-field">
                                 <label class="pig-label">Ear Tag Number</label>
                                 <input
                                     type="text"
-                                    name="ear_tag_number"
+                                    name="ear_tag_number" placeholder="Leave blank to allocate automatically"
                                     value="{{ old('ear_tag_number') }}"
-                                    placeholder="e.g. 1, 2, 3 or CF-001"
                                     class="pig-input"
-                                    required
+
                                 >
-                                <div class="pig-help">This should be unique for each pig in the system.</div>
+                                <div class="pig-help">The number identifies the physical tag within this farm. Colour is descriptive.</div>
+                                <div id="ear-tag-suggestions" class="pig-help"></div>
+                            </div>
                             </div>
                         </div>
 
@@ -681,7 +693,10 @@
             const structureSelect = document.getElementById('structure_id');
             const roomSelect = document.getElementById('room_id');
             const submitButton = document.getElementById('submit-button');
-            const earTagInput = document.querySelector('input[name="ear_tag_number"]');
+            const earTagInput = document.querySelector('input[name="ear_tag_number" placeholder="Leave blank to allocate automatically"]');
+            const earTagColor = document.getElementById('ear_tag_color_id');
+            const earTagSuggestions = @json($tagSuggestions);
+            const suggestionBox = document.getElementById('ear-tag-suggestions');
 
             const selectedRoomId = @json(old('room_id'));
             let earTagCheckTimeout;
@@ -737,11 +752,12 @@
 
             function checkEarTagAvailability() {
                 const earTagValue = earTagInput.value.trim();
+                const colorId = earTagColor.value;
 
                 removeFeedback('.ear-tag-warning');
                 earTagInput.classList.remove('border-red-500', 'border-green-500');
 
-                if (!earTagValue.length) {
+                if (!earTagValue.length || !colorId) {
                     updateSubmitButtonState();
                     return;
                 }
@@ -757,7 +773,7 @@
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                     },
-                    body: JSON.stringify({ ear_tag_number: earTagValue })
+                    body: JSON.stringify({ ear_tag_number: earTagValue, ear_tag_color_id: colorId })
                 })
                 .then(response => response.json())
                 .then(data => {
@@ -791,6 +807,17 @@
                 });
             }
 
+            function showTagSuggestions() {
+                const options = earTagSuggestions[earTagColor.value] || [];
+                if (!options.length) {
+                    suggestionBox.textContent = earTagColor.value ? 'Enter the number printed on the tag.' : 'Select a colour to see eligible numbers.';
+                    return;
+                }
+                const numbers = options.map(option => option.tag_number);
+                suggestionBox.textContent = `Suggested numbers: ${numbers.join(', ')}`;
+                if (!earTagInput.value.trim()) earTagInput.value = numbers[0];
+            }
+
             function loadRooms(structureId, selected = null) {
                 if (!structureId) {
                     roomSelect.disabled = true;
@@ -812,8 +839,10 @@
                             option.value = room.id;
 
                             let text = `${room.name} (${room.code}) - ${room.type}`;
-                            if (room.capacity) {
-                                text += ` - ${room.capacity} capacity`;
+                            if (room.available_space !== null) {
+                                text += ` - ${room.available_space} space${room.available_space === 1 ? '' : 's'} available`;
+                            } else {
+                                text += ' - unlimited space';
                             }
 
                             option.textContent = text;
@@ -835,9 +864,10 @@
                 const hasInbreedingIssue = document.querySelector('.inbreeding-warning') !== null;
                 const hasEarTagIssue = document.querySelector('.ear-tag-warning.error') !== null;
                 const earTagValue = earTagInput.value.trim();
+                const tagColorSelected = earTagColor.value !== '';
                 const stockTypeSelected = document.querySelector('input[name="stock_type"]:checked') !== null;
 
-                const disabled = hasInbreedingIssue || hasEarTagIssue || !earTagValue.length || !stockTypeSelected;
+                const disabled = hasInbreedingIssue || hasEarTagIssue || !earTagValue.length || !tagColorSelected || !stockTypeSelected;
 
                 submitButton.disabled = disabled;
             }
@@ -857,9 +887,14 @@
                 clearTimeout(earTagCheckTimeout);
                 earTagCheckTimeout = setTimeout(checkEarTagAvailability, 450);
             });
+            earTagColor.addEventListener('change', function () {
+                showTagSuggestions();
+                checkEarTagAvailability();
+            });
 
             updateStockTypeSelection();
             checkInbreeding();
+            showTagSuggestions();
 
             if (structureSelect.value) {
                 loadRooms(structureSelect.value, selectedRoomId);

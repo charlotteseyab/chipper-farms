@@ -121,7 +121,7 @@
             @forelse($adultDeaths as $death)
                 <tr>
                     <td>{{ $death->pig->code ?? 'N/A' }}</td>
-                    <td>{{ $death->pig->ear_tag_number ?? 'N/A' }}</td>
+                    <td>{{ $death->pig?->identityAt($death->death_date) ?? 'N/A' }}</td>
                     <td>{{ $death->death_date->format('M d, Y') }}</td>
                     <td>{{ $death->age_at_death_display ?? 'Unknown' }}</td>
                     <td>{{ $death->death_cause_display }}</td>
@@ -156,7 +156,7 @@
             @forelse($pigletDeaths as $death)
                 <tr>
                     <td>{{ $death->pig->code ?? 'N/A' }}</td>
-                    <td>{{ $death->pig->ear_tag_number ?? 'N/A' }}</td>
+                    <td>{{ $death->pig?->identityAt($death->death_date) ?? 'N/A' }}</td>
                     <td>{{ $death->age_at_death_display ?? 'Unknown' }}</td>
                     <td>{{ $death->death_date->format('M d, Y') }}</td>
                     <td>{{ $death->death_cause_display }}</td>

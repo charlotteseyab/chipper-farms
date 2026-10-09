@@ -87,7 +87,7 @@ class MatingController extends Controller
     {
         $this->authorize('viewAny', Mating::class);
         $attentionFilter = $request->string('attention')->toString();
-        $matings = Mating::with(['male', 'female', 'createdBy', 'checkedBy'])
+        $matings = Mating::with(['male.earTagAssignments.tag.color', 'female.earTagAssignments.tag.color', 'createdBy', 'checkedBy'])
             ->when($attentionFilter === 'pregnancy_checks_overdue', fn ($query) => $query->pregnancyCheckOverdue())
             ->when($attentionFilter === 'pregnancy_followups_overdue', fn ($query) => $query->pregnancyFollowUpOverdue())
             ->orderBy('planned_date', 'desc')
@@ -322,7 +322,7 @@ class MatingController extends Controller
             ->value('avg_days')
             ?? config('breeding.cycle.gestation_days', 114);
 
-        $query = Mating::with(['male', 'female', 'createdBy', 'checkedBy'])
+        $query = Mating::with(['male.earTagAssignments.tag.color', 'female.earTagAssignments.tag.color', 'createdBy', 'checkedBy'])
             ->whereIn('pregnancy_status', ['pregnant', 'farrowed'])
             ->when($attentionFilter === 'overdue', fn ($query) => $query
                 ->where('pregnancy_status', 'pregnant')

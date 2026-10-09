@@ -73,7 +73,9 @@ class PigSaleController extends Controller
             )]);
         }
 
-        return view('pigs.sale', compact('pig') + ['storefrontListingLink' => $listingLink]);
+        $withdrawal = app(\App\Services\Health\WithdrawalStatusService::class)->forPig($pig);
+
+        return view('pigs.sale', compact('pig', 'withdrawal') + ['storefrontListingLink' => $listingLink]);
     }
 
     public function record(RecordPigSaleRequest $request, RecordPigSaleService $service, $id)
@@ -95,7 +97,7 @@ class PigSaleController extends Controller
 
         try {
             $service->execute($pig, $request->user(), $request->validated());
-        } catch (\App\Storefront\Services\Exceptions\InventoryConflictException $exception) {
+        } catch (\App\Storefront\Services\Exceptions\InventoryConflictException|\App\Services\Health\Exceptions\PigUnderWithdrawalException $exception) {
             return back()->withInput()->withErrors(['sale' => $exception->getMessage()]);
         }
 

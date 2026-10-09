@@ -66,9 +66,21 @@ class RoomController extends Controller
 
     public function listByStructure(Structure $structure)
     {
-        return response()->json(
-            $structure->rooms()->orderBy('created_at', 'asc')->get(['id','name','code','type','capacity'])
-        );
+        $rooms = $structure->rooms()
+            ->withCount(['pigs as active_pigs_count' => fn ($query) => $query->active()])
+            ->orderBy('created_at', 'asc')
+            ->get(['id', 'name', 'code', 'type', 'capacity'])
+            ->filter(fn (Room $room) => $room->capacity === null
+                || (int) $room->capacity <= 0
+                || (int) $room->active_pigs_count < (int) $room->capacity)
+            ->map(function (Room $room): Room {
+                $room->setAttribute('available_space', $room->capacity === null || (int) $room->capacity <= 0
+                    ? null
+                    : max(0, (int) $room->capacity - (int) $room->active_pigs_count));
+                return $room;
+            })->values();
+
+        return response()->json($rooms);
     }
 
     public function show(Room $room)
@@ -120,8 +132,12 @@ class RoomController extends Controller
     public function apiListRoomsByStructure($structureId)
     {
         $rooms = Room::where('structure_id', $structureId)
-                     // Select only the fields needed by the frontend: 'id' and 'name'
-                     ->get(['id', 'name']);
+            ->withCount(['pigs as active_pigs_count' => fn ($query) => $query->active()])
+            ->get(['id', 'name', 'capacity'])
+            ->filter(fn (Room $room) => $room->capacity === null
+                || (int) $room->capacity <= 0
+                || (int) $room->active_pigs_count < (int) $room->capacity)
+            ->values();
 
         return response()->json($rooms);
     }

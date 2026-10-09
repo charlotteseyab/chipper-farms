@@ -13,6 +13,7 @@ use App\Models\Finance\BiologicalAssetStageTransfer;
 use App\Models\Finance\GroupCostMovement;
 use App\Models\Finance\JournalBatch;
 use App\Models\Finance\JournalPosting;
+use App\Services\Feed\FeedStageResolver;
 use App\Services\Finance\BiologicalAssets\BiologicalAssetStageResolver;
 use App\Services\Finance\BiologicalAssets\BiologicalAssetSubledgerService;
 use App\Services\Finance\Inventory\InventoryAccountResolver;
@@ -68,13 +69,17 @@ class FeedIssuedSubscriber extends Subscriber
         }
 
         $finishedFeedAcct = $this->inventoryResolver->inventoryAccountForFeedType($issue->feedType);
-        $livePigAcct = (int) $this->stageResolver->accountForGroup($issue->group_id)->id;
+        // Stage issues capitalise into that stage's account; the system stage
+        // group holds no animals, so group-based resolution would fall back.
+        $livePigAcct = (int) ($issue->feeding_stage
+            ? $this->stageResolver->accountForStage(FeedStageResolver::bioStage($issue->feeding_stage))
+            : $this->stageResolver->accountForGroup($issue->group_id))->id;
 
         $description = sprintf(
-            'Feed issued: %s × %s kg → group %s (Feed Issue #%d)',
+            'Feed issued: %s × %s kg → %s (Feed Issue #%d)',
             $issue->feedType->name,
             number_format((float) $issue->quantity_kg, 4),
-            'group#' . $issue->group_id,
+            $issue->feeding_stage ? 'stage ' . $issue->feeding_stage : 'group#' . $issue->group_id,
             $issue->id,
         );
 
@@ -170,6 +175,7 @@ class FeedIssuedSubscriber extends Subscriber
                 journalBatchId:      $batch->id,
                 sourceDomainEventId: $event->id,
                 occurredAt:          $issue->issued_at ? CarbonImmutable::instance($issue->issued_at) : null,
+                stageOverride:       $issue->feeding_stage ? FeedStageResolver::bioStage($issue->feeding_stage) : null,
             );
         });
     }

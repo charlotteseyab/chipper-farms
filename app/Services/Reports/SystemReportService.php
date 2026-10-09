@@ -53,9 +53,10 @@ class SystemReportService
             'purchased' => $purchased,
             'sold' => $current['sold'],
             'deaths' => $current['deaths'],
+            'transferred_or_culled' => $current['exits'],
             'closing' => $closing,
         ];
-        $herdMovement['variance'] = $closing - ($opening + $manuallyAdded + $purchased - $current['sold'] - $current['deaths']);
+        $herdMovement['variance'] = $closing - ($opening + $manuallyAdded + $purchased - $current['sold'] - $current['deaths'] - $current['exits']);
 
         $activeHerd = $this->pigs($organizationId)->active();
         $distribution = (clone $activeHerd)
@@ -102,7 +103,7 @@ class SystemReportService
 
         $periodLitters = $this->farrowings($organizationId)
             ->whereBetween('farrowing_date', [$from, $to])
-            ->with(['sow:id,ear_tag_number,code', 'pigletDeaths'])
+            ->with(['sow:id,organization_id,ear_tag_number,code', 'sow.earTagAssignments.tag.color', 'pigletDeaths'])
             ->orderByDesc('farrowing_date')
             ->get();
         $pigletDeaths = PigletDeath::query()
@@ -222,6 +223,8 @@ class SystemReportService
     {
         $sales = $this->sales($organizationId)->whereBetween('sale_date', [$from, $to]);
         $deaths = $this->deaths($organizationId)->whereBetween('death_date', [$from, $to])->count();
+        $exits = \App\Models\PigExit::withoutGlobalScopes()->where('organization_id', $organizationId)
+            ->whereDate('exit_date', '>=', $from->toDateString())->whereDate('exit_date', '<=', $to->toDateString())->count();
         $opening = $this->herdAsOf($organizationId, $from->subSecond());
         $newPigs = $this->pigs($organizationId)->withTrashed()->whereBetween('created_at', [$from, $to])->count();
         $populationAtRisk = $opening + $newPigs;
@@ -231,6 +234,7 @@ class SystemReportService
             'new_pigs' => $newPigs,
             'sold' => (clone $sales)->count(),
             'deaths' => $deaths,
+            'exits' => $exits,
             'revenue' => (float) ((clone $sales)->sum('sale_price') ?? 0),
             'average_sale' => (float) ((clone $sales)->avg('sale_price') ?? 0),
             'average_price_per_kg' => (float) ((clone $sales)->whereNotNull('price_per_kg')->avg('price_per_kg') ?? 0),
@@ -248,8 +252,10 @@ class SystemReportService
         $registered = $this->pigs($organizationId)->withTrashed()->where('created_at', '<=', $date)->count();
         $sold = $this->sales($organizationId)->withTrashed()->where('sale_date', '<=', $date->toDateString())->count();
         $deceased = $this->deaths($organizationId)->withTrashed()->where('death_date', '<=', $date->toDateString())->count();
+        $exited = \App\Models\PigExit::withoutGlobalScopes()->where('organization_id', $organizationId)
+            ->whereDate('exit_date', '<=', $date->toDateString())->count();
 
-        return max(0, $registered - $sold - $deceased);
+        return max(0, $registered - $sold - $deceased - $exited);
     }
 
     private function sales(int $organizationId): Builder

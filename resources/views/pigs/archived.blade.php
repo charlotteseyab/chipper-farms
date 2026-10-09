@@ -55,8 +55,8 @@
                             @endphp
                             <tr class="hover:bg-gray-50">
                                 <td class="px-4 py-4">
-                                    <div class="text-sm font-semibold text-gray-900">{{ $pig->ear_tag_number ?? 'No Tag' }}</div>
-                                    <div class="text-xs text-gray-500">{{ $pig->code }}</div>
+                                    <div class="text-sm font-semibold text-gray-900">{{ $pig->lastRecordedIdentity() }}</div>
+                                    <div class="text-xs text-gray-500">Last recorded tag · Previous holder</div>
                                 </td>
                                 <td class="px-4 py-4">
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $isPiglet ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800' }}">
@@ -130,7 +130,7 @@
                     <tbody class="bg-white divide-y divide-gray-100">
                         @forelse($pigletDeaths as $death)
                             <tr class="hover:bg-yellow-50">
-                                <td class="px-4 py-4 text-sm text-gray-900">{{ $death->farrowing->sow->ear_tag_number ?? 'N/A' }}</td>
+                                <td class="px-4 py-4 text-sm text-gray-900">{{ $death->farrowing?->sow?->identityAt($death->death_date) ?? 'N/A' }}</td>
                                 <td class="px-4 py-4 text-sm text-gray-600">{{ $death->farrowing->sow->code ?? 'N/A' }}</td>
                                 <td class="px-4 py-4 text-sm">{{ optional($death->farrowing->farrowing_date)->format('M d, Y') }}</td>
                                 <td class="px-4 py-4 text-sm">{{ optional($death->death_date)->format('M d, Y') }}</td>

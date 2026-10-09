@@ -122,7 +122,7 @@ class WeaningController extends Controller
             ->orderBy('date_of_birth', 'asc')
             ->paginate(15, ['*'], 'progress_page');
 
-        $completed = Weaning::with(['pig', 'mother', 'recordedBy', 'completedBy'])
+        $completed = Weaning::with(['pig.earTagAssignments.tag.color', 'mother', 'recordedBy', 'completedBy'])
             ->where('maturity_completed', true)
             ->orderBy('maturity_completion_date', 'desc')
             ->paginate(15, ['*'], 'completed_page');
@@ -196,6 +196,8 @@ class WeaningController extends Controller
             'proposedEarTags' => $this->earTags->propose($surviving, $organizationId),
             'suggestedGenders' => $suggestedGenders,
             'breeds' => Setting::animalBreeds(),
+            'tagColors' => \App\Models\EarTagColor::where('is_active', true)
+                ->where('normalized_name', '!=', 'unspecified')->orderBy('name')->get(),
             'rooms' => Room::with('structure')
                 ->withCount(['pigs as active_pigs_count' => fn ($query) => $query->active()])
                 ->orderBy('name')->get()
@@ -219,9 +221,9 @@ class WeaningController extends Controller
             'notes' => ['nullable', 'string', 'max:1000'],
             'animals' => ['required', 'array', 'size:' . $surviving],
             'animals.*.ear_tag_number' => [
-                'required', 'string', 'max:50', 'distinct',
-                Rule::unique('pigs_management', 'ear_tag_number')->where(fn ($query) => $query->where('organization_id', $organizationId)),
+                'required', 'string', 'max:50',
             ],
+            'animals.*.ear_tag_color_id' => ['nullable', 'integer', Rule::exists('ear_tag_colors', 'id')->where(fn ($query) => $query->where('organization_id', $organizationId)->where('is_active', true)->where('normalized_name', '!=', 'unspecified'))],
             'animals.*.gender' => ['required', Rule::in(['M', 'F'])],
             'animals.*.breed' => ['required', Rule::in(array_keys(Setting::animalBreeds()))],
             'animals.*.room_id' => ['required', 'integer', Rule::exists('rooms', 'id')->where(fn ($query) => $query->where('organization_id', $organizationId))],

@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Stock\Imports\StockExcelImportService;
 use App\Support\CurrentOrganization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
 class AnimalBreedSettingsTest extends TestCase
@@ -66,8 +67,32 @@ class AnimalBreedSettingsTest extends TestCase
         $rows = $this->app->make(StockExcelImportService::class)->sampleRows();
 
         $this->assertSame(StockExcelImportService::HEADERS, $rows[0]);
-        $this->assertSame('HAMP', $rows[1][1]);
-        $this->assertStringContainsString('Hampshire (HAMP)', $rows[1][12]);
+        $this->assertSame('Hampshire', $rows[1][2]);
         $this->assertStringNotContainsString('YORK', json_encode($rows));
+    }
+
+    public function test_stock_import_accepts_the_exact_all_stock_table_columns(): void
+    {
+        $farm = Organization::create(['name' => 'Farm A', 'slug' => 'farm-a']);
+        $this->app->make(CurrentOrganization::class)->bind($farm);
+        Setting::setAnimalBreeds(['HAMP' => 'Hampshire']);
+
+        $service = $this->app->make(StockExcelImportService::class);
+        $path = $service->buildXlsx([
+            StockExcelImportService::HEADERS,
+            ['101', 'Unspecified', 'Hampshire', 'Breeding', 'Female', '2025-01-10', '', '72 kg', 'View'],
+        ]);
+
+        try {
+            $preview = $service->preview(new UploadedFile($path, 'all-stock.xlsx', null, null, true));
+        } finally {
+            @unlink($path);
+        }
+
+        $this->assertSame([], $preview['missing_headers']);
+        $this->assertSame(1, $preview['valid_count']);
+        $this->assertSame(0, $preview['invalid_count']);
+        $this->assertSame('HAMP', $preview['valid_rows'][0]['data']['breed']);
+        $this->assertSame('72', $preview['valid_rows'][0]['data']['weight']);
     }
 }

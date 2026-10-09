@@ -46,7 +46,7 @@ class PigMortalityWriteoff extends Model
 
     public function pig(): BelongsTo
     {
-        return $this->belongsTo(PigManagement::class, 'pig_id');
+        return $this->belongsTo(PigManagement::class, 'pig_id')->withTrashed();
     }
 
     public function group(): BelongsTo

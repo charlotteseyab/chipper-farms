@@ -116,7 +116,7 @@
                                 @endphp
                                 <tr>
                                     <td class="py-2 font-medium text-slate-800">
-                                        {{ $row->pig?->ear_tag_number ?: ('Pig #' . $row->pig_id) }}
+                                        {{ ($row->pig?->trashed() ? $row->pig->lastRecordedIdentity().' (previous tag)' : $row->pig?->identityAt()) ?: ('Pig #' . $row->pig_id) }}
                                     </td>
                                     <td class="py-2 text-slate-500">
                                         {{ \App\Models\Setting::breedName($row->pig?->breed) ?: '—' }}

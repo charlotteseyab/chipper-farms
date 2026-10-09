@@ -453,20 +453,41 @@
                         </div>
 
                         <div class="pig-section">
-                            <div class="pig-field">
-                                <label class="pig-label">Ear Tag Number</label>
-                                <input
-                                    type="text"
-                                    name="ear_tag_number"
-                                    required
-                                    value="{{ old('ear_tag_number', $breedingStock->ear_tag_number) }}"
-                                    placeholder="e.g. CF-001 or farm ear tag"
-                                    class="pig-input"
-                                >
-                                <div class="pig-help">This must stay unique across the pig records in the system.</div>
-                                @error('ear_tag_number')
-                                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                                @enderror
+                            @php
+                                $currentTag = $breedingStock->currentEarTagAssignment?->tag;
+                                $tagColour = $currentTag?->color;
+                                $confirmedColour = $tagColour && $tagColour->normalized_name !== 'unspecified';
+                                $tagDot = $confirmedColour && preg_match('/^#[0-9A-Fa-f]{6}$/', (string) $tagColour->hex_color)
+                                    ? $tagColour->hex_color : '#CBD5E1';
+                            @endphp
+                            <div class="pig-section-title">Physical Ear Tag</div>
+                            <div class="pig-grid-2">
+                                <div class="pig-field">
+                                    <label class="pig-label">Tag Colour</label>
+                                    <div class="pig-input flex items-center gap-3 bg-slate-100 text-slate-700">
+                                        <span class="h-4 w-4 shrink-0 rounded-full border border-slate-300" style="background-color: {{ $tagDot }}"></span>
+                                        <span class="font-semibold">{{ $confirmedColour ? $tagColour->name : 'Colour not confirmed' }}</span>
+                                    </div>
+                                </div>
+                                <div class="pig-field">
+                                    <label class="pig-label">Tag Number</label>
+                                    <input type="text" name="ear_tag_number" required readonly
+                                           value="{{ old('ear_tag_number', $breedingStock->ear_tag_number) }}"
+                                           class="pig-input bg-slate-100 text-slate-700">
+                                    @error('ear_tag_number')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                            </div>
+                            <div class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                                <p class="text-xs leading-5 text-slate-600">Tag identity cannot be overwritten during an ordinary animal edit. This protects the animal’s tag history.</p>
+                                @if($breedingStock->currentEarTagAssignment)
+                                    @if($confirmedColour)
+                                        <a href="{{ route('pigs.ear-tag.replace', $breedingStock) }}" class="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-800">Replace physical tag</a>
+                                    @else
+                                        <a href="{{ route('settings.ear-tags.reconciliation', ['q' => $breedingStock->ear_tag_number]) }}" class="rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700">Confirm tag colour</a>
+                                    @endif
+                                @else
+                                    <a href="{{ route('settings.ear-tags.reconciliation', ['q' => $breedingStock->ear_tag_number]) }}" class="rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700">Reconcile tag</a>
+                                @endif
                             </div>
                         </div>
 
@@ -475,7 +496,7 @@
                             <ul class="pig-summary-list">
                                 <li>• Code: <strong>{{ $breedingStock->code ?? 'Auto-generated' }}</strong></li>
                                 <li>• Current stock type: <strong>{{ ucfirst($breedingStock->stock_type) }}</strong></li>
-                                <li>• Current ear tag: <strong>{{ $breedingStock->ear_tag_number }}</strong></li>
+                                <li>• Current ear tag: <strong>{{ $confirmedColour ? $tagColour->name.' ' : '' }}{{ $breedingStock->ear_tag_number }}</strong></li>
                             </ul>
                         </div>
                     </div>
@@ -571,66 +592,9 @@
             const motherSelect = document.getElementById('mother_id');
             const submitButton = document.getElementById('submit-button');
             const stockTypeSelect = document.querySelector('select[name="stock_type"]');
-            const earTagInput = document.querySelector('input[name="ear_tag_number"]');
-
-            let earTagCheckTimeout;
-            const originalEarTag = earTagInput.value;
 
             function removeFeedback(selector) {
                 document.querySelectorAll(selector).forEach(el => el.remove());
-            }
-
-            function checkEarTagAvailability() {
-                const earTagValue = earTagInput.value.trim();
-
-                removeFeedback('.ear-tag-warning');
-                earTagInput.classList.remove('border-red-500', 'border-green-500');
-                earTagInput.classList.add('border-gray-300');
-
-                if (earTagValue === originalEarTag || earTagValue.length === 0) {
-                    updateSubmitButtonState();
-                    return;
-                }
-
-                const loadingIndicator = document.createElement('div');
-                loadingIndicator.className = 'ear-tag-warning inline-feedback info';
-                loadingIndicator.innerHTML = 'Search Checking ear tag availability...';
-                earTagInput.parentNode.appendChild(loadingIndicator);
-
-                fetch('/api/check-ear-tag', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                    },
-                    body: JSON.stringify({ ear_tag_number: earTagValue })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    removeFeedback('.ear-tag-warning');
-
-                    const feedback = document.createElement('div');
-                    feedback.className = `ear-tag-warning inline-feedback ${data.exists ? 'error' : 'success'}`;
-                    feedback.innerHTML = data.exists
-                        ? 'This ear tag number already exists. Please choose a different one.'
-                        : 'This ear tag number is available.';
-
-                    earTagInput.parentNode.appendChild(feedback);
-
-                    if (data.exists) {
-                        earTagInput.classList.remove('border-green-500');
-                        earTagInput.classList.add('border-red-500');
-                    } else {
-                        earTagInput.classList.remove('border-red-500');
-                        earTagInput.classList.add('border-green-500');
-                    }
-
-                    updateSubmitButtonState();
-                })
-                .catch(() => {
-                    removeFeedback('.ear-tag-warning');
-                    updateSubmitButtonState();
-                });
             }
 
             function checkInbreeding() {
@@ -663,10 +627,7 @@
 
             function updateSubmitButtonState() {
                 const hasInbreedingIssue = document.querySelector('.inbreeding-warning') !== null;
-                const hasEarTagIssue = document.querySelector('.ear-tag-warning.error') !== null;
-                const earTagValue = earTagInput.value.trim();
-
-                if (hasInbreedingIssue || hasEarTagIssue || earTagValue.length === 0) {
+                if (hasInbreedingIssue) {
                     submitButton.disabled = true;
                     submitButton.classList.add('opacity-50', 'cursor-not-allowed');
                 } else {
@@ -678,11 +639,6 @@
             fatherSelect.addEventListener('change', checkInbreeding);
             motherSelect.addEventListener('change', checkInbreeding);
             stockTypeSelect.addEventListener('change', updateFormTheme);
-
-            earTagInput.addEventListener('input', function() {
-                clearTimeout(earTagCheckTimeout);
-                earTagCheckTimeout = setTimeout(checkEarTagAvailability, 450);
-            });
 
             checkInbreeding();
             updateFormTheme();

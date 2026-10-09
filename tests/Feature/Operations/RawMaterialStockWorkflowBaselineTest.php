@@ -9,6 +9,7 @@ use App\Models\RawMaterial;
 use App\Models\RawMaterialStockLog;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\Finance\Inventory\InventoryService;
 use App\Services\Inventory\ReceiveRawMaterialService;
 use App\Support\CurrentOrganization;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -261,6 +262,13 @@ class RawMaterialStockWorkflowBaselineTest extends TestCase
         $this->assertSame(73.0, (float) $material->fresh()->quantity_in_stock);
     }
 
+    public function test_adjustment_requires_a_reason_without_changing_stock(): void
+    {
+        $material = $this->makeMaterial(qty: 20);
+        $this->actingAs($this->admin)->post(route('raw-materials.adjust', $material), ['adjustment_type' => 'deduct', 'quantity' => 1])->assertSessionHasErrors('notes');
+        $this->assertSame(20.0, (float) $material->fresh()->quantity_in_stock);
+    }
+
     public function test_cannot_deduct_more_than_available(): void
     {
         $material = $this->makeMaterial(qty: 20);
@@ -269,6 +277,7 @@ class RawMaterialStockWorkflowBaselineTest extends TestCase
             ->post(route('raw-materials.adjust', $material), [
                 'adjustment_type' => 'deduct',
                 'quantity' => 50,
+                'notes' => 'Physical stock count correction',
             ])
             ->assertStatus(422);
 
@@ -300,9 +309,14 @@ class RawMaterialStockWorkflowBaselineTest extends TestCase
 
     public function test_inventory_summary_cards_use_the_same_stock_rules_as_the_alerts(): void
     {
+        // Stock enters through the ledger; the value is ledger quantity × average cost.
         RawMaterial::create(['name' => 'Empty', 'unit' => 'kg', 'quantity_in_stock' => 0, 'unit_cost' => 10, 'reorder_level' => 5]);
-        RawMaterial::create(['name' => 'Low', 'unit' => 'kg', 'quantity_in_stock' => 4, 'unit_cost' => 2, 'reorder_level' => 5]);
-        RawMaterial::create(['name' => 'Healthy', 'unit' => 'kg', 'quantity_in_stock' => 10, 'unit_cost' => 3, 'reorder_level' => 5]);
+        $low = RawMaterial::create(['name' => 'Low', 'unit' => 'kg', 'quantity_in_stock' => 0, 'unit_cost' => 2, 'reorder_level' => 5]);
+        $healthy = RawMaterial::create(['name' => 'Healthy', 'unit' => 'kg', 'quantity_in_stock' => 0, 'unit_cost' => 3, 'reorder_level' => 5]);
+        $inventory = app(InventoryService::class);
+        $inventory->recordReceive('raw_material', $low->id, 4, 2, 'stock_log', 990001);
+        $inventory->recordReceive('raw_material', $healthy->id, 10, 3, 'stock_log', 990002);
+        $this->assertEquals(4, $low->fresh()->quantity_in_stock, 'The ledger mirrors its quantity onto the material');
 
         $response = $this->actingAs($this->admin)->get(route('raw-materials.index'))->assertOk();
 

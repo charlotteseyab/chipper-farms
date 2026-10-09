@@ -16,6 +16,7 @@ class BiologicalAssetStageTransfer extends Model
 
     public const REASON_OPENING            = 'opening';
     public const REASON_FEED_ISSUE         = 'feed_issue';
+    public const REASON_FEED_ISSUE_REVERSAL = 'feed_issue_reversal';
     public const REASON_STAGE_PROGRESSION  = 'stage_progression';
     public const REASON_PROMOTION          = 'promotion';
     public const REASON_ACQUISITION        = 'acquisition';

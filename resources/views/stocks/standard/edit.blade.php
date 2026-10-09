@@ -14,7 +14,8 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Ear Tag Number</label>
-                            <input type="text" name="ear_tag_number" value="{{ old('ear_tag_number', $pig->ear_tag_number) }}" class="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-600 focus:border-blue-600" required>
+                            <input type="text" name="ear_tag_number" value="{{ old('ear_tag_number', $pig->ear_tag_number) }}" readonly class="w-full rounded-lg border-gray-300 bg-slate-100 text-slate-700 shadow-sm" required>
+                            <p class="mt-1 text-xs text-slate-500">Colour: <strong>{{ $pig->currentEarTagAssignment?->tag?->color?->name ?? 'Not yet confirmed' }}</strong>. @if($pig->currentEarTagAssignment)<a href="{{ route('pigs.ear-tag.replace', $pig) }}" class="font-bold text-emerald-700 underline">Replace physical tag</a>@else<a href="{{ route('settings.ear-tags.reconciliation', ['q' => $pig->ear_tag_number]) }}" class="font-bold text-emerald-700 underline">Reconcile tag</a>@endif</p>
                             @error('ear_tag_number') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
                         </div>
                         <div>

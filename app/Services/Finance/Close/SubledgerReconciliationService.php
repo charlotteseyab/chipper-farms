@@ -105,6 +105,8 @@ class SubledgerReconciliationService
                 fn ($q) => $q->where('organization_id', $organizationId),
                 fn ($q) => $q->whereNull('organization_id'),
             )
+            // Medicine stock is not posted to the GL, so it is not in 1210/1220.
+            ->whereIn('item_kind', InventoryBalance::GL_POSTED_ITEM_KINDS)
             ->get()
             ->reduce(fn (string $carry, InventoryBalance $b) => $this->decAdd($carry, (string) $b->on_hand_value), '0');
 

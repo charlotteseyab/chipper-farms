@@ -857,7 +857,7 @@
                                                 <div class="farrowing-sow">
                                                     <!-- <div class="farrowing-sow-avatar">Sow</div> -->
                                                     <div class="farrowing-sow-meta">
-                                                        <div class="farrowing-sow-tag">{{ $farrowing->sow->ear_tag_number }}</div>
+                                                        <div class="farrowing-sow-tag">{{ $farrowing->sow?->identityAt($farrowing->farrowing_date) }}</div>
                                                         <div class="farrowing-sow-code">{{ $farrowing->sow->code }}</div>
                                                     </div>
                                                 </div>

@@ -1,8 +1,32 @@
 <x-app-layout>
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10">
-        <div class="mb-6">
-            <h1 class="text-2xl font-bold text-gray-900">Health Records</h1>
-            <p class="mt-1 text-sm text-gray-500">Only animals with a saved health record are shown here. Select an animal when adding a new record.</p>
+        <div class="mb-6 flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Health</h1>
+                <p class="mt-1 text-sm text-gray-500">What needs attention today, then every animal with a health record.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ route('health.worklist') }}" class="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white">Treatment worklist</a>
+                @can('create', \App\Models\MedicationDosingEvent::class)<a href="{{ route('health.create-medication') }}" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700">Record a dose</a>@endcan
+                @can('create', \App\Models\TreatmentCourse::class)<a href="{{ route('treatment-courses.create') }}" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700">Prescribe a course</a>@endcan
+                <a href="{{ route('health.reports') }}" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700">Reports</a>
+            </div>
+        </div>
+        @php
+            $cards = [
+                ['Open cases', $counts['open_cases'], route('health.reports', ['tab' => 'cases', 'status' => 'active'])],
+                ['Doses due today or overdue', $counts['doses_due'], route('health.worklist')],
+                ['Follow-ups due', $counts['follow_ups_due'], route('health.worklist').'#follow-ups'],
+                ['Animals under withdrawal', $counts['under_withdrawal'], route('health.reports', ['tab' => 'stock']).'#withdrawal'],
+            ];
+        @endphp
+        <div class="mb-8 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            @foreach($cards as [$label, $count, $url])
+                <a href="{{ $url }}" class="rounded-xl border border-gray-100 bg-white p-4 shadow-sm transition hover:border-emerald-200 hover:shadow">
+                    <p class="text-3xl font-bold tabular-nums {{ $count > 0 ? 'text-gray-900' : 'text-gray-400' }}">{{ $count }}</p>
+                    <p class="mt-1 text-sm text-gray-600">{{ $label }}</p>
+                </a>
+            @endforeach
         </div>
         @if(request('attention') === 'open_critical')
             <div class="mb-5 flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
@@ -31,10 +55,14 @@
                         <label for="severity" class="block text-sm font-medium text-gray-700">Severity</label>
                         <select name="severity" id="severity" class="mt-1 w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm">
                             <option value="">Any Severity</option>
-                            <option value="low" @selected(request('severity')==='low')>Low</option>
-                            <option value="medium" @selected(request('severity')==='medium')>Medium</option>
-                            <option value="high" @selected(request('severity')==='high')>High</option>
+                            @foreach(\App\Models\HealthRecord::SEVERITIES as $value => $label)
+                                <option value="{{ $value }}" @selected(request('severity')===$value)>{{ $label }}</option>
+                            @endforeach
                         </select>
+                        <label class="mt-2 flex items-center gap-2 text-sm text-gray-600">
+                            <input type="checkbox" name="include_departed" value="1" @checked(request()->boolean('include_departed')) class="rounded border-gray-300">
+                            Include sold and dead pigs
+                        </label>
                     </div>
 
                     <!-- Date Range -->
@@ -67,9 +95,11 @@
                             <svg class="inline-block w-4 h-4 mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707v7l-4 4v-7a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
                             Apply Filter
                         </button>
+                        @if(auth()->user()->hasPermission('export_health_reports'))
                         <a href="{{ route('health.export', request()->query()) }}" class="w-full sm:w-auto px-4 py-2 text-sm font-medium rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition duration-150 shadow-md text-center">
                             Export CSV
                         </a>
+                        @endif
                     </div>
                 </div>
             </form>
@@ -152,6 +182,7 @@
                                     {{ $pig->code ?? $pig->ear_tag_number }}
                                 </a>
                                 <div class="text-sm text-gray-500">{{ $pig->gender === 'M' ? 'Male' : 'Female' }}</div>
+                                @if($pig->trashed())<span class="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Left the farm</span>@endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                                 <div class="font-medium">{{ $pig->breed }}</div>
@@ -198,17 +229,11 @@
                                             <a href="{{ route('health.show', $pig) }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left" role="menuitem">
                                                 View Pig Health
                                             </a>
-                                            <a href="{{ route('health.edit', $pig) }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left" role="menuitem">
-                                                Edit Record
-                                            </a>
-                                            {{-- Delete action must be a form --}}
-                                            <form method="POST" action="{{ route('health.destroy', $pig) }}" onsubmit="return confirm('Are you sure you want to delete this health record? This action cannot be undone.');">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 w-full text-left" role="menuitem">
-                                                    Delete Record
-                                                </button>
-                                            </form>
+                                            @if($hr && auth()->user()?->can('update', $hr))
+                                                <a href="{{ route('health.records.edit', $hr) }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left" role="menuitem">
+                                                    Edit Latest Record
+                                                </a>
+                                            @endif
                                         </div>
                                     </div>
                                 </div>

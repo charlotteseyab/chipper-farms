@@ -461,7 +461,10 @@ class QuoteService
                 || $user->hasPermission('view_storefront_quotes'));
 
         if ($recipients->isNotEmpty()) {
-            Notification::send($recipients, new StorefrontQuoteRequestedNotification($quote));
+            // Drop the role.permissions loaded for the filter above. Queued
+            // notifications store loaded relations and reload them, and `role`
+            // is also a plain column on users, so reloading it fails.
+            Notification::send($recipients->each->setRelations([]), new StorefrontQuoteRequestedNotification($quote));
         }
     }
 

@@ -318,7 +318,7 @@ class WeightManagementController extends Controller
         $analytics = [];
 
         if ($request->pig_id) {
-            $pig = PigManagement::with(['weights' => function($query) {
+            $pig = PigManagement::with(['earTagAssignments.tag.color', 'weights' => function($query) {
                 $query->orderBy('weigh_date', 'asc');
             }])->find($request->pig_id);
 
@@ -338,7 +338,7 @@ class WeightManagementController extends Controller
      */
     public function exportWeeklyExcel(Request $request)
     {
-        $weightsQuery = PigWeight::with('pig')
+        $weightsQuery = PigWeight::with('pig.earTagAssignments.tag.color')
             ->orderBy('pig_id')
             ->orderBy('weigh_date');
 
@@ -363,7 +363,7 @@ class WeightManagementController extends Controller
             $prev = null;
             foreach ($pigWeights as $w) {
                 $pig = $w->pig;
-                $pigEarTag = $pig->ear_tag_number ?? 'N/A';
+                $pigEarTag = $pig?->tagLabelAt($w->weigh_date) ?? 'N/A';
                 $pigCode = $pig->code ?? 'N/A';
                 $pigGender = $pig ? ($pig->gender === 'M' ? 'Male' : ($pig->gender === 'F' ? 'Female' : 'N/A')) : 'N/A';
                 $prevWeek = $prev?->target_week;
@@ -462,7 +462,7 @@ class WeightManagementController extends Controller
             'pig_id' => 'required|exists:pigs_management,id'
         ]);
 
-        $pig = PigManagement::with(['weights' => function($query) {
+        $pig = PigManagement::with(['earTagAssignments.tag.color', 'weights' => function($query) {
             $query->orderBy('weigh_date', 'asc');
         }])->find($request->pig_id);
 
@@ -523,7 +523,7 @@ class WeightManagementController extends Controller
             ->selectRaw('MAX(weigh_date) as max_date, pig_id')
             ->groupBy('pig_id');
 
-        $query = PigWeight::with(['pig', 'weightAlerts'])
+        $query = PigWeight::with(['pig.earTagAssignments.tag.color', 'weightAlerts'])
             ->joinSub($latestSub, 'latest', function($join) {
                 $join->on('pig_weights.pig_id', '=', 'latest.pig_id')
                      ->on('pig_weights.weigh_date', '=', 'latest.max_date');

@@ -144,8 +144,12 @@ class StorefrontPigletSaleTest extends StorefrontTestCase
 
         $pig = PigManagement::withTrashed()->firstOrFail();
 
-        $this->assertStringContainsString('PGL-', (string) $pig->ear_tag_number);
-        $this->assertStringContainsString($order->reference, (string) $pig->ear_tag_number);
+        // Never physically tagged, so nothing enters the tag register or its
+        // recovery queue when the piglet is sold.
+        $this->assertSame('', (string) $pig->ear_tag_number);
+        $this->assertSame(0, \App\Models\EarTagAssignment::where('pig_id', $pig->id)->count());
+        $this->assertSame(0, \App\Models\EarTag::count());
+        $this->assertNotEmpty($pig->code);
         // `acquisition_source` is where the herd records where an animal came
         // from, and there is no notes column to put it in instead.
         $this->assertStringContainsString('point-of-sale piglet', (string) $pig->acquisition_source);

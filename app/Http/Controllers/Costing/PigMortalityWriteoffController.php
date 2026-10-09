@@ -30,7 +30,7 @@ class PigMortalityWriteoffController extends Controller
         $orgId = $this->currentOrganization->id();
 
         $writeoffs = PigMortalityWriteoff::query()
-            ->with(['pigDeath.pig', 'pig', 'group', 'journalBatch', 'groupCostMovement'])
+            ->with(['pigDeath.pig.earTagAssignments.tag.color', 'pig.earTagAssignments.tag.color', 'group', 'journalBatch', 'groupCostMovement'])
             ->when(
                 $orgId !== null,
                 fn ($q) => $q->where('organization_id', $orgId),

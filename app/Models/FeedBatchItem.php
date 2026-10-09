@@ -22,9 +22,9 @@ class FeedBatchItem extends Model
     ];
 
     protected $casts = [
-        'quantity_used' => 'decimal:2',
-        'unit_cost' => 'decimal:2',
-        'total_cost' => 'decimal:2',
+        'quantity_used' => 'decimal:4',
+        'unit_cost' => 'decimal:6',
+        'total_cost' => 'decimal:4',
     ];
 
     public function feedBatch()

@@ -9,6 +9,7 @@ class FeedType extends Model
     use \App\Models\Concerns\BelongsToOrganization;
 
     protected $fillable = [
+        'is_active',
         'organization_id',
         'name',
         'notes',

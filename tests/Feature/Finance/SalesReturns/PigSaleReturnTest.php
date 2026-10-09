@@ -53,6 +53,10 @@ class PigSaleReturnTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // These tests drive the outbox and individual finance subscribers by
+        // hand, so events must stay pending until the test processes them.
+        // Instant posting has its own coverage in InstantPostingTest.
+        config(['finance.instant_posting.enabled' => false]);
         $this->setUpFinanceFixtures();
         $this->mkAcct('1230', 'Live Pig Inventory', Account::TYPE_ASSET);
         $this->mkAcct('5110', 'Cost of Pigs Sold', Account::TYPE_EXPENSE);

@@ -1,171 +1,128 @@
 <x-app-layout>
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10">
-    
-     <!-- Header and Date Filter -->
-     <!-- <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 bg-white p-6 rounded-xl shadow-lg border-l-4 border-indigo-600">
-         <div>
-             <h1 class="text-3xl font-extrabold text-gray-900 flex items-center">
-                 <svg class="w-8 h-8 mr-3 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                 </svg>
-                 Health & Medication Reports
-             </h1>
-             <p class="text-base text-gray-500 mt-1 ml-11">Comprehensive health metrics and medication administration overview for the selected period.</p>
-         </div>
-         <form method="get" class="flex items-center gap-2 mt-4 sm:mt-0">
-             <select name="days" class="rounded-md border-gray-300 focus:border-indigo-500 focus:ring-indigo-500">
-                 <option value="7" @selected(($days ?? 30)==7)>Last 7 days</option>
-                 <option value="30" @selected(($days ?? 30)==30)>Last 30 days</option>
-                 <option value="90" @selected(($days ?? 30)==90)>Last 90 days</option>
-             </select>
-             <button class="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 transition duration-150">Apply</button>
-         </form>
-     </div> -->
-
-    <!-- Summary Statistics Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        
-        <!-- Total Health Records Card -->
-        <div class="bg-white shadow-xl rounded-xl p-6 border-t-4 border-red-500">
-            <div class="text-sm font-semibold uppercase text-red-500">Total Health Records</div>
-            <div class="mt-2 text-4xl font-extrabold text-gray-900">{{ $totalHealthRecords }}</div>
-            <p class="text-sm text-gray-400 mt-2">New records in the last {{ $days ?? 30 }} days.</p>
-        </div>
-
-        <!-- Total Medications Card -->
-        <div class="bg-white shadow-xl rounded-xl p-6 border-t-4 border-teal-500">
-            <div class="text-sm font-semibold uppercase text-teal-500">Medications Administered</div>
-            <div class="mt-2 text-4xl font-extrabold text-gray-900">{{ $totalMedications }}</div>
-            <p class="text-sm text-gray-400 mt-2">Total doses given across the herd.</p>
-        </div>
-
-        <!-- Top Conditions Card -->
-        <div class="bg-white shadow-xl rounded-xl p-6 border-t-4 border-yellow-500">
-            <div class="text-sm font-semibold uppercase text-yellow-500 mb-4">Top Conditions ({{ $days ?? 30 }} days)</div>
-            <div class="space-y-3">
-                @forelse($topConditions as $c)
-                    @php
-                        // Simple calculation for visual representation
-                        $maxCount = $topConditions->first()->count;
-                        $width = $maxCount > 0 ? ($c->count / $maxCount) * 100 : 0;
-                    @endphp
-                    <div class="text-sm">
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="text-gray-700 font-medium">{{ $c->condition }}</span>
-                            <span class="text-gray-900 font-semibold">{{ $c->count }}</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2">
-                            <div class="bg-yellow-400 h-2 rounded-full" style="width: {{ $width }}%"></div>
-                        </div>
-                    </div>
-                @empty
-                    <div class="text-gray-400 text-center py-4">No significant condition data recorded.</div>
-                @endforelse
+    @php
+        $tabs = \App\Services\Health\HealthReportService::TABS;
+        $q = fn (array $extra = []) => array_merge(request()->except('page'), $extra);
+        $input = 'mt-1 block w-full rounded-lg border-slate-300 text-sm';
+        $hidden = ['medicine_id', 'pig_id'];
+        // Where each row on a paginated tab links to.
+        $link = fn ($item) => match ($tab) {
+            'cases' => route('health-cases.show', $item->id),
+            'doses' => $item->medication_dosing_event_id ? route('doses.show', $item->medication_dosing_event_id) : route('medications.show', $item->id),
+            'visits' => route('vet-visits.show', $item->id),
+            default => null,
+        };
+    @endphp
+    <div class="max-w-7xl mx-auto px-4 pt-6 pb-24 space-y-5">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <a href="{{ route('health.index') }}" class="text-sm text-slate-500 hover:text-slate-700">← Health</a>
+                <h1 class="mt-1 text-2xl font-bold text-slate-900">Health Reports</h1>
+                @unless($tab === 'stock')<p class="text-sm text-slate-500">{{ $from->format('j M Y') }} to {{ $to->format('j M Y') }}</p>@endunless
             </div>
         </div>
+
+        <nav class="flex gap-1 overflow-x-auto border-b border-slate-200" aria-label="Reports">
+            @foreach($tabs as $key => $label)
+                <a href="{{ route('health.reports', ['tab' => $key]) }}" class="whitespace-nowrap border-b-2 px-3 py-2 text-sm font-semibold {{ $tab === $key ? 'border-emerald-700 text-emerald-800' : 'border-transparent text-slate-500 hover:text-slate-700' }}">{{ $label }}</a>
+            @endforeach
+        </nav>
+
+        @if($shortened)<p class="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Reports cover at most a year. The start date was moved to {{ $from->format('j M Y') }}.</p>@endif
+
+        @unless($tab === 'stock')
+            <form method="GET" class="grid grid-cols-2 gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:grid-cols-4 lg:grid-cols-6">
+                <input type="hidden" name="tab" value="{{ $tab }}">
+                <label class="text-sm font-medium text-slate-700">From<input type="date" name="from" value="{{ $from->toDateString() }}" class="{{ $input }}"></label>
+                <label class="text-sm font-medium text-slate-700">To<input type="date" name="to" value="{{ $to->toDateString() }}" class="{{ $input }}"></label>
+                @if($tab === 'cases')
+                    <label class="text-sm font-medium text-slate-700">Status
+                        <select name="status" class="{{ $input }}"><option value="">Any</option>@foreach(\App\Services\Health\HealthReportService::CASE_STATUSES as $v => $l)<option value="{{ $v }}" @selected(($filters['status'] ?? '') === $v)>{{ $l }}</option>@endforeach</select>
+                    </label>
+                    <label class="text-sm font-medium text-slate-700">Condition<input name="condition" value="{{ $filters['condition'] ?? '' }}" class="{{ $input }}"></label>
+                    <label class="text-sm font-medium text-slate-700">Animal code<input name="pig" value="{{ $filters['pig'] ?? '' }}" class="{{ $input }}"></label>
+                    <label class="text-sm font-medium text-slate-700">Group<input name="group" value="{{ $filters['group'] ?? '' }}" placeholder="e.g. Pen 2" class="{{ $input }}"></label>
+                @elseif($tab === 'doses')
+                    <label class="text-sm font-medium text-slate-700">Medicine<input name="medicine" value="{{ $filters['medicine'] ?? '' }}" class="{{ $input }}"></label>
+                    <label class="text-sm font-medium text-slate-700">Animal code<input name="pig" value="{{ $filters['pig'] ?? '' }}" class="{{ $input }}"></label>
+                    <label class="text-sm font-medium text-slate-700">Status
+                        <select name="status" class="{{ $input }}"><option value="">All</option>@foreach(['given' => 'Given (counts)', 'corrected' => 'Corrected', 'voided' => 'Voided', 'missed' => 'Missed', 'cancelled' => 'Cancelled'] as $v => $l)<option value="{{ $v }}" @selected(($filters['status'] ?? '') === $v)>{{ $l }}</option>@endforeach</select>
+                    </label>
+                    <label class="text-sm font-medium text-slate-700">Purpose<input name="purpose" value="{{ $filters['purpose'] ?? '' }}" class="{{ $input }}"></label>
+                @elseif($tab === 'usage')
+                    <label class="text-sm font-medium text-slate-700">Group by
+                        <select name="by" class="{{ $input }}">@foreach(['medicine' => 'Medicine', 'batch' => 'Batch', 'animal' => 'Animal', 'group' => 'Group (case or course)'] as $v => $l)<option value="{{ $v }}" @selected(($filters['by'] ?? 'medicine') === $v)>{{ $l }}</option>@endforeach</select>
+                    </label>
+                    <label class="text-sm font-medium text-slate-700">Medicine<input name="medicine" value="{{ $filters['medicine'] ?? '' }}" class="{{ $input }}"></label>
+                @elseif($tab === 'visits')
+                    <label class="text-sm font-medium text-slate-700">Vet<input name="vet" value="{{ $filters['vet'] ?? '' }}" class="{{ $input }}"></label>
+                    <label class="text-sm font-medium text-slate-700">Assessment
+                        <select name="assessment" class="{{ $input }}"><option value="">Any</option>@foreach(\App\Models\VetExamination::ASSESSMENTS as $v => $l)<option value="{{ $v }}" @selected(($filters['assessment'] ?? '') === $v)>{{ $l }}</option>@endforeach</select>
+                    </label>
+                @endif
+                <div class="col-span-2 flex items-end gap-2 sm:col-span-4 lg:col-span-6">
+                    <button class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white">Apply</button>
+                    <a href="{{ route('health.reports', ['tab' => $tab]) }}" class="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-600">Reset</a>
+                    @if($canExport)<a href="{{ route('health.reports.export', ['tab' => $tab] + $q()) }}" class="ml-auto rounded-lg border border-emerald-700 px-4 py-2 text-sm font-semibold text-emerald-800">Download CSV</a>@endif
+                </div>
+            </form>
+        @endunless
+
+        @if(isset($rows))
+            <div class="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
+                <table class="w-full min-w-[900px] text-sm">
+                    <thead class="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr>@foreach(array_keys(array_diff_key($rows->first() ?? [], array_flip($hidden))) as $h)<th class="px-3 py-2">{{ $h }}</th>@endforeach</tr></thead>
+                    <tbody class="divide-y divide-slate-100">
+                        @forelse($rows as $i => $row)
+                            @php $url = $link($page->items()[$i]); @endphp
+                            <tr class="hover:bg-slate-50">
+                                @foreach(array_values(array_diff_key($row, array_flip($hidden))) as $c => $value)
+                                    <td class="px-3 py-2 align-top {{ $c === 0 ? 'whitespace-nowrap' : '' }}">@if($c === 0 && $url)<a href="{{ $url }}" class="font-semibold text-emerald-800 hover:underline">{{ $value }}</a>@else{{ $value }}@endif</td>
+                                @endforeach
+                            </tr>
+                        @empty
+                            <tr><td class="px-3 py-10 text-center text-slate-500">Nothing in this period.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <div>{{ $page->links() }}</div>
+        @endif
+
+        @if($tab === 'doses')
+            <section class="space-y-2">
+                <h2 class="font-bold text-slate-900">Scheduled doses not given</h2>
+                @include('health.partials.report-table', ['rows' => $notGiven, 'empty' => 'No missed or cancelled doses in this period.'])
+            </section>
+        @endif
+
+        @if($tab === 'usage')
+            <div class="flex flex-wrap gap-3">
+                <div class="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"><p class="text-xs uppercase text-slate-500">Cost of medicine used</p><p class="text-2xl font-bold tabular-nums">{{ number_format((float) $usage['total_cost'], 2) }}</p></div>
+                <div class="rounded-2xl border p-4 shadow-sm {{ $usage['ledger_matches'] ? 'border-emerald-100 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50 text-red-800' }}">
+                    <p class="text-xs uppercase">Stock ledger check</p>
+                    <p class="font-semibold">{{ $usage['ledger_matches'] ? 'Matches the ledger' : 'Does not match the ledger. Report this.' }}</p>
+                    <p class="text-xs">{{ $usage['allocations'] }} batch withdrawal(s) by doses still on record</p>
+                </div>
+            </div>
+            @include('health.partials.report-table', ['rows' => $usage['rows'], 'empty' => 'No medicine used in this period.'])
+            <p class="text-xs text-slate-500">Cost is the batch's cost when the dose was given. Medicine cost is not posted to the accounts (decision D10). A group is what the dose was for: the case's group name (or its condition for one animal), or the course for preventive doses.</p>
+        @endif
+
+        @if($tab === 'stock')
+            <section class="space-y-2">
+                <div class="flex items-center justify-between"><h2 class="font-bold text-slate-900">Batches in stock</h2>@if($canExport)<a href="{{ route('health.reports.export', ['tab' => 'batches']) }}" class="text-sm font-semibold text-emerald-800">Download CSV</a>@endif</div>
+                @include('health.partials.report-table', ['rows' => $batches, 'empty' => 'No medicine in stock.', 'linkKey' => 'medicine_id', 'route' => 'medicines.show'])
+            </section>
+            <section class="space-y-2">
+                <h2 class="font-bold text-slate-900">At or below reorder level</h2>
+                @include('health.partials.report-table', ['rows' => $lowStock, 'empty' => 'Nothing is low.', 'linkKey' => 'medicine_id', 'route' => 'medicines.show'])
+            </section>
+            <section id="withdrawal" class="space-y-2">
+                <div class="flex items-center justify-between"><h2 class="font-bold text-slate-900">Animals under withdrawal today ({{ $withdrawal->count() }})</h2>@if($canExport)<a href="{{ route('health.reports.export', ['tab' => 'withdrawal']) }}" class="text-sm font-semibold text-emerald-800">Download CSV</a>@endif</div>
+                @include('health.partials.report-table', ['rows' => $withdrawal, 'empty' => 'No animal on the farm is under withdrawal.', 'linkKey' => 'pig_id', 'route' => 'health.show'])
+            </section>
+        @endif
+
+        <p class="text-xs text-slate-500">Mortality and morbidity rates are not shown until their definitions are agreed.</p>
     </div>
-
-     <!-- Recent Health Records Table Card -->
-     <div class="bg-white shadow-xl rounded-xl overflow-hidden border border-gray-100 mb-8">
-         <div class="p-6">
-             <h2 class="text-xl font-semibold text-gray-900">Recent Health Records</h2>
-             <p class="text-sm text-gray-500">Latest health conditions and observations.</p>
-         </div>
-
-         <div class="overflow-x-auto">
-             <table class="min-w-full divide-y divide-gray-200">
-                 <thead class="bg-gray-50">
-                     <tr>
-                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
-                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Pig</th>
-                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Condition</th>
-                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Severity</th>
-                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Notes</th>
-                     </tr>
-                 </thead>
-                 <tbody class="bg-white divide-y divide-gray-100">
-                     @forelse($recentHealthRecords ?? [] as $hr)
-                     <tr class="hover:bg-indigo-50/50 transition duration-100">
-                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $hr->record_date->format('M d, Y') }}</td>
-                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                             @if($hr->pig)
-                                 <a href="{{ route('health.show', $hr->pig) }}" class="text-indigo-600 hover:text-indigo-800">{{ $hr->pig->code ?? $hr->pig->ear_tag_number }}</a>
-                             @else
-                                 <span class="text-gray-400">Pig unavailable</span>
-                             @endif
-                         </td>
-                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $hr->condition }}</td>
-                         <td class="px-6 py-4 whitespace-nowrap text-sm">
-                             @if($hr->severity)
-                                 <span class="px-2 py-1 text-xs rounded-full {{
-                                     $hr->severity === 'severe' ? 'bg-red-100 text-red-800' : 
-                                     ($hr->severity === 'moderate' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800')
-                                 }}">{{ ucfirst($hr->severity) }}</span>
-                             @else
-                                 <span class="text-gray-400">N/A</span>
-                             @endif
-                         </td>
-                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ Str::limit($hr->notes, 50) ?? 'N/A' }}</td>
-                     </tr>
-                     @empty
-                     <tr>
-                         <td colspan="5" class="px-6 py-10 text-center text-gray-500 bg-gray-50">
-                             <p class="text-lg">No recent health records found.</p>
-                             <p class="text-sm text-gray-400 mt-1">Check the selected time period in the filter above.</p>
-                         </td>
-                     </tr>
-                     @endforelse
-                 </tbody>
-             </table>
-         </div>
-     </div>
-
-     <!-- Recent Medications Table Card -->
-     <div class="bg-white shadow-xl rounded-xl overflow-hidden border border-gray-100">
-         <div class="p-6">
-             <h2 class="text-xl font-semibold text-gray-900">Recent Medication Administrations</h2>
-             <p class="text-sm text-gray-500">Detailed logs of recent treatments and medications.</p>
-         </div>
-
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Date</th>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Pig</th>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Medication</th>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Purpose</th>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Dosage</th>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Route</th>
-                    </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-100">
-                    @forelse($recentMedications as $m)
-                    <tr class="hover:bg-indigo-50/50 transition duration-100">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $m->administration_date->format('M d, Y') }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
-                            @if($m->pig)
-                                <a href="{{ route('health.show', $m->pig) }}" class="text-indigo-600 hover:text-indigo-800">{{ $m->pig->code ?? $m->pig->ear_tag_number }}</a>
-                            @else
-                                <span class="text-gray-400">Pig unavailable</span>
-                            @endif
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $m->medication_name }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $m->purpose ?? 'N/A' }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $m->dosage }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $m->route ?? 'N/A' }}</td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="6" class="px-6 py-10 text-center text-gray-500 bg-gray-50">
-                            <p class="text-lg">No recent medications found.</p>
-                            <p class="text-sm text-gray-400 mt-1">Check the selected time period in the filter above.</p>
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
 </x-app-layout>

@@ -57,7 +57,7 @@
         <tbody>
         @foreach($weights as $weight)
             <tr>
-                <td>{{ $weight->pig->ear_tag_number ?? '-' }}</td>
+                <td>{{ $weight->pig?->identityAt($weight->weigh_date) ?? '-' }}</td>
                 <td>{{ $weight->pig->code ?? '-' }}</td>
                 <td>
                     @if($weight->pig->gender === 'M') Male @elseif($weight->pig->gender === 'F') Female @else - @endif

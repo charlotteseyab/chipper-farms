@@ -68,6 +68,30 @@ class FarmOperationsPermissionsSeeder extends Seeder
                 'description' => 'Amend or delete medication records. Affects withdrawal-period traceability.',
                 'module'      => 'livestock',
             ],
+            'manage_vet_visits' => [
+                'description' => 'Record vet visits and the animals examined, on the vet\'s behalf.',
+                'module'      => 'livestock',
+            ],
+            'finalise_vet_visits' => [
+                'description' => 'Finalise vet visits and amend finalised notes (with a reason).',
+                'module'      => 'livestock',
+            ],
+            'manage_treatment_courses' => [
+                'description' => 'Prescribe, amend and stop treatment and preventive courses.',
+                'module'      => 'livestock',
+            ],
+            'correct_health_records' => [
+                'description' => 'Correct or void health cases and doses (with a reason). Puts medicine stock back and changes withdrawal.',
+                'module'      => 'livestock',
+            ],
+            'export_health_reports' => [
+                'description' => 'Download health, dose, medicine and vet visit reports as CSV.',
+                'module'      => 'livestock',
+            ],
+            'manage_medicine_catalogue' => [
+                'description' => 'Maintain medicines, units and label withdrawal periods.',
+                'module'      => 'livestock',
+            ],
 
             // --- Weights (module: livestock) ---
             'view_weights' => [
@@ -153,6 +177,12 @@ class FarmOperationsPermissionsSeeder extends Seeder
             'delete_health_records'     => $farmwide,
             'administer_medication'     => $withData,
             'manage_medication_records' => $farmwide,
+            'manage_vet_visits'         => $withData,
+            'finalise_vet_visits'       => $farmwide,
+            'manage_treatment_courses'  => $farmwide,
+            'manage_medicine_catalogue' => $farmwide,
+            'correct_health_records'    => $farmwide,
+            'export_health_reports'     => $withData,
 
             'view_weights'              => $withData,
             'record_weights'            => $withData,

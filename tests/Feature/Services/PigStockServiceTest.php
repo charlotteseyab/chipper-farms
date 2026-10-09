@@ -27,7 +27,8 @@ class PigStockServiceTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Organization::create(['slug' => 'chipper-farms', 'name' => 'Chipper Farms']);
+        $organization = Organization::create(['slug' => 'chipper-farms', 'name' => 'Chipper Farms']);
+        app(\App\Support\CurrentOrganization::class)->bind($organization);
         $this->service = $this->app->make(PigStockService::class);
     }
 

@@ -649,7 +649,7 @@
                                 <tr>
                                     <td><div class="allstock-code">{{ $pig->code }}</div></td>
 
-                                    <td><div class="allstock-ear">{{ $pig->ear_tag_number }}</div></td>
+                                    <td><x-ear-tag-label :pig="$pig" /></td>
 
                                     <td>
                                         <span class="allstock-chip chip-breed">

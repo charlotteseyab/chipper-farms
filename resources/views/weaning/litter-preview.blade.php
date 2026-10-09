@@ -4,7 +4,7 @@
             <div>
                 <a href="{{ route('weaning.dashboard') }}" class="text-sm font-bold text-emerald-700">← Back to weaning</a>
                 <p class="mt-4 text-xs font-extrabold uppercase tracking-[.18em] text-emerald-700">Preview before stock entry</p>
-                <h1 class="mt-1 text-2xl font-black text-slate-950 sm:text-3xl">Wean litter from sow {{ $farrowing->sow->ear_tag_number }}</h1>
+                <h1 class="mt-1 text-2xl font-black text-slate-950 sm:text-3xl">Wean litter from sow {{ $farrowing->sow?->identityAt($farrowing->farrowing_date) }}</h1>
                 <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Review every surviving piglet, correct its proposed tag, gender, breed or weight, and choose its destination room. Nothing is added until you confirm.</p>
             </div>
             <span class="self-start rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-800">{{ $surviving }} surviving piglets</span>
@@ -20,7 +20,7 @@
         <form method="POST" action="{{ route('weaning.litter-wean', $farrowing) }}" class="space-y-5">
             @csrf
             <section class="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-4 sm:p-6">
-                <div><p class="text-xs font-bold uppercase text-slate-400">Mother</p><p class="mt-1 font-black text-slate-900">{{ $farrowing->sow->ear_tag_number }}</p><p class="text-xs text-slate-500">{{ $farrowing->sow->code }}</p></div>
+                <div><p class="text-xs font-bold uppercase text-slate-400">Mother</p><p class="mt-1 font-black text-slate-900">{{ $farrowing->sow?->identityAt($farrowing->farrowing_date) }}</p><p class="text-xs text-slate-500">{{ $farrowing->sow->code }}</p></div>
                 <div><p class="text-xs font-bold uppercase text-slate-400">Father</p><p class="mt-1 font-black text-slate-900">{{ $farrowing->boar?->ear_tag_number ?? 'Not recorded' }}</p></div>
                 <div><p class="text-xs font-bold uppercase text-slate-400">Farrowed</p><p class="mt-1 font-black text-slate-900">{{ $farrowing->farrowing_date->format('d M Y') }}</p><p class="text-xs text-slate-500">{{ $currentAge }} days ago</p></div>
                 <div><p class="text-xs font-bold uppercase text-slate-400">Litter outcome</p><p class="mt-1 font-black text-slate-900">{{ $farrowing->live_births }} live births</p><p class="text-xs text-slate-500">{{ $farrowing->pigletDeaths->sum('count') }} recorded deaths</p></div>
@@ -41,8 +41,9 @@
                 <div class="border-b border-slate-100 px-5 py-5 sm:px-6"><h2 class="text-lg font-black text-slate-950">Piglet records</h2><p class="mt-1 text-sm text-slate-500">Tag suggestions continue from the latest animal in this farm. Each tag remains editable.</p></div>
                 <div class="divide-y divide-slate-100">
                     @for($index = 0; $index < $surviving; $index++)
-                        <div class="grid gap-4 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-[70px_minmax(130px,.8fr)_minmax(100px,.55fr)_minmax(160px,.8fr)_minmax(180px,1.2fr)_minmax(120px,.65fr)] xl:items-end">
+                        <div class="grid gap-4 px-5 py-5 sm:px-6 md:grid-cols-2 xl:grid-cols-[60px_minmax(120px,.7fr)_minmax(130px,.8fr)_minmax(90px,.5fr)_minmax(140px,.7fr)_minmax(170px,1fr)_minmax(110px,.6fr)] xl:items-end">
                             <div><p class="text-xs font-bold uppercase text-slate-400">Animal</p><p class="mt-2 text-xl font-black text-slate-900">{{ $index + 1 }}</p></div>
+                            <label><span class="text-xs font-bold uppercase text-slate-500">Tag colour</span><select name="animals[{{ $index }}][ear_tag_color_id]" required class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="">Select colour</option>@foreach($tagColors as $color)<option value="{{ $color->id }}" @selected((string) old("animals.$index.ear_tag_color_id") === (string) $color->id)>{{ $color->name }}</option>@endforeach</select></label>
                             <label><span class="text-xs font-bold uppercase text-slate-500">Ear tag</span><input name="animals[{{ $index }}][ear_tag_number]" value="{{ old("animals.$index.ear_tag_number", $proposedEarTags[$index] ?? '') }}" required maxlength="50" class="mt-2 w-full rounded-xl border-slate-300 text-sm font-bold"></label>
                             <label><span class="text-xs font-bold uppercase text-slate-500">Gender</span><select name="animals[{{ $index }}][gender]" class="mt-2 w-full rounded-xl border-slate-300 text-sm"><option value="M" @selected(old("animals.$index.gender", $suggestedGenders[$index]) === 'M')>Male</option><option value="F" @selected(old("animals.$index.gender", $suggestedGenders[$index]) === 'F')>Female</option></select></label>
                             <label><span class="text-xs font-bold uppercase text-slate-500">Breed</span><select name="animals[{{ $index }}][breed]" required class="mt-2 w-full rounded-xl border-slate-300 text-sm">@foreach($breeds as $code => $name)<option value="{{ $code }}" @selected(old("animals.$index.breed", $farrowing->sow->breed) === $code)>{{ $name }}</option>@endforeach</select></label>

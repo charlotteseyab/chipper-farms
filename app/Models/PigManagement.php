@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use App\Helpers\BreedingCalculator;
 class PigManagement extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, \Illuminate\Database\Eloquent\Factories\HasFactory;
     // pigs_management is the root of derived tenancy: farrowing, matings,
     // weanings, health_records, pig_weights, medication_administrations and
     // piglet_deaths all resolve their organisation through a pig. The trait is
@@ -78,6 +78,57 @@ class PigManagement extends Model
     }
 
     // Relationship to the father pig
+
+    public function delete()
+    {
+        return \Illuminate\Support\Facades\DB::transaction(function () {
+            \App\Models\Organization::whereKey($this->organization_id)->lockForUpdate()->firstOrFail();
+            $current = $this->currentEarTagAssignment()->first();
+            if ($current) {
+                app(\App\Services\Stock\Tags\EarTagAssignmentService::class)->release(
+                    $current, EarTag::PENDING_RECOVERY, 'archive', auth()->user(), now(),
+                    'Archived without a confirmed physical tag outcome.',
+                );
+                $this->ear_tag_number = '';
+            }
+            return parent::delete();
+        }, 3);
+    }
+
+    public function tagAt(mixed $date): ?string
+    {
+        return app(\App\Services\Stock\Tags\EarTagHistory::class)->numberAt($this, $date);
+    }
+
+    /** Colour and number worn at $date, e.g. "Green 5". */
+    public function tagLabelAt(mixed $date): ?string
+    {
+        return app(\App\Services\Stock\Tags\EarTagHistory::class)->labelAt($this, $date);
+    }
+
+    public function identityAt(mixed $date = null): string
+    {
+        $tag = $this->tagLabelAt($date);
+        return ($tag !== null ? "Tag {$tag} · " : '').$this->code;
+    }
+
+    public function lastRecordedIdentity(): string
+    {
+        $last = \App\Services\Stock\Tags\EarTagHistory::latestAssignment($this);
+        $label = \App\Services\Stock\Tags\EarTagHistory::label($last?->tag) ?? ($this->ear_tag_number ?: null);
+
+        return ($label !== null ? "Tag {$label} · " : '').$this->code;
+    }
+
+    public function earTagAssignments(): HasMany
+    {
+        return $this->hasMany(EarTagAssignment::class, 'pig_id');
+    }
+
+    public function currentEarTagAssignment(): HasOne
+    {
+        return $this->hasOne(EarTagAssignment::class, 'pig_id')->where('is_current', 1);
+    }
     public function father(): BelongsTo
     {
         return $this->belongsTo(PigManagement::class, 'father_id');
@@ -541,6 +592,12 @@ class PigManagement extends Model
     public function sales(): HasMany
     {
         return $this->hasMany(PigSale::class, 'pig_id');
+    }
+
+    /** Transfer out or cull. At most one per pig. */
+    public function herdExit(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(PigExit::class, 'pig_id');
     }
 
     public function deaths(): HasMany

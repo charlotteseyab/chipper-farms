@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Weight Report - {{ $pig->ear_tag_number }}</title>
+    <title>Weight Report - {{ $pig->code }}</title>
     <style>
         body {
             font-family: 'DejaVu Sans', sans-serif;
@@ -161,7 +161,7 @@
     <!-- Header -->
     <div class="header">
         <h1>Weight Analysis Report</h1>
-        <p><strong>{{ $pig->ear_tag_number }}</strong> - {{ $pig->code }}</p>
+        <p><strong>{{ $pig->code }}</strong> - {{ $pig->code }}</p>
         <p>Generated on {{ now()->format('F d, Y \a\t H:i') }}</p>
     </div>
 
@@ -172,7 +172,7 @@
             <div class="info-row">
                 <div class="info-cell">
                     <div class="info-label">Ear Tag Number:</div>
-                    <div class="info-value">{{ $pig->ear_tag_number }}</div>
+                    <div class="info-value">{{ $pig->code }}</div>
                 </div>
                 <div class="info-cell">
                     <div class="info-label">Pig Code:</div>
@@ -301,7 +301,7 @@
                     @foreach($weights as $weight)
                         <tr>
                             <td>
-                                {{ $weight->weigh_date->format('M d, Y') }}
+                                {{ $weight->weigh_date->format('M d, Y') }}<br>{{ $pig->identityAt($weight->weigh_date) }}
                                 @if($weight->weigh_date->format('H:i') !== '00:00')
                                     <br><small style="color: #64748b;">{{ $weight->weigh_date->format('H:i') }}</small>
                                 @endif

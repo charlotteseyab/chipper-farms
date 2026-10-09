@@ -111,9 +111,30 @@
                         </div>
                     </div>
 
+                    <div class="border-t border-gray-200 pt-8">
+                        <h2 class="text-xl font-bold text-gray-800 mb-2">3. Physical ear tag</h2>
+                        <p class="mb-5 text-sm text-gray-500">The animal record remains permanent. Tell the system what physically happened to this tag.</p>
+                        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+                            <div>
+                                <label for="tag-outcome" class="mb-2 block text-sm font-medium text-gray-700">Tag outcome <span class="text-red-500">*</span></label>
+                                <select id="tag-outcome" name="tag_outcome" required class="w-full rounded-lg border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500">
+                                    <option value="pending_recovery" @selected(old('tag_outcome', 'pending_recovery') === 'pending_recovery')>Not yet recovered</option>
+                                    <option value="available" @selected(old('tag_outcome') === 'available')>Recovered and reusable</option>
+                                    <option value="lost" @selected(old('tag_outcome') === 'lost')>Lost</option>
+                                    <option value="damaged" @selected(old('tag_outcome') === 'damaged')>Damaged</option>
+                                    <option value="retired" @selected(old('tag_outcome') === 'retired')>Permanently withdrawn</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="mb-2 block text-sm font-medium text-gray-700">Tag condition notes</label>
+                                <input name="tag_condition_notes" value="{{ old('tag_condition_notes') }}" placeholder="Where it was kept, damage, recovery details…" class="w-full rounded-lg border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500">
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- SECTION 3: NOTES -->
                     <div class="border-t border-gray-200 pt-8">
-                        <h2 class="text-xl font-bold text-gray-800 mb-6 border-b pb-2">3. Notes and Analysis</h2>
+                        <h2 class="text-xl font-bold text-gray-800 mb-6 border-b pb-2">4. Notes and Analysis</h2>
 
                         <!-- Veterinary Notes -->
                         <div>

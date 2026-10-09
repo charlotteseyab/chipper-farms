@@ -80,9 +80,9 @@ class PigManagementController extends Controller {
         return app(PigStockController::class)->standardCreate();
     }
     
-    public function allCreate()
+    public function allCreate(\App\Services\Stock\Tags\EarTagAllocator $tagAllocator)
     {
-        return app(PigStockController::class)->allCreate();
+        return app(PigStockController::class)->allCreate($tagAllocator);
     }
     
 

@@ -110,9 +110,16 @@ class PurchaseStockIntakeController extends Controller
                     $query->whereDoesntHave('sales')->whereDoesntHave('deaths');
                 }])
                 ->orderBy('name')
-                ->get(),
+                ->get()
+                ->filter(function (Room $room) use ($purchaseStockIntake): bool {
+                    if ($room->capacity === null || (int) $room->capacity <= 0) return true;
+                    $available = (int) $room->capacity - (int) $room->active_pigs_count;
+                    return $available >= max(1, $purchaseStockIntake->clearedQuantity());
+                })->values(),
             'statuses' => $this->statuses(),
             'proposedEarTags' => $this->service->proposeEarTagNumbers($purchaseStockIntake->clearedQuantity(), (int) $purchaseStockIntake->organization_id),
+            'tagColors' => \App\Models\EarTagColor::where('is_active', true)
+                ->where('normalized_name', '!=', 'unspecified')->orderBy('name')->get(),
             'canMaterializeLegacyPiglets' => $canMaterializeLegacyPiglets,
         ]);
     }
@@ -199,6 +206,7 @@ class PurchaseStockIntakeController extends Controller
         return $this->runAction(
             fn () => $this->service->addToStock($purchaseStockIntake, $data['ear_tag_numbers'] ?? [], [
                 'room_id' => $data['room_id'] ?? null,
+                'tag_color_ids' => $data['tag_color_ids'] ?? [],
             ]),
             'Purchased stock added to stock.'
         );
@@ -290,7 +298,33 @@ class PurchaseStockIntakeController extends Controller
                 fn ($query) => $query->where('organization_id', $this->currentOrganization->requireId())
             )],
             'ear_tag_numbers' => ['required', 'array', 'size:' . $intake->clearedQuantity()],
-            'ear_tag_numbers.*' => ['required', 'string', 'max:50', 'distinct', 'unique:pigs_management,ear_tag_number'],
+            'ear_tag_numbers.*' => ['required', 'string', 'max:50', function (string $attribute, mixed $value, \Closure $fail) {
+                $index = (int) str($attribute)->afterLast('.')->toString();
+                $colorId = request()->input("tag_color_ids.{$index}");
+                $identity = \App\Models\EarTag::normalizeNumber((string) $value);
+
+                foreach ((array) request()->input('ear_tag_numbers', []) as $otherIndex => $otherNumber) {
+                    if ((int) $otherIndex >= $index) continue;
+                    $otherColor = request()->input("tag_color_ids.{$otherIndex}") ?: 'unspecified';
+                    if ((string) ($colorId ?: 'unspecified') === (string) $otherColor && $identity === \App\Models\EarTag::normalizeNumber((string) $otherNumber)) {
+                        $fail('The same colour and tag number are repeated.');
+                        return;
+                    }
+                }
+
+                $resolvedColorId = $colorId ?: \App\Models\EarTagColor::where('normalized_name', 'unspecified')->value('id');
+                $tag = \App\Models\EarTag::where('ear_tag_color_id', $resolvedColorId)->where('normalized_tag_number', \App\Models\EarTag::normalizeNumber((string) $value))->first();
+                if (! $tag && \App\Models\PigManagement::withTrashed()->whereDoesntHave('earTagAssignments')->where('ear_tag_number', trim((string) $value))->exists()) {
+                    $fail('This legacy tag needs reconciliation before assignment.');
+                }
+                if ($tag && ($tag->status !== \App\Models\EarTag::AVAILABLE || $tag->currentAssignment()->exists())) {
+                    $fail('This tag number is already in use.');
+                }
+            }],
+            'tag_color_ids' => ['nullable', 'array', 'size:' . $intake->clearedQuantity()],
+            'tag_color_ids.*' => ['nullable', 'integer', Rule::exists('ear_tag_colors', 'id')->where(
+                fn ($query) => $query->where('organization_id', $this->currentOrganization->requireId())->where('is_active', true)->where('normalized_name', '!=', 'unspecified')
+            )],
         ];
     }
 }

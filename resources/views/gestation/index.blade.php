@@ -766,10 +766,10 @@
                                             <div class="pair-cell">
                                                 <div class="pair-inline">
                                                     <span class="gestation-chip chip-blue">Male</span>
-                                                    <strong>{{ $mating->male->ear_tag_number }}</strong>
+                                                    <strong>{{ $mating->male?->identityAt($mating->actual_date ?? $mating->planned_date) }}</strong>
                                                     <span class="text-slate-400">×</span>
                                                     <span class="gestation-chip chip-yellow">Female</span>
-                                                    <strong>{{ $mating->female->ear_tag_number }}</strong>
+                                                    <strong>{{ $mating->female?->identityAt($mating->actual_date ?? $mating->planned_date) }}</strong>
                                                 </div>
                                             </div>
                                         </td>
@@ -867,13 +867,13 @@
                                                         </div>
 
                                                         @if($mating->pregnancy_status === 'pregnant')
-                                                            <button onclick="openFarrowingModal({{ $mating->id }}, '{{ $mating->female->ear_tag_number }}', '{{ $mating->expected_farrowing_date->format('Y-m-d') }}')"
+                                                            <button onclick="openFarrowingModal({{ $mating->id }}, '{{ $mating->female?->identityAt($mating->actual_date ?? $mating->planned_date) }}', '{{ $mating->expected_farrowing_date->format('Y-m-d') }}')"
                                                                     class="gestation-menu-item"
                                                                     type="button">
                                                                 Record Farrowing
                                                             </button>
 
-                                                            <button onclick="openStatusModal({{ $mating->id }}, '{{ $mating->female->ear_tag_number }}')"
+                                                            <button onclick="openStatusModal({{ $mating->id }}, '{{ $mating->female?->identityAt($mating->actual_date ?? $mating->planned_date) }}')"
                                                                     class="gestation-menu-item"
                                                                     type="button">
                                                                 Update Status

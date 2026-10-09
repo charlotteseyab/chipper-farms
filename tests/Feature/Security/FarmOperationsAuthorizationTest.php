@@ -140,13 +140,20 @@ class FarmOperationsAuthorizationTest extends TestCase
      * is never reached — asserting 403 against id 1 would pass for the wrong
      * reason, or fail while the gate was actually fine.
      */
-    public function test_dataentry_cannot_delete_health_records(): void
+    public function test_dataentry_cannot_void_health_records(): void
     {
         $pig = $this->makePig();
+        $record = \App\Models\HealthRecord::create([
+            'pig_id'      => $pig->id,
+            'record_date' => now()->toDateString(),
+            'condition'   => 'Test condition',
+        ]);
 
         $this->actingAs($this->userWithRole('dataentry'))
-            ->delete(route('health.destroy', $pig->id))
+            ->post(route('health.records.void', $record), ['void_reason' => 'Entered by mistake'])
             ->assertForbidden();
+
+        $this->assertNull($record->fresh()->voided_at);
     }
 
     public function test_dataentry_cannot_amend_medication_records(): void

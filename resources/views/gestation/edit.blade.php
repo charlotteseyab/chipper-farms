@@ -318,7 +318,7 @@
                     </div>
 
                     <div class="gestation-edit-pill-row">
-                        <span class="gestation-edit-pill">{{ $mating->male->ear_tag_number }} × {{ $mating->female->ear_tag_number }}</span>
+                        <span class="gestation-edit-pill">{{ $mating->male?->identityAt($mating->actual_date ?? $mating->planned_date) }} × {{ $mating->female?->identityAt($mating->actual_date ?? $mating->planned_date) }}</span>
                         <span class="gestation-edit-pill">{{ ucfirst(str_replace('_', ' ', $mating->pregnancy_status)) }}</span>
                     </div>
                 </div>
@@ -356,7 +356,7 @@
                                                 <circle cx="9" cy="15" r="6" stroke="currentColor" stroke-width="2" fill="none"/>
                                                 <path d="M15 9L21 3M21 3h-5M21 3v5" stroke="currentColor" stroke-width="2" fill="none"/>
                                             </svg>
-                                            {{ $mating->male->ear_tag_number }} • {{ $mating->male->code }}
+                                            {{ $mating->male?->identityAt($mating->actual_date ?? $mating->planned_date) }} • {{ $mating->male->code }}
                                         </span>
                                     </div>
                                 </div>
@@ -369,7 +369,7 @@
                                                 <circle cx="12" cy="8" r="5" stroke="currentColor" stroke-width="2" fill="none"/>
                                                 <path d="M12 13v8M9 18h6" stroke="currentColor" stroke-width="2" fill="none"/>
                                             </svg>
-                                            {{ $mating->female->ear_tag_number }} • {{ $mating->female->code }}
+                                            {{ $mating->female?->identityAt($mating->actual_date ?? $mating->planned_date) }} • {{ $mating->female->code }}
                                         </span>
                                     </div>
                                 </div>

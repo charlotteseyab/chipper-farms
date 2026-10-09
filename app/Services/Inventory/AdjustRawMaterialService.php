@@ -4,6 +4,7 @@ namespace App\Services\Inventory;
 
 use App\Domain\Events\Inventory\RawMaterialAdjusted;
 use App\Domain\Events\Support\SourceReference;
+use App\Models\Finance\InventoryBalance;
 use App\Models\Finance\InventoryMovement;
 use App\Models\RawMaterial;
 use App\Models\RawMaterialStockLog;
@@ -77,7 +78,15 @@ class AdjustRawMaterialService
         return DB::transaction(function () use (
             $material, $actor, $data, $organizationId, $type, $magnitude, $allowNegative,
         ) {
-            $current = (float) $material->quantity_in_stock;
+            $material = RawMaterial::where('organization_id', $organizationId)->whereKey($material->id)->lockForUpdate()->firstOrFail();
+            // The ledger is the stock figure; the adjustment is measured and
+            // valued against it, not the mirrored quantity_in_stock column.
+            $balance = InventoryBalance::where('organization_id', $organizationId)
+                ->where('item_kind', InventoryMovement::ITEM_KIND_RAW_MATERIAL)
+                ->where('item_id', $material->id)
+                ->first();
+            $current = (float) ($balance?->on_hand_qty ?? 0);
+            $unitCost = (float) ($balance && (float) $balance->weighted_avg_cost > 0 ? $balance->weighted_avg_cost : $material->unit_cost);
 
             // Pre-compute the target on-hand for clarity.
             $newQuantity = match ($type) {
@@ -98,16 +107,13 @@ class AdjustRawMaterialService
                 ));
             }
 
-            // Apply the legacy column update.
-            $material->update(['quantity_in_stock' => $newQuantity]);
-
             // Stock log — the signed delta. Phase 4 stock logs also
             // track posting_status; adjustments start 'pending' for the
             // subscriber to pick up.
             $log = $material->stockLogs()->create([
                 'type'            => 'adjustment',
                 'quantity'        => $delta,
-                'unit_cost'       => (float) $material->unit_cost,
+                'unit_cost'       => $unitCost,
                 'reference'       => $data['reference'] ?? null,
                 'notes'           => $data['notes']
                     ?? ('Stock adjusted using "' . $type . '" action.'),
@@ -147,7 +153,7 @@ class AdjustRawMaterialService
                 adjustmentType:    $type,
                 quantityDelta:     $delta,
                 newQuantityOnHand: $newQuantity,
-                unitCost:          (float) $material->unit_cost,
+                unitCost:          $unitCost,
                 reference:         $data['reference'] ?? null,
                 notes:             $data['notes'] ?? null,
             ));

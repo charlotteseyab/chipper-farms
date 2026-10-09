@@ -3,11 +3,14 @@
 namespace App\Services\Stock\Imports;
 
 use App\Models\PigManagement;
+use App\Models\PigWeight;
+use App\Models\EarTagColor;
 use App\Models\Room;
 use App\Models\Setting;
 use App\Models\Structure;
 use App\Services\Audit\AuditTrailService;
 use App\Services\Stock\PigStockService;
+use App\Services\Stock\EarTagNumberService;
 use App\Services\Stock\StockValidationException;
 use App\Support\CurrentOrganization;
 use Carbon\Carbon;
@@ -19,23 +22,32 @@ use ZipArchive;
 class StockExcelImportService
 {
     public const HEADERS = [
-        'ear_tag_number',
-        'breed',
-        'gender',
-        'stock_type',
-        'date_of_birth',
-        'structure',
-        'room_name',
-        'father_ear_tag',
-        'mother_ear_tag',
-        'acquisition_source',
-        'acquisition_date',
-        'acquisition_cost',
-        'notes',
+        'Ear Tag',
+        'Tag Colour',
+        'Breed',
+        'Type',
+        'Gender',
+        'DOB',
+        'Location',
+        'Weight',
+        'Actions',
+    ];
+
+    private const FIELD_BY_HEADER = [
+        'ear tag' => 'ear_tag_number',
+        'tag colour' => 'tag_color',
+        'breed' => 'breed',
+        'type' => 'stock_type',
+        'gender' => 'gender',
+        'dob' => 'date_of_birth',
+        'location' => 'location',
+        'weight' => 'weight',
+        'actions' => 'actions',
     ];
 
     public function __construct(
         protected PigStockService $stockService,
+        protected EarTagNumberService $earTags,
         protected CurrentOrganization $currentOrganization,
         protected AuditTrailService $audit,
     ) {
@@ -46,7 +58,12 @@ class StockExcelImportService
         $rows = $this->readXlsx($file->getRealPath());
         $headers = array_shift($rows) ?? [];
         $normalizedHeaders = array_map(fn ($header) => $this->normalizeHeader($header), $headers);
-        $missingHeaders = array_values(array_diff(self::HEADERS, $normalizedHeaders));
+        $expectedHeaders = array_values(self::FIELD_BY_HEADER);
+        $missingFields = array_values(array_diff($expectedHeaders, $normalizedHeaders));
+        $missingHeaders = array_values(array_map(
+            fn (string $field) => self::HEADERS[array_search($field, $expectedHeaders, true)],
+            $missingFields,
+        ));
 
         $preview = [
             'file_name' => $file->getClientOriginalName(),
@@ -97,7 +114,7 @@ class StockExcelImportService
             }
 
             if (! empty($result['data']['ear_tag_number'])) {
-                $seenEarTags[] = $result['data']['ear_tag_number'];
+                $seenEarTags[] = EarTagColor::normalizeName($result['data']['tag_color']).'|'.\App\Models\EarTag::normalizeNumber($result['data']['ear_tag_number']);
             }
         }
 
@@ -114,7 +131,23 @@ class StockExcelImportService
 
         DB::transaction(function () use ($preview, &$created) {
             foreach ($preview['valid_rows'] as $row) {
-                $created[] = $this->stockService->create($this->creationPayload($row['data']));
+                $pig = $this->stockService->create($this->creationPayload($row['data']));
+
+                if (($row['data']['weight'] ?? '') !== '') {
+                    PigWeight::create([
+                        'pig_id' => $pig->id,
+                        'weight' => (float) $row['data']['weight'],
+                        'weight_unit' => 'kg',
+                        'weigh_date' => now()->toDateString(),
+                        'actual_age_weeks' => $pig->date_of_birth?->diffInWeeks(now()),
+                        'purpose' => 'other',
+                        'notes' => 'Initial weight imported from the All Stock spreadsheet.',
+                        'weighed_by' => auth()->user()?->name ?? 'System',
+                        'is_estimated' => false,
+                    ]);
+                }
+
+                $created[] = $pig;
             }
         });
 
@@ -150,28 +183,25 @@ class StockExcelImportService
             // The sample should still download even if the database is temporarily unavailable.
         }
 
-        $samplePrefix = 'SAMPLE-' . now()->format('YmdHis');
-
         $rows = [self::HEADERS];
 
-        foreach (array_slice(Setting::animalBreeds(), 0, 3, true) as $code => $name) {
+        $breeds = array_slice(Setting::animalBreeds(), 0, 3, true);
+        $proposedTags = $this->earTags->propose(count($breeds));
+
+        $sampleColor = EarTagColor::where('is_active', true)->orderBy('name')->value('name') ?? 'Unspecified';
+        foreach ($breeds as $code => $name) {
             $index = count($rows);
-            $purchased = $index === 2;
 
             $rows[] = [
-                $samplePrefix . '-' . str_pad((string) $index, 3, '0', STR_PAD_LEFT),
-                $code,
-                $index % 2 === 0 ? 'M' : 'F',
-                $index === 1 ? 'breeding' : 'standard',
+                $proposedTags[$index - 1] ?? (string) $index,
+                $sampleColor,
+                $name,
+                $index === 1 ? 'Breeding' : 'Standard',
+                $index % 2 === 0 ? 'Male' : 'Female',
                 now()->subMonths(8 + $index)->format('Y-m-d'),
-                $structureName,
-                $roomName,
+                $structureName !== '' && $roomName !== '' ? "{$structureName} / {$roomName}" : '',
                 '',
                 '',
-                $purchased ? 'purchased' : 'born_on_farm',
-                now()->subMonths($purchased ? 3 : 8 + $index)->format('Y-m-d'),
-                $purchased ? '450' : '',
-                "Example breed: {$name} ({$code})",
             ];
         }
 
@@ -288,7 +318,7 @@ class StockExcelImportService
 
     protected function normalizeHeader(?string $header): string
     {
-        return strtolower(trim((string) $header));
+        return self::FIELD_BY_HEADER[strtolower(trim((string) $header))] ?? '';
     }
 
     protected function mapRow(array $headers, array $row): array
@@ -298,8 +328,8 @@ class StockExcelImportService
             $data[$header] = trim((string) ($row[$index] ?? ''));
         }
 
-        foreach (self::HEADERS as $header) {
-            $data[$header] = $data[$header] ?? '';
+        foreach (array_values(self::FIELD_BY_HEADER) as $field) {
+            $data[$field] = $data[$field] ?? '';
         }
 
         return $data;
@@ -314,30 +344,63 @@ class StockExcelImportService
     {
         $errors = [];
         $data['ear_tag_number'] = $this->normalizeTextInput($data['ear_tag_number'] ?? '');
-        $data['breed'] = strtoupper($this->normalizeTextInput($data['breed'] ?? ''));
-        $data['structure'] = $this->normalizeTextInput($data['structure'] ?? '');
-        $data['room_name'] = $this->normalizeTextInput($data['room_name'] ?? '');
-        $data['father_ear_tag'] = $this->normalizeTextInput($data['father_ear_tag'] ?? '');
-        $data['mother_ear_tag'] = $this->normalizeTextInput($data['mother_ear_tag'] ?? '');
-        $data['gender'] = strtoupper(trim($data['gender'] ?? ''));
+        $data['tag_color'] = trim($data['tag_color'] ?? '');
+        $data['breed'] = $this->normalizeBreed($data['breed'] ?? '');
+        [$data['structure'], $data['room_name']] = $this->parseLocation($data['location'] ?? '');
+        $data['father_ear_tag'] = '';
+        $data['mother_ear_tag'] = '';
+        $data['gender'] = match (strtolower(trim($data['gender'] ?? ''))) {
+            'male', 'm' => 'M',
+            'female', 'f' => 'F',
+            default => strtoupper(trim($data['gender'] ?? '')),
+        };
         $data['stock_type'] = strtolower(trim($data['stock_type'] ?? ''));
-        $data['acquisition_source'] = strtolower(trim($data['acquisition_source'] ?? ''));
+        $data['acquisition_source'] = 'born_on_farm';
         $data['date_of_birth'] = $this->normalizeDateInput($data['date_of_birth'] ?? '');
-        $data['acquisition_date'] = $this->normalizeDateInput($data['acquisition_date'] ?? '');
+        $data['acquisition_date'] = $data['date_of_birth'];
+        $data['acquisition_cost'] = '';
+        $data['notes'] = '';
+        $data['weight'] = $this->normalizeWeight($data['weight'] ?? '');
 
-        foreach (['ear_tag_number', 'breed', 'gender', 'stock_type', 'date_of_birth'] as $field) {
+        foreach (['ear_tag_number', 'tag_color', 'breed', 'gender', 'stock_type', 'date_of_birth'] as $field) {
             if ($data[$field] === '') {
                 $errors[] = str_replace('_', ' ', $field) . ' is required.';
             }
         }
 
         if ($data['ear_tag_number'] !== '') {
-            if (in_array($data['ear_tag_number'], $seenEarTags, true)) {
-                $errors[] = 'Ear tag number is duplicated in the uploaded file.';
+            $combination = EarTagColor::normalizeName($data['tag_color']).'|'.\App\Models\EarTag::normalizeNumber($data['ear_tag_number']);
+            if (in_array($combination, $seenEarTags, true)) {
+                $errors[] = 'This colour and tag number are duplicated in the uploaded file.';
             }
 
-            if (PigManagement::withTrashed()->where('ear_tag_number', $data['ear_tag_number'])->exists()) {
-                $errors[] = 'Ear tag number already exists in the system.';
+        }
+
+        $data['ear_tag_color_id'] = null;
+        if (strcasecmp($data['tag_color'], 'Unspecified') === 0) {
+            $data['ear_tag_color_id'] = null;
+        } elseif ($data['tag_color'] !== '') {
+            $color = EarTagColor::where('normalized_name', EarTagColor::normalizeName($data['tag_color']))
+                ->where('is_active', true)->first();
+            if (! $color) {
+                $errors[] = 'Tag colour must match an active colour configured for this farm.';
+            } else {
+                $data['ear_tag_color_id'] = $color->id;
+            }
+        }
+
+        if ($data['ear_tag_number'] !== '' && $data['tag_color'] !== '') {
+            $resolvedColorId = $data['ear_tag_color_id'] ?: EarTagColor::where(
+                'normalized_name',
+                EarTagColor::normalizeName($data['tag_color'])
+            )->value('id');
+            if ($resolvedColorId) {
+                $registeredTag = \App\Models\EarTag::where('ear_tag_color_id', $resolvedColorId)->where('normalized_tag_number', \App\Models\EarTag::normalizeNumber($data['ear_tag_number']))
+                    ->first();
+                if ($registeredTag && ($registeredTag->status !== \App\Models\EarTag::AVAILABLE
+                    || $registeredTag->currentAssignment()->exists())) {
+                    $errors[] = 'This tag number is already in use.';
+                }
             }
         }
 
@@ -371,8 +434,8 @@ class StockExcelImportService
             $errors[] = 'Acquisition date must use YYYY-MM-DD.';
         }
 
-        if ($data['acquisition_cost'] !== '' && ! is_numeric($data['acquisition_cost'])) {
-            $errors[] = 'Acquisition cost must be numeric.';
+        if ($data['weight'] !== '' && (! is_numeric($data['weight']) || (float) $data['weight'] <= 0)) {
+            $errors[] = 'Weight must be a number greater than zero, expressed in kg.';
         }
 
         $data['room_id'] = null;
@@ -401,8 +464,14 @@ class StockExcelImportService
 
         $data['father_id'] = null;
         if ($data['father_ear_tag'] !== '') {
-            $father = PigManagement::active()->where('ear_tag_number', $data['father_ear_tag'])->first();
-            if (! $father) {
+            $fatherMatches = PigManagement::active()->where('code', $data['father_ear_tag'])->get();
+            if ($fatherMatches->isEmpty()) {
+                $fatherMatches = PigManagement::active()->where('ear_tag_number', $data['father_ear_tag'])->get();
+            }
+            $father = $fatherMatches->first();
+            if ($fatherMatches->count() > 1) {
+                $errors[] = 'Father tag number matches multiple colours. Enter the permanent animal code instead.';
+            } elseif (! $father) {
                 $errors[] = 'Father ear tag does not match an existing pig.';
             } elseif ($father->gender !== 'M') {
                 $errors[] = 'Father ear tag must belong to a male pig.';
@@ -413,8 +482,14 @@ class StockExcelImportService
 
         $data['mother_id'] = null;
         if ($data['mother_ear_tag'] !== '') {
-            $mother = PigManagement::active()->where('ear_tag_number', $data['mother_ear_tag'])->first();
-            if (! $mother) {
+            $motherMatches = PigManagement::active()->where('code', $data['mother_ear_tag'])->get();
+            if ($motherMatches->isEmpty()) {
+                $motherMatches = PigManagement::active()->where('ear_tag_number', $data['mother_ear_tag'])->get();
+            }
+            $mother = $motherMatches->first();
+            if ($motherMatches->count() > 1) {
+                $errors[] = 'Mother tag number matches multiple colours. Enter the permanent animal code instead.';
+            } elseif (! $mother) {
                 $errors[] = 'Mother ear tag does not match an existing pig.';
             } elseif ($mother->gender !== 'F') {
                 $errors[] = 'Mother ear tag must belong to a female pig.';
@@ -424,6 +499,38 @@ class StockExcelImportService
         }
 
         return ['data' => $data, 'errors' => $errors];
+    }
+
+    protected function normalizeBreed(string $value): string
+    {
+        $value = trim($value);
+        $breeds = Setting::animalBreeds();
+
+        foreach ($breeds as $code => $name) {
+            if (strcasecmp($value, (string) $code) === 0 || strcasecmp($value, (string) $name) === 0) {
+                return strtoupper((string) $code);
+            }
+        }
+
+        return strtoupper($value);
+    }
+
+    /** @return array{0:string,1:string} */
+    protected function parseLocation(string $value): array
+    {
+        $value = trim($value);
+        if ($value === '' || strcasecmp($value, 'N/A') === 0) {
+            return ['', ''];
+        }
+
+        $parts = preg_split('/\s*(?:\/|—|–|\|)\s*/', $value, 2) ?: [];
+
+        return [trim($parts[0] ?? ''), trim($parts[1] ?? '')];
+    }
+
+    protected function normalizeWeight(string $value): string
+    {
+        return trim((string) preg_replace('/\s*kg\s*$/i', '', trim($value)));
     }
 
     protected function validDate(string $date): bool
@@ -476,6 +583,7 @@ class StockExcelImportService
             'room_id' => $data['room_id'],
             'father_id' => $data['father_id'],
             'mother_id' => $data['mother_id'],
+            'ear_tag_color_id' => $data['ear_tag_color_id'],
         ];
 
         if (Schema::hasColumn('pigs_management', 'notes')) {
@@ -494,6 +602,10 @@ class StockExcelImportService
             $payload['acquisition_cost'] = (float) $data['acquisition_cost'];
         }
 
+        if ($data['weight'] !== '') {
+            $payload['current_weight_kg_cache'] = (float) $data['weight'];
+        }
+
         return $payload;
     }
 
@@ -503,7 +615,7 @@ class StockExcelImportService
             . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
             . '<cols>';
 
-        for ($i = 1; $i <= 13; $i++) {
+        for ($i = 1; $i <= count(self::HEADERS); $i++) {
             $xml .= '<col min="' . $i . '" max="' . $i . '" width="18" customWidth="1"/>';
         }
 

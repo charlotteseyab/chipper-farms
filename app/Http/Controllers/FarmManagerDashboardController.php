@@ -106,13 +106,14 @@ class FarmManagerDashboardController extends Controller
                 ->whereIn('severity', ['high', 'severe']);
         })
         ->count();
-    $activeWithdrawals = MedicationAdministration::underWithdrawal()->count();
+    // Animals on the farm, not doses: the same count as the health overview.
+    $activeWithdrawals = app(\App\Services\Health\WithdrawalStatusService::class)->restrictedCount();
 
     $rawMaterialsOut = RawMaterial::where('quantity_in_stock', '<=', 0)->count();
     $rawMaterialsLow = RawMaterial::where('quantity_in_stock', '>', 0)
         ->whereColumn('quantity_in_stock', '<=', 'reorder_level')
         ->count();
-    $rawMaterialValue = (float) RawMaterial::sum(\DB::raw('quantity_in_stock * unit_cost'));
+    $rawMaterialValue = RawMaterial::ledgerStockValue();
     $feedProducedThisWeek = (float) FeedBatch::whereDate('batch_date', '>=', now()->subDays(6)->toDateString())
         ->sum('batch_size_kg');
 

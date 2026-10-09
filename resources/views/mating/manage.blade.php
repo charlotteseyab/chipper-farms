@@ -972,7 +972,7 @@
                                             <td>
                                                 <div class="mating-pair">
                                                     <div class="mating-pair-tags">
-                                                        {{ $mating->male->ear_tag_number }} × {{ $mating->female->ear_tag_number }}
+                                                        {{ $mating->male?->identityAt($mating->actual_date ?? $mating->planned_date) }} × {{ $mating->female?->identityAt($mating->actual_date ?? $mating->planned_date) }}
                                                     </div>
                                                     <div class="mating-pair-codes">
                                                         {{ $mating->male->code }} × {{ $mating->female->code }}
@@ -1054,7 +1054,7 @@
                                                     <div class="mating-action-panel">
                                                         @if($mating->status === 'planned')
                                                             <button
-                                                                onclick="openCompleteMatingModal({{ $mating->id }}, '{{ $mating->male->ear_tag_number }}', '{{ $mating->female->ear_tag_number }}', '{{ $mating->planned_date->format('Y-m-d') }}'); this.closest('details').removeAttribute('open');"
+                                                                onclick="openCompleteMatingModal({{ $mating->id }}, '{{ $mating->male?->identityAt($mating->actual_date ?? $mating->planned_date) }}', '{{ $mating->female?->identityAt($mating->actual_date ?? $mating->planned_date) }}', '{{ $mating->planned_date->format('Y-m-d') }}'); this.closest('details').removeAttribute('open');"
                                                                 class="mating-menu-item success"
                                                                 type="button">
                                                                 Complete mating
@@ -1071,14 +1071,14 @@
                                                             </form>
                                                         @elseif($mating->status === 'completed' && $mating->pregnancy_status === 'pending')
                                                             <button
-                                                                onclick="openPregnancyCheckModal({{ $mating->id }}, '{{ $mating->male->ear_tag_number }}', '{{ $mating->female->ear_tag_number }}', '{{ $mating->actual_date->format('M d, Y') }}', {{ $mating->days_since_mating }}); this.closest('details').removeAttribute('open');"
+                                                                onclick="openPregnancyCheckModal({{ $mating->id }}, '{{ $mating->male?->identityAt($mating->actual_date ?? $mating->planned_date) }}', '{{ $mating->female?->identityAt($mating->actual_date ?? $mating->planned_date) }}', '{{ $mating->actual_date->format('M d, Y') }}', {{ $mating->days_since_mating }}); this.closest('details').removeAttribute('open');"
                                                                 class="mating-menu-item primary"
                                                                 type="button">
                                                                 Record pregnancy check
                                                             </button>
                                                         @elseif($mating->needsPregnancyFollowUp())
                                                             <button
-                                                                onclick="openPregnancyCheckModal({{ $mating->id }}, '{{ $mating->male->ear_tag_number }}', '{{ $mating->female->ear_tag_number }}', '{{ $mating->actual_date->format('M d, Y') }}', {{ $mating->days_since_mating }}, '{{ optional($mating->pregnancy_follow_up_date)->format('Y-m-d') }}'); this.closest('details').removeAttribute('open');"
+                                                                onclick="openPregnancyCheckModal({{ $mating->id }}, '{{ $mating->male?->identityAt($mating->actual_date ?? $mating->planned_date) }}', '{{ $mating->female?->identityAt($mating->actual_date ?? $mating->planned_date) }}', '{{ $mating->actual_date->format('M d, Y') }}', {{ $mating->days_since_mating }}, '{{ optional($mating->pregnancy_follow_up_date)->format('Y-m-d') }}'); this.closest('details').removeAttribute('open');"
                                                                 class="mating-menu-item primary"
                                                                 type="button">
                                                                 Record follow-up check

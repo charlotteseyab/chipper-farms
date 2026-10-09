@@ -1,4 +1,5 @@
 <x-app-layout>
+    <x-feed-hub hub="store" />
     <div class="max-w-6xl mx-auto py-6 px-4">
         <div class="mb-6 flex items-center justify-between">
             <div>

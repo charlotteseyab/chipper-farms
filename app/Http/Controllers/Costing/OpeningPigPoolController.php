@@ -61,7 +61,7 @@ class OpeningPigPoolController extends Controller
     {
         // Groups that don't yet have an opening row are the eligible
         // targets. Use a sub-query: groups whose pool has zero movements.
-        $groups = Group::query()->orderBy('name')->get(['id', 'name', 'type']);
+        $groups = Group::query()->animalGroups()->orderBy('name')->get(['id', 'name', 'type']);
 
         return view('costing.opening-pig-inventory.create', [
             'groups' => $groups,

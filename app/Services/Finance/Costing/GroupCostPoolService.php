@@ -152,6 +152,56 @@ class GroupCostPoolService
         );
     }
 
+    /**
+     * Take a reversed feed issue's value back out of the group pool. Refuses
+     * when the pool no longer holds that much value (it has moved on to
+     * sold or dead pigs), rather than driving the pool negative.
+     */
+    public function recordFeedIssueReversal(
+        int $groupId,
+        string $totalCost,
+        int $feedIssueId,
+        ?CarbonImmutable $occurredAt = null,
+        ?int $actorUserId = null,
+        ?string $reference = null,
+        ?string $notes = null,
+    ): GroupCostMovement {
+        $this->assertNonNegativeString('total_cost', $totalCost);
+
+        return $this->commit(
+            groupId:     $groupId,
+            eventType:   GroupCostMovement::EVENT_FEED_ISSUE_REVERSAL,
+            sourceType:  GroupCostMovement::SOURCE_FEED_ISSUE_REVERSAL,
+            sourceId:    $feedIssueId,
+            occurredAt:  $occurredAt ?? CarbonImmutable::now(),
+            actorUserId: $actorUserId,
+            reference:   $reference,
+            notes:       $notes,
+            eventPigWeight: null,
+            openingImportId: null,
+            compute: function (array $before) use ($totalCost, $groupId) {
+                if (bccomp($totalCost, $before['value'], self::SCALE_QTY) > 0) {
+                    throw new InsufficientPoolException(
+                        groupId:   $groupId,
+                        dimension: 'value',
+                        requested: $totalCost,
+                        available: $before['value'],
+                    );
+                }
+
+                return [
+                    'count_delta'         => 0,
+                    'value_delta'         => bcsub('0', $totalCost, self::SCALE_QTY),
+                    'weight_delta'        => '0',
+                    'count_after'         => (int) $before['count'],
+                    'value_after'         => bcsub($before['value'], $totalCost, self::SCALE_QTY),
+                    'weight_after'        => $before['weight'],
+                    'event_per_kg_basis'  => $this->perKgBasis($before['value'], $before['weight']),
+                ];
+            },
+        );
+    }
+
     public function recordAcquisition(
         int $groupId,
         int $pigId,

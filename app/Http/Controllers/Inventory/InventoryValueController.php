@@ -28,7 +28,7 @@ class InventoryValueController extends Controller
     public function index(Request $request)
     {
         $kind = $request->query('kind');
-        if ($kind !== null && ! in_array($kind, InventoryBalance::ALLOWED_ITEM_KINDS, true)) {
+        if ($kind !== null && ! in_array($kind, InventoryBalance::GL_POSTED_ITEM_KINDS, true)) {
             $kind = null;
         }
 
@@ -44,7 +44,7 @@ class InventoryValueController extends Controller
 
     public function show(Request $request, string $itemKind, int $itemId)
     {
-        if (! in_array($itemKind, InventoryBalance::ALLOWED_ITEM_KINDS, true)) {
+        if (! in_array($itemKind, InventoryBalance::GL_POSTED_ITEM_KINDS, true)) {
             abort(404);
         }
 

@@ -118,4 +118,24 @@ class QuoteServiceTest extends StorefrontTestCase
         $this->expectException(InvalidQuoteTransitionException::class);
         $this->service()->markReviewing($quote, $actor);
     }
+
+    public function test_staff_see_the_in_app_alert_at_once_while_the_email_waits_on_the_queue(): void
+    {
+        config(['queue.default' => 'database']);
+        $staff = $this->makeUser('salesperson');
+
+        $quote = $this->service()->request($this->sampleData(), null);
+
+        $this->assertSame(1, $staff->notifications()->where('type', StorefrontQuoteRequestedNotification::class)->count(),
+            'The bell alert is written without a queue worker.');
+        $queued = \Illuminate\Support\Facades\DB::table('jobs')->pluck('payload')
+            ->filter(fn ($payload) => str_contains($payload, 'StorefrontQuoteRequestedNotification'));
+        $this->assertCount(1, $queued, 'Only the email is left on the queue.');
+        $this->assertStringContainsString($quote->reference, $staff->notifications()->first()->data['message']);
+
+        // A worker can rebuild and send the queued email.
+        $this->artisan('queue:work', ['--once' => true, '--stop-when-empty' => true])->assertSuccessful();
+        $this->assertSame(0, \Illuminate\Support\Facades\DB::table('failed_jobs')->count());
+        $this->assertSame(0, \Illuminate\Support\Facades\DB::table('jobs')->count());
+    }
 }

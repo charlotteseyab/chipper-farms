@@ -34,6 +34,10 @@ class FinanceIntegrationTest extends StorefrontTestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // These tests drive the outbox and individual finance subscribers by
+        // hand, so events must stay pending until the test processes them.
+        // Instant posting has its own coverage in InstantPostingTest.
+        config(['finance.instant_posting.enabled' => false]);
 
         $this->seed(\Database\Seeders\ChartOfAccountsSeeder::class);
         $this->seed(\Database\Seeders\PaymentMethodSeeder::class);

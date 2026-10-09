@@ -2,13 +2,8 @@
 
 namespace App\Jobs;
 
-use App\Finance\Exceptions\DuplicatePostingException;
-use App\Finance\Exceptions\PostingException;
+use App\Finance\Outbox\DomainEventProcessor;
 use App\Finance\Outbox\OutboxClaimer;
-use App\Finance\Outbox\SubscriberRegistry;
-use App\Finance\Subscribers\Subscriber;
-use App\Models\DomainEvent;
-use App\Support\CurrentOrganization;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -97,9 +92,8 @@ class ProcessPendingDomainEventsJob implements ShouldQueue
     }
 
     public function handle(
-        SubscriberRegistry $registry,
-        CurrentOrganization $currentOrg,
         OutboxClaimer $claimer,
+        DomainEventProcessor $processor,
     ): void {
         // Return work abandoned by dead workers to the pool before claiming.
         // Cheap when there is nothing to recover, and without it such events are
@@ -124,79 +118,12 @@ class ProcessPendingDomainEventsJob implements ShouldQueue
         $retrying = 0;
 
         foreach ($events as $event) {
-            // Bind organization context for this event so subscribers
-            // (and PostingEngine within them) operate scoped correctly.
-            $org = $event->organization_id
-                ? \App\Models\Organization::find($event->organization_id)
-                : null;
-            $currentOrg->bind($org);
-
-            $subscribers = $registry->subscribersFor($event->event_type);
-
-            if (empty($subscribers)) {
-                // No subscriber registered for this event type — mark skipped
-                // so it isn't picked up again. Future subscribers can re-process
-                // by manually flipping status back to 'pending'.
-                //
-                // processing_attempts is NOT incremented here: OutboxClaimer
-                // already incremented it when claiming. Incrementing again would
-                // double-count and bring the event closer to a dead-letter
-                // ceiling it is not actually failing against.
-                $event->update([
-                    'status'           => DomainEvent::STATUS_SKIPPED,
-                    'processed_at'     => now(),
-                    'processing_error' => 'No finance subscriber registered for event_type ' . $event->event_type,
-                    'claimed_by'       => null,
-                    'claimed_at'       => null,
-                ]);
-                $skipped++;
-                continue;
-            }
-
-            foreach ($subscribers as $subscriberClass) {
-                try {
-                    /** @var Subscriber $subscriber */
-                    $subscriber = app($subscriberClass);
-                    $subscriber->handle($event->id);
-
-                    $event->refresh();
-                    if ($event->status === DomainEvent::STATUS_PROCESSED) {
-                        $claimer->release($event);
-                        $processed++;
-                    } elseif ($event->status === DomainEvent::STATUS_FAILED) {
-                        // The Subscriber base class marks 'failed' on error. Hand
-                        // it to the claimer so a transient fault becomes a
-                        // scheduled retry rather than a permanent loss.
-                        $claimer->fail($event, (string) $event->processing_error)
-                            ? $retrying++
-                            : $failed++;
-                        break;
-                    } elseif ($event->status === DomainEvent::STATUS_SKIPPED) {
-                        $claimer->release($event);
-                        $skipped++;
-                    }
-                } catch (PostingException $e) {
-                    // Subscriber base already marked the event failed.
-                    Log::error("ProcessPendingDomainEventsJob: subscriber {$subscriberClass} threw PostingException for event #{$event->id}", [
-                        'event_id'   => $event->id,
-                        'event_type' => $event->event_type,
-                        'subscriber' => $subscriberClass,
-                        'error'      => $e->getMessage(),
-                    ]);
-                    $claimer->fail($event->refresh(), $e->getMessage()) ? $retrying++ : $failed++;
-                    break;
-                } catch (\Throwable $e) {
-                    Log::error("ProcessPendingDomainEventsJob: subscriber {$subscriberClass} threw unexpected exception for event #{$event->id}", [
-                        'event_id'   => $event->id,
-                        'event_type' => $event->event_type,
-                        'subscriber' => $subscriberClass,
-                        'error'      => $e->getMessage(),
-                        'trace'      => $e->getTraceAsString(),
-                    ]);
-                    $claimer->fail($event->refresh(), $e->getMessage()) ? $retrying++ : $failed++;
-                    break;
-                }
-            }
+            match ($processor->process($event, $claimer)) {
+                DomainEventProcessor::PROCESSED => $processed++,
+                DomainEventProcessor::RETRYING  => $retrying++,
+                DomainEventProcessor::FAILED    => $failed++,
+                DomainEventProcessor::SKIPPED   => $skipped++,
+            };
         }
 
         Log::info("ProcessPendingDomainEventsJob complete", [

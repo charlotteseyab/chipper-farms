@@ -85,6 +85,7 @@ class InventoryLedgerReader
                 fn ($q) => $q->where('organization_id', $orgId),
                 fn ($q) => $q->whereNull('organization_id'),
             )
+            ->whereIn('item_kind', InventoryBalance::GL_POSTED_ITEM_KINDS)
             ->orderBy('item_kind')
             ->orderByDesc('on_hand_value');
 

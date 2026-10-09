@@ -3,6 +3,7 @@
 namespace App\Services\Stock;
 
 use App\Models\HealthRecord;
+use App\Models\EarTag;
 use App\Models\PigManagement;
 use App\Models\PigWeight;
 use App\Models\PurchaseStockIntake;
@@ -269,7 +270,11 @@ class PurchaseStockIntakeService
 
             $this->assertNoExistingPigRecords($lockedIntake);
             $this->assertRoomCapacity($lockedIntake);
-            $this->createIndividualPigs($lockedIntake, $this->normalizeEarTagNumbers($lockedIntake, $earTagNumbers));
+            $this->createIndividualPigs(
+                $lockedIntake,
+                $this->normalizeEarTagNumbers($lockedIntake, $earTagNumbers, $housing['tag_color_ids'] ?? []),
+                $housing['tag_color_ids'] ?? [],
+            );
 
             if ($legacyPigletConversion) {
                 \App\Models\StockMovement::where('source_type', \App\Models\StockMovement::SOURCE_PURCHASE_STOCK_INTAKE)
@@ -362,7 +367,7 @@ class PurchaseStockIntakeService
         }
     }
 
-    protected function normalizeEarTagNumbers(PurchaseStockIntake $intake, array $earTagNumbers): array
+    protected function normalizeEarTagNumbers(PurchaseStockIntake $intake, array $earTagNumbers, array $tagColorIds = []): array
     {
         $tags = array_values(array_filter(array_map(
             fn ($tag) => trim((string) $tag),
@@ -373,19 +378,22 @@ class PurchaseStockIntakeService
             throw new StockValidationException('ear_tag_numbers', 'Enter one ear tag number for each animal cleared after quarantine.');
         }
 
-        if (count($tags) !== count(array_unique($tags))) {
-            throw new StockValidationException('ear_tag_numbers', 'Ear tag numbers must be unique.');
-        }
-
-        $existingTag = PigManagement::whereIn('ear_tag_number', $tags)->value('ear_tag_number');
-        if ($existingTag) {
-            throw new StockValidationException('ear_tag_numbers', "Ear tag number {$existingTag} is already in use.");
+        $physicalTags = [];
+        foreach ($tags as $index => $number) {
+            $identity = EarTag::normalizeNumber($number);
+            if (isset($physicalTags[$identity])) {
+                throw new StockValidationException(
+                    'ear_tag_numbers',
+                    'The same tag number cannot be assigned to more than one animal.'
+                );
+            }
+            $physicalTags[$identity] = true;
         }
 
         return $tags;
     }
 
-    protected function createIndividualPigs(PurchaseStockIntake $intake, array $earTagNumbers): void
+    protected function createIndividualPigs(PurchaseStockIntake $intake, array $earTagNumbers, array $tagColorIds = []): void
     {
         $count = $intake->clearedQuantity();
         $costPerPig = $intake->costPerReceivedAnimal();
@@ -417,6 +425,15 @@ class PurchaseStockIntakeService
                 'current_weight_kg_cache' => $intake->average_weight_kg,
                 'weight_cache_recorded_at' => $intake->average_weight_kg ? now() : null,
             ]);
+
+            app(\App\Services\Stock\Tags\EarTagShadowService::class)
+                ->syncNewPig(
+                    $pig,
+                    auth()->user(),
+                    filled($tagColorIds[$i - 1] ?? null)
+                        ? \App\Models\EarTagColor::whereKey($tagColorIds[$i - 1])->where('is_active', true)->first()
+                        : null,
+                );
 
             if ($intake->average_weight_kg) {
                 $weightHealthStatus = in_array($intake->health_status, ['excellent', 'good', 'fair', 'poor'], true)

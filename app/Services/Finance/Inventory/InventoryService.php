@@ -559,6 +559,70 @@ class InventoryService
         );
     }
 
+    /**
+     * Undo one earlier movement by applying its quantity and value with the
+     * opposite sign, so the ledger and the reversed GL entry agree to the
+     * cent. Refuses to take on-hand quantity or value below zero.
+     */
+    public function recordReversal(
+        InventoryMovement $original,
+        string $sourceType,
+        int $sourceId,
+        ?CarbonImmutable $occurredAt = null,
+        ?int $actorUserId = null,
+        ?string $reference = null,
+        ?string $notes = null,
+    ): InventoryMovement {
+        $this->assertItemKind($original->item_kind);
+        $qtyDelta = bcsub('0', $this->str($original->quantity_delta), self::SCALE_QTY_VALUE);
+        $valueDelta = bcsub('0', $this->str($original->value_delta), self::SCALE_QTY_VALUE);
+
+        return $this->commit(
+            itemKind:      $original->item_kind,
+            itemId:        (int) $original->item_id,
+            eventType:     InventoryMovement::EVENT_REVERSAL,
+            sourceType:    $sourceType,
+            sourceId:      $sourceId,
+            occurredAt:    $occurredAt ?? CarbonImmutable::now(),
+            actorUserId:   $actorUserId,
+            reference:     $reference,
+            notes:         $notes,
+            itemNameCache: null,
+            itemUnitCache: null,
+            compute: function (array $before) use ($qtyDelta, $valueDelta, $original) {
+                $newQty = bcadd($before['qty'], $qtyDelta, self::SCALE_QTY_VALUE);
+                $newValue = bcadd($before['value'], $valueDelta, self::SCALE_QTY_VALUE);
+                if (bccomp($newQty, '0', self::SCALE_QTY_VALUE) < 0) {
+                    throw new InsufficientInventoryException(
+                        itemKind:  $original->item_kind,
+                        itemId:    (int) $original->item_id,
+                        requested: (float) ltrim($qtyDelta, '-'),
+                        available: (float) $before['qty'],
+                    );
+                }
+                // Value can only dip below zero by rounding once stock is gone.
+                if (bccomp($newValue, '0', self::SCALE_QTY_VALUE) < 0) {
+                    if (bccomp($newValue, '-0.01', self::SCALE_QTY_VALUE) < 0) {
+                        throw new \DomainException('Reversing this movement would leave negative stock value.');
+                    }
+                    $newValue = '0';
+                }
+                $newWac = bccomp($newQty, '0', self::SCALE_QTY_VALUE) > 0
+                    ? bcdiv($newValue, $newQty, self::SCALE_WAC)
+                    : '0';
+
+                return [
+                    'quantity_delta'  => $qtyDelta,
+                    'value_delta'     => $valueDelta,
+                    'qty_after'       => $newQty,
+                    'value_after'     => $newValue,
+                    'wac_after'       => $newWac,
+                    'event_unit_cost' => $original->event_unit_cost,
+                ];
+            },
+        );
+    }
+
     // ================================================================
     // The core commit path — shared by every event method.
     // ================================================================
@@ -707,6 +771,15 @@ class InventoryService
         ]);
 
         $movement->update(['balance_id' => $balance->id]);
+
+        // The ledger is the one stock figure. Mirror it onto the raw material
+        // row so screens and filters reading quantity_in_stock agree with it.
+        if ($itemKind === InventoryMovement::ITEM_KIND_RAW_MATERIAL) {
+            DB::table('raw_materials')
+                ->where('organization_id', $orgId)
+                ->where('id', $itemId)
+                ->update(['quantity_in_stock' => $after['qty_after']]);
+        }
 
         return $movement->fresh();
     }

@@ -27,7 +27,7 @@ class SalesExportService
      */
     public function buildFilteredQuery(Request $request): Builder
     {
-        $query = PigSale::with(['pig']);
+        $query = PigSale::with(['pig.earTagAssignments.tag.color']);
 
         if ($request->filled('buyer_name')) {
             $query->where('buyer_name', 'like', '%' . $request->buyer_name . '%');
@@ -82,7 +82,7 @@ class SalesExportService
             foreach ($sales as $sale) {
                 fputcsv($file, [
                     $sale->pig->code ?? 'N/A',
-                    $sale->pig->ear_tag_number ?? 'N/A',
+                    $sale->pig?->tagLabelAt($sale->sale_date) ?? 'N/A',
                     $sale->sale_date->format('Y-m-d'),
                     $sale->buyer_name,
                     $sale->buyer_contact ?? '',

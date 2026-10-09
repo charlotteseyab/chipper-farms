@@ -58,10 +58,14 @@
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Row</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Ear Tag</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Tag Colour</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Breed</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Type</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Gender</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Stock Type</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">DOB</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Location</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Weight</th>
+                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Actions</th>
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
                             </tr>
                         </thead>
@@ -70,10 +74,14 @@
                                 <tr>
                                     <td class="px-4 py-3 text-sm text-slate-600">{{ $row['row_number'] }}</td>
                                     <td class="px-4 py-3 text-sm font-semibold text-slate-900">{{ $row['data']['ear_tag_number'] }}</td>
+                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['tag_color'] }}</td>
                                     <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['breed'] }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['gender'] }}</td>
                                     <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['stock_type'] }}</td>
+                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['gender'] }}</td>
                                     <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['date_of_birth'] }}</td>
+                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['location'] ?: 'Not assigned' }}</td>
+                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['weight'] !== '' ? $row['data']['weight'].' kg' : '—' }}</td>
+                                    <td class="px-4 py-3 text-sm text-slate-400">Ignored</td>
                                     <td class="px-4 py-3">
                                         <span class="inline-flex rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">Valid</span>
                                     </td>
@@ -83,10 +91,14 @@
                                 <tr class="bg-red-50/50">
                                     <td class="px-4 py-3 text-sm text-slate-600">{{ $row['row_number'] }}</td>
                                     <td class="px-4 py-3 text-sm font-semibold text-slate-900">{{ $row['data']['ear_tag_number'] ?? '' }}</td>
+                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['tag_color'] ?? '' }}</td>
                                     <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['breed'] ?? '' }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['gender'] ?? '' }}</td>
                                     <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['stock_type'] ?? '' }}</td>
+                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['gender'] ?? '' }}</td>
                                     <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['date_of_birth'] ?? '' }}</td>
+                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['location'] ?? '' }}</td>
+                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['weight'] ?? '' }}</td>
+                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['actions'] ?? '' }}</td>
                                     <td class="px-4 py-3 text-sm text-red-700">
                                         <div class="font-semibold">Invalid</div>
                                         <ul class="list-disc pl-4 mt-1">

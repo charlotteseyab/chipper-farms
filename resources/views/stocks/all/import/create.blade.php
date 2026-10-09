@@ -49,7 +49,7 @@
                 </section>
 
                 <aside class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                    <h3 class="text-sm font-bold uppercase tracking-wide text-slate-500">Required Columns</h3>
+                    <h3 class="text-sm font-bold uppercase tracking-wide text-slate-500">All Stock columns</h3>
                     <div class="mt-3 flex flex-wrap gap-2">
                         @foreach(\App\Services\Stock\Imports\StockExcelImportService::HEADERS as $header)
                             <span class="px-2.5 py-1 rounded-full bg-slate-100 text-xs font-semibold text-slate-700">{{ $header }}</span>
@@ -57,11 +57,12 @@
                     </div>
 
                     <div class="mt-6 space-y-3 text-sm text-slate-600">
-                        <p><strong class="text-slate-800">breed:</strong> use the exact farm-specific code shown in the downloaded sample</p>
-                        <p><strong class="text-slate-800">gender:</strong> M or F</p>
-                        <p><strong class="text-slate-800">stock_type:</strong> breeding or standard</p>
-                        <p><strong class="text-slate-800">acquisition_source:</strong> born_on_farm or purchased</p>
-                        <p><strong class="text-slate-800">dates:</strong> YYYY-MM-DD</p>
+                        <p><strong class="text-slate-800">Breed:</strong> use a configured full breed name or its code.</p>
+                        <p><strong class="text-slate-800">Tag Colour:</strong> use an active colour from Ear Tag Reconciliation.</p>
+                        <p><strong class="text-slate-800">Type:</strong> Breeding or Standard. <strong class="text-slate-800">Gender:</strong> Male or Female.</p>
+                        <p><strong class="text-slate-800">DOB:</strong> use YYYY-MM-DD. <strong class="text-slate-800">Weight:</strong> enter kilograms, with or without “kg”.</p>
+                        <p><strong class="text-slate-800">Location:</strong> use “Structure / Room”.</p>
+                        <p>Animal codes and ages are generated automatically and are not included in the spreadsheet. Parent assignments are also excluded for now. <strong class="text-slate-800">Actions:</strong> is ignored during upload.</p>
                     </div>
                 </aside>
             </div>

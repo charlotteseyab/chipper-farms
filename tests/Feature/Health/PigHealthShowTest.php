@@ -106,13 +106,13 @@ class PigHealthShowTest extends TestCase
             ->assertSeeInOrder(['Health Records', 'Page', 'Medication Administrations', 'Page']);
     }
 
-    public function test_health_status_modal_endpoint_updates_the_latest_record_only(): void
+    public function test_health_status_modal_endpoint_updates_only_the_chosen_record(): void
     {
         $older = $this->makeHealthRecord(2);
         $latest = $this->makeHealthRecord(1);
 
         $this->actingAs($this->user)
-            ->patch(route('health.status.update', $this->pig), [
+            ->patch(route('health.records.status', $latest), [
                 'severity' => 'moderate',
                 'treatment_status' => 'completed',
                 'outcome' => 'recovered',

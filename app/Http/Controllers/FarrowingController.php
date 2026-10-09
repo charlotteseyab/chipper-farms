@@ -24,7 +24,7 @@ class FarrowingController extends Controller
     public function index(Request $request) // <-- Now accepting $request
     {
         // Start building the query
-        $query = Farrowing::with(['sow', 'boar', 'recordedBy']);
+        $query = Farrowing::with(['sow.earTagAssignments.tag.color', 'boar', 'recordedBy']);
 
         // Check for a search query parameter and apply server-side filtering
         if ($search = $request->get('search')) {
@@ -262,7 +262,7 @@ class FarrowingController extends Controller
         $query = \App\Models\PigManagement::whereHas('farrowingsAsSow')
             ->with([
                 'farrowingsAsSow' => function($q) {
-                    $q->with(['pigletDeaths', 'boar'])
+                    $q->with(['pigletDeaths', 'boar.earTagAssignments.tag.color'])
                       ->orderBy('farrowing_date', 'desc');
                 }
             ]);

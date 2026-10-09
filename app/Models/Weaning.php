@@ -79,12 +79,12 @@ class Weaning extends Model implements ResolvesOrganization
     // Relationships
     public function pig(): BelongsTo
     {
-        return $this->belongsTo(PigManagement::class, 'pig_id');
+        return $this->belongsTo(PigManagement::class, 'pig_id')->withTrashed();
     }
 
     public function mother(): BelongsTo
     {
-        return $this->belongsTo(PigManagement::class, 'mother_id');
+        return $this->belongsTo(PigManagement::class, 'mother_id')->withTrashed();
     }
 
     public function recordedBy(): BelongsTo

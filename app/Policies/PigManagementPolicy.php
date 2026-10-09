@@ -42,6 +42,12 @@ class PigManagementPolicy
             && ($user->isAdmin() || $user->isManager() || $user->isDataEntry() || $user->isAccountant());
     }
 
+    /** A pig's health history, including after it was sold or died. */
+    public function viewHealth(User $user, PigManagement $pig): bool
+    {
+        return $this->sameOrganization($user, $pig) && $user->hasPermission('view_health_records');
+    }
+
     public function create(User $user): bool
     {
         return $user->isAdmin() || $user->isManager() || $user->isDataEntry();

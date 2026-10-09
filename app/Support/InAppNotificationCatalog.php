@@ -25,6 +25,14 @@ final class InAppNotificationCatalog
             'audience' => 'staff',
             'permissions' => self::permissions('pigs'),
         ];
+        // Health reminders that are in-app only (decision D9).
+        foreach (['health.dose_overdue', 'health.follow_up_due', 'health.batch_expiring'] as $key) {
+            $catalogue[$key] = [
+                'module' => self::module('health'),
+                'audience' => 'staff',
+                'permissions' => self::permissions('health'),
+            ];
+        }
         $catalogue['system.action_completed'] = [
             'module' => 'System operations',
             'audience' => 'staff',

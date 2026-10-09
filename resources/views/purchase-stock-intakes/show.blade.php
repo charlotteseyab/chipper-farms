@@ -175,10 +175,13 @@
                             </div>
                             <div class="mb-4 max-h-72 space-y-3 overflow-y-auto pr-1">
                                 @for($i = 0; $i < $intake->clearedQuantity(); $i++)
+                                    <div class="grid gap-2 sm:grid-cols-2">
+                                    <label class="block"><span class="text-sm font-semibold text-slate-700">Animal {{ $i + 1 }} Tag Colour</span><select name="tag_color_ids[]" required class="mt-1 w-full rounded-lg border-slate-300 text-sm"><option value="">Select tag colour</option>@foreach($tagColors as $color)<option value="{{ $color->id }}" @selected((string) old('tag_color_ids.' . $i) === (string) $color->id)>{{ $color->name }}</option>@endforeach</select></label>
                                     <label class="block">
                                         <span class="text-sm font-semibold text-slate-700">Animal {{ $i + 1 }} Ear Tag</span>
                                         <input name="ear_tag_numbers[]" value="{{ old('ear_tag_numbers.' . $i, $proposedEarTags[$i] ?? '') }}" required maxlength="50" class="mt-1 w-full rounded-lg border-slate-300 text-sm">
                                     </label>
+                                    </div>
                                 @endfor
                             </div>
                             <button class="w-full rounded-lg px-4 py-2 text-sm font-semibold" style="background:#0f172a;color:#ffffff;border:1px solid #0f172a;box-shadow:0 8px 18px rgba(15,23,42,.22);">{{ $canMaterializeLegacyPiglets ? 'Create Main Stock Records' : 'Add to Main Stock' }}</button>

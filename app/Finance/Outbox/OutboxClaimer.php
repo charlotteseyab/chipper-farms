@@ -151,6 +151,34 @@ class OutboxClaimer
     }
 
     /**
+     * Claim one specific event, for posting it straight after the save that
+     * created it. The same guarded UPDATE as claim(), so the event is
+     * processed once whether the instant path or a worker gets it first.
+     */
+    public function claimOne(int $eventId): ?DomainEvent
+    {
+        $token = $this->mintToken();
+
+        $claimed = DomainEvent::query()
+            ->whereKey($eventId)
+            ->where('status', DomainEvent::STATUS_PENDING)
+            ->where(function ($q) {
+                $q->whereNull('next_retry_at')->orWhere('next_retry_at', '<=', now());
+            })
+            ->update([
+                'status'              => DomainEvent::STATUS_PROCESSING,
+                'claimed_by'          => $token,
+                'claimed_at'          => now(),
+                'processing_attempts' => DB::raw('processing_attempts + 1'),
+                'updated_at'          => now(),
+            ]);
+
+        return $claimed === 1
+            ? DomainEvent::query()->whereKey($eventId)->where('claimed_by', $token)->first()
+            : null;
+    }
+
+    /**
      * Mark a claimed event as successfully processed.
      *
      * Subscribers already set 'processed' themselves; this releases the claim

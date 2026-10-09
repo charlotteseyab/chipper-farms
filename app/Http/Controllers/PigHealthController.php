@@ -2,25 +2,33 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Health\CorrectMedicationRequest;
+use App\Http\Requests\Health\UpdateHealthRecordRequest;
+use App\Http\Requests\Health\VoidHealthEntryRequest;
 use App\Models\PigManagement;
 use App\Models\HealthRecord;
 use App\Models\MedicationAdministration;
+use App\Services\Health\HealthEntryDateGuard;
+use App\Services\Health\HealthRecordService;
+use App\Services\Health\MedicationRecordService;
+use App\Services\Health\WithdrawalStatusService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
 
 class PigHealthController extends Controller
 {
     public function index(Request $request)
     {
+        // Sold and dead pigs keep their history; a filter brings them back in.
+        $includeDeparted = $request->boolean('include_departed');
+
         $query = PigManagement::with(['healthRecords' => function($q) {
-            $q->latest('record_date')->latest('id')->limit(1);
+            $q->notVoided()->latest('record_date')->latest('id')->limit(1);
         }, 'medicationAdministrations' => function($q) {
-            $q->latest('administration_date')->latest('id')->limit(1);
+            $q->notVoided()->latest('administration_date')->latest('id')->limit(1);
         }])
-            ->whereHas('healthRecords')
-            ->whereDoesntHave('deaths')
-            ->whereDoesntHave('sales');
+            ->whereHas('healthRecords', fn ($q) => $q->notVoided())
+            ->when($includeDeparted, fn ($q) => $q->withTrashed(), fn ($q) => $q->whereDoesntHave('deaths')->whereDoesntHave('sales'));
 
         if ($search = $request->get('q')) {
             $query->where(function($q) use ($search) {
@@ -38,17 +46,18 @@ class PigHealthController extends Controller
 
         if ($request->string('attention')->toString() === 'open_critical') {
             $query->whereHas('healthRecords', function ($health) {
-                $health->whereNull('resolved_at')
+                $health->notVoided()->whereNull('resolved_at')
                     ->where(function ($status) {
                         $status->whereNull('treatment_status')
                             ->orWhereIn('treatment_status', ['planned', 'ongoing']);
                     })
-                    ->whereIn('severity', ['high', 'severe']);
+                    ->where('severity', 'severe');
             });
         }
 
         if (($condition || $severity || $from || $to) && $request->string('attention')->toString() !== 'open_critical') {
             $query->whereHas('healthRecords', function($hr) use ($condition, $severity, $from, $to) {
+                $hr->notVoided();
                 if ($condition) {
                     $hr->where('condition', 'like', "%{$condition}%");
                 }
@@ -65,61 +74,64 @@ class PigHealthController extends Controller
         }
 
         $pigs = $query->orderBy('code')->paginate(15)->withQueryString();
+        $counts = app(\App\Services\Health\HealthWorklistService::class)->counts(\Carbon\CarbonImmutable::today());
 
-        return view('health.index', compact('pigs'));
+        return view('health.index', compact('pigs', 'counts'));
     }
 
-    public function show(Request $request, PigManagement $pig)
+    public function show(Request $request, PigManagement $healthPig, WithdrawalStatusService $withdrawals, HealthEntryDateGuard $dates)
     {
-        $healthRecords = $pig->healthRecords()
+        $this->authorize('viewHealth', $healthPig);
+        $pig = $healthPig;
+        $pig->loadMissing('earTagAssignments.tag.color');
+
+        // Voided and corrected entries stay in the lists, marked, so the
+        // history is complete; the summary uses only entries that still count.
+        // Its own cases and any group case it was part of.
+        $healthRecords = HealthRecord::query()
+            ->where(fn ($q) => $q->where('pig_id', $pig->id)->orWhereHas('animals', fn ($a) => $a->where('pig_id', $pig->id)))
+            ->with('voidedBy')
             ->latest('record_date')
             ->latest('id')
             ->paginate(10, ['*'], 'health_page')
             ->withQueryString();
 
         $medicationRecords = $pig->medicationAdministrations()
+            ->with(['voidedBy', 'correctedBy'])
             ->latest('administration_date')
             ->latest('id')
             ->paginate(10, ['*'], 'medication_page')
             ->withQueryString();
 
-        $lastRecord = $pig->healthRecords()->latest('record_date')->latest('id')->first();
-        $lastMedication = $pig->medicationAdministrations()->latest('administration_date')->latest('id')->first();
+        $lastRecord = $pig->healthRecords()->notVoided()->latest('record_date')->latest('id')->first();
+        $lastMedication = $pig->medicationAdministrations()->notVoided()->latest('administration_date')->latest('id')->first();
+        $withdrawal = $withdrawals->forPig($pig);
+        $hasLeft = $dates->hasLeft($pig);
+        $timeline = app(\App\Services\Health\HealthTimelineService::class)->forPig($pig);
 
         return view('health.show', compact(
             'pig',
             'healthRecords',
             'medicationRecords',
             'lastRecord',
-            'lastMedication'
+            'lastMedication',
+            'withdrawal',
+            'hasLeft',
+            'timeline'
         ));
     }
 
-    public function updateHealthStatus(Request $request, PigManagement $pig)
+    public function updateRecordStatus(UpdateHealthRecordRequest $request, HealthRecord $healthRecord, HealthRecordService $service)
     {
-        $record = $pig->healthRecords()->latest('record_date')->latest('id')->first();
-
-        if (! $record) {
-            return redirect()->route('health.show', $pig)
-                ->with('error', 'Add a health record before updating this pig\'s health status.');
-        }
-
-        $data = $request->validate([
-            'severity' => 'nullable|in:mild,moderate,severe,low,medium,high',
-            'treatment_status' => 'required|in:planned,ongoing,completed,stopped',
-            'outcome' => 'nullable|in:recovered,improved,unchanged,worsened',
-            'resolved_at' => 'nullable|date|after_or_equal:'.$record->record_date->toDateString(),
-            'resolution_notes' => 'nullable|string|max:2000',
-        ]);
-
-        $record->update($data);
-
-        return redirect()->route('health.show', $pig)
-            ->with('success', 'Health status updated successfully.');
+        return $this->amendRecord($request, $healthRecord, $service, 'health_status_updated', 'Health status updated successfully.');
     }
 
-    public function exportPigHealthPdf(PigManagement $pig)
+    public function exportPigHealthPdf(PigManagement $healthPig)
     {
+        $this->authorize('viewHealth', $healthPig);
+        $pig = $healthPig;
+        $pig->loadMissing('earTagAssignments.tag.color');
+
         $healthRecords = $pig->healthRecords()
             ->with('recordedBy')
             ->latest('record_date')
@@ -130,13 +142,14 @@ class PigHealthController extends Controller
             ->latest('administration_date')
             ->latest('id')
             ->get();
-        $lastRecord = $healthRecords->first();
-        $lastMedication = $medicationRecords->first();
+        $countedRecords = $healthRecords->whereNull('voided_at');
+        $lastRecord = $countedRecords->first();
+        $lastMedication = $medicationRecords->whereNull('voided_at')->first();
         $summary = [
-            'health_records' => $healthRecords->count(),
-            'medications' => $medicationRecords->count(),
-            'resolved' => $healthRecords->whereNotNull('resolved_at')->count(),
-            'active' => $healthRecords->whereNull('resolved_at')->count(),
+            'health_records' => $countedRecords->count(),
+            'medications' => $medicationRecords->whereNull('voided_at')->count(),
+            'resolved' => $countedRecords->whereNotNull('resolved_at')->count(),
+            'active' => $countedRecords->whereNull('resolved_at')->count(),
         ];
 
         $pdf = Pdf::loadView('health.pdf', compact(
@@ -153,149 +166,47 @@ class PigHealthController extends Controller
         return $pdf->download('health-report-'.$identifier.'-'.now()->format('Y-m-d').'.pdf');
     }
 
-    public function edit(PigManagement $pig)
+    public function editRecord(HealthRecord $healthRecord)
     {
-        // Load health records and medication administrations for the pig
-        $pig->load(['healthRecords' => function($q) { $q->latest('record_date'); },
-                    'medicationAdministrations' => function($q) { $q->latest('administration_date'); }]);
-        return view('health.edit', compact('pig'));
+        $this->authorize('update', $healthRecord);
+        $healthRecord->load('pig');
+
+        return view('health.edit', ['record' => $healthRecord, 'pig' => $healthRecord->pig]);
     }
 
-    public function createHealth(PigManagement $pig = null)
+    public function updateRecord(UpdateHealthRecordRequest $request, HealthRecord $healthRecord, HealthRecordService $service)
     {
-        if (!$pig) {
-            $pigs = $this->selectablePigs();
-            return view('health.create-health', compact('pigs'));
-        }
-        return view('health.create-health', compact('pig'));
+        return $this->amendRecord($request, $healthRecord, $service, 'health_record_amended', 'Health record updated successfully.');
     }
 
-    public function storeHealth(Request $request, PigManagement $pig = null)
+    public function voidRecord(VoidHealthEntryRequest $request, HealthRecord $healthRecord, HealthRecordService $service)
     {
-        $data = $request->validate([
-            'record_date' => 'required|date',
-            'condition' => 'required|string|max:255',
-            'severity' => 'nullable|string|max:50',
-            'symptoms' => 'nullable|string',
-            'diagnosis' => 'nullable|string',
-            'treatment_plan' => 'nullable|string',
-            'treatment_status' => 'nullable|in:planned,ongoing,completed,stopped',
-            'outcome' => 'nullable|in:recovered,improved,unchanged,worsened',
-            'resolved_at' => 'nullable|date|after_or_equal:record_date',
-            'resolution_notes' => 'nullable|string',
-            'pig_id' => [
-                $pig ? 'nullable' : 'required',
-                'integer',
-                Rule::exists('pigs_management', 'id')->where(
-                    fn ($query) => $query
-                        ->where('organization_id', (int) $request->user()->organization_id)
-                        ->whereNull('deleted_at')
-                ),
-            ],
-        ]);
-
-        // If pig_id is provided in the form, use it; otherwise use the route parameter
-        $pigId = $data['pig_id'] ?? $pig->id;
-        $data['pig_id'] = $pigId;
-        $data['recorded_by'] = auth()->id();
-        HealthRecord::create($data);
-
-        $selectedPig = $pig ?? PigManagement::find($pigId);
-        return redirect()->route('health.show', $selectedPig)->with('success', 'Health record added');
-    }
-
-    public function update(Request $request, PigManagement $pig)
-    {
-        $data = $request->validate([
-            'condition' => 'required|string|max:255',
-            'severity' => 'nullable|string|max:50',
-            'symptoms' => 'nullable|string',
-            'diagnosis' => 'nullable|string',
-            'treatment_plan' => 'nullable|string',
-            'treatment_status' => 'nullable|in:planned,ongoing,completed,stopped',
-            'outcome' => 'nullable|in:recovered,improved,unchanged,worsened',
-            'resolved_at' => 'nullable|date',
-            'resolution_notes' => 'nullable|string',
-        ]);
-
-        $record = $pig->healthRecords()->latest('record_date')->first();
-
-        if (!$record) {
-            return redirect()->route('health.show', $pig)->with('error', 'No health record was found to update for this pig.');
+        try {
+            $service->void($request->user(), $healthRecord, $request->validated('void_reason'));
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
         }
 
-        $record->update($data);
-
-        return redirect()->route('health.show', $pig)->with('success', 'Health record updated successfully.');
+        return redirect()->route('health.show', $healthRecord->pig_id)
+            ->with('success', 'Health record voided. It stays on the history, marked as void.');
     }
 
-    public function destroy(PigManagement $pig)
+    private function amendRecord(UpdateHealthRecordRequest $request, HealthRecord $record, HealthRecordService $service, string $action, string $success)
     {
-        $record = $pig->healthRecords()->latest('record_date')->first();
-
-        if (! $record) {
-            return redirect()->route('health.show', $pig)->with('error', 'No health record was found to delete for this pig.');
+        try {
+            $service->amend($request->user(), $record, $request->validated(), $action);
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
         }
 
-        $record->delete();
-
-        return redirect()->route('health.show', $pig)->with('success', 'Latest health record deleted successfully.');
-    }
-
-    public function createMedication(PigManagement $pig = null)
-    {
-        if (!$pig) {
-            $pigs = $this->selectablePigs();
-            return view('health.create-medication', compact('pigs'));
-        }
-        return view('health.create-medication', compact('pig'));
-    }
-
-    public function storeMedication(Request $request, PigManagement $pig = null)
-    {
-        $data = $request->validate([
-            'administration_date' => 'required|date',
-            'medication_name' => 'required|string|max:255',
-            'dosage' => 'required|string|max:255',
-            'purpose' => 'nullable|string|max:255',
-            'route' => 'nullable|string|max:100',
-            // IMP-090 — the withdrawal period, in days, as printed on the
-            // bottle. Phase 11 built the enforcement (a pig inside its
-            // withdrawal cannot be listed for sale) and this is the input it
-            // was waiting on; until now every treatment recorded read as "no
-            // withdrawal", so the guard could never fire.
-            //
-            // Nullable because most treatments genuinely carry none. Capped at
-            // 365: withdrawal periods are measured in days and a number beyond
-            // a year is a typo, not a medicine.
-            'withdrawal_period_days' => 'nullable|integer|min:0|max:365',
-            'notes' => 'nullable|string',
-            'pig_id' => [
-                $pig ? 'nullable' : 'required',
-                'integer',
-                Rule::exists('pigs_management', 'id')->where(
-                    fn ($query) => $query
-                        ->where('organization_id', (int) $request->user()->organization_id)
-                        ->whereNull('deleted_at')
-                ),
-            ],
-        ]);
-
-        // If pig_id is provided in the form, use it; otherwise use the route parameter
-        $pigId = $data['pig_id'] ?? $pig->id;
-        $data['pig_id'] = $pigId;
-        $data['administered_by'] = auth()->id();
-        MedicationAdministration::create($data);
-
-        $selectedPig = $pig ?? PigManagement::find($pigId);
-        return redirect()->route('health.show', $selectedPig)->with('success', 'Medication recorded');
+        return redirect()->route('health.show', $record->pig_id)->with('success', $success);
     }
 
     public function medicationsIndex(Request $request)
     {
-        $query = MedicationAdministration::with('pig')
+        $query = MedicationAdministration::with('pig.earTagAssignments.tag.color')
             ->whereRaw(
-                'medication_administrations.id = (select latest_medication.id from medication_administrations as latest_medication where latest_medication.pig_id = medication_administrations.pig_id order by latest_medication.administration_date desc, latest_medication.id desc limit 1)'
+                'medication_administrations.id = (select latest_medication.id from medication_administrations as latest_medication where latest_medication.pig_id = medication_administrations.pig_id and latest_medication.voided_at is null order by latest_medication.administration_date desc, latest_medication.id desc limit 1)'
             );
         if ($pigSearch = $request->get('pig_q')) {
             $query->whereHas('pig', function ($pig) use ($pigSearch) {
@@ -334,154 +245,42 @@ class PigHealthController extends Controller
 
     public function showMedication(MedicationAdministration $medication)
     {
+        $this->authorize('view', $medication);
+        $medication->load(['pig', 'voidedBy', 'corrects', 'correctedBy', 'administeredBy']);
+
         return view('medications.show', compact('medication'));
     }
-    
+
+    /** The "edit" form saves a correction: the original stays, voided and linked. */
     public function editMedication(MedicationAdministration $medication)
     {
+        $this->authorize('correct', $medication);
+
         return view('medications.edit', compact('medication'));
     }
-    
-    public function updateMedication(Request $request, MedicationAdministration $medication)
-    {
-        $data = $request->validate([
-            'administration_date' => 'required|date',
-            'medication_name' => 'required|string|max:255',
-            'dosage' => 'required|string|max:255',
-            'purpose' => 'nullable|string|max:255',
-            'route' => 'nullable|string|max:100',
-            'notes' => 'nullable|string',
-        ]);
 
-        $medication->update($data);
-
-        return redirect()->route('medications.show', $medication)->with('success', 'Medication record updated successfully.');
-    }
-    public function destroyMedication(MedicationAdministration $medication)
+    public function correctMedication(CorrectMedicationRequest $request, MedicationAdministration $medication, MedicationRecordService $service)
     {
-        $medication->delete();
-        return redirect()->route('medications.index')->with('success', 'Medication record deleted');
+        $data = $request->validated();
+        try {
+            $replacement = $service->correct($request->user(), $medication, $data, $data['correction_reason']);
+        } catch (\DomainException $e) {
+            return back()->withInput()->with('error', $e->getMessage());
+        }
+
+        return redirect()->route('medications.show', $replacement)
+            ->with('success', 'Medication record corrected. The original is kept, marked as corrected.');
     }
 
-    private function selectablePigs()
+    public function voidMedication(VoidHealthEntryRequest $request, MedicationAdministration $medication, MedicationRecordService $service)
     {
-        return PigManagement::query()
-            ->select(['id', 'ear_tag_number', 'code', 'breed', 'gender'])
-            ->whereDoesntHave('deaths')
-            ->whereDoesntHave('sales')
-            ->orderBy('ear_tag_number')
-            ->get();
-    }
+        try {
+            $service->void($request->user(), $medication, $request->validated('void_reason'));
+        } catch (\DomainException $e) {
+            return back()->with('error', $e->getMessage());
+        }
 
-    public function reports(Request $request)
-    {
-        $days = (int) $request->get('days', 30);
-        $start = now()->subDays($days);
-
-        $totalHealthRecords = HealthRecord::where('record_date', '>=', $start->toDateString())->count();
-        $totalMedications = MedicationAdministration::where('administration_date', '>=', $start->toDateString())->count();
-        $topConditions = HealthRecord::where('record_date', '>=', $start->toDateString())
-            ->select('condition')
-            ->selectRaw('COUNT(*) as count')
-            ->groupBy('condition')
-            ->orderByDesc('count')
-            ->limit(5)
-            ->get();
-        $recentHealthRecords = HealthRecord::with(['pig' => fn ($query) => $query->withTrashed()])
-            ->where('record_date', '>=', $start->toDateString())
-            ->latest('record_date')
-            ->limit(10)
-            ->get();
-
-        $recentMedications = MedicationAdministration::with(['pig' => fn ($query) => $query->withTrashed()])
-            ->where('administration_date', '>=', $start->toDateString())
-            ->latest('administration_date')
-            ->limit(10)
-            ->get();
-
-        return view('health.reports', compact('totalHealthRecords','totalMedications','topConditions','recentHealthRecords','recentMedications','days'));
-    }
-
-    // CSV Exports
-    public function exportHealthCsv(Request $request)
-    {
-        $condition = $request->string('condition')->toString();
-        $severity = $request->string('severity')->toString();
-        $from = $request->date('from');
-        $to = $request->date('to');
-
-        $records = HealthRecord::with('pig')
-            ->when($condition, fn($q) => $q->where('condition', 'like', "%{$condition}%"))
-            ->when($severity, fn($q) => $q->where('severity', $severity))
-            ->when($from, fn($q) => $q->whereDate('record_date', '>=', $from))
-            ->when($to, fn($q) => $q->whereDate('record_date', '<=', $to))
-            ->orderByDesc('record_date')
-            ->get();
-
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="health-records.csv"',
-        ];
-
-        $callback = function() use ($records) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Pig', 'Date', 'Condition', 'Severity', 'Symptoms', 'Diagnosis', 'Treatment']);
-            foreach ($records as $r) {
-                fputcsv($handle, [
-                    $r->pig?->code ?? $r->pig?->ear_tag_number,
-                    $r->record_date?->format('Y-m-d'),
-                    $r->condition,
-                    $r->severity,
-                    $r->symptoms,
-                    $r->diagnosis,
-                    $r->treatment_plan,
-                ]);
-            }
-            fclose($handle);
-        };
-
-        return response()->stream($callback, 200, $headers);
-    }
-
-    public function exportMedicationsCsv(Request $request)
-    {
-        $name = $request->string('q')->toString();
-        $purpose = $request->string('purpose')->toString();
-        $route = $request->string('route')->toString();
-        $from = $request->date('from');
-        $to = $request->date('to');
-
-        $records = MedicationAdministration::with('pig')
-            ->when($name, fn($q) => $q->where('medication_name', 'like', "%{$name}%"))
-            ->when($purpose, fn($q) => $q->where('purpose', 'like', "%{$purpose}%"))
-            ->when($route, fn($q) => $q->where('route', 'like', "%{$route}%"))
-            ->when($from, fn($q) => $q->whereDate('administration_date', '>=', $from))
-            ->when($to, fn($q) => $q->whereDate('administration_date', '<=', $to))
-            ->orderByDesc('administration_date')
-            ->get();
-
-        $headers = [
-            'Content-Type' => 'text/csv',
-            'Content-Disposition' => 'attachment; filename="medications.csv"',
-        ];
-
-        $callback = function() use ($records) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Pig', 'Date', 'Medication', 'Dosage', 'Purpose', 'Route', 'Notes']);
-            foreach ($records as $r) {
-                fputcsv($handle, [
-                    $r->pig?->code ?? $r->pig?->ear_tag_number,
-                    $r->administration_date?->format('Y-m-d'),
-                    $r->medication_name,
-                    $r->dosage,
-                    $r->purpose,
-                    $r->route,
-                    $r->notes,
-                ]);
-            }
-            fclose($handle);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        return redirect()->route('medications.show', $medication)
+            ->with('success', 'Medication record voided. Its withdrawal no longer applies.');
     }
 }

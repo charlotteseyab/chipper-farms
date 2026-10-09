@@ -80,6 +80,17 @@ Schedule::command('gestation:notify')
     ->description('Notify staff of gestation milestones and overdue farrowings')
     ->onFailure($reportFailure('gestation:notify'));
 
+// Health reminders (D9): doses due and overdue, follow-ups, withdrawal ending,
+// expiring batches, low medicine stock. Each is sent once, so the frequency
+// only sets how quickly an overdue dose is noticed.
+Schedule::command('health:notify')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->timezone($timezone)
+    ->description('Send health and medication reminders')
+    ->onFailure($reportFailure('health:notify'));
+
 Schedule::command('notifications:process')
     ->everyFiveMinutes()
     ->withoutOverlapping()

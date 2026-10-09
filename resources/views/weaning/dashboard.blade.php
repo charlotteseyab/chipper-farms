@@ -456,7 +456,7 @@
                                                     </div>
                                                 </div>
                                                 <div class="ml-4">
-                                                    <div class="text-sm font-medium text-gray-900">{{ $weaning->pig->ear_tag_number }}</div>
+                                                    <div class="text-sm font-medium text-gray-900">{{ $weaning->pig?->identityAt($weaning->weaning_date) }}</div>
                                                     <div class="text-xs text-gray-500">{{ $weaning->pig->code }}</div>
                                                 </div>
                                             </div>

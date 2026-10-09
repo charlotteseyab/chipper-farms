@@ -29,6 +29,10 @@ class DomainEventDispatcherTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // These tests drive the outbox and individual finance subscribers by
+        // hand, so events must stay pending until the test processes them.
+        // Instant posting has its own coverage in InstantPostingTest.
+        config(['finance.instant_posting.enabled' => false]);
         $this->org = Organization::create(['slug' => 'chipper-farms', 'name' => 'Chipper Farms']);
     }
 

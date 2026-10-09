@@ -40,7 +40,7 @@ class PigWeight extends Model
     // Relationships
     public function pig()
     {
-        return $this->belongsTo(PigManagement::class, 'pig_id');
+        return $this->belongsTo(PigManagement::class, 'pig_id')->withTrashed();
     }
 
     /**

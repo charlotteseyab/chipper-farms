@@ -100,7 +100,7 @@ class AdminStorefrontController extends Controller
             // behaves identically on both engines.
             'listingPigs'     => \App\Models\Storefront\StorefrontListingPig::query()
                 ->where('storefront_listing_id', $listing->getKey())
-                ->with(['pig', 'allocatedOrder'])
+                ->with(['pig.earTagAssignments.tag.color', 'allocatedOrder'])
                 ->orderBy('id')
                 ->get()
                 ->sortBy(fn ($row) => array_search(

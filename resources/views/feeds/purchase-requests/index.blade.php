@@ -1,4 +1,5 @@
 <x-app-layout>
+    <x-feed-hub hub="store" />
     @php
         $pendingCount = $stats['pending'] ?? 0;
         $approvedCount = $stats['approved'] ?? 0;

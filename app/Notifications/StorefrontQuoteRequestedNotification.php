@@ -24,6 +24,16 @@ class StorefrontQuoteRequestedNotification extends Notification implements Shoul
         return ['database', \App\Notifications\Channels\TemplateMailChannel::class];
     }
 
+    /**
+     * The in-app alert is written immediately so staff see the request at
+     * once; only the email waits on the queue, where a slow or failing mail
+     * server cannot hold up the buyer's request.
+     */
+    public function viaConnections(): array
+    {
+        return ['database' => 'sync'];
+    }
+
     public function toDatabase($notifiable): array
     {
         return [

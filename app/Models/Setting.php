@@ -17,6 +17,7 @@ class Setting extends Model
         'stages.',
         'sales.pricing.',
         'feed.units.',
+        'feed.alerts.',
         'purchase_requests.feed_items',
     ];
 

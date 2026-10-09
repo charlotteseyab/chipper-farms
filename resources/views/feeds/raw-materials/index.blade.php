@@ -1,4 +1,5 @@
 <x-app-layout>
+    <x-feed-hub hub="store" />
     @php
         $statusClasses = [
             'in_stock' => 'bg-green-100 text-green-800 border border-green-200',
@@ -14,11 +15,19 @@
                 <p class="text-sm text-gray-500">Manage raw materials, stock levels, receiving, and adjustments.</p>
             </div>
 
-            <button type="button"
-                    @click="openModal = 'add'"
-                    class="inline-flex items-center justify-center px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl shadow-sm transition">
-                + Add Raw Material
-            </button>
+            <div class="flex flex-wrap gap-2">
+                @if(auth()->user()->hasAnyPermission(['manage_raw_materials', 'manage_feed_production']))
+                    <a href="{{ route('stock-counts.create') }}"
+                       class="inline-flex items-center justify-center px-4 py-2.5 border border-green-600 text-green-700 hover:bg-green-50 text-sm font-semibold rounded-xl transition">
+                        Count stock
+                    </a>
+                @endif
+                <button type="button"
+                        @click="openModal = 'add'"
+                        class="inline-flex items-center justify-center px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl shadow-sm transition">
+                    + Add Raw Material
+                </button>
+            </div>
         </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
@@ -169,7 +178,7 @@
                             <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Category</th>
                             <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Unit</th>
                             <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Quantity</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Unit Cost</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Avg Cost</th>
                             <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Reorder Level</th>
                             <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Stock Value</th>
                             <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
@@ -203,7 +212,7 @@
                                 </td>
 
                                 <td class="px-6 py-4 text-sm text-gray-700">
-                                    {{ number_format($material->unit_cost, 2) }}
+                                    {{ number_format($material->current_wac, 2) }}
                                 </td>
 
                                 <td class="px-6 py-4 text-sm text-gray-700">
@@ -385,6 +394,13 @@
                         </div>
 
                         <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Kg per unit</label>
+                            <input type="number" step="0.0001" min="0.0001" name="kg_per_unit" value="{{ old('kg_per_unit') }}" placeholder="e.g. 50 for a 50 kg bag"
+                                   class="w-full rounded-xl border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+                            <p class="mt-1 text-xs text-gray-500">Only needed when the unit is not kg. Recipes use it to convert.</p>
+                        </div>
+
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 mb-2">Opening Stock</label>
                             <input type="number" step="0.01" min="0" name="quantity_in_stock" value="{{ old('quantity_in_stock', 0) }}" x-model.number="openingQuantity"
                                    class="w-full rounded-xl border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
@@ -471,6 +487,13 @@
                             <label class="block text-sm font-medium text-gray-700 mb-2">Unit</label>
                             <input type="text" name="unit" :value="selectedMaterial.unit"
                                    class="w-full rounded-xl border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500" required>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Kg per unit</label>
+                            <input type="number" step="0.0001" min="0.0001" name="kg_per_unit" :value="selectedMaterial.kg_per_unit" placeholder="e.g. 50 for a 50 kg bag"
+                                   class="w-full rounded-xl border-gray-300 shadow-sm focus:border-green-500 focus:ring-green-500">
+                            <p class="mt-1 text-xs text-gray-500">Only needed when the unit is not kg. Recipes use it to convert.</p>
                         </div>
 
                         <div>
@@ -620,7 +643,7 @@
 
                         <div class="md:col-span-2">
                             <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
-                            <textarea name="notes" rows="3"
+                            <textarea name="notes" rows="3" required minlength="5" maxlength="2000" placeholder="Reason for this stock adjustment"
                                       class="w-full rounded-xl border-gray-300 shadow-sm focus:border-amber-500 focus:ring-amber-500"></textarea>
                         </div>
                     </div>

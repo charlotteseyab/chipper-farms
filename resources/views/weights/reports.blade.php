@@ -244,6 +244,7 @@
                                         <tr>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                 {{ $weight->weigh_date->format('M d, Y') }}
+                                                <div class="text-xs text-gray-500">{{ $pig->identityAt($weight->weigh_date) }}</div>
                                                 @if($weight->weigh_date->format('H:i') !== '00:00')
                                                     <div class="text-xs text-gray-500">{{ $weight->weigh_date->format('H:i') }}</div>
                                                 @endif

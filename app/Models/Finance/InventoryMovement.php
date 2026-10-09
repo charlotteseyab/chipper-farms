@@ -24,10 +24,14 @@ class InventoryMovement extends Model
     // Item kind discriminator — mirrors InventoryBalance constants.
     public const ITEM_KIND_RAW_MATERIAL  = 'raw_material';
     public const ITEM_KIND_FINISHED_FEED = 'finished_feed';
+    // One balance per medicine batch (item_id = medicine_batches.id). Stock
+    // and cost only: no GL posting until an account mapping is agreed (D10).
+    public const ITEM_KIND_MEDICINE_BATCH = 'medicine_batch';
 
     public const ALLOWED_ITEM_KINDS = [
         self::ITEM_KIND_RAW_MATERIAL,
         self::ITEM_KIND_FINISHED_FEED,
+        self::ITEM_KIND_MEDICINE_BATCH,
     ];
 
     // Event types — every movement classifies into one. Used by reports
@@ -42,6 +46,8 @@ class InventoryMovement extends Model
     public const EVENT_OPENING              = 'opening';
     public const EVENT_TRANSFER_OUT         = 'transfer_out';
     public const EVENT_TRANSFER_IN          = 'transfer_in';
+    // Undoes one earlier movement exactly (negated quantity and value).
+    public const EVENT_REVERSAL             = 'reversal';
 
     public const ALLOWED_EVENTS = [
         self::EVENT_RECEIVE,
@@ -66,6 +72,14 @@ class InventoryMovement extends Model
     public const SOURCE_OPENING_IMPORT   = 'opening_import';
     public const SOURCE_LEGACY_VALUATION = 'legacy_valuation';
     public const SOURCE_TRANSFER         = 'inventory_transfer';
+    public const SOURCE_STOCK_COUNT_LINE = 'stock_count_line';
+    public const SOURCE_FEED_ISSUE_REVERSAL     = 'feed_issue_reversal';
+    public const SOURCE_FEED_BATCH_REVERSAL     = 'feed_batch_reversal';
+    public const SOURCE_FEED_BATCH_ITEM_REVERSAL = 'feed_batch_item_reversal';
+    public const SOURCE_MEDICINE_BATCH_RECEIPT  = 'medicine_batch_receipt';
+    public const SOURCE_MEDICINE_STOCK_ADJUSTMENT = 'medicine_stock_adjustment';
+    public const SOURCE_MEDICATION_DOSING_ALLOCATION = 'medication_dosing_allocation';
+    public const SOURCE_MEDICATION_DOSING_ALLOCATION_REVERSAL = 'medication_dosing_allocation_reversal';
 
     // Events that ADD to on-hand (positive quantity delta).
     public const POSITIVE_EVENTS = [

@@ -24,8 +24,10 @@ class FeedIssue extends Model
     public const POSTING_REVERSED = 'reversed';
 
     protected $fillable = [
+        'submission_key', 'planned_quantity_kg', 'planning_snapshot',
         'organization_id',
         'group_id',
+        'feeding_stage',
         'feed_type_id',
         'quantity_kg',
         'unit_cost_at_issuance',
@@ -37,14 +39,42 @@ class FeedIssue extends Model
         'posting_status',
         'posting_error',
         'journal_batch_id',
+        'reversed_at', 'reversed_by', 'reversal_reason', 'reversal_journal_batch_id',
     ];
 
     protected $casts = [
+        'planned_quantity_kg' => 'decimal:4', 'planning_snapshot' => 'array',
         'quantity_kg'           => 'decimal:4',
         'unit_cost_at_issuance' => 'decimal:6',
         'total_cost'            => 'decimal:4',
         'issued_at'             => 'datetime',
+        'reversed_at'           => 'datetime',
     ];
+
+    /** What was fed: the feeding stage, or the group for older group issues. */
+    public function getRecipientLabelAttribute(): string
+    {
+        if ($this->feeding_stage) {
+            return \App\Services\Feed\FeedStageResolver::STAGES[$this->feeding_stage] ?? $this->feeding_stage;
+        }
+
+        return $this->planning_snapshot['group_name'] ?? $this->group?->name ?? '—';
+    }
+
+    public function isReversed(): bool
+    {
+        return $this->reversed_at !== null;
+    }
+
+    public function scopeNotReversed($query)
+    {
+        return $query->whereNull('reversed_at');
+    }
+
+    public function reverser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reversed_by');
+    }
 
     public function group(): BelongsTo
     {

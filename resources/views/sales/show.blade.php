@@ -66,7 +66,7 @@
                         </div>
                         <div class="flex justify-between border-b border-gray-100 pb-2">
                             <span class="text-gray-600 font-medium">Ear Tag:</span>
-                            <span class="text-gray-900">{{ $sale->pig->ear_tag_number ?? 'N/A' }}</span>
+                            <span class="text-gray-900">{{ $sale->pig?->identityAt($sale->sale_date) ?? 'N/A' }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-600 font-medium">Breed:</span>

@@ -251,13 +251,10 @@ class PigListingEligibilityService
             ->exists();
     }
 
+    /** The dose that restricts the pig longest, from the shared withdrawal rule. */
     protected function activeWithdrawal(PigManagement $pig): ?MedicationAdministration
     {
-        return MedicationAdministration::query()
-            ->where('pig_id', $pig->getKey())
-            ->underWithdrawal()
-            ->orderByDesc('withdrawal_ends_on')
-            ->first();
+        return app(\App\Services\Health\WithdrawalStatusService::class)->forPig($pig)['doses']->first();
     }
 
     /**
@@ -265,13 +262,12 @@ class PigListingEligibilityService
      */
     protected function recentTreatmentsWithoutWithdrawal(PigManagement $pig): \Illuminate\Support\Collection
     {
-        return MedicationAdministration::query()
-            ->where('pig_id', $pig->getKey())
-            ->whereNull('withdrawal_period_days')
-            ->whereDate('administration_date', '>=', now()->subDays(self::RECENT_TREATMENT_DAYS)->toDateString())
-            ->orderByDesc('administration_date')
-            ->limit(3)
-            ->get();
+        $since = now()->subDays(self::RECENT_TREATMENT_DAYS)->toDateString();
+
+        return app(\App\Services\Health\WithdrawalStatusService::class)->forPig($pig)['cautions']
+            ->filter(fn (MedicationAdministration $dose) => $dose->administration_date->toDateString() >= $since)
+            ->take(3)
+            ->values();
     }
 
     /**
@@ -281,6 +277,7 @@ class PigListingEligibilityService
     {
         return HealthRecord::query()
             ->where('pig_id', $pig->getKey())
+            ->notVoided()
             ->whereNull('resolved_at')
             ->where(function ($q) {
                 $q->whereIn('severity', self::BLOCKING_SEVERITIES)

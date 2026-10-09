@@ -68,6 +68,7 @@ class PigStockController extends Controller
                 'room.structure',
                 'father', 'mother',
                 'latestWeight', 'sale',
+                'currentEarTagAssignment.tag.color',
             ])
             ->orderBy('created_at', 'desc')
             ->paginate(10)
@@ -148,7 +149,8 @@ class PigStockController extends Controller
         $query = PigManagement::active()->where('stock_type', 'breeding');
         $this->applyBasicFilters($query, $request);
 
-        $pigmanagement = $query->orderBy('created_at', 'desc')->paginate(10)->appends($request->query());
+        $pigmanagement = $query->with('currentEarTagAssignment.tag.color')
+            ->orderBy('created_at', 'desc')->paginate(10)->appends($request->query());
         return view('breeding_stocks.index', compact('pigmanagement'));
     }
 
@@ -158,7 +160,8 @@ class PigStockController extends Controller
         $query = PigManagement::active()->where('stock_type', 'standard');
         $this->applyBasicFilters($query, $request);
 
-        $pigmanagement = $query->orderBy('created_at', 'desc')->paginate(10)->appends($request->query());
+        $pigmanagement = $query->with('currentEarTagAssignment.tag.color')
+            ->orderBy('created_at', 'desc')->paginate(10)->appends($request->query());
         return view('stocks.standard.index', compact('pigmanagement'));
     }
 
@@ -187,19 +190,25 @@ class PigStockController extends Controller
         return view('stocks.standard.create', compact('males', 'females'));
     }
 
-    public function allCreate()
+    public function allCreate(\App\Services\Stock\Tags\EarTagAllocator $tagAllocator)
     {
         $this->authorize('create', PigManagement::class);
         $males      = PigManagement::active()->where('gender', 'M')->get();
         $females    = PigManagement::active()->where('gender', 'F')->get();
         $structures = Structure::orderBy('name')->where('status', 'active')->get();
-        return view('stocks.all.create', compact('males', 'females', 'structures'));
+        $tagColors = \App\Models\EarTagColor::where('is_active', true)
+            ->where('normalized_name', '!=', 'unspecified')->orderBy('name')->get();
+        $tagSuggestions = $tagColors->mapWithKeys(fn ($color) => [
+            $color->id => $tagAllocator->propose((int) auth()->user()->organization_id, $color, 5),
+        ]);
+        return view('stocks.all.create', compact('males', 'females', 'structures', 'tagColors', 'tagSuggestions'));
     }
 
     public function edit($id)
     {
         $pig = PigManagement::findOrFail($id);
         $this->authorize('update', $pig);
+        $pig->load('currentEarTagAssignment.tag.color');
         $males   = PigManagement::where('gender', 'M')->get();
         $females = PigManagement::where('gender', 'F')->get();
         $rooms   = Room::with('structure')->orderBy('name')->get();
@@ -346,12 +355,13 @@ class PigStockController extends Controller
             'mother', 'father',
             'weights' => fn ($q) => $q->latest('weigh_date'),
             'latestWeight',
-            'maleMatings' => fn ($q) => $q->with(['female', 'createdBy'])->latest('created_at'),
-            'femaleMatings' => fn ($q) => $q->with(['male', 'createdBy'])->latest('created_at'),
-            'farrowingsAsSow' => fn ($q) => $q->with(['boar', 'weanings', 'pigletDeaths'])->orderBy('farrowing_date', 'desc'),
+            'maleMatings' => fn ($q) => $q->with(['female.earTagAssignments.tag.color', 'createdBy'])->latest('created_at'),
+            'femaleMatings' => fn ($q) => $q->with(['male.earTagAssignments.tag.color', 'createdBy'])->latest('created_at'),
+            'farrowingsAsSow' => fn ($q) => $q->with(['boar.earTagAssignments.tag.color', 'weanings', 'pigletDeaths'])->orderBy('farrowing_date', 'desc'),
             'farrowingsAsBoar' => fn ($q) => $q->with(['sow', 'weanings', 'pigletDeaths'])->orderBy('farrowing_date', 'desc'),
             'sale',
             'deaths',
+            'earTagAssignments' => fn ($q) => $q->with('tag.color')->orderByDesc('assigned_at'),
         ])->findOrFail($id);
 
         $this->authorize('view', $pig);
@@ -366,9 +376,9 @@ class PigStockController extends Controller
             'mother', 'father',
             'weights' => fn ($q) => $q->latest('weigh_date'),
             'latestWeight',
-            'maleMatings' => fn ($q) => $q->with(['female', 'createdBy'])->latest('created_at'),
-            'femaleMatings' => fn ($q) => $q->with(['male', 'createdBy'])->latest('created_at'),
-            'farrowingsAsSow' => fn ($q) => $q->with(['boar', 'weanings', 'pigletDeaths'])->orderBy('farrowing_date', 'desc'),
+            'maleMatings' => fn ($q) => $q->with(['female.earTagAssignments.tag.color', 'createdBy'])->latest('created_at'),
+            'femaleMatings' => fn ($q) => $q->with(['male.earTagAssignments.tag.color', 'createdBy'])->latest('created_at'),
+            'farrowingsAsSow' => fn ($q) => $q->with(['boar.earTagAssignments.tag.color', 'weanings', 'pigletDeaths'])->orderBy('farrowing_date', 'desc'),
             'farrowingsAsBoar' => fn ($q) => $q->with(['sow', 'weanings', 'pigletDeaths'])->orderBy('farrowing_date', 'desc'),
             'sale', 'deaths',
         ])->findOrFail($id);
@@ -403,7 +413,7 @@ class PigStockController extends Controller
             'total_records' => $pig->healthRecords()->count(),
             'open_cases' => $pig->healthRecords()->whereNull('resolved_at')->count(),
             'medication_records' => $pig->medicationAdministrations()->count(),
-            'under_withdrawal' => $pig->medicationAdministrations()->underWithdrawal()->exists(),
+            'under_withdrawal' => app(\App\Services\Health\WithdrawalStatusService::class)->forPig($pig)['restricted'],
         ];
 
         $offspring = PigManagement::where(function ($query) use ($pig) {
@@ -541,35 +551,27 @@ class PigStockController extends Controller
     public function allExportExcel(Request $request, StockExcelImportService $service)
     {
         $this->authorize('viewAny', PigManagement::class);
-        $query = PigManagement::active()->with(['latestWeight', 'sale', 'father', 'mother', 'room.structure']);
+        $query = PigManagement::active()->with(['latestWeight', 'sale', 'father', 'mother', 'room.structure', 'currentEarTagAssignment.tag.color']);
         $this->applyAllStockFilters($query, $request);
 
         $rows = (function () use ($query) {
             yield [
-            'code', 'ear_tag_number', 'breed', 'gender', 'stock_type', 'date_of_birth', 'age',
-            'Structure', 'room_name', 'father_ear_tag', 'mother_ear_tag', 'acquisition_source',
-            'acquisition_date', 'acquisition_cost', 'status', 'notes',
+                ...StockExcelImportService::HEADERS,
             ];
 
             foreach ($query->lazyById(500) as $pig) {
-                $ss = $pig->sale_status;
                 yield [
-                    $pig->code,
                     $pig->ear_tag_number,
-                    $pig->breed,
-                    $pig->gender,
-                    $pig->stock_type,
+                    $pig->currentEarTagAssignment?->tag?->color?->name ?? 'Unspecified',
+                    \App\Models\Setting::animalBreeds()[$pig->breed] ?? $pig->breed,
+                    $pig->stock_type === 'breeding' ? 'Breeding' : 'Standard',
+                    $pig->gender === 'M' ? 'Male' : 'Female',
                     $pig->date_of_birth ? $pig->date_of_birth->format('Y-m-d') : '',
-                    $pig->current_age_in_days,
-                    $pig->room?->structure?->name ?? '',
-                    $pig->room?->name ?? '',
-                    $pig->father?->ear_tag_number ?? '',
-                    $pig->mother?->ear_tag_number ?? '',
-                    $pig->acquisition_source ?? '',
-                    $pig->acquisition_date ? $pig->acquisition_date->format('Y-m-d') : '',
-                    $pig->acquisition_cost ?? '',
-                    $ss['sold'] ? 'Sold' : 'Available',
-                    $pig->notes ?? '',
+                    $pig->room?->structure && $pig->room
+                        ? $pig->room->structure->name . ' / ' . $pig->room->name
+                        : '',
+                    $pig->latestWeight ? $pig->latestWeight->weight . ' kg' : '',
+                    '',
                 ];
             }
         })();
@@ -728,12 +730,31 @@ class PigStockController extends Controller
     public function checkEarTag(Request $request)
     {
         $this->authorize('viewAny', PigManagement::class);
-        $request->validate(['ear_tag_number' => 'required|string|max:50']);
+        $data = $request->validate([
+            'ear_tag_number' => ['required', 'string', 'max:50'],
+            'ear_tag_color_id' => ['nullable', 'integer', \Illuminate\Validation\Rule::exists('ear_tag_colors', 'id')->where(
+                fn ($query) => $query->where('organization_id', $request->user()->organization_id)->where('is_active', true)
+            )],
+        ]);
 
-        $earTagNumber = trim((string) $request->ear_tag_number);
-        $exists       = PigManagement::where('ear_tag_number', $earTagNumber)->exists();
+        $earTagNumber = trim((string) $data['ear_tag_number']);
+        $exists = false;
+        $physicalTag = null;
+        {
+            $colorId = $data['ear_tag_color_id'] ?? \App\Models\EarTagColor::where('normalized_name', 'unspecified')->value('id');
+            $physicalTag = \App\Models\EarTag::where('ear_tag_color_id', $colorId)->where('normalized_tag_number', \App\Models\EarTag::normalizeNumber($earTagNumber))
+                ->first();
+            $exists = (bool) ($physicalTag && (
+                $physicalTag->status !== \App\Models\EarTag::AVAILABLE
+                || $physicalTag->currentAssignment()->exists()
+            ));
+        }
 
-        return response()->json(['exists' => $exists, 'ear_tag_number' => $earTagNumber]);
+        return response()->json([
+            'exists' => $exists,
+            'ear_tag_number' => $earTagNumber,
+            'tag_status' => $physicalTag?->status,
+        ]);
     }
 
     // ---------------------------------------------------------------- weight upsert (operational)

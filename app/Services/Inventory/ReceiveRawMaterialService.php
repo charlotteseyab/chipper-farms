@@ -170,11 +170,8 @@ class ReceiveRawMaterialService
             $quantity, $unitCost, $supplierId, $prItemId, $receiptReason,
             $linkedPurchaseRequest,
         ) {
-            // 1. Increment the legacy on-hand counter for backward-compat
-            //    readers. The unified ledger holds the truth.
-            $material->increment('quantity_in_stock', $quantity);
-
-            // 2. Keep legacy unit_cost in sync for one release.
+            // 1-2. quantity_in_stock is mirrored from the ledger by
+            //      InventoryService. unit_cost keeps the last price paid.
             $material->update(['unit_cost' => $unitCost]);
 
             // 3. Stock log — the authoritative record of the physical

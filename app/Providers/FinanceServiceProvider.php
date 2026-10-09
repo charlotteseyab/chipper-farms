@@ -197,6 +197,10 @@ class FinanceServiceProvider extends ServiceProvider
             FeedBatchProducedSubscriber::class,
         );
         $registry->register(
+            \App\Domain\Events\Inventory\FinishedFeedCounted::TYPE,
+            \App\Finance\Subscribers\Inventory\FinishedFeedCountedSubscriber::class,
+        );
+        $registry->register(
             \App\Domain\Events\Costing\FeedIssued::TYPE,
             \App\Finance\Subscribers\Costing\FeedIssuedSubscriber::class,
         );

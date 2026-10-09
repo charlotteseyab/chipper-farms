@@ -12,9 +12,16 @@ class Group extends Model
         'organization_id',
         'name',
         'type',
+        'feeding_stage',
         'structure_id',
         'description',
     ];
+
+    /** Groups that hold real animals, excluding the per-stage feeding groups. */
+    public function scopeAnimalGroups($query)
+    {
+        return $query->whereNull('feeding_stage');
+    }
 
     public function pigs(): HasMany
     {

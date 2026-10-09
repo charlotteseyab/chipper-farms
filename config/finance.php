@@ -10,6 +10,36 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Instant posting
+    |--------------------------------------------------------------------------
+    |
+    | These events post to finance straight after the save that creates them,
+    | instead of waiting for the next `finance:process-events` run. The outbox
+    | row is still written and remains the retry path if instant posting fails.
+    | Turn off with FINANCE_INSTANT_POSTING=false.
+    |
+    */
+    'instant_posting' => [
+        'enabled' => env('FINANCE_INSTANT_POSTING', true),
+        'event_types' => [
+            // Feed
+            'feed.issued', 'feed_batch.produced', 'finished_feed.counted',
+            // Raw materials
+            'raw_material.received', 'raw_material.adjusted',
+            // Pigs
+            'pig.acquired', 'pig_birth.recorded', 'pig.weaned', 'litter.weaned',
+            'pig_death.recorded', 'pig_lifecycle.stage_changed', 'pig.exited',
+            // Sales
+            'pig_sale.recorded', 'pig_sale.payment_status_changed',
+            'feed_sale.recorded', 'feed_sale.payment_status_changed',
+            'sales_return.recorded', 'storefront_order.confirmed',
+            // Purchasing (paid and declined have no finance step; they are marked done)
+            'purchase_request.approved', 'purchase_request.paid', 'purchase_request.declined',
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Alerts
     |--------------------------------------------------------------------------
     |

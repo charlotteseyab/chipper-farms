@@ -36,6 +36,7 @@ class GroupCostMovement extends Model
      * must be able to tell a genuine inflow from an undone outflow.
      */
     public const EVENT_SALES_RETURN       = 'sales_return';
+    public const EVENT_FEED_ISSUE_REVERSAL = 'feed_issue_reversal';
 
     public const ALLOWED_EVENTS = [
         self::EVENT_FEED_ISSUE,
@@ -63,6 +64,7 @@ class GroupCostMovement extends Model
         self::EVENT_MORTALITY_WRITEOFF,
         self::EVENT_TRANSFER_OUT,
         self::EVENT_ADJUSTMENT_DEDUCT,
+        self::EVENT_FEED_ISSUE_REVERSAL,
     ];
 
     // Short source tokens (matches Phase 4 pattern).
@@ -80,6 +82,7 @@ class GroupCostMovement extends Model
      * sale's — the pool must show both the outflow and its reversal.
      */
     public const SOURCE_SALES_RETURN           = 'sales_return';
+    public const SOURCE_FEED_ISSUE_REVERSAL    = 'feed_issue_reversal';
 
     protected $fillable = [
         'organization_id',

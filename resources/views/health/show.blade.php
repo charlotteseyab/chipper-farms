@@ -12,6 +12,24 @@
         </div>
     @endif
 
+    @if($hasLeft)
+        <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700" role="status">
+            This pig has left the farm (sold, died or removed). Its health history is kept here for traceability.
+        </div>
+    @endif
+    @if($withdrawal['restricted'])
+        <div class="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
+            <p class="font-semibold">Under medicine withdrawal until {{ $withdrawal['until']->format('d M Y') }}</p>
+            <p class="mt-1">It cannot be sold before {{ $withdrawal['until']->addDay()->format('d M Y') }}.
+                @foreach($withdrawal['doses'] as $dose){{ $loop->first ? 'Because of ' : ', ' }}{{ $dose->medication_name }} given {{ $dose->administration_date->format('d M Y') }} ({{ $dose->withdrawal_period_days }} days){{ $loop->last ? '.' : '' }}@endforeach
+            </p>
+        </div>
+    @elseif($withdrawal['cautions']->isNotEmpty())
+        <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            <p class="font-semibold">Withdrawal not recorded</p>
+            <p class="mt-1">@foreach($withdrawal['cautions']->take(3) as $dose){{ $loop->first ? '' : ', ' }}{{ $dose->medication_name }} given {{ $dose->administration_date->format('d M Y') }}@endforeach has no withdrawal period recorded. Check the label before selling.</p>
+        </div>
+    @endif
     <!-- 1. Header and Primary Actions -->
     <div class="mb-6 flex justify-between items-center pt-4">
         <div>
@@ -22,11 +40,13 @@
             <p class="mt-1 text-base text-gray-500">{{ $pig->breed }} ({{ $pig->stock_type }})</p>
         </div>
         <div class="flex flex-wrap justify-end gap-3">
+            @if(auth()->user()->hasPermission('export_health_reports'))
             <a href="{{ route('health.export-pdf', $pig) }}" class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-700 hover:to-teal-700 transition shadow-md">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 5H7a2 2 0 01-2-2V6a2 2 0 012-2h5l5 5v7a2 2 0 01-2 2z"></path></svg>
                 Export Health PDF
             </a>
-            @if(auth()->user()?->hasPermission('manage_health_records'))
+            @endif
+            @if($lastRecord && auth()->user()?->can('update', $lastRecord))
                 <button type="button" id="open-health-status-modal" @disabled(!$lastRecord)
                     class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition shadow-md disabled:cursor-not-allowed disabled:bg-gray-300 disabled:shadow-none"
                     title="{{ $lastRecord ? 'Update the latest health record status' : 'Add a health record before updating status' }}">
@@ -138,6 +158,43 @@
     </div>
 
 
+    <!-- Health timeline: everything that happened to this animal, newest first -->
+    @php
+        $kindStyle = ['examination' => 'bg-violet-500', 'case' => 'bg-red-500', 'follow_up' => 'bg-amber-500', 'course' => 'bg-sky-500',
+            'dose' => 'bg-blue-600', 'withdrawal' => 'bg-emerald-500', 'exit' => 'bg-slate-500'];
+    @endphp
+    <section class="mb-8 rounded-xl border border-gray-100 bg-white p-6 shadow-xl" x-data="{ all: false }">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-xl font-semibold text-gray-800">Health timeline</h2>
+            <div class="flex flex-wrap gap-2 text-sm">
+                @if(! $pig->trashed())
+                    @can('create', \App\Models\TreatmentCourse::class)
+                        <a href="{{ route('treatment-courses.create', ['pig' => $pig->id]) }}" class="rounded-lg border border-sky-200 px-3 py-1.5 font-semibold text-sky-800 hover:bg-sky-50">Prescribe a course</a>
+                    @endcan
+                @endif
+                <a href="{{ route('vet-visits.index', ['animal' => $pig->code]) }}" class="rounded-lg border px-3 py-1.5 font-semibold text-slate-700 hover:bg-slate-50">Vet visits</a>
+            </div>
+        </div>
+        <p class="mt-1 text-sm text-gray-500">Permanent record for {{ $pig->code }}. Each entry shows the tag worn that day.</p>
+        <ol class="mt-4 space-y-3">
+            @forelse($timeline as $i => $event)
+                <li class="flex gap-3" @if($i >= 12) x-show="all" x-cloak @endif>
+                    <span class="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full {{ $kindStyle[$event['kind']] ?? 'bg-slate-400' }}" aria-hidden="true"></span>
+                    <div class="min-w-0">
+                        <p class="text-sm {{ $event['struck'] ? 'text-gray-400 line-through' : 'text-gray-900' }}">
+                            <span class="font-mono text-xs text-gray-500">{{ $event['at']->format('j M Y') }}</span>
+                            @if($event['url'])<a href="{{ $event['url'] }}" class="font-semibold hover:underline">{{ $event['title'] }}</a>@else<span class="font-semibold">{{ $event['title'] }}</span>@endif
+                        </p>
+                        <p class="text-xs text-gray-500">{{ $event['tag'] ? 'Tag '.$event['tag'].' · ' : '' }}{{ $event['detail'] }}</p>
+                    </div>
+                </li>
+            @empty
+                <li class="text-sm text-gray-500">Nothing recorded yet.</li>
+            @endforelse
+        </ol>
+        @if($timeline->count() > 12)<button type="button" @click="all = !all" class="mt-3 text-sm font-semibold text-indigo-700" x-text="all ? 'Show less' : 'Show all {{ $timeline->count() }} entries'"></button>@endif
+    </section>
+
     <!-- 3. Health Timeline and Medication Timeline -->
     <div class="grid grid-cols-1 items-start gap-8 lg:grid-cols-2">
         
@@ -162,13 +219,23 @@
                        
                         $pillClass = $hr->severity === 'severe' ? 'bg-red-200 text-red-800' : ($hr->severity === 'moderate' ? 'bg-yellow-200 text-yellow-800' : 'bg-red-200 text-red-800');
                     @endphp
-                    <div class="border-l-4 {{ $borderClass }} rounded-r-lg p-4 shadow-sm transition hover:shadow-md">
+                    <div class="border-l-4 {{ $hr->isVoided() ? 'border-gray-300 bg-gray-50 opacity-75' : $borderClass }} rounded-r-lg p-4 shadow-sm transition hover:shadow-md">
                         <div class="flex items-start justify-between mb-2">
                             <div class="font-semibold text-gray-900 flex items-center">
-                                {{ $hr->record_date->format('M d, Y') }}
+                                {{ $hr->record_date->format('M d, Y') }}<div class="text-xs text-gray-500">{{ $pig->identityAt($hr->record_date) }}</div>
                             </div>
-                            <span class="px-3 py-0.5 text-xs rounded-full font-bold uppercase">{{ ucfirst($hr->severity) }}</span>
+                            @if($hr->isVoided())
+                                <span class="px-3 py-0.5 text-xs rounded-full font-bold uppercase bg-gray-200 text-gray-700">Voided</span>
+                            @else
+                                <span class="px-3 py-0.5 text-xs rounded-full font-bold uppercase">{{ ucfirst($hr->severity ?? '') }}</span>
+                            @endif
                         </div>
+                        @if($hr->isVoided())
+                            <p class="mb-2 text-xs text-gray-600">Voided {{ $hr->voided_at->format('M d, Y') }} by {{ $hr->voidedBy?->name ?? '—' }}: {{ $hr->void_reason }}</p>
+                        @endif
+                        @if($hr->legacy_severity)
+                            <p class="mb-1 text-xs text-gray-500">Originally entered severity: “{{ $hr->legacy_severity }}”</p>
+                        @endif
                         
                         <div class="space-y-1">
                             <div class="text-gray-800 text-sm">
@@ -194,10 +261,25 @@
                             @endif
                         </div>
 
-                        {{-- Record Actions (assuming individual routes exist for the HealthRecord model) --}}
-                        <!-- <div class="mt-3 pt-2 border-t border-gray-200 flex justify-end gap-3 text-xs">
-                            <a href="{{ route('health.edit', $hr) }}" class="text-indigo-600 hover:text-indigo-800 font-medium">Edit</a>
-                        </div> -->
+                        @if($hr->scope === 'group')<p class="mb-1 text-xs text-gray-500">Group case{{ $hr->group_label_snapshot ? ': '.$hr->group_label_snapshot : '' }}</p>@endif
+                        @if(! $hr->isVoided())
+                            <div class="mt-3 pt-2 border-t border-gray-200 flex flex-wrap items-start justify-end gap-3 text-xs">
+                                <a href="{{ route('health-cases.show', $hr) }}" class="text-gray-700 hover:text-gray-900 font-medium">Open case</a>
+                                @can('update', $hr)
+                                    <a href="{{ route('health.records.edit', $hr) }}" class="text-indigo-600 hover:text-indigo-800 font-medium">Edit</a>
+                                @endcan
+                                @can('void', $hr)
+                                    <details class="text-right">
+                                        <summary class="cursor-pointer font-medium text-red-600 hover:text-red-800">Void</summary>
+                                        <form method="POST" action="{{ route('health.records.void', $hr) }}" class="mt-2 flex gap-2">
+                                            @csrf
+                                            <input name="void_reason" required minlength="5" maxlength="2000" placeholder="Why is this record wrong?" class="w-56 rounded border-gray-300 text-xs">
+                                            <button class="rounded bg-red-600 px-2 py-1 font-semibold text-white">Void</button>
+                                        </form>
+                                    </details>
+                                @endcan
+                            </div>
+                        @endif
                     </div>
                     @empty
                     <div class="text-center py-8 text-gray-500">
@@ -231,13 +313,20 @@
             <div class="flex flex-1 flex-col p-6">
                 <div class="flex-1 space-y-4">
                     @forelse($medicationRecords as $med)
-                    <div class="border-l-4 border-blue-500 rounded-r-lg p-4 shadow-sm transition hover:shadow-md">
+                    <div class="border-l-4 {{ $med->isVoided() ? 'border-gray-300 bg-gray-50 opacity-75' : 'border-blue-500' }} rounded-r-lg p-4 shadow-sm transition hover:shadow-md">
                         <div class="flex items-start justify-between mb-2">
                             <div class="font-semibold text-gray-900 flex items-center">
-                                {{ $med->administration_date->format('M d, Y') }}
+                                {{ $med->administration_date->format('M d, Y') }}<div class="text-xs text-gray-500">{{ $pig->identityAt($med->administration_date) }}</div>
                             </div>
-                            <div class="text-sm text-gray-600    px-2 py-0.5 rounded font-medium">{{ $med->route ?? 'N/A' }}</div>
+                            @if($med->isVoided())
+                                <span class="px-3 py-0.5 text-xs rounded-full font-bold uppercase bg-gray-200 text-gray-700">{{ $med->correctedBy ? 'Corrected' : 'Voided' }}</span>
+                            @else
+                                <div class="text-sm text-gray-600    px-2 py-0.5 rounded font-medium">{{ $med->route ?? 'N/A' }}</div>
+                            @endif
                         </div>
+                        @if($med->isVoided())
+                            <p class="mb-2 text-xs text-gray-600">{{ $med->voided_at->format('M d, Y') }} by {{ $med->voidedBy?->name ?? '—' }}: {{ $med->void_reason }}</p>
+                        @endif
 
                         <div class="space-y-1 text-sm">
                             <div class="text-gray-800">
@@ -245,6 +334,10 @@
                             </div>
                             <div class="text-gray-800">
                                 <span class="font-bold">Dosage:</span> {{ $med->dosage }}
+                            </div>
+                            <div class="{{ $med->withdrawal_period_days === null ? 'text-amber-700' : 'text-gray-700' }}">
+                                <span class="font-bold">Withdrawal:</span>
+                                {{ $med->withdrawal_period_days === null ? 'Not recorded' : $med->withdrawal_period_days.' days (until '.$med->withdrawal_ends_on?->format('M d, Y').')' }}
                             </div>
                             @if($med->purpose)
                             <div class="text-gray-600">
@@ -258,9 +351,11 @@
                             @endif
                         </div>
 
-                        {{-- Medication Actions (assuming individual routes exist for the MedicationAdministration model) --}}
                         <div class="mt-3 pt-2 border-t border-gray-200 flex justify-end gap-3 text-xs">
-                            <!-- <a href="{{ route('medications.edit', $med) }}" class="text-indigo-600 hover:text-indigo-800 font-medium">Edit</a> -->
+                            <a href="{{ route('medications.show', $med) }}" class="text-gray-600 hover:text-gray-800 font-medium">View</a>
+                            @can('correct', $med)
+                                <a href="{{ route('medications.edit', $med) }}" class="text-indigo-600 hover:text-indigo-800 font-medium">Correct</a>
+                            @endcan
                         </div>
                     </div>
                     @empty
@@ -281,7 +376,7 @@
     </div>
 </div>
 
-@if($lastRecord && auth()->user()?->hasPermission('manage_health_records'))
+@if($lastRecord && auth()->user()?->can('update', $lastRecord))
 <div id="health-status-modal" class="fixed inset-0 z-[100] hidden" role="dialog" aria-modal="true" aria-labelledby="health-status-title">
     <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" data-close-health-status></div>
     <div class="relative flex min-h-full items-center justify-center p-4">
@@ -299,7 +394,7 @@
                 </div>
             </div>
 
-            <form method="POST" action="{{ route('health.status.update', $pig) }}" class="p-6">
+            <form method="POST" action="{{ route('health.records.status', $lastRecord) }}" class="p-6">
                 @csrf
                 @method('PATCH')
 
@@ -316,7 +411,7 @@
                         <label for="status-severity" class="mb-1 block text-sm font-semibold text-gray-700">Severity</label>
                         <select id="status-severity" name="severity" class="w-full rounded-lg border-gray-300">
                             <option value="">Not specified</option>
-                            @foreach(['mild' => 'Mild', 'moderate' => 'Moderate', 'severe' => 'Severe', 'low' => 'Low', 'medium' => 'Medium', 'high' => 'High'] as $value => $label)
+                            @foreach(\App\Models\HealthRecord::SEVERITIES as $value => $label)
                                 <option value="{{ $value }}" @selected(old('severity', $lastRecord->severity) === $value)>{{ $label }}</option>
                             @endforeach
                         </select>

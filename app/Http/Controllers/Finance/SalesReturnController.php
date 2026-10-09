@@ -76,7 +76,7 @@ class SalesReturnController extends Controller
 
             'pigSales' => PigSale::query()
                 ->where('organization_id', $organizationId)
-                ->with('pig')
+                ->with('pig.earTagAssignments.tag.color')
                 ->orderByDesc('sale_date')->orderByDesc('id')
                 ->limit(50)->get(),
         ]);

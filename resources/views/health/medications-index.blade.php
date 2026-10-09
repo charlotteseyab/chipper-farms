@@ -68,9 +68,11 @@
                             <svg class="inline-block w-4 h-4 mr-1 -mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707v7l-4 4v-7a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
                             Apply Filter
                         </button>
+                        @if(auth()->user()->hasPermission('export_health_reports'))
                         <a href="{{ route('medications.export', request()->query()) }}" class="w-full sm:w-auto px-4 py-2 text-sm font-medium rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition duration-150 shadow-md text-center">
                             Export CSV
                         </a>
+                        @endif
                     </div>
                 </div>
             </form>
@@ -162,7 +164,7 @@
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
     @if($m->pig)
         <a href="{{ route('health.show', $m->pig->id) }}" class="text-indigo-600 hover:text-indigo-800 font-semibold transition duration-150">
-            {{ $m->pig->code ?? $m->pig->ear_tag_number ?? 'Pig #' . $m->pig->id }}
+            {{ $m->pig->identityAt($m->administration_date) ?? 'Pig #' . $m->pig->id }}
         </a>
     @else
         <span class="text-gray-400 italic">No pig linked</span>
@@ -185,14 +187,9 @@
                                                 <a href="{{ route('health.show', $m->pig) }}#medication-history" class="block px-4 py-2 text-sm font-semibold text-blue-600 hover:bg-indigo-50 hover:text-indigo-700 w-full text-left" role="menuitem">View medication history</a>
                                             @endif
                                             <a href="{{ route('medications.show', $m) }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left" role="menuitem">View latest record</a>
-                                            <a href="{{ route('medications.edit', $m) }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left" role="menuitem">Edit Record</a>
-                                            <form method="POST" action="{{ route('medications.destroy', $m) }}" onsubmit="return confirm('Are you sure you want to delete this medication record?');">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 w-full text-left" role="menuitem">
-                                                    Delete Record
-                                                </button>
-                                            </form>
+                                            @can('correct', $m)
+                                                <a href="{{ route('medications.edit', $m) }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 w-full text-left" role="menuitem">Correct Record</a>
+                                            @endcan
                                         </div>
                                     </div>
                                 </div>

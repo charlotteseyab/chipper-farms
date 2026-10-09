@@ -34,6 +34,8 @@ class RecordPigDeathRequest extends FormRequest
             'disposal_method_other'   => ['nullable', 'required_if:disposal_method,other', 'string', 'max:255'],
             'disposal_date'           => ['nullable', 'date', 'after_or_equal:death_date'],
             'death_notes'             => ['nullable', 'string', 'max:2000'],
+            'tag_outcome'              => ['sometimes', 'in:available,pending_recovery,lost,damaged,retired'],
+            'tag_condition_notes'      => ['nullable', 'string', 'max:1000'],
         ];
     }
 
@@ -78,6 +80,8 @@ class RecordPigDeathRequest extends FormRequest
             'disposal_method_other' => $disposalMethodOther,
             'disposal_date'    => $data['disposal_date']    ?? null,
             'death_notes'      => $data['death_notes']      ?? null,
+            'tag_outcome'      => $data['tag_outcome']      ?? 'pending_recovery',
+            'tag_condition_notes' => $data['tag_condition_notes'] ?? null,
         ];
     }
 }

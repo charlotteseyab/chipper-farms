@@ -27,12 +27,12 @@ class DeathsExportService
      */
     public function buildFilteredCollections(Request $request): array
     {
-        $adultQuery = PigDeath::with(['pig', 'recordedBy'])
+        $adultQuery = PigDeath::with(['pig.earTagAssignments.tag.color', 'recordedBy'])
             ->whereHas('pig', function ($q) {
                 $q->whereRaw('DATEDIFF(death_date, date_of_birth) >= ?', [self::PIGLET_THRESHOLD_DAYS]);
             });
 
-        $pigletQuery = PigDeath::with(['pig', 'recordedBy'])
+        $pigletQuery = PigDeath::with(['pig.earTagAssignments.tag.color', 'recordedBy'])
             ->whereHas('pig', function ($q) {
                 $q->whereRaw('DATEDIFF(death_date, date_of_birth) < ?', [self::PIGLET_THRESHOLD_DAYS]);
             });
@@ -91,7 +91,7 @@ class DeathsExportService
                 fputcsv($file, [
                     'Adult (60+ days)',
                     $death->pig->code ?? 'N/A',
-                    $death->pig->ear_tag_number ?? 'N/A',
+                    $death->pig?->tagLabelAt($death->death_date) ?? 'N/A',
                     $death->death_date->format('Y-m-d'),
                     $death->age_at_death_display ?? 'Unknown',
                     $death->death_cause_display,
@@ -106,7 +106,7 @@ class DeathsExportService
                 fputcsv($file, [
                     'Piglet (< 60 days)',
                     $death->pig->code ?? 'N/A',
-                    $death->pig->ear_tag_number ?? 'N/A',
+                    $death->pig?->tagLabelAt($death->death_date) ?? 'N/A',
                     $death->death_date->format('Y-m-d'),
                     $death->age_at_death_display ?? 'Unknown',
                     $death->death_cause_display,

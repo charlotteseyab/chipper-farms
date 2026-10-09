@@ -74,6 +74,33 @@ class FinanceSidebarTest extends TestCase
         $this->assertContains('Cash, Bank & MoMo', $labels);
     }
 
+    public function test_accountant_keeps_the_advanced_accounting_dropdown_when_optional_features_are_off(): void
+    {
+        $this->user->syncRoleFields('accountant');
+        $this->user->save();
+        $this->user->clearPermissionCache();
+
+        foreach ([
+            FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING,
+            FeatureCatalog::FINANCE_ADVANCED_AP,
+            FeatureCatalog::FINANCE_WHT,
+            FeatureCatalog::FINANCE_BANK_RECONCILIATION,
+            FeatureCatalog::FINANCE_PERIOD_CLOSE,
+            FeatureCatalog::FINANCE_INVESTOR_MANAGEMENT,
+            FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL,
+            FeatureCatalog::FINANCE_ADVANCED_TREASURY,
+        ] as $feature) {
+            $this->app->make(OrganizationFeatureService::class)->disable($feature, $this->org);
+        }
+
+        $section = collect(NavigationHelper::sidebarSections($this->user))
+            ->firstWhere('title', 'Finance');
+        $advanced = collect($section['items'] ?? [])->firstWhere('label', 'Advanced Accounting');
+
+        $this->assertNotNull($advanced);
+        $this->assertContains('Accounting Dashboard', collect($advanced['children'] ?? [])->pluck('label')->all());
+    }
+
     /**
      * The defect, stated as a test: a surface the farm has switched off must not
      * be advertised in its own menu.

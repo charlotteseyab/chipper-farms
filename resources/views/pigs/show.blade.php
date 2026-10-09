@@ -468,7 +468,7 @@
                             </a>
 
                             <div>
-                                <h1 class="pigshow-title">{{ $pig->ear_tag_number }}</h1>
+                                <h1 class="pigshow-title">{{ $pig->identityAt() }}</h1>
                                 <p class="pigshow-subtitle">
                                     {{ ucfirst($pig->stock_type) }} Stock • {{ $pig->breed }} • {{ ucfirst($pig->gender === 'M' ? 'Male' : 'Female') }}
                                 </p>
@@ -487,6 +487,13 @@
                             <span class="pigshow-top-badge">Deceased</span>
                         @endif
 
+                        @if($pig->herdExit)
+                            <span class="pigshow-top-badge">{{ $pig->herdExit->type_label }} {{ $pig->herdExit->exit_date->format('d M Y') }}</span>
+                        @elseif(! $pig->trashed() && auth()->user()?->can('create', \App\Models\PigExit::class))
+                            <a href="{{ route('pig-exits.create', [$pig, 'type' => 'transfer_out']) }}" class="pigshow-top-btn dark">Transfer Out</a>
+                            <a href="{{ route('pig-exits.create', [$pig, 'type' => 'cull']) }}" class="pigshow-top-btn dark">Cull</a>
+                        @endif
+
                         @if($pig->stock_type === 'standard' && in_array($breedingReadiness['age_status'], ['minimum_met', 'optimal']) && $breedingReadiness['factors']['weight']['status'] !== 'too_light')
                             <form action="{{ route('pigs.promote-to-breeding', $pig->id) }}" method="POST" onsubmit="return confirm('Promote {{ $pig->ear_tag_number }} to breeding stock?');">
                                 @csrf
@@ -494,6 +501,11 @@
                             </form>
                         @endif
 
+                        @can('update', $pig)
+                            @if(!$pig->trashed() && $pig->currentEarTagAssignment)
+                                <a href="{{ route('pigs.ear-tag.replace', $pig) }}" class="pigshow-top-btn dark">Replace Tag</a>
+                            @endif
+                        @endcan
                         <a href="{{ route('breeding-stocks.edit', $pig->id) }}" class="pigshow-top-btn blue">Edit</a>
                         <a href="{{ route('pigs.export.pdf', $pig->id) }}" class="pigshow-top-btn dark">Download PDF</a>
 
@@ -707,6 +719,22 @@
                                         </dd>
                                     </div>
                                 </dl>
+                            </div>
+                        </div>
+
+                        <div class="pigshow-card order-2">
+                            <div class="pigshow-card-head"><h2 class="pigshow-card-title">Ear Tag History</h2><p class="pigshow-card-sub">Physical tags used by this permanent animal record.</p></div>
+                            <div class="pigshow-card-body">
+                                <div class="space-y-3">
+                                    @forelse($pig->earTagAssignments as $assignment)
+                                        <div class="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                                            <div><p class="font-black text-slate-950"><span class="mr-2 inline-block h-3 w-3 rounded-full border border-slate-300 align-middle" style="background: {{ $assignment->tag?->color?->hex_color ?: '#CBD5E1' }}"></span>{{ $assignment->tag?->color?->name ?? 'Unspecified' }} {{ $assignment->tag?->tag_number }}</p><p class="mt-1 text-xs text-slate-500">Assigned {{ $assignment->assigned_at?->format('d M Y') }}@if($assignment->released_at) · Released {{ $assignment->released_at->format('d M Y') }}@endif</p></div>
+                                            <span class="w-fit rounded-full px-3 py-1 text-xs font-bold {{ $assignment->is_current ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700' }}">{{ $assignment->is_current ? 'Current' : 'Previous · '.str($assignment->release_reason ?: 'Released')->headline() }}</span>
+                                        </div>
+                                    @empty
+                                        <p class="text-sm text-slate-500">No tag assignment history is recorded for this animal.</p>
+                                    @endforelse
+                                </div>
                             </div>
                         </div>
 
@@ -1006,7 +1034,7 @@
                                                     <td>{{ $mating->mating_date ? $mating->mating_date->format('M d, Y') : 'Not set' }}</td>
                                                     <td>
                                                         <a href="{{ route('pigs.show', $mating->female->id) }}" class="pigshow-link">
-                                                            {{ $mating->female->ear_tag_number }}
+                                                            {{ $mating->female?->identityAt($mating->actual_date ?? $mating->planned_date) }}
                                                         </a>
                                                     </td>
                                                     <td>Sire</td>
@@ -1024,7 +1052,7 @@
                                                     <td>{{ $mating->mating_date ? $mating->mating_date->format('M d, Y') : 'Not set' }}</td>
                                                     <td>
                                                         <a href="{{ route('pigs.show', $mating->male->id) }}" class="pigshow-link">
-                                                            {{ $mating->male->ear_tag_number }}
+                                                            {{ $mating->male?->identityAt($mating->actual_date ?? $mating->planned_date) }}
                                                         </a>
                                                     </td>
                                                     <td>Dam</td>
@@ -1196,7 +1224,7 @@
                                             <td>{{ $farrowing->farrowing_date ? $farrowing->farrowing_date->format('M d, Y') : 'N/A' }}</td>
                                             <td>
                                                 @if($farrowing->boar)
-                                                    <a href="{{ route('pigs.show', $farrowing->boar->id) }}" class="pigshow-link">{{ $farrowing->boar->ear_tag_number }}</a>
+                                                    <a href="{{ route('pigs.show', $farrowing->boar->id) }}" class="pigshow-link">{{ $farrowing->boar?->identityAt($farrowing->farrowing_date) }}</a>
                                                 @else
                                                     —
                                                 @endif

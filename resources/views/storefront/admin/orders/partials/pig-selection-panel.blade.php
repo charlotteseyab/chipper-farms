@@ -101,7 +101,7 @@
             @foreach($panel['sold'] as $allocation)
                 <li class="rounded-xl border border-slate-200 bg-white p-3">
                     <p class="font-semibold text-slate-800">
-                        {{ $allocation->pig?->ear_tag_number ?? ('Pig #' . $allocation->pig_id) }}
+                        {{ $allocation->pig?->ear_tag_number ?: ($allocation->pig?->code ?? ('Pig #' . $allocation->pig_id)) }}
                     </p>
                     <p class="text-xs text-slate-500">
                         @if($allocation->allocated_live_weight_kg)

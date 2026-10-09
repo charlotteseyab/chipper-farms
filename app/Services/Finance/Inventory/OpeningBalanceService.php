@@ -110,16 +110,10 @@ class OpeningBalanceService
                         itemUnitCache:  $material->unit,
                     );
 
-                    // Sync legacy column for backward-compat readers.
-                    // Phase 4 still ships with RawMaterial::current_wac
-                    // reading from the unit_cost column for materials
-                    // with no movements; the WAC accessor is updated in
-                    // a separate code drop, so we keep the legacy column
-                    // in sync for one release.
-                    $material->update([
-                        'quantity_in_stock' => $row['quantity'],
-                        'unit_cost'         => $row['unit_cost'],
-                    ]);
+                    // quantity_in_stock is mirrored from the ledger by
+                    // InventoryService; keep the opening price as the
+                    // material's last known price.
+                    $material->update(['unit_cost' => $row['unit_cost']]);
                 }
             },
         );

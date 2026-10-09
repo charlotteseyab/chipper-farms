@@ -168,7 +168,7 @@
                                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                                             @if($farrowing->boar)
                                                 <a href="{{ route('pigs.show', $farrowing->boar->id) }}" class="text-indigo-600 hover:text-indigo-800">
-                                                    {{ $farrowing->boar->ear_tag_number }}
+                                                    {{ $farrowing->boar?->identityAt($farrowing->farrowing_date) }}
                                                 </a>
                                             @else
                                                 <span class="text-gray-400">—</span>

@@ -8,7 +8,6 @@ use App\Models\Storefront\StorefrontOrderItem;
 use App\Models\Storefront\StorefrontOrderItemPigAllocation;
 use App\Models\User;
 use App\Services\Stock\PigStockService;
-use App\Storefront\Services\Exceptions\InventoryConflictException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -119,7 +118,7 @@ class StorefrontPigletMaterialisationService
             $created = collect();
 
             for ($i = 0; $i < $outstanding; $i++) {
-                $pig = $this->createPiglet($item, $i);
+                $pig = $this->createPiglet($item);
 
                 $allocation = new StorefrontOrderItemPigAllocation();
 
@@ -149,35 +148,17 @@ class StorefrontPigletMaterialisationService
 
     /* ------------------------------------------------------------------ */
 
-    protected function createPiglet(StorefrontOrderItem $item, int $index): PigManagement
+    protected function createPiglet(StorefrontOrderItem $item): PigManagement
     {
         $order = $item->order;
 
         $reference = $order?->reference ?: ('ORDER-' . $item->order_id);
 
-        // Derived from the order, not invented to look like a farm tag. These
-        // animals were never physically tagged, and a plausible-looking tag
-        // would be indistinguishable from one that was.
-        $tag = mb_substr('PGL-' . $reference . '-' . ($index + 1), 0, 60);
-
-        $attempt = 0;
-
-        while (PigManagement::withTrashed()->where('ear_tag_number', $tag)->exists()) {
-            // A retried approval that got as far as creating animals, or a
-            // reference reused across environments. Suffixing is better than
-            // failing the sale, and better than silently reusing the row.
-            $attempt++;
-            $tag = mb_substr('PGL-' . $reference . '-' . ($index + 1) . '-' . $attempt, 0, 60);
-
-            if ($attempt > 50) {
-                throw new InventoryConflictException(
-                    'Could not create a record for this piglet; its ear tag is already in use.',
-                );
-            }
-        }
-
+        // These animals were never physically tagged, so they get no ear tag
+        // at all. A placeholder in the tag field would be registered as a
+        // physical tag and, once sold, wait forever in the recovery queue.
+        // The permanent animal code and acquisition source identify them.
         return $this->stock->create([
-            'ear_tag_number' => $tag,
             'breed'          => 'Unrecorded',
             // Nobody sexed these animals. 'unknown' is the honest value and the
             // column is a free string; writing 'female' to satisfy a dropdown
@@ -197,6 +178,6 @@ class StorefrontPigletMaterialisationService
             // explanation lives in the allocation snapshot, which is JSON.
             'acquisition_source'  => mb_substr("point-of-sale piglet {$reference}", 0, 50),
             'acquisition_date'    => now()->toDateString(),
-        ]);
+        ], assignEarTag: false);
     }
 }

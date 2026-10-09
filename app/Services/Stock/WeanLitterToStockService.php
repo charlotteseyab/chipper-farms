@@ -110,6 +110,15 @@ class WeanLitterToStockService
                     'weight_cache_recorded_at' => filled($animal['weaning_weight'] ?? null) ? $weaningDate : null,
                 ]);
 
+                app(\App\Services\Stock\Tags\EarTagShadowService::class)
+                    ->syncNewPig(
+                        $pig,
+                        auth()->user(),
+                        filled($animal['ear_tag_color_id'] ?? null)
+                            ? \App\Models\EarTagColor::whereKey($animal['ear_tag_color_id'])->where('is_active', true)->first()
+                            : null,
+                    );
+
                 $weaning = Weaning::create([
                     'farrowing_id' => $locked->id,
                     'pig_id' => $pig->id,

@@ -90,7 +90,7 @@
                             <select name="sale_id" class="mt-1 w-full rounded-xl border-slate-300 text-sm">
                                 @forelse($pigSales as $sale)
                                     <option value="{{ $sale->id }}">
-                                        {{ $sale->pig?->ear_tag_number ?? 'Pig #' . $sale->pig_id }} —
+                                        {{ $sale->pig?->identityAt($sale->sale_date) ?? 'Pig #' . $sale->pig_id }} —
                                         GHS {{ $money($sale->sale_price) }},
                                         {{ \Illuminate\Support\Carbon::parse($sale->sale_date)->format('d M Y') }}
                                         @if($sale->buyer_name) — {{ $sale->buyer_name }}@endif

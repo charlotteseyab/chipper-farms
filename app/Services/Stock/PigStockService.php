@@ -4,6 +4,7 @@ namespace App\Services\Stock;
 
 use App\Domain\Events\Lifecycle\PigAcquired;
 use App\Domain\Events\Support\SourceReference;
+use App\Models\EarTag;
 use App\Models\PigManagement;
 use App\Models\Room;
 use App\Services\DomainEvents\DispatchDomainEvent;
@@ -55,10 +56,16 @@ class PigStockService
      *   breed, gender, stock_type, date_of_birth, ear_tag_number,
      *   father_id (nullable), mother_id (nullable), room_id (nullable)
      *
+     * $assignEarTag false creates an animal that carries no physical tag; it
+     * never enters the tag register, so it cannot later appear as a tag
+     * awaiting recovery.
+     *
      * @throws StockValidationException
      */
-    public function create(array $data): PigManagement
+    public function create(array $data, bool $assignEarTag = true): PigManagement
     {
+        $tagColorId = $data['ear_tag_color_id'] ?? null;
+        unset($data['ear_tag_color_id']);
         if (! empty($data['room_id'])) {
             $room = Room::find($data['room_id']);
             if (! $room) {
@@ -69,7 +76,7 @@ class PigStockService
             }
         }
 
-        $data['ear_tag_number'] = trim((string) $data['ear_tag_number']);
+        $data['ear_tag_number'] = trim((string) ($data['ear_tag_number'] ?? ''));
 
         if ($this->relationships->hasCriticalRisk($data['father_id'] ?? null, $data['mother_id'] ?? null)) {
             throw new StockValidationException('inbreeding', 'Inbreeding risk detected.');
@@ -77,7 +84,7 @@ class PigStockService
 
         $birthDate = Carbon::parse($data['date_of_birth']);
 
-        $organizationId = $this->currentOrganization->id();
+        $organizationId = $this->currentOrganization->requireId();
 
         // Code generation: CFPG-{YM}-{n}, with the numeric part allocated under
         // a row lock instead of MAX(id)+1 (see class docblock).
@@ -105,8 +112,25 @@ class PigStockService
             $data['organization_id'] = $organizationId;
         }
 
-        return DB::transaction(function () use ($data, $organizationId) {
+        if (! $assignEarTag) {
+            $data['ear_tag_number'] = '';
+        }
+
+        return DB::transaction(function () use ($data, $organizationId, $tagColorId, $assignEarTag) {
             $pig = PigManagement::create($data);
+
+            if ($assignEarTag) {
+                $shadow = app(\App\Services\Stock\Tags\EarTagShadowService::class);
+                $color = $tagColorId
+                    ? \App\Models\EarTagColor::whereKey($tagColorId)->where('is_active', true)->firstOrFail()
+                    : $shadow->legacyColor((int) $organizationId, auth()->user());
+                if ($data['ear_tag_number'] === '') {
+                    app(\App\Services\Stock\Tags\EarTagAssignmentService::class)->assignAutomatically($pig, $color, auth()->user());
+                    $pig->refresh();
+                } else {
+                    $shadow->syncNewPig($pig, auth()->user(), $color);
+                }
+            }
 
             if ($organizationId !== null) {
                 $this->dispatcher->dispatch(new PigAcquired(
@@ -147,6 +171,7 @@ class PigStockService
         }
 
         $data['ear_tag_number'] = trim((string) $data['ear_tag_number']);
+        $this->guardManagedTagAgainstInlineChange($pig, $data['ear_tag_number']);
 
         $birthDate = Carbon::parse($data['date_of_birth']);
         $data['age_in_days'] = (int) $birthDate->diffInDays(now());
@@ -193,6 +218,7 @@ class PigStockService
         }
 
         $data['ear_tag_number'] = trim((string) $data['ear_tag_number']);
+        $this->guardManagedTagAgainstInlineChange($pig, $data['ear_tag_number']);
 
         // Recalculate age only if DOB changed — preserves original behaviour.
         $currentDob = $pig->date_of_birth ? $pig->date_of_birth->format('Y-m-d') : null;
@@ -204,5 +230,16 @@ class PigStockService
             $pig->update($data);
             return $pig->fresh();
         });
+    }
+
+    private function guardManagedTagAgainstInlineChange(PigManagement $pig, string $requestedNumber): void
+    {
+        $current = $pig->currentEarTagAssignment()->with('tag')->first();
+        if ($current && EarTag::normalizeNumber($requestedNumber) !== $current->tag->normalized_tag_number) {
+            throw new StockValidationException(
+                'ear_tag_number',
+                'Use the Replace Ear Tag action to change this animal\'s physical tag and preserve its tag history.'
+            );
+        }
     }
 }

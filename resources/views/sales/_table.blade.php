@@ -23,7 +23,7 @@
                             <div class="flex items-center">
                                 <div>
                                     <div class="text-sm font-medium text-gray-900">{{ $sale->pig->code ?? 'N/A' }}</div>
-                                    <div class="text-sm text-gray-500">{{ $sale->pig->ear_tag_number ?? 'N/A' }}</div>
+                                    <div class="text-sm text-gray-500">{{ $sale->pig?->identityAt($sale->sale_date) ?? 'N/A' }}</div>
                                 </div>
                             </div>
                         </td>

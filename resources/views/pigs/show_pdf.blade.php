@@ -287,7 +287,7 @@
                         @endphp
                         <tr>
                             <td>{{ $farrowing->farrowing_date?->format('Y-m-d') ?? 'N/A' }}</td>
-                            <td>{{ $farrowing->boar?->ear_tag_number ?? 'N/A' }}</td>
+                            <td>{{ $farrowing->boar?->identityAt($farrowing->farrowing_date) ?? 'N/A' }}</td>
                             <td>{{ $farrowing->total_piglets_born }}</td>
                             <td>{{ $farrowing->live_births }}</td>
                             <td>{{ $farrowing->stillbirths }}</td>

@@ -2,9 +2,7 @@
 
 namespace App\Http\Requests\Stock;
 
-use App\Models\PigManagement;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 /**
  * Validates input for updating a pig via the legacy breeding-stocks resource
@@ -20,8 +18,6 @@ class UpdateBreedingPigRequest extends FormRequest
 
     public function rules(): array
     {
-        $pigId = $this->currentPigId();
-
         return [
             'breed'          => ['required', \Illuminate\Validation\Rule::in(array_keys(\App\Models\Setting::animalBreeds()))],
             'gender'         => ['required', 'in:M,F'],
@@ -31,7 +27,6 @@ class UpdateBreedingPigRequest extends FormRequest
                 'required',
                 'string',
                 'max:50',
-                Rule::unique('pigs_management', 'ear_tag_number')->ignore($pigId),
             ],
             'father_id'      => ['nullable', 'exists:pigs_management,id'],
             'mother_id'      => ['nullable', 'exists:pigs_management,id'],
@@ -39,18 +34,4 @@ class UpdateBreedingPigRequest extends FormRequest
         ];
     }
 
-    private function currentPigId(): ?int
-    {
-        foreach (($this->route()?->parameters() ?? []) as $parameter) {
-            if ($parameter instanceof PigManagement) {
-                return (int) $parameter->getKey();
-            }
-
-            if (is_numeric($parameter)) {
-                return (int) $parameter;
-            }
-        }
-
-        return null;
-    }
 }

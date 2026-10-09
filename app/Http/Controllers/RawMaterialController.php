@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Counterparty;
+use App\Models\Finance\InventoryMovement;
 use App\Models\RawMaterial;
 use App\Models\RawMaterialStockLog;
 use App\Services\Inventory\AdjustRawMaterialService;
@@ -37,7 +38,7 @@ class RawMaterialController extends Controller
         $search = trim((string) $request->get('search'));
         $status = trim((string) $request->get('status'));
 
-        $query = RawMaterial::query()->latest();
+        $query = RawMaterial::query()->with('inventoryBalance')->latest();
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -64,7 +65,7 @@ class RawMaterialController extends Controller
                                               ->where('quantity_in_stock', '>', 0)
                                               ->count(),
             'out_of_stock'      => RawMaterial::where('quantity_in_stock', '<=', 0)->count(),
-            'stock_value'       => RawMaterial::sum(DB::raw('quantity_in_stock * unit_cost')),
+            'stock_value'       => RawMaterial::ledgerStockValue(),
         ];
 
         $lowStockAlerts = RawMaterial::query()
@@ -112,6 +113,7 @@ class RawMaterialController extends Controller
             'name'              => ['required', 'string', 'max:255'],
             'category'          => ['nullable', 'string', 'max:255'],
             'unit'              => ['required', 'string', 'max:50'],
+            'kg_per_unit'       => ['nullable', 'numeric', 'gt:0', 'max:100000'],
             'quantity_in_stock' => ['nullable', 'numeric', 'min:0'],
             'unit_cost'         => ['nullable', 'numeric', 'min:0'],
             'reorder_level'     => ['nullable', 'numeric', 'min:0'],
@@ -134,6 +136,7 @@ class RawMaterialController extends Controller
                 'name'              => $validated['name'],
                 'category'          => $validated['category'] ?? null,
                 'unit'              => $validated['unit'],
+                'kg_per_unit'       => $validated['kg_per_unit'] ?? null,
                 'quantity_in_stock' => 0,  // Set by receive service if opening qty > 0.
                 'unit_cost'         => $unitCost,
                 'reorder_level'     => (float) ($validated['reorder_level'] ?? 0),
@@ -175,15 +178,24 @@ class RawMaterialController extends Controller
             'name'          => ['required', 'string', 'max:255'],
             'category'      => ['nullable', 'string', 'max:255'],
             'unit'          => ['required', 'string', 'max:50'],
+            'kg_per_unit'   => ['nullable', 'numeric', 'gt:0', 'max:100000'],
             'unit_cost'     => ['nullable', 'numeric', 'min:0'],
             'reorder_level' => ['nullable', 'numeric', 'min:0'],
             'notes'         => ['nullable', 'string'],
         ]);
 
+        // Stock history is recorded in the old unit; renaming the unit would
+        // silently change what every past quantity means.
+        $unitChanged = strtolower(trim($validated['unit'])) !== strtolower(trim((string) $rawMaterial->unit));
+        if ($unitChanged && InventoryMovement::where('item_kind', InventoryMovement::ITEM_KIND_RAW_MATERIAL)->where('item_id', $rawMaterial->id)->exists()) {
+            return back()->with('error', "{$rawMaterial->name} already has stock movements in {$rawMaterial->unit}, so its unit cannot change. Set kg per unit instead, or create a new material.");
+        }
+
         $rawMaterial->update([
             'name'          => $validated['name'],
             'category'      => $validated['category'] ?? null,
             'unit'          => $validated['unit'],
+            'kg_per_unit'   => $validated['kg_per_unit'] ?? null,
             'unit_cost'     => (float) ($validated['unit_cost'] ?? 0),
             'reorder_level' => (float) ($validated['reorder_level'] ?? 0),
             'notes'         => $validated['notes'] ?? null,
@@ -239,7 +251,7 @@ class RawMaterialController extends Controller
             'adjustment_type' => ['required', 'in:add,deduct,set'],
             'quantity'        => ['required', 'numeric', 'min:0'],
             'reference'       => ['nullable', 'string', 'max:255'],
-            'notes'           => ['nullable', 'string'],
+            'notes'           => ['required', 'string', 'min:5', 'max:2000'],
             'allow_negative'  => ['nullable', 'boolean'],
         ]);
 

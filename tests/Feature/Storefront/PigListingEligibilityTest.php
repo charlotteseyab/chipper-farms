@@ -167,13 +167,10 @@ class PigListingEligibilityTest extends StorefrontTestCase
         $pig   = $this->makePig();
         $vet   = $this->makeUser('admin');
 
-        $this->actingAs($vet)->post(route('medications.store'), [
-            'pig_id'                 => $pig->id,
-            'administration_date'    => now()->subDay()->toDateString(),
-            'medication_name'        => 'Oxytetracycline',
-            'dosage'                 => '10ml',
-            'withdrawal_period_days' => 28,
-        ])->assertRedirect();
+        // Doses are recorded against the medicine catalogue (health upgrade
+        // Phase 3), which carries the label withdrawal period.
+        $medicine = $this->stockedMedicine($vet, $pig, ['name' => 'Oxytetracycline', 'meat_withdrawal_days' => 28]);
+        $this->actingAs($vet)->post(route('medications.store'), $this->dose($medicine, $pig, now()->subDay()))->assertRedirect();
 
         $administration = MedicationAdministration::where('pig_id', $pig->id)->firstOrFail();
 
@@ -192,19 +189,32 @@ class PigListingEligibilityTest extends StorefrontTestCase
         $this->seed(\Database\Seeders\FarmOperationsPermissionsSeeder::class);
 
         $pig = $this->makePig();
+        $admin = $this->makeUser('admin');
+        $medicine = $this->stockedMedicine($admin, $pig, ['name' => 'Vitamin B complex', 'meat_withdrawal_days' => null]);
 
-        $this->actingAs($this->makeUser('admin'))->post(route('medications.store'), [
-            'pig_id'              => $pig->id,
-            'administration_date' => now()->toDateString(),
-            'medication_name'     => 'Vitamin B complex',
-            'dosage'              => '5ml',
-        ])->assertRedirect();
+        $this->actingAs($admin)->post(route('medications.store'), $this->dose($medicine, $pig, now()))->assertRedirect();
 
         $this->assertNull(
             MedicationAdministration::where('pig_id', $pig->id)->firstOrFail()->withdrawal_ends_on,
         );
         // Most treatments carry none; the sale is not blocked.
         $this->assertTrue($this->eligibility->check($pig)['eligible']);
+    }
+
+    private function stockedMedicine(\App\Models\User $user, PigManagement $pig, array $attributes): \App\Models\Medicine
+    {
+        $medicine = \App\Models\Medicine::factory()->create($attributes + ['organization_id' => $pig->organization_id, 'allowed_routes' => []]);
+        $this->actingAs($user)->post(route('medicines.batches.store', $medicine), [
+            'batch_number' => 'L1', 'received_at' => now()->subDays(5)->toDateString(), 'expiry_date' => now()->addYear()->toDateString(), 'quantity_received' => '100',
+        ])->assertSessionHasNoErrors();
+
+        return $medicine;
+    }
+
+    private function dose(\App\Models\Medicine $medicine, PigManagement $pig, $at): array
+    {
+        return ['pig_ids' => [$pig->id], 'medicine_id' => $medicine->id, 'administered_at' => $at->format('Y-m-d H:i'),
+            'amount_basis' => 'per_animal', 'dose_amount' => '5', 'dose_unit' => 'ml', 'idempotency_key' => (string) \Illuminate\Support\Str::uuid()];
     }
 
     /* ---------------------------------------------------------------- */

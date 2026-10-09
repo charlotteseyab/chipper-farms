@@ -42,7 +42,7 @@
     <table class="meta">
         <tr>
             <td><div class="label">Pig ID</div><div class="value">{{ $pig->code ?? 'N/A' }}</div></td>
-            <td><div class="label">Ear Tag</div><div class="value">{{ $pig->ear_tag_number ?? 'N/A' }}</div></td>
+            <td><div class="label">Current identity</div><div class="value">{{ $pig->identityAt() }}</div></td>
             <td><div class="label">Breed</div><div class="value">{{ $pig->breed ?? 'N/A' }}</div></td>
             <td><div class="label">Gender / Stock</div><div class="value">{{ $pig->gender === 'M' ? 'Male' : ($pig->gender === 'F' ? 'Female' : 'N/A') }} · {{ ucfirst($pig->stock_type ?? 'N/A') }}</div></td>
         </tr>
@@ -77,8 +77,8 @@
             <tbody>
                 @foreach($healthRecords as $record)
                     <tr>
-                        <td>{{ $record->record_date?->format('Y-m-d') }}</td>
-                        <td><strong>{{ $record->condition }}</strong></td>
+                        <td>{{ $record->record_date?->format('Y-m-d') }}<br>{{ $pig->identityAt($record->record_date) }}</td>
+                        <td><strong>{{ $record->condition }}</strong>@if($record->voided_at)<br><em>VOIDED: {{ $record->void_reason }}</em>@endif</td>
                         <td><span class="badge">{{ $record->severity ?: 'N/A' }}</span></td>
                         <td>{{ $record->diagnosis ?: $record->symptoms ?: '—' }}</td>
                         <td>{{ $record->treatment_plan ?: '—' }}</td>
@@ -99,8 +99,8 @@
             <tbody>
                 @foreach($medicationRecords as $record)
                     <tr>
-                        <td>{{ $record->administration_date?->format('Y-m-d') }}</td>
-                        <td><strong>{{ $record->medication_name }}</strong></td>
+                        <td>{{ $record->administration_date?->format('Y-m-d') }}<br>{{ $pig->identityAt($record->administration_date) }}</td>
+                        <td><strong>{{ $record->medication_name }}</strong>@if($record->voided_at)<br><em>VOIDED: {{ $record->void_reason }}</em>@endif<br>Withdrawal: {{ $record->withdrawal_period_days === null ? 'not recorded' : $record->withdrawal_period_days.' days' }}</td>
                         <td>{{ $record->dosage }}</td>
                         <td>{{ $record->route ?: '—' }}</td>
                         <td>{{ $record->purpose ?: '—' }}</td>

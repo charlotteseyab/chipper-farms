@@ -98,12 +98,12 @@ class Mating extends Model implements ResolvesOrganization
     // Relationships
     public function male(): BelongsTo
     {
-        return $this->belongsTo(PigManagement::class, 'male_id');
+        return $this->belongsTo(PigManagement::class, 'male_id')->withTrashed();
     }
 
     public function female(): BelongsTo
     {
-        return $this->belongsTo(PigManagement::class, 'female_id');
+        return $this->belongsTo(PigManagement::class, 'female_id')->withTrashed();
     }
 
     public function createdBy(): BelongsTo
@@ -219,12 +219,12 @@ class Mating extends Model implements ResolvesOrganization
     {
         return match($this->pregnancy_status) {
             'pregnant' => 'Pregnant',
-            'not_pregnant' => 'No',
-            'uncertain' => '?',
-            'pending' => '⏳',
-            'farrowed' => 'Pig',
-            'lost_pregnancy' => 'Lost',
-            'aborted' => 'Blocked',
+            'not_pregnant' => 'Not Pregnant',
+            'uncertain' => 'Uncertain',
+            'pending' => 'Pending Check',
+            'farrowed' => 'Farrowed',
+            'lost_pregnancy' => 'Lost Pregnancy',
+            'aborted' => 'Aborted',
             default => ''
         };
     }

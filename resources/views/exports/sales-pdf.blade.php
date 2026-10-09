@@ -162,7 +162,7 @@
             @forelse($sales as $sale)
                 <tr>
                     <td>{{ $sale->pig->code ?? 'N/A' }}</td>
-                    <td>{{ $sale->pig->ear_tag_number ?? 'N/A' }}</td>
+                    <td>{{ $sale->pig?->identityAt($sale->sale_date) ?? 'N/A' }}</td>
                     <td>{{ $sale->sale_date->format('M d, Y') }}</td>
                     <td>{{ $sale->buyer_name }}</td>
                     <td>{{ $sale->sale_weight ? number_format($sale->sale_weight, 1) : 'N/A' }}</td>

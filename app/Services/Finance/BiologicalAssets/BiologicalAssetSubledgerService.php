@@ -105,8 +105,9 @@ class BiologicalAssetSubledgerService
         ?int $journalBatchId = null,
         ?int $sourceDomainEventId = null,
         ?CarbonInterface $occurredAt = null,
+        ?string $stageOverride = null,
     ): BiologicalAssetStageBalance {
-        $stage = $this->resolver->stageForGroup($groupId);
+        $stage = $stageOverride ?? $this->resolver->stageForGroup($groupId);
 
         return DB::transaction(function () use ($groupId, $stage, $amount, $pigCountDelta, $weightDelta, $reason, $journalBatchId, $sourceDomainEventId, $occurredAt) {
             $balance = $this->lockBalance($groupId, $stage);

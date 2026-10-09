@@ -122,7 +122,7 @@
                                     <dd class="mt-1 text-sm text-gray-900">
                                         @if($farrowing->sow)
                                             <a href="{{ route('pigs.show', $farrowing->sow->id) }}" class="text-blue-600 hover:text-blue-800">
-                                                {{ $farrowing->sow->ear_tag_number }} • {{ $farrowing->sow->code }}
+                                                {{ $farrowing->sow?->identityAt($farrowing->farrowing_date) }} • {{ $farrowing->sow->code }}
                                             </a>
                                         @else
                                             <span class="text-gray-400">Not set</span>
@@ -134,7 +134,7 @@
                                     <dd class="mt-1 text-sm text-gray-900">
                                         @if($farrowing->boar)
                                             <a href="{{ route('pigs.show', $farrowing->boar->id) }}" class="text-blue-600 hover:text-blue-800">
-                                                {{ $farrowing->boar->ear_tag_number }} • {{ $farrowing->boar->code }}
+                                                {{ $farrowing->boar?->identityAt($farrowing->farrowing_date) }} • {{ $farrowing->boar->code }}
                                             </a>
                                         @else
                                             <span class="text-gray-400">Not set</span>
