@@ -821,6 +821,7 @@
                 </section>
             @endif
 
+            @if($see['pigs'])
             <section>
                 <div class="fm2-panel-head" style="padding:0 0 10px;"><div><h3 class="fm2-panel-title">Herd position</h3><div class="fm2-panel-sub">Current active animals by operational group</div></div><a href="{{ route('all-stocks.index') }}" class="fm2-view-link">View herd</a></div>
                 <div class="fm2-herd-grid">
@@ -829,11 +830,16 @@
                     <div class="fm2-herd-card"><div class="fm2-herd-label">Breeding males</div><div class="fm2-herd-value">{{ number_format($breedingMales) }}</div><div class="fm2-herd-note">Active male breeding stock</div></div>
                     <div class="fm2-herd-card"><div class="fm2-herd-label">Growers & finishers</div><div class="fm2-herd-value">{{ number_format($standardStockActive) }}</div><div class="fm2-herd-note">Active standard stock</div></div>
                     <div class="fm2-herd-card"><div class="fm2-herd-label">Active piglets</div><div class="fm2-herd-value">{{ number_format($activePigletsAdjusted) }}</div><div class="fm2-herd-note">Live births less recorded deaths</div></div>
+                    @if($see['intakes'])
                     <div class="fm2-herd-card"><div class="fm2-herd-label">Quarantined</div><div class="fm2-herd-value">{{ number_format($procurementSummary['quarantined']) }}</div><div class="fm2-herd-note">Purchased stock under quarantine</div></div>
+                    @endif
                 </div>
             </section>
+            @endif
 
             <x-dashboard.livestock-overview />
+
+            <x-dashboard.health-overview :health="$healthMetrics" />
 
             <div class="fm2-main-grid">
                 <div class="fm2-panel">
@@ -880,19 +886,25 @@
                 </div>
 
                 <div class="fm2-grid">
+                    @if($see['health'])
                     <div class="fm2-actions-card">
                         <div class="fm2-side-head">
                             <h3 class="fm2-side-title">Health & welfare</h3>
                             <div class="fm2-side-sub">Open cases and current restrictions</div>
                         </div>
                         <div class="fm2-activity-list">
-                            <a href="{{ route('health.index') }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-high"></span><div><div class="fm2-activity-title">Open health cases</div><div class="fm2-activity-sub">Unresolved treatment or observation</div></div><div class="fm2-activity-time">{{ $healthSummary['open_cases'] }}</div></a>
-                            <a href="{{ route('health.index', ['severity' => 'high']) }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-high"></span><div><div class="fm2-activity-title">Critical cases</div><div class="fm2-activity-sub">High or severe health records</div></div><div class="fm2-activity-time">{{ $healthSummary['critical_cases'] }}</div></a>
+                            <a href="{{ route('health.index') }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-high"></span><div><div class="fm2-activity-title">Sick animals</div><div class="fm2-activity-sub">Animals in open health cases</div></div><div class="fm2-activity-time">{{ $healthSummary['open_cases'] }}</div></a>
+                            <a href="{{ route('health.index', ['attention' => 'open_critical']) }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-high"></span><div><div class="fm2-activity-title">Severe cases</div><div class="fm2-activity-sub">Animals in open severe cases</div></div><div class="fm2-activity-time">{{ $healthSummary['critical_cases'] }}</div></a>
+                            <a href="{{ route('health.alerts', ['state' => 'upcoming']) }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-medium"></span><div><div class="fm2-activity-title">Due in the next {{ $healthSummary['alerts_days'] }} days</div><div class="fm2-activity-sub">{{ $healthSummary['alerts_upcoming_detail'] }}</div></div><div class="fm2-activity-time">{{ $healthSummary['alerts_upcoming'] }}</div></a>
                             <a href="{{ route('medications.index') }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-medium"></span><div><div class="fm2-activity-title">Active withdrawals</div><div class="fm2-activity-sub">Animals still inside withdrawal period</div></div><div class="fm2-activity-time">{{ $healthSummary['active_withdrawals'] }}</div></a>
-                            <a href="{{ route('deaths.index') }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-medium"></span><div><div class="fm2-activity-title">Deaths in 30 days</div><div class="fm2-activity-sub">{{ number_format($healthSummary['mortality_rate_30_days'], 1) }}% of current population plus deaths</div></div><div class="fm2-activity-time">{{ $healthSummary['deaths_30_days'] }}</div></a>
+                            @if($see['deaths'])
+                            <a href="{{ route('deaths.index') }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-medium"></span><div><div class="fm2-activity-title">Deaths in 30 days</div><div class="fm2-activity-sub">{{ number_format($healthSummary['mortality_rate_30_days'], 1) }}% of animals on the farm in that time</div></div><div class="fm2-activity-time">{{ $healthSummary['deaths_30_days'] }}</div></a>
+                            @endif
                         </div>
                     </div>
+                    @endif
 
+                    @if($see['raw_materials'])
                     <div class="fm2-task-card">
                         <div class="fm2-side-head">
                             <h3 class="fm2-side-title">Feed & inventory</h3>
@@ -901,14 +913,18 @@
                         <div class="fm2-activity-list">
                             <a href="{{ route('raw-materials.index', ['status' => 'out_of_stock']) }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-high"></span><div><div class="fm2-activity-title">Out of stock</div><div class="fm2-activity-sub">Ingredients with no available balance</div></div><div class="fm2-activity-time">{{ $inventorySummary['out_of_stock'] }}</div></a>
                             <a href="{{ route('raw-materials.index', ['status' => 'low_stock']) }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-medium"></span><div><div class="fm2-activity-title">Low stock</div><div class="fm2-activity-sub">At or below configured reorder level</div></div><div class="fm2-activity-time">{{ $inventorySummary['low_stock'] }}</div></a>
+                            @if($see['feed_production'])
                             <a href="{{ route('feed-production.index') }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-low"></span><div><div class="fm2-activity-title">Feed produced</div><div class="fm2-activity-sub">Production during the last 7 days</div></div><div class="fm2-activity-time">{{ number_format($inventorySummary['feed_produced_7_days'], 1) }} kg</div></a>
+                            @endif
                             <a href="{{ route('raw-materials.index') }}" class="fm2-activity-item"><span class="fm2-activity-dot fm2-activity-low"></span><div><div class="fm2-activity-title">Raw-material value</div><div class="fm2-activity-sub">Quantity on hand × current unit cost</div></div><div class="fm2-activity-time">GHS {{ number_format($inventorySummary['stock_value'], 0) }}</div></a>
                         </div>
                     </div>
+                    @endif
                 </div>
             </div>
 
             <div class="fm2-wide-grid">
+                @if($see['breeding'])
                 <section class="fm2-wide">
                     <div class="fm2-panel-head" style="padding:0 0 16px;">
                         <div><h3 class="fm2-panel-title">Breeding & piglet flow</h3><div class="fm2-panel-sub">Checks and transitions that keep the production cycle moving</div></div>
@@ -920,7 +936,9 @@
                         <div class="fm2-inline-metric"><div class="fm2-inline-bar" style="background:#10b981;"></div><div><div class="fm2-inline-label">Pregnant (90d)</div><div class="fm2-inline-value">{{ number_format($fertilityRate, 1) }}%</div></div></div>
                     </div>
                 </section>
+                @endif
 
+                @if($see['purchase_requests'])
                 <section class="fm2-wide">
                     <div class="fm2-panel-head" style="padding:0 0 16px;">
                         <div><h3 class="fm2-panel-title">Procurement & intake</h3><div class="fm2-panel-sub">Requests awaiting decisions and livestock entering the farm</div></div>
@@ -929,12 +947,16 @@
                     <div class="fm2-inline-metrics">
                         <div class="fm2-inline-metric"><div class="fm2-inline-bar" style="background:#f59e0b;"></div><div><div class="fm2-inline-label">Awaiting approval</div><div class="fm2-inline-value">{{ number_format($procurementSummary['requests_pending']) }}</div></div></div>
                         <div class="fm2-inline-metric"><div class="fm2-inline-bar" style="background:#2563eb;"></div><div><div class="fm2-inline-label">In progress</div><div class="fm2-inline-value">{{ number_format($procurementSummary['requests_in_progress']) }}</div></div></div>
+                        @if($see['intakes'])
                         <div class="fm2-inline-metric"><div class="fm2-inline-bar" style="background:#14b8a6;"></div><div><div class="fm2-inline-label">Pending intake</div><div class="fm2-inline-value">{{ number_format($procurementSummary['pending_intakes']) }}</div></div></div>
+                        @endif
                     </div>
                 </section>
+                @endif
             </div>
 
             <div class="fm2-insight-grid">
+                @if($see['pigs'])
                 <div class="fm2-panel">
                     <div class="fm2-panel-head">
                         <div>
@@ -948,7 +970,9 @@
                         </div>
                     </div>
                 </div>
+                @endif
 
+                @if($see['weights'])
                 <div class="fm2-panel">
                     <div class="fm2-panel-head">
                         <div>
@@ -962,7 +986,9 @@
                         </div>
                     </div>
                 </div>
+                @endif
 
+                @if($see['breeding'])
                 <div class="fm2-panel">
                     <div class="fm2-panel-head">
                         <div>
@@ -976,9 +1002,11 @@
                         </div>
                     </div>
                 </div>
+                @endif
             </div>
 
             <div class="fm2-bottom-grid">
+                @if($see['pigs'])
                 <div class="fm2-panel">
                     <div class="fm2-panel-head">
                         <div>
@@ -1002,6 +1030,7 @@
                             @endforelse
                         </div>
                         <div class="fm2-inline-metrics mt-6">
+                            @if($see['breeding'])
                             <div class="fm2-inline-metric">
                                 <div class="fm2-inline-bar" style="background:#10b981;"></div>
                                 <div>
@@ -1009,6 +1038,8 @@
                                     <div class="fm2-inline-value">{{ number_format($fertilityRate, 1) }}%</div>
                                 </div>
                             </div>
+                            @endif
+                            @if($see['weights'])
                             <div class="fm2-inline-metric">
                                 <div class="fm2-inline-bar" style="background:#f59e0b;"></div>
                                 <div>
@@ -1016,6 +1047,8 @@
                                     <div class="fm2-inline-value">{{ $breedingStats['data_completeness'] }}%</div>
                                 </div>
                             </div>
+                            @endif
+                            @if($see['deaths'])
                             <div class="fm2-inline-metric">
                                 <div class="fm2-inline-bar" style="background:#ef4444;"></div>
                                 <div>
@@ -1023,7 +1056,9 @@
                                     <div class="fm2-inline-value">{{ number_format($healthSummary['mortality_rate_30_days'], 1) }}%</div>
                                 </div>
                             </div>
+                            @endif
                         </div>
+                        @if($see['intakes'])
                         <div class="fm2-inline-metrics mt-6">
                             <div class="fm2-inline-metric">
                                 <div class="fm2-inline-bar" style="background:#0ea5e9;"></div>
@@ -1047,8 +1082,10 @@
                                 </div>
                             </div>
                         </div>
+                        @endif
                     </div>
                 </div>
+                @endif
 
                 <div class="fm2-panel">
                     <div class="fm2-panel-head">

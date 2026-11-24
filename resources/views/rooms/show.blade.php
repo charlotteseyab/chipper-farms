@@ -1,4 +1,5 @@
 <x-app-layout>
+    @php $canManageFacilities = auth()->user()?->hasPermission('manage_facilities'); @endphp
     <style>
         .room-show-page{
             min-height: 100vh;
@@ -424,12 +425,14 @@
                     </div>
 
                     <div class="room-show-actions">
+                        @if($canManageFacilities)
                         <a href="{{ route('rooms.edit', $room) }}" class="room-top-btn edit">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-7-3l-4 4m0 0h3m-3 0v3m9-9a2 2 0 012 2v1a2 2 0 01-2 2h-1a2 2 0 01-2-2V9a2 2 0 012-2h1z"/>
                             </svg>
                             Edit Room
                         </a>
+                        @endif
 
                         <a href="{{ route('structures.show', $room->structure) }}" class="room-top-btn back">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

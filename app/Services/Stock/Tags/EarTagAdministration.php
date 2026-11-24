@@ -55,6 +55,11 @@ class EarTagAdministration
             $row = EarTagAssignment::whereKey($assignment->id)->lockForUpdate()->firstOrFail();
             $start = Carbon::parse($data['assigned_at']);
             $end = empty($data['released_at']) ? null : Carbon::parse($data['released_at']);
+            try {
+                app(EarTagAssignmentService::class)->assertHistoryDates($row->pig, $start, $end);
+            } catch (\App\Services\Stock\StockValidationException $e) {
+                throw ValidationException::withMessages([$e->field => $e->getMessage()]);
+            }
             if (($row->released_at === null) !== ($end === null) || ($end && $end->lt($start))) {
                 throw ValidationException::withMessages(['released_at' => 'Corrections cannot reopen or release assignments. Release dates must follow assignment dates.']);
             }

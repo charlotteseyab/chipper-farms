@@ -51,10 +51,12 @@ class HealthCaseController extends Controller
         $case = $healthRecord->load(['animals.pig', 'followUps.recorder', 'treatmentCourses.medicines.medicine', 'treatmentCourses.animals',
             'vetExamination.visit', 'responsibleUser', 'recordedBy']);
         $animalIds = $case->animals->pluck('pig_id')->push($case->pig_id)->unique();
-        $doses = MedicationAdministration::whereIn('pig_id', $animalIds)
+        $doseQuery = MedicationAdministration::whereIn('pig_id', $animalIds)
             ->where(fn ($q) => $q->where('health_record_id', $case->id)
                 ->orWhereDate('administration_date', '>=', ($case->observed_at ?? $case->record_date)->toDateString()))
-            ->with('pig')->orderByDesc('administration_date')->orderByDesc('id')->get();
+            ->with('pig')->orderByDesc('administration_date')->orderByDesc('id');
+        $doses = (clone $doseQuery)->paginate(10, ['*'], 'doses_page')->withQueryString();
+        $dosesGiven = (clone $doseQuery)->notVoided()->count();
 
         // Scheduled doses from this case's courses that were not given, with the reason.
         $notGiven = \App\Models\ScheduledDose::with(['pig', 'courseMedicine.medicine', 'courseMedicine.course'])
@@ -62,7 +64,7 @@ class HealthCaseController extends Controller
             ->whereHas('courseMedicine.course', fn ($q) => $q->where('health_record_id', $case->id))
             ->orderByDesc('due_at')->get();
 
-        return view('health.cases.show', compact('case', 'doses', 'notGiven'));
+        return view('health.cases.show', compact('case', 'doses', 'notGiven') + ['glance' => app(\App\Services\Health\HealthGlanceService::class)->healthCase($case, $dosesGiven, $notGiven)]);
     }
 
     public function storeFollowUp(HealthFollowUpRequest $request, HealthRecord $healthRecord, HealthRecordService $service)

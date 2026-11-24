@@ -7,12 +7,30 @@
     'label' => 'Animals',
 ])
 
-{{-- Search by code or by tag colour and number; never loads every pig. A room
-     button adds everyone currently in that room, saved as a fixed list. --}}
+{{-- A dropdown of the farm's animals that can also be searched: opening it
+     lists the live animals (fetched then, not built into the page); typing
+     searches by code or by tag colour and number ("green 21"), including
+     animals that have left where the form allows. A room button adds everyone
+     currently in that room, saved as a fixed list. --}}
 <div x-data="{
         picked: @js(collect(old($name) ? \App\Services\Health\HealthPigFinder::rowsFor((array) old($name)) : $selected)->values()),
-        q: '', results: [], busy: false, multiple: @js($multiple),
+        q: '', results: [], all: null, open: false, busy: false, multiple: @js($multiple), browseLimit: @js(\App\Services\Health\HealthPigFinder::BROWSE_LIMIT),
+        async openList() {
+            this.open = true;
+            if (this.all === null) {
+                this.busy = true;
+                try {
+                    const r = await fetch(@js(route('health.pig-search')), { headers: { 'Accept': 'application/json' } });
+                    this.all = r.ok ? await r.json() : [];
+                } finally { this.busy = false; }
+            }
+        },
+        get shown() {
+            const list = this.q.trim() ? this.results : (this.all ?? []);
+            return list.filter(p => !this.picked.some(x => x.id === p.id));
+        },
         async search() {
+            this.open = true;
             if (this.q.trim().length < 1) { this.results = []; return; }
             this.busy = true;
             try {
@@ -24,6 +42,7 @@
             if (!this.multiple) { this.picked = [pig]; }
             else if (!this.picked.some(p => p.id === pig.id)) { this.picked.push(pig); }
             this.q = ''; this.results = [];
+            if (!this.multiple) { this.open = false; }
         },
         async addRoom(id) {
             if (!id) return;
@@ -45,19 +64,27 @@
             </span>
         </template>
     </div>
-    <div class="relative" x-show="multiple || !picked.length">
-        <input id="{{ $name }}-search" type="search" x-model="q" @input.debounce.300ms="search()" autocomplete="off"
-               placeholder="Search by code (CFPG-2607-9) or tag (green 21)" class="w-full rounded-lg border-slate-300 text-sm">
-        <div x-show="results.length" x-cloak class="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
-            <template x-for="pig in results" :key="pig.id">
-                <button type="button" @click="add(pig)" class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-emerald-50">
+    <div class="relative" x-show="multiple || !picked.length" @click.outside="open = false" @keydown.escape="open = false">
+        <div class="relative">
+            <input id="{{ $name }}-search" type="search" x-model="q" @input.debounce.300ms="search()" @focus="openList()" @click="openList()" autocomplete="off"
+                   role="combobox" :aria-expanded="open" aria-autocomplete="list"
+                   placeholder="Choose an animal, or search by code (CFPG-2607-9) or tag (green 21)" class="w-full rounded-lg border-slate-300 pr-9 text-sm">
+            <button type="button" @click="open ? open = false : openList()" class="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-slate-400 hover:text-slate-600" aria-label="Show all animals">
+                <svg class="h-4 w-4 transition" :class="open && 'rotate-180'" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+            </button>
+        </div>
+        <div x-show="open && (shown.length || busy || q.length)" x-cloak class="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg" role="listbox">
+            <template x-for="pig in shown" :key="pig.id">
+                <button type="button" @click="add(pig)" role="option" class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-emerald-50">
                     <span><span class="font-semibold" x-text="pig.code"></span> <span class="text-slate-500" x-text="pig.label"></span></span>
                     <span class="text-xs text-slate-400" x-text="(pig.left ? 'left the farm · ' : '') + (pig.room ?? '')"></span>
                 </button>
             </template>
+            <p x-show="busy" class="px-3 py-2 text-xs text-slate-400" x-text="q.trim() ? 'Searching…' : 'Loading animals…'"></p>
+            <p x-show="!busy && q.length && !results.length" class="px-3 py-2 text-xs text-slate-500">No animal matches.</p>
+            <p x-show="!busy && !q.trim() && all && all.length >= browseLimit" class="border-t border-slate-100 px-3 py-2 text-xs text-slate-500">Showing the first <span x-text="browseLimit"></span> animals by code. Type to search them all.</p>
+            <p x-show="!busy && !q.trim() && all && !all.length" class="px-3 py-2 text-xs text-slate-500">No animals on the farm yet.</p>
         </div>
-        <p x-show="busy" class="mt-1 text-xs text-slate-400">Searching…</p>
-        <p x-show="!busy && q.length && !results.length" x-cloak class="mt-1 text-xs text-slate-500">No animal matches.</p>
     </div>
     @if($multiple && $rooms->isNotEmpty())
         <div class="flex items-center gap-2 text-sm">

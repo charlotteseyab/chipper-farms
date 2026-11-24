@@ -15,6 +15,7 @@
                 {{ $course->animals->count() }} animal(s)@if($course->follow_up_on) · follow up {{ $course->follow_up_on->format('j M Y') }}@endif
             </p>
         </div>
+        <x-health.glance :cards="$glance" />
         @if(session('success'))<p role="status" class="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{{ session('success') }}</p>@endif
         @if(session('error'))<p role="alert" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ session('error') }}</p>@endif
         @if($course->amendedFrom)
@@ -51,12 +52,17 @@
                         <span class="rounded-full px-2 py-0.5 font-semibold {{ $doseStyle[$state] ?? '' }}">{{ $group->count() }} {{ $state }}</span>
                     @endforeach
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full min-w-[640px] text-sm">
-                        <thead class="text-left text-xs uppercase text-slate-500"><tr><th class="py-2">Due</th><th>Animal</th><th>Status</th><th>Note</th><th></th></tr></thead>
-                        @foreach($doses->groupBy(fn ($d) => $d->due_at->format('Y-m-d H:i')) as $due => $slot)
+                @php
+                    // Paged by due time, so a time and its animals stay together; one page number per medicine.
+                    $slots = \App\Support\CollectionPage::make($doses->groupBy(fn ($d) => $d->due_at->format('Y-m-d H:i')), 5, 'medicine_'.$line->id.'_page');
+                @endphp
+                <div class="health-table-wrap">
+                  <div class="overflow-x-auto">
+                    <table class="health-table min-w-[640px]">
+                        <thead><tr><th>Due</th><th>Animal</th><th>Status</th><th>Note</th><th></th></tr></thead>
+                        @foreach($slots as $slot)
                             @php $open = $slot->where('status', 'scheduled'); $overdue = $open->isNotEmpty() && $slot->first()->due_at->lt(now()); @endphp
-                            <tbody class="border-t border-slate-200">
+                            <tbody>
                                 @if($open->isNotEmpty() && $course->status === 'active')
                                     @can('create', \App\Models\MedicationDosingEvent::class)
                                         <tr class="{{ $overdue ? 'bg-amber-50' : 'bg-slate-50' }}">
@@ -70,14 +76,14 @@
                                 @endif
                                 @foreach($slot as $dose)
                                     <tr class="border-t border-slate-100">
-                                        <td class="py-1.5 font-mono">{{ $dose->due_at->format('D j M H:i') }}</td>
+                                        <td class="font-mono">{{ $dose->due_at->format('D j M H:i') }}</td>
                                         <td>{{ $dose->pig?->code }}</td>
                                         <td><span class="rounded-full px-2 py-0.5 text-xs font-semibold {{ $doseStyle[$dose->status] ?? '' }}">{{ ucfirst($dose->status) }}</span></td>
                                         <td class="text-xs text-slate-500">
                                             {{ $dose->status_reason }}
                                             @if($dose->administration?->medication_dosing_event_id)<a class="underline" href="{{ route('doses.show', $dose->administration->medication_dosing_event_id) }}">Dose #{{ $dose->administration->medication_dosing_event_id }}</a>@endif
                                         </td>
-                                        <td class="text-right">
+                                        <td class="text-right num">
                                             @can('close', $dose)
                                                 <details class="inline-block text-left">
                                                     <summary class="cursor-pointer text-xs font-semibold text-slate-600">Not given…</summary>
@@ -98,6 +104,8 @@
                             </tbody>
                         @endforeach
                     </table>
+                  </div>
+                  <div class="health-table-footer"><x-health.pagination :paginator="$slots" label="due times" /></div>
                 </div>
             </section>
         @endforeach

@@ -25,6 +25,14 @@ class StorefrontOrderEventObserver
                 return;
             }
 
+            // A paid order is usually accepted in the same breath. One
+            // "order confirmed" email says everything; a "payment confirmed"
+            // one ahead of it is noise.
+            if ($templateKey === 'storefront.payment_confirmed'
+                && $order->status !== StorefrontOrder::STATUS_PAYMENT_CONFIRMED) {
+                return;
+            }
+
             $recipient = $order->storefrontBuyer?->email
                 ?? $order->customer?->email
                 ?? $order->guest_email

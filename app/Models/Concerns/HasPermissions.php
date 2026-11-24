@@ -32,6 +32,9 @@ trait HasPermissions
     /** @var array<string, bool>|null */
     protected ?array $permissionCache = null;
 
+    /** @var array<string, true>|null every permission the role has on the user's farm */
+    protected ?array $grantedPermissions = null;
+
     public function hasPermission(string $name): bool
     {
         // Superuser bypass — matches Gate::before behaviour.
@@ -51,12 +54,12 @@ trait HasPermissions
             return $this->permissionCache[$name];
         }
 
-        // Look up via the role relationship. Loading once and caching is
-        // O(1) on subsequent checks within the request.
-        $role = \App\Models\Role::find($this->role_id);
-        $this->permissionCache[$name] = $role
-            ? $role->hasPermission($name)
-            : false;
+        // The role's permissions on this user's farm: the farm's own if its
+        // admin has customised the role, the defaults otherwise.
+        // Read in one query the first time, kept on this user object.
+        $this->grantedPermissions ??= app(\App\Services\Access\RolePermissionResolver::class)
+            ->names($this->organization_id ? (int) $this->organization_id : null, (int) $this->role_id);
+        $this->permissionCache[$name] = isset($this->grantedPermissions[$name]);
 
         return $this->permissionCache[$name];
     }
@@ -80,5 +83,6 @@ trait HasPermissions
     public function clearPermissionCache(): void
     {
         $this->permissionCache = null;
+        $this->grantedPermissions = null;
     }
 }

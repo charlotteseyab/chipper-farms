@@ -44,8 +44,7 @@ class RecordDoseService
         protected HealthEntryDateGuard $dates,
         protected HealthRecordService $cases,
         protected AuditTrailService $audit,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array{medicine_id: int, administered_at: string, route?: ?string, amount_basis?: string, dose_amount: string,
@@ -149,7 +148,7 @@ class RecordDoseService
                     'description' => ($corrects ? "Dose record #{$corrects->id} corrected as #{$event->id} ({$correction['reason']}): " : '')
                         ."{$medicine->display_name} {$this->qty($perAnimal)} {$medicine->dose_unit} given to {$pigs->count()} animal(s): "
                         .$pigs->pluck('code')->implode(', ').". {$this->qty($totalStock)} {$medicine->stock_unit} taken (".implode('; ', $taken).').'
-                        .($givenBy !== (int) $actor->id ? ' Given by '.(\App\Models\User::find($givenBy)?->name ?? 'user #'.$givenBy).'.' : '')
+                        .($givenBy !== (int) $actor->id ? ' Given by '.(User::find($givenBy)?->name ?? 'user #'.$givenBy).'.' : '')
                         .(! empty($data['late_entry_reason']) ? " Added after the pig left: {$data['late_entry_reason']}" : ''),
                     'new_values' => ['medicine' => $medicine->display_name, 'administered_at' => $at->toDateTimeString(), 'dose_amount' => $perAnimal,
                         'dose_unit' => $medicine->dose_unit, 'animals' => $pigs->pluck('id')->all(), 'stock_quantity' => $totalStock,
@@ -232,21 +231,22 @@ class RecordDoseService
     private function lockScheduledDoses(array $ids, Medicine $medicine, Collection $pigs): Collection
     {
         if ($ids === []) {
-            return new \Illuminate\Database\Eloquent\Collection();
+            return new \Illuminate\Database\Eloquent\Collection;
         }
         $doses = ScheduledDose::with('courseMedicine')->whereKey($ids)->lockForUpdate()->get();
         $pigIds = $pigs->pluck('id')->map(fn ($id) => (int) $id);
+        if ($doses->count() !== count(array_unique($ids)) || $doses->pluck('pig_id')->duplicates()->isNotEmpty()
+            || $doses->pluck('courseMedicine.treatment_course_id')->unique()->count() > 1
+            || $doses->contains(fn ($dose) => (int) $dose->courseMedicine->medicine_id !== (int) $medicine->id)) {
+            throw ValidationException::withMessages(['scheduled_dose_ids' => 'Record one scheduled dose per animal, from one course and medicine, at a time.']);
+        }
+        // The form retains the slot's IDs when an undosed animal is removed.
+        // Leave those animals' schedules untouched; only selected animals were given medicine.
+        $doses = $doses->filter(fn ($dose) => $pigIds->contains((int) $dose->pig_id));
         foreach ($doses as $dose) {
             if ($dose->status !== ScheduledDose::SCHEDULED) {
                 throw ValidationException::withMessages(['scheduled_dose_ids' => "The dose due {$dose->due_at->format('d M H:i')} for {$dose->pig?->code} is already ".$dose->status.'.']);
             }
-            if ((int) $dose->courseMedicine->medicine_id !== (int) $medicine->id || ! $pigIds->contains((int) $dose->pig_id)) {
-                throw ValidationException::withMessages(['scheduled_dose_ids' => 'A scheduled dose does not match this medicine or these animals.']);
-            }
-        }
-        if ($doses->count() !== count(array_unique($ids)) || $doses->pluck('pig_id')->duplicates()->isNotEmpty()
-            || $doses->pluck('courseMedicine.treatment_course_id')->unique()->count() > 1) {
-            throw ValidationException::withMessages(['scheduled_dose_ids' => 'Record one scheduled dose per animal, from one course, at a time.']);
         }
 
         return $doses;
@@ -264,6 +264,9 @@ class RecordDoseService
             $batch = MedicineBatch::whereKey($batchId)->lockForUpdate()->first();
             if (! $batch || (int) $batch->medicine_id !== (int) $medicine->id) {
                 throw ValidationException::withMessages(['batch_id' => 'Choose a batch of '.$medicine->name.'.']);
+            }
+            if ($batch->received_at->toDateString() > $at->toDateString()) {
+                throw ValidationException::withMessages(['batch_id' => "Batch {$batch->batch_number} was received on {$batch->received_at->format('d M Y')}, after this dose was given. Choose a batch available on the dose date."]);
             }
             if ($batch->isExpiredOn($at)) {
                 throw ValidationException::withMessages(['batch_id' => "Batch {$batch->batch_number} expired on {$batch->expiry_date->format('d M Y')} and cannot be used."]);

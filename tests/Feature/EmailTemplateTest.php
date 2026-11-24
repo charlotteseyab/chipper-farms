@@ -27,6 +27,22 @@ class EmailTemplateTest extends TestCase
         $this->app->make(CurrentOrganization::class)->bind($this->organization);
     }
 
+    public function test_queued_mail_exposes_transport_errors_for_retry_but_sync_mail_is_best_effort(): void
+    {
+        $service = \Mockery::mock(EmailTemplateService::class)->makePartial()->shouldAllowMockingProtectedMethods();
+        $service->syncDefaults($this->organization->id);
+        $service->shouldReceive('configureTransport')->andThrow(new \RuntimeException('SMTP unavailable'));
+
+        $this->assertFalse($service->send($this->organization->id, 'operations.weight_due', 'worker@example.com'));
+
+        $user = User::factory()->create(['organization_id' => $this->organization->id]);
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('SMTP unavailable');
+        (new \App\Notifications\Channels\TemplateMailChannel($service))->send(
+            $user, new \App\Notifications\WeightOverdueNotification(null, now()->toDateString())
+        );
+    }
+
     public function test_an_inactive_template_suppresses_delivery(): void
     {
         Mail::fake();

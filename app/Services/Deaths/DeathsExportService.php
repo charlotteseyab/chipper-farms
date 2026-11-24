@@ -128,6 +128,9 @@ class DeathsExportService
         $collections  = $this->buildFilteredCollections($request);
         $adultDeaths  = $collections['adult'];
         $pigletDeaths = $collections['piglet'];
+        if ($tooMany = \App\Support\PdfExportLimit::check($adultDeaths->count() + $pigletDeaths->count())) {
+            return $tooMany;
+        }
 
         $stats = [
             'total_deaths'  => $adultDeaths->count() + $pigletDeaths->count(),

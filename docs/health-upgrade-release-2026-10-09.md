@@ -18,20 +18,10 @@ Release prepared 9 October 2026 on the `staging` branch. Not deployed. Every ste
 
 **For managers**
 
-- **Medicine catalogue and stock.** Each medicine records its dose unit, stock unit, conversion and label withdrawal period. Managers receive batches (with expiry and cost) and adjust or count stock, always with a reason.
+- **Medicine catalogue and stock.** Each medicine has a photo and brief details (what it does, what it is used for, storage, precautions), and records its dose unit, stock unit, conversion and label withdrawal period. Managers receive batches (with expiry and cost) and adjust or count stock, always with a reason.
 - **Corrections.** A wrong dose is corrected or voided on its dose record. The original is kept, its stock goes back to the batch, and withdrawal is recalculated. Health records and doses are never deleted.
-- **Reminders** appear in the notification bell for farm managers and the person responsible:
-
-  | Reminder | Sent |
-  |---|---|
-  | Doses due | From 06:00 on the day |
-  | Overdue doses | 2 hours after they were due |
-  | Follow-ups | 1 day ahead |
-  | Withdrawal ending | 2 days ahead |
-  | Batches expiring | 30 days ahead, if stock is left |
-  | Medicine low | At or below its reorder level |
-
-  Each reminder is sent once.
+- **Reminders** appear in the notification bell (title and message) for farm managers and the person responsible: doses due and overdue; not enough stock for the doses due; medicine run out or low; batches expiring or expired; courses finished; follow-ups due and overdue; a weekly list of open cases with no follow-up; withdrawal ending. Each is sent once; see the user guide for timings.
+- **At-a-glance cards** at the top of every health and medicine page.
 - **Reports**, each downloadable as CSV:
   - cases and outcomes;
   - doses given, missed and cancelled;
@@ -81,6 +71,7 @@ Do these in order, after a full database backup.
    - `2028_11_04_000000_create_medicine_stock_adjustments_table`
    - `2028_11_05_000000_create_health_reminders_table`
    - `2028_11_06_000000_add_dose_recorder_and_snapshots`
+   - `2028_11_07_000000_add_details_to_medicines`
 4. **Seed permissions** with `php artisan db:seed --class=FarmOperationsPermissionsSeeder --force`. It is safe to re-run. Without it, managers cannot correct anything and nobody can export.
 5. **Backfill existing records.**
    - Run `php artisan health:backfill` first. It is a dry run that only reports.

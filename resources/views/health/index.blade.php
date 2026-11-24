@@ -7,6 +7,8 @@
             </div>
             <div class="flex flex-wrap gap-2">
                 <a href="{{ route('health.worklist') }}" class="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white">Treatment worklist</a>
+                <a href="{{ route('health.alerts') }}" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700">Health alerts</a>
+                <a href="{{ route('health-programmes.index') }}" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700">Herd health programme</a>
                 @can('create', \App\Models\MedicationDosingEvent::class)<a href="{{ route('health.create-medication') }}" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700">Record a dose</a>@endcan
                 @can('create', \App\Models\TreatmentCourse::class)<a href="{{ route('treatment-courses.create') }}" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700">Prescribe a course</a>@endcan
                 <a href="{{ route('health.reports') }}" class="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700">Reports</a>
@@ -39,9 +41,48 @@
             <form method="get">
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-6 md:gap-4">
                     <!-- Search Query -->
-                    <div class="col-span-2">
+                    {{-- A dropdown of the farm's animals that still takes free text: pick
+                         an animal to see its records, or type a tag, code or breed and
+                         filter. The list is fetched when opened (health picker's list). --}}
+                    <div class="col-span-2 relative"
+                         x-data="{
+                            q: @js((string) request('q')), all: null, open: false, busy: false,
+                            async openList() {
+                                this.open = true;
+                                if (this.all !== null) return;
+                                this.busy = true;
+                                try {
+                                    const r = await fetch(@js(route('health.pig-search')), { headers: { 'Accept': 'application/json' } });
+                                    this.all = r.ok ? await r.json() : [];
+                                } finally { this.busy = false; }
+                            },
+                            get shown() {
+                                const t = this.q.trim().toLowerCase();
+                                const list = this.all ?? [];
+                                return (t ? list.filter(p => (p.code + ' ' + (p.label ?? '') + ' ' + (p.room ?? '')).toLowerCase().includes(t)) : list).slice(0, 200);
+                            },
+                            pick(pig) { this.q = pig.code; this.open = false; this.$nextTick(() => this.$root.closest('form').requestSubmit()); },
+                         }"
+                         @click.outside="open = false" @keydown.escape="open = false">
                         <label for="q" class="block text-sm font-medium text-gray-700">Search Pig ID/Code/Breed</label>
-                        <input id="q" type="text" name="q" value="{{ request('q') }}" placeholder="Search ear tag, code, breed..." class="mt-1 w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm" />
+                        <div class="relative mt-1">
+                            <input id="q" type="text" name="q" x-model="q" @focus="openList()" @click="openList()" @input="open = true" autocomplete="off"
+                                   role="combobox" :aria-expanded="open" aria-autocomplete="list"
+                                   placeholder="Choose an animal, or type a tag, code or breed" class="w-full rounded-lg border-gray-300 pr-9 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" />
+                            <button type="button" @click="open ? open = false : openList()" class="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-gray-400 hover:text-gray-600" aria-label="Show all animals">
+                                <svg class="h-4 w-4 transition" :class="open && 'rotate-180'" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                            </button>
+                        </div>
+                        <div x-show="open" x-cloak class="absolute z-30 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg" role="listbox">
+                            <template x-for="pig in shown" :key="pig.id">
+                                <button type="button" @click="pick(pig)" role="option" class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-emerald-50">
+                                    <span><span class="font-semibold" x-text="pig.code"></span> <span class="text-gray-500" x-text="pig.label !== pig.code ? pig.label : ''"></span></span>
+                                    <span class="text-xs text-gray-400" x-text="pig.room ?? ''"></span>
+                                </button>
+                            </template>
+                            <p x-show="busy" class="px-3 py-2 text-xs text-gray-400">Loading animals…</p>
+                            <p x-show="!busy && all && !shown.length" class="px-3 py-2 text-xs text-gray-500">No animal matches. Press Enter to filter by what you typed (for example a breed).</p>
+                        </div>
                     </div>
 
                     <!-- Condition -->
@@ -106,22 +147,22 @@
         </div>
 
         <!-- Pig Health Table Card -->
-        <div class="bg-white shadow-xl rounded-xl overflow-hidden border border-gray-100">
+        <div class="health-table-wrap">
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-100">
+                <table class="health-table">
+                    <thead>
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Pig</th>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Breed / Stock</th>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Age</th>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Last Health Record</th>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Last Medication</th>
-                            <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                            <th>Pig</th>
+                            <th>Breed / Stock</th>
+                            <th>Age</th>
+                            <th>Last Health Record</th>
+                            <th>Last Medication</th>
+                            <th class="num">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-100">
+                    <tbody>
                         @forelse($pigs as $pig)
-                        <tr class="hover:bg-indigo-50/50 transition duration-100">
+                        <tr>
                             @php
                                 $hr = $pig->healthRecords->first();
                                 $med = $pig->medicationAdministrations->first();
@@ -177,19 +218,19 @@
                                     $healthStatusClass = 'text-green-600 font-semibold';
                                 }
                             @endphp
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="whitespace-nowrap">
                                 <a href="{{ route('health.show', $pig) }}" class="text-lg font-semibold text-indigo-600 hover:text-indigo-800 transition duration-150">
                                     {{ $pig->code ?? $pig->ear_tag_number }}
                                 </a>
                                 <div class="text-sm text-gray-500">{{ $pig->gender === 'M' ? 'Male' : 'Female' }}</div>
                                 @if($pig->trashed())<span class="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">Left the farm</span>@endif
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            <td class="whitespace-nowrap text-sm text-gray-700">
                                 <div class="font-medium">{{ $pig->breed }}</div>
                                 <div class="text-gray-500 text-xs">{{ $pig->stock_type }}</div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $pig->age_display }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <td class="whitespace-nowrap text-sm text-gray-700">{{ $pig->age_display }}</td>
+                            <td class="whitespace-nowrap text-sm">
                                 @if($hr)
                                     <div class="font-medium text-gray-900">{{ $hr->record_date->format('M d, Y') }}</div>
                                     <div class="text-sm text-gray-600">{{ $hr->condition }}@if($hr->severity) ({{ ucfirst($hr->severity) }})@endif</div>
@@ -203,7 +244,7 @@
                                     <span class="text-gray-400 italic">No recent record</span>
                                 @endif
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <td class="whitespace-nowrap text-sm">
                                 @if($med)
                                     <div class="font-medium text-gray-900">{{ $med->administration_date->format('M d, Y') }}</div>
                                     <div class="text-gray-600 text-sm">{{ $med->medication_name }}</div>
@@ -213,7 +254,7 @@
                             </td>
                             
                             {{-- ACTIONS DROPDOWN IMPLEMENTATION --}}
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-xs font-medium">
+                            <td class="whitespace-nowrap text-right text-xs font-medium num">
                                 <div class="relative inline-block text-left" x-data="{ open: false }" @click.away="open = false">
                                     <!-- Dropdown Toggle Button (Kebab Icon) -->
                                     <button type="button" @click="open = !open" class="text-gray-500 hover:text-gray-700 p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150">
@@ -251,19 +292,7 @@
                     </tbody>
                 </table>
             </div>
-            <!-- Pagination (embedded, simple style) -->
-            @if($pigs->hasPages())
-                    <div class="px-6 py-4 border-t border-gray-200 bg-white">
-                        <div class="flex items-center justify-between">
-                            <div class="text-sm text-gray-700">
-                                Showing {{ $pigs->firstItem() }} to {{ $pigs->lastItem() }} of {{ $pigs->total() }} results
-                            </div>
-                            <div class="flex items-center space-x-2">
-                                <x-simple-pagination :paginator="$pigs" />
-                            </div>
-                        </div>
-                    </div>
-                @endif
+            <div class="health-table-footer"><x-health.pagination :paginator="$pigs" label="animals" /></div>
             </div>
         </div>
     </div>

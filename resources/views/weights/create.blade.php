@@ -813,7 +813,7 @@
                                                 </div>
 
                                                 <div id="previous-weight-info" class="weight-insight yellow">
-                                                    <h5>Trend up Previous Weight</h5>
+                                                    <h5>Previous Weight</h5>
                                                     <div id="previous-weight-display" class="weight-mini">
                                                         <div>Last: <strong id="previous-weight">-</strong></div>
                                                         <div>Date: <strong id="previous-date">-</strong></div>
@@ -825,7 +825,7 @@
                                                     <div id="previous-loading" class="text-sm text-yellow-600 hidden" style="margin-top:8px;">
                                                         <svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                         </svg>
                                                         Loading history...
                                                     </div>
@@ -901,7 +901,7 @@
             } else {
                 singleMode.classList.add('hidden');
                 batchMode.classList.remove('hidden');
-                toggleButton.textContent = 'Notes Single Mode';
+                toggleButton.textContent = 'Single Mode';
             }
         }
 
@@ -913,61 +913,124 @@
             const targetWeekSelect = document.getElementById('target_week');
             const weighDateInput = document.getElementById('weigh_date');
             const weekComparison = document.getElementById('week-comparison');
+            const weekVariance = document.getElementById('week-variance');
 
-            function updatePigInfo() {
-                const selectedOption = pigSelect.options[pigSelect.selectedIndex];
+            const expectedWeightUrl = @json(route('api.pigs.expected-weight', ['pig' => '__PIG__'], false));
+            const previousWeightUrl = @json(route('api.pigs.previous-weight', ['pig' => '__PIG__'], false));
 
-                if (selectedOption.value) {
-                    pigInfo.classList.remove('hidden');
-                    const rawGender = (selectedOption.dataset.gender || '').toLowerCase();
-                    const genderLabel = rawGender === 'm' || rawGender === 'male'
-                        ? 'Male'
-                        : (rawGender === 'f' || rawGender === 'female' ? 'Female' : (selectedOption.dataset.gender || 'Unknown'));
+            const minWeek = 1;
+            const maxWeek = 200;
 
-                    document.getElementById('info-ear-tag').textContent = selectedOption.dataset.earTag;
-                    document.getElementById('info-code').textContent = selectedOption.dataset.code;
-                    document.getElementById('info-breed').textContent = selectedOption.dataset.breed;
-                    document.getElementById('info-gender').textContent = genderLabel;
-                    document.getElementById('info-age').textContent = selectedOption.dataset.age;
-                    document.getElementById('info-age-weeks').textContent = Math.floor(selectedOption.dataset.age / 7);
-                    document.getElementById('info-stock-type').textContent =
-                        selectedOption.dataset.stockType.charAt(0).toUpperCase() + selectedOption.dataset.stockType.slice(1);
+            // Responses can arrive out of order when the pig, date or week changes quickly;
+            // only the most recent request may update the page.
+            let standardsRequest = 0;
+            let previousRequest = 0;
 
-                    loadWeightStandards(selectedOption.value, weighDateInput.value, targetWeekSelect.value);
-                    loadPreviousWeight(selectedOption.value);
+            // True while the target week holds a value we filled in from the pig's age,
+            // so changing the pig or date can recalculate it without overriding a manual choice.
+            let weekIsAutoSuggested = false;
+            let suggestingWeek = false;
 
-                    weightFeedback.classList.add('hidden');
-                    window.currentWeightStandard = null;
-                    window.previousWeight = null;
-                } else {
-                    pigInfo.classList.add('hidden');
-                    weightFeedback.classList.add('hidden');
-                }
+            window.currentWeightStandard = null;
+            window.previousWeight = null;
+
+            function selectedPigOption() {
+                return pigSelect.options[pigSelect.selectedIndex];
             }
 
-            function loadWeightStandards(pigId, weighDateValue, targetWeekValue) {
+            // The searchable select only redraws its label on a change event.
+            function setTargetWeekValue(week) {
+                targetWeekSelect.value = String(week);
+                targetWeekSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            function pigAgeOnWeighDate(option) {
+                const weighDate = weighDateInput.value ? new Date(weighDateInput.value) : null;
+                const birthDateStr = option.dataset.birthDate;
+
+                if (birthDateStr && weighDate && !isNaN(weighDate)) {
+                    const days = Math.floor((weighDate - new Date(birthDateStr)) / (1000 * 60 * 60 * 24));
+                    return { days, weeks: Math.floor(days / 7) };
+                }
+
+                const days = parseInt(option.dataset.age) || 0;
+                return { days, weeks: Math.floor(days / 7) };
+            }
+
+            function updatePigInfo() {
+                const selectedOption = selectedPigOption();
+
+                if (!selectedOption || !selectedOption.value) {
+                    pigInfo.classList.add('hidden');
+                    return;
+                }
+
+                pigInfo.classList.remove('hidden');
+                const rawGender = (selectedOption.dataset.gender || '').toLowerCase();
+                const genderLabel = rawGender === 'm' || rawGender === 'male'
+                    ? 'Male'
+                    : (rawGender === 'f' || rawGender === 'female' ? 'Female' : (selectedOption.dataset.gender || 'Unknown'));
+                const stockType = selectedOption.dataset.stockType || '';
+                const ageDays = parseInt(selectedOption.dataset.age) || 0;
+
+                document.getElementById('info-ear-tag').textContent = selectedOption.dataset.earTag || '-';
+                document.getElementById('info-code').textContent = selectedOption.dataset.code || '-';
+                document.getElementById('info-breed').textContent = selectedOption.dataset.breed || '-';
+                document.getElementById('info-gender').textContent = genderLabel;
+                document.getElementById('info-age').textContent = ageDays;
+                document.getElementById('info-age-weeks').textContent = Math.floor(ageDays / 7);
+                document.getElementById('info-stock-type').textContent =
+                    stockType ? stockType.charAt(0).toUpperCase() + stockType.slice(1) : '-';
+            }
+
+            function loadWeightStandards() {
+                const pigId = pigSelect.value;
+                const requestId = ++standardsRequest;
+                window.currentWeightStandard = null;
+
+                if (!pigId) {
+                    document.getElementById('expected-range').textContent = '-';
+                    document.getElementById('expected-optimal').textContent = '-';
+                    document.getElementById('no-standard-message').classList.add('hidden');
+                    document.getElementById('standard-loading').classList.add('hidden');
+                    return;
+                }
+
                 document.getElementById('expected-range').textContent = 'Loading...';
                 document.getElementById('expected-optimal').textContent = 'Loading...';
                 document.getElementById('no-standard-message').classList.add('hidden');
                 document.getElementById('standard-loading').classList.remove('hidden');
 
                 const params = new URLSearchParams();
-                if (weighDateValue) {
-                    params.append('date', weighDateValue);
+                if (weighDateInput.value) {
+                    params.append('date', weighDateInput.value);
                 }
-                if (targetWeekValue) {
-                    params.append('week', targetWeekValue);
+                if (targetWeekSelect.value) {
+                    params.append('week', targetWeekSelect.value);
                 }
 
-                const url = params.toString()
-                    ? `/api/pigs/${pigId}/expected-weight?${params.toString()}`
-                    : `/api/pigs/${pigId}/expected-weight`;
+                const query = params.toString();
+                const url = expectedWeightUrl.replace('__PIG__', pigId) + (query ? `?${query}` : '');
 
-                fetch(url)
-                    .then(response => response.json())
+                fetch(url, { headers: { 'Accept': 'application/json' } })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
+                        if (requestId !== standardsRequest) {
+                            return;
+                        }
+
                         if (data.success && data.data) {
-                            const standard = data.data;
+                            const standard = {
+                                ...data.data,
+                                min_weight: parseFloat(data.data.min_weight),
+                                max_weight: parseFloat(data.data.max_weight),
+                                optimal_weight: parseFloat(data.data.optimal_weight),
+                            };
                             document.getElementById('expected-range').textContent = `${standard.min_weight} - ${standard.max_weight} kg`;
                             document.getElementById('expected-optimal').textContent = `${standard.optimal_weight} kg`;
                             window.currentWeightStandard = standard;
@@ -985,32 +1048,56 @@
                             }
 
                             messageEl.classList.remove('hidden');
-                            window.currentWeightStandard = null;
                         }
 
                         document.getElementById('standard-loading').classList.add('hidden');
+                        updateWeightFeedback();
                     })
                     .catch(error => {
+                        if (requestId !== standardsRequest) {
+                            return;
+                        }
+
                         console.error('Error loading weight standards:', error);
                         document.getElementById('expected-range').textContent = 'N/A';
                         document.getElementById('expected-optimal').textContent = 'N/A';
-                        window.currentWeightStandard = null;
+                        const messageEl = document.getElementById('no-standard-message');
+                        messageEl.textContent = 'Could not load weight standards.';
+                        messageEl.classList.remove('hidden');
                         document.getElementById('standard-loading').classList.add('hidden');
+                        updateWeightFeedback();
                     });
             }
 
-            function loadPreviousWeight(pigId) {
+            function loadPreviousWeight() {
+                const pigId = pigSelect.value;
+                const requestId = ++previousRequest;
+                window.previousWeight = null;
+
+                if (!pigId) {
+                    return;
+                }
+
                 document.getElementById('previous-weight').textContent = 'Loading...';
                 document.getElementById('previous-date').textContent = 'Loading...';
                 document.getElementById('days-since').textContent = 'Loading...';
                 document.getElementById('no-previous-message').classList.add('hidden');
                 document.getElementById('previous-loading').classList.remove('hidden');
 
-                fetch(`/api/pigs/${pigId}/previous-weight`)
-                    .then(response => response.json())
+                fetch(previousWeightUrl.replace('__PIG__', pigId), { headers: { 'Accept': 'application/json' } })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        return response.json();
+                    })
                     .then(data => {
+                        if (requestId !== previousRequest) {
+                            return;
+                        }
+
                         if (data.success && data.data) {
-                            const previous = data.data;
+                            const previous = { ...data.data, weight: parseFloat(data.data.weight) };
                             document.getElementById('previous-weight').textContent = `${previous.weight} kg`;
                             document.getElementById('previous-date').textContent = previous.date;
                             document.getElementById('days-since').textContent = Math.floor(previous.days_since);
@@ -1020,187 +1107,194 @@
                             document.getElementById('previous-date').textContent = 'N/A';
                             document.getElementById('days-since').textContent = 'N/A';
                             document.getElementById('no-previous-message').classList.remove('hidden');
-                            window.previousWeight = null;
                         }
 
                         document.getElementById('previous-loading').classList.add('hidden');
+                        updateWeightFeedback();
                     })
                     .catch(error => {
+                        if (requestId !== previousRequest) {
+                            return;
+                        }
+
                         console.error('Error loading previous weight:', error);
                         document.getElementById('previous-weight').textContent = 'N/A';
                         document.getElementById('previous-date').textContent = 'N/A';
                         document.getElementById('days-since').textContent = 'N/A';
-                        window.previousWeight = null;
                         document.getElementById('previous-loading').classList.add('hidden');
+                        updateWeightFeedback();
                     });
             }
 
             function updateWeekComparison() {
-                const selectedOption = pigSelect.options[pigSelect.selectedIndex];
+                const selectedOption = selectedPigOption();
                 const targetWeek = parseInt(targetWeekSelect.value);
-                const weighDate = new Date(weighDateInput.value);
 
-                if (!selectedOption.value || !targetWeek || !weighDate) {
+                if (!selectedOption || !selectedOption.value || !targetWeek || !weighDateInput.value) {
                     weekComparison.classList.add('hidden');
                     return;
                 }
 
-                const birthDateStr = selectedOption.dataset.birthDate;
-                let actualWeeks = 0;
-                let ageInDays = 0;
-
-                if (birthDateStr) {
-                    const birthDate = new Date(birthDateStr);
-                    ageInDays = Math.floor((weighDate - birthDate) / (1000 * 60 * 60 * 24));
-                    actualWeeks = Math.floor(ageInDays / 7);
-                } else {
-                    ageInDays = parseInt(selectedOption.dataset.age) || 0;
-                    actualWeeks = Math.floor(ageInDays / 7);
-                }
+                const age = pigAgeOnWeighDate(selectedOption);
 
                 weekComparison.classList.remove('hidden');
                 document.getElementById('target-week-display').textContent = `Week ${targetWeek}`;
-                document.getElementById('actual-age-display').textContent = `Week ${actualWeeks} (${ageInDays} days)`;
+                document.getElementById('actual-age-display').textContent = `Week ${age.weeks} (${age.days} days)`;
 
-                const weekVariance = document.getElementById('week-variance');
-                const weekDiff = actualWeeks - targetWeek;
+                const weekDiff = age.weeks - targetWeek;
 
                 if (weekDiff === 0) {
                     weekVariance.innerHTML = '<span class="text-green-600">Perfect timing</span>';
                 } else if (weekDiff > 0) {
-                    weekVariance.innerHTML = `<span class="text-orange-600">Warning ${weekDiff} week(s) late</span>`;
+                    weekVariance.innerHTML = `<span class="text-orange-600">${weekDiff} week(s) late</span>`;
                 } else {
                     weekVariance.innerHTML = `<span class="text-blue-600">${Math.abs(weekDiff)} week(s) early</span>`;
                 }
 
-                if (Math.abs(weekDiff) > 1) {
-                    weekVariance.innerHTML += `<br><button type="button" onclick="setTargetWeek(${actualWeeks})" class="text-xs text-blue-600 hover:underline mt-1">Use Week ${actualWeeks} instead?</button>`;
+                if (Math.abs(weekDiff) > 1 && age.weeks >= minWeek && age.weeks <= maxWeek) {
+                    weekVariance.innerHTML += `<br><button type="button" data-use-week="${age.weeks}" class="text-xs text-blue-600 hover:underline mt-1">Use Week ${age.weeks} instead?</button>`;
                 }
-            }
-
-            function setTargetWeek(week) {
-                targetWeekSelect.value = week;
-                updateWeekComparison();
-                updateWeightFeedback();
             }
 
             function updateWeightFeedback() {
                 const weight = parseFloat(weightInput.value);
                 const targetWeek = parseInt(targetWeekSelect.value);
 
+                document.getElementById('weight-lbs-display').textContent = weight ? `≈ ${(weight * 2.20462).toFixed(1)} lbs` : '';
+
                 if (!weight || !pigSelect.value || !targetWeek) {
                     weightFeedback.classList.add('hidden');
                     return;
                 }
 
-                const weightLbs = (weight * 2.20462).toFixed(1);
-                document.getElementById('weight-lbs-display').textContent = `≈ ${weightLbs} lbs`;
-
                 weightFeedback.classList.remove('hidden');
+
+                const icon = document.getElementById('weight-icon');
+                const message = document.getElementById('weight-message');
+                const comparison = document.getElementById('weight-comparison');
 
                 if (window.currentWeightStandard) {
                     const standard = window.currentWeightStandard;
 
                     if (weight < standard.min_weight) {
-                        document.getElementById('weight-icon').textContent = 'Under';
-                        document.getElementById('weight-message').textContent = `Under expected weight for Week ${standard.week_number}`;
-                        document.getElementById('weight-message').className = 'text-blue-600 font-medium';
+                        icon.textContent = '▼';
+                        message.textContent = `Under expected weight for Week ${standard.week_number}`;
+                        message.className = 'text-blue-600 font-medium';
                         const deviation = ((standard.min_weight - weight) / standard.min_weight * 100).toFixed(1);
-                        document.getElementById('weight-comparison').textContent = `${deviation}% below minimum (${standard.min_weight} kg)`;
+                        comparison.textContent = `${deviation}% below minimum (${standard.min_weight} kg)`;
                     } else if (weight > standard.max_weight) {
-                        document.getElementById('weight-icon').textContent = 'Over';
-                        document.getElementById('weight-message').textContent = `Over expected weight for Week ${standard.week_number}`;
-                        document.getElementById('weight-message').className = 'text-orange-600 font-medium';
+                        icon.textContent = '▲';
+                        message.textContent = `Over expected weight for Week ${standard.week_number}`;
+                        message.className = 'text-orange-600 font-medium';
                         const deviation = ((weight - standard.max_weight) / standard.max_weight * 100).toFixed(1);
-                        document.getElementById('weight-comparison').textContent = `${deviation}% above maximum (${standard.max_weight} kg)`;
+                        comparison.textContent = `${deviation}% above maximum (${standard.max_weight} kg)`;
                     } else {
-                        document.getElementById('weight-icon').textContent = 'OK';
-                        document.getElementById('weight-message').textContent = `Good weight for Week ${standard.week_number}`;
-                        document.getElementById('weight-message').className = 'text-green-600 font-medium';
-                        document.getElementById('weight-comparison').textContent = `Within expected range (${standard.min_weight}-${standard.max_weight} kg)`;
+                        icon.textContent = '✓';
+                        message.textContent = `Good weight for Week ${standard.week_number}`;
+                        message.className = 'text-green-600 font-medium';
+                        comparison.textContent = `Within expected range (${standard.min_weight}-${standard.max_weight} kg)`;
                     }
 
                     if (standard.note && standard.note.includes('closest')) {
-                        document.getElementById('weight-comparison').textContent += ` - ${standard.note}`;
+                        comparison.textContent += ` - ${standard.note}`;
                     }
                 } else {
-                    document.getElementById('weight-icon').textContent = '?';
-                    document.getElementById('weight-message').textContent = 'No weight standard available';
-                    document.getElementById('weight-message').className = 'text-gray-600 font-medium';
-                    document.getElementById('weight-comparison').textContent = 'Weight standard not set for this pig type/age';
+                    icon.textContent = '?';
+                    message.textContent = 'No weight standard available';
+                    message.className = 'text-gray-600 font-medium';
+                    comparison.textContent = 'Weight standard not set for this pig type/age';
                 }
 
-                if (window.previousWeight) {
+                if (window.previousWeight && window.previousWeight.weight) {
                     const previous = window.previousWeight;
                     const weightChange = weight - previous.weight;
                     const changePercent = ((weightChange / previous.weight) * 100).toFixed(1);
 
                     let changeText = '';
                     if (weightChange > 0) {
-                        changeText = `Trend up +${weightChange.toFixed(1)} kg (+${changePercent}%) since last weigh`;
+                        changeText = `+${weightChange.toFixed(1)} kg (+${changePercent}%) since last weigh`;
                     } else if (weightChange < 0) {
-                        changeText = `Trend down ${weightChange.toFixed(1)} kg (${changePercent}%) since last weigh`;
+                        changeText = `${weightChange.toFixed(1)} kg (${changePercent}%) since last weigh`;
                     } else {
-                        changeText = `No change since last weigh`;
+                        changeText = 'No change since last weigh';
                     }
 
-                    document.getElementById('weight-comparison').textContent += ` | ${changeText}`;
+                    comparison.textContent += ` | ${changeText}`;
                 }
+            }
+
+            // Fill the target week from the pig's age on the weighing date. Returns true when
+            // the week changed (the select's change handler then reloads the standard).
+            function autoSuggestWeek(force) {
+                const selectedOption = selectedPigOption();
+
+                if (!selectedOption || !selectedOption.value) {
+                    return false;
+                }
+
+                if (!force && targetWeekSelect.value && !weekIsAutoSuggested) {
+                    return false;
+                }
+
+                const suggestedWeek = Math.min(maxWeek, Math.max(minWeek, pigAgeOnWeighDate(selectedOption).weeks));
+
+                if (String(suggestedWeek) === targetWeekSelect.value) {
+                    weekIsAutoSuggested = true;
+                    return false;
+                }
+
+                suggestingWeek = true;
+                setTargetWeekValue(suggestedWeek);
+                suggestingWeek = false;
+                weekIsAutoSuggested = true;
+                return true;
             }
 
             pigSelect.addEventListener('change', function() {
                 updatePigInfo();
-                autoSuggestWeek();
-                updateWeekComparison();
+                loadPreviousWeight();
+                if (!autoSuggestWeek(true)) {
+                    loadWeightStandards();
+                    updateWeekComparison();
+                    updateWeightFeedback();
+                }
             });
 
             weightInput.addEventListener('input', updateWeightFeedback);
 
             targetWeekSelect.addEventListener('change', function() {
-                updateWeekComparison();
-                updateWeightFeedback();
-                if (pigSelect.value) {
-                    loadWeightStandards(pigSelect.value, weighDateInput.value, targetWeekSelect.value);
+                if (!suggestingWeek) {
+                    weekIsAutoSuggested = false;
                 }
+                updateWeekComparison();
+                loadWeightStandards();
+                updateWeightFeedback();
             });
 
             weighDateInput.addEventListener('change', function() {
-                autoSuggestWeek();
-                updateWeekComparison();
-                if (pigSelect.value) {
-                    loadWeightStandards(pigSelect.value, weighDateInput.value, targetWeekSelect.value);
+                if (!autoSuggestWeek(false)) {
+                    updateWeekComparison();
+                    loadWeightStandards();
+                    updateWeightFeedback();
                 }
-                updateWeightFeedback();
             });
 
-            function autoSuggestWeek() {
-                const selectedOption = pigSelect.options[pigSelect.selectedIndex];
-                const weighDate = new Date(weighDateInput.value);
-
-                if (selectedOption.value && !targetWeekSelect.value && weighDate) {
-                    const birthDateStr = selectedOption.dataset.birthDate;
-                    let suggestedWeek = 0;
-
-                    if (birthDateStr) {
-                        const birthDate = new Date(birthDateStr);
-                        const ageInDays = Math.floor((weighDate - birthDate) / (1000 * 60 * 60 * 24));
-                        suggestedWeek = Math.floor(ageInDays / 7);
-                    } else {
-                        const ageInDays = parseInt(selectedOption.dataset.age);
-                        suggestedWeek = Math.floor(ageInDays / 7);
-                    }
-
-                    if (suggestedWeek > 0 && suggestedWeek <= 104) {
-                        targetWeekSelect.value = suggestedWeek;
-                        updateWeekComparison();
-                    }
+            weekVariance.addEventListener('click', function(event) {
+                const button = event.target.closest('[data-use-week]');
+                if (button) {
+                    setTargetWeekValue(button.dataset.useWeek);
                 }
-            }
+            });
 
             if (pigSelect.value) {
                 updatePigInfo();
-                autoSuggestWeek();
-                loadWeightStandards(pigSelect.value, weighDateInput.value, targetWeekSelect.value);
+                loadPreviousWeight();
+                // Keep a week restored by old() after a validation error.
+                if (!autoSuggestWeek(false)) {
+                    loadWeightStandards();
+                    updateWeekComparison();
+                    updateWeightFeedback();
+                }
             }
 
             function setCurrentTime() {
@@ -1222,23 +1316,27 @@
                 const otherDiv = document.getElementById(otherDivId);
 
                 if (select && otherDiv) {
-                    select.addEventListener('change', function() {
-                        if (this.value === 'other') {
+                    const toggleOther = function(focus) {
+                        const input = otherDiv.querySelector('input');
+                        if (select.value === 'other') {
                             otherDiv.classList.remove('hidden');
-                            const input = otherDiv.querySelector('input');
                             if (input) {
                                 input.required = true;
-                                input.focus();
+                                if (focus) {
+                                    input.focus();
+                                }
                             }
                         } else {
                             otherDiv.classList.add('hidden');
-                            const input = otherDiv.querySelector('input');
                             if (input) {
                                 input.required = false;
                                 input.value = '';
                             }
                         }
-                    });
+                    };
+
+                    select.addEventListener('change', () => toggleOther(true));
+                    toggleOther(false);
                 }
             }
 

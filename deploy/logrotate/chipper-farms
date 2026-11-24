@@ -1,0 +1,37 @@
+# Log rotation for Chipper Farms server logs (incident 2026-10: the disk filled).
+#
+# INSTALLATION
+#   sudo cp deploy/logrotate/chipper-farms /etc/logrotate.d/chipper-farms
+#   sudo logrotate --debug /etc/logrotate.d/chipper-farms   # dry run
+#
+# /var/log/chipper-farms/*.log: the scheduler's output (systemd appends to
+# scheduler.log and scheduler-error.log every minute, forever) and the worker
+# log. copytruncate, because systemd and supervisor keep the files open.
+#
+# The application's own log (storage/logs) rotates itself: the daily channel
+# keeps LOG_DAILY_DAYS days (14). The second block is a backstop for a server
+# still on LOG_CHANNEL=single, where laravel.log never rotates: it caps it.
+
+/var/log/chipper-farms/*.log {
+    daily
+    rotate 14
+    maxsize 100M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    su www-data www-data
+}
+
+/var/www/chipper-farms/storage/logs/laravel.log {
+    daily
+    rotate 7
+    maxsize 200M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    su www-data www-data
+}

@@ -10,6 +10,7 @@ use App\Storefront\Services\CartService;
 use App\Storefront\Services\CheckoutService;
 use App\Storefront\Services\CustomerAccountService;
 use App\Storefront\Services\Exceptions\CheckoutException;
+use App\Storefront\Services\Exceptions\InventoryConflictException;
 use App\Storefront\Services\Exceptions\PaymentException;
 use App\Storefront\Services\PaystackService;
 use App\Storefront\Support\CartOwnerResolver;
@@ -119,7 +120,10 @@ class CheckoutController extends Controller
 
         try {
             $order = $this->checkout->checkout($owner, $data);
-        } catch (CheckoutException $e) {
+        } catch (CheckoutException|InventoryConflictException $e) {
+            // A conflict (stock taken, animal no longer saleable) is a normal
+            // refusal, not a server error. The order rolled back; send the
+            // buyer to their cart to adjust it.
             return redirect()->route('storefront.cart.index')->with('error', $e->getMessage());
         }
 

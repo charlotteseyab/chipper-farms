@@ -76,6 +76,9 @@ class EarTagAssignmentService
             }
 
             $start = \Carbon\Carbon::parse($assignedAt ?? now());
+            if (! $migrationBackfill) {
+                $this->assertHistoryDates($pig, $start);
+            }
             $overlap = EarTagAssignment::withoutGlobalScopes()->where('organization_id', $organizationId)
                 ->where(fn ($q) => $q->where('pig_id', $pig->id)->orWhere('ear_tag_id', $tag->id))
                 ->where(fn ($q) => $q->whereNull('released_at')->orWhere('released_at', '>', $start))->exists();
@@ -177,6 +180,20 @@ class EarTagAssignmentService
             return $locked->fresh(['tag.color', 'pig']);
         }, 3);
     }
+    /** Physical tagging cannot precede birth or describe a future event. */
+    public function assertHistoryDates(PigManagement $pig, CarbonInterface $start, ?CarbonInterface $end = null): void
+    {
+        if ($start->isFuture()) {
+            throw new StockValidationException('assigned_at', 'The assignment date cannot be in the future.');
+        }
+        if ($pig->date_of_birth && $start->toDateString() < $pig->date_of_birth->toDateString()) {
+            throw new StockValidationException('assigned_at', 'The assignment date cannot be before this animal was born.');
+        }
+        if ($end?->isFuture()) {
+            throw new StockValidationException('released_at', 'The release date cannot be in the future.');
+        }
+    }
+
     public function assertActor(?User $actor, int $organizationId): void
     {
         if ($actor && (int) $actor->organization_id !== $organizationId) {

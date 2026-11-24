@@ -307,7 +307,7 @@ class MoneyAccountService
                 \Illuminate\Support\Facades\DB::raw('SUM(journal_lines.credit) as total_credit'),
             ])
             ->join('journals', 'journal_lines.journal_id', '=', 'journals.id')
-            ->where('journals.status', \App\Models\Finance\Journal::STATUS_POSTED)
+            ->whereIn('journals.id', \App\Models\Finance\Journal::query()->affectingLedger()->select('journals.id'))
             ->where('journal_lines.organization_id', $organizationId)
             ->whereDate('journals.posting_date', '<=', $to->toDateString())
             ->groupBy('journal_lines.account_id')

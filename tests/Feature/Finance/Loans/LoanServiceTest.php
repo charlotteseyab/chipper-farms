@@ -148,6 +148,22 @@ class LoanServiceTest extends TestCase
 
     // ---- helpers ----
 
+    public function test_scheduled_accrual_binds_the_farm_and_is_idempotent(): void
+    {
+        $loan = app(LoanService::class)->disburse($this->draftLoan(), $this->user, CarbonImmutable::parse('2026-05-10'));
+        $context = app(\App\Support\CurrentOrganization::class);
+        $context->bind(null);
+
+        $this->artisan('finance:accrue-loan-interest', ['--date' => '2026-05-31'])->assertSuccessful();
+        $this->assertNull($context->id(), 'The command must restore its caller context.');
+        $this->artisan('finance:accrue-loan-interest', ['--date' => '2026-05-31'])->assertSuccessful();
+
+        $transactions = LoanTransaction::withoutGlobalScopes()->where('loan_id', $loan->id)->where('txn_type', 'accrual')->get();
+        $this->assertCount(1, $transactions);
+        $this->assertSame($this->org->id, $transactions->first()->organization_id);
+        $this->assertSame($this->user->id, $transactions->first()->created_by_user_id);
+    }
+
     protected function draftLoan(string $principal = '12000.00', string $rate = '0.240000', int $term = 12): Loan
     {
         return app(LoanService::class)->createDraft([

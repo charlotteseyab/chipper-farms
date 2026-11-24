@@ -99,51 +99,51 @@
             </div>
 
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-100">
-                    <thead class="bg-gray-50">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Request No</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Date</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Requested By</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Type</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Total Amount</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Action</th>
+                            <th>Request No</th>
+                            <th>Date</th>
+                            <th>Requested By</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Total Amount</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
 
-                    <tbody class="divide-y divide-gray-100 bg-white">
+                    <tbody>
                         @forelse($purchaseRequests as $purchaseRequest)
-                            <tr class="hover:bg-gray-50 transition">
-                                <td class="px-6 py-4">
+                            <tr>
+                                <td>
                                     <div class="font-semibold text-gray-800">{{ $purchaseRequest->request_no }}</div>
                                 </td>
 
-                                <td class="px-6 py-4 text-sm text-gray-600">
+                                <td class="text-sm text-gray-600">
                                     {{ optional($purchaseRequest->request_date)->format('M d, Y') ?? $purchaseRequest->request_date }}
                                 </td>
 
-                                <td class="px-6 py-4 text-sm text-gray-700">
+                                <td class="text-sm text-gray-700">
                                     {{ trim(($purchaseRequest->requester->first_name ?? '') . ' ' . ($purchaseRequest->requester->last_name ?? '')) ?: ($purchaseRequest->requester->name ?? 'N/A') }}
                                 </td>
 
-                                <td class="px-6 py-4">
+                                <td>
                                     <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold {{ ($purchaseRequest->purchase_type ?? 'other') === 'feed' ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-blue-50 text-blue-700 border border-blue-100' }}">
                                         {{ ($purchaseRequest->purchase_type ?? 'other') === 'feed' ? 'Feed' : 'Other' }}
                                     </span>
                                 </td>
 
-                                <td class="px-6 py-4">
+                                <td>
                                     <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold {{ $statusClasses[$purchaseRequest->status] ?? 'bg-gray-100 text-gray-700 border border-gray-200' }}">
                                         {{ ucfirst($purchaseRequest->status) }}
                                     </span>
                                 </td>
 
-                                <td class="px-6 py-4">
+                                <td>
                                     <span class="font-semibold text-gray-800">{{ number_format($purchaseRequest->total_amount, 2) }}</span>
                                 </td>
 
-                                <td class="px-6 py-4">
+                                <td>
                                     <div class="flex flex-wrap gap-2">
                                         <a href="{{ route('purchase-requests.show', $purchaseRequest) }}"
                                            class="inline-flex items-center rounded-lg bg-green-50 px-3 py-1.5 text-sm font-semibold text-green-700 hover:bg-green-100 transition">
@@ -183,8 +183,6 @@
             </div>
         </div>
 
-        <div class="mt-5">
-            {{ $purchaseRequests->links() }}
-        </div>
+        <div class="mt-4"><x-pager :paginator="$purchaseRequests" label="purchase requests" /></div>
     </div>
 </x-app-layout>

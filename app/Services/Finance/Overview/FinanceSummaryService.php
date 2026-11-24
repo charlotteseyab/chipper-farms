@@ -150,7 +150,7 @@ class FinanceSummaryService
             ->selectRaw('COALESCE(SUM(journal_lines.debit), 0) as total_debit')
             ->selectRaw('COALESCE(SUM(journal_lines.credit), 0) as total_credit')
             ->join('journals', 'journal_lines.journal_id', '=', 'journals.id')
-            ->where('journals.status', Journal::STATUS_POSTED)
+            ->whereIn('journals.id', Journal::query()->affectingLedger()->select('journals.id'))
             ->where('journal_lines.organization_id', $organizationId)
             ->whereIn('journal_lines.account_id', $accountIds)
             ->when($from !== null, fn ($q) => $q->whereDate('journals.posting_date', '>=', $from->toDateString()))

@@ -85,6 +85,7 @@ class NavigationHelper
                         self::link('Breeding Setup', 'settings.setup', 'settings/setup*', 'fa-solid fa-gear', ['superuser']),
                         self::link('Email Settings', 'settings.email', 'settings/email*', 'fa-solid fa-envelope', ['superuser']),
                         self::link('Modules & Features', 'settings.modules', 'settings/modules*', 'fa-solid fa-toggle-on', ['superuser']),
+                        self::link('Roles & Access', 'settings.roles-access', 'settings/roles-access*', 'fa-solid fa-user-shield', ['superuser']),
                         self::link('System Reports', 'settings.reports', 'settings/reports*', 'fa-solid fa-file-lines', ['superuser']),
                         self::link('Activity Log', 'settings.activity-log', 'settings/activity-log*', 'fa-solid fa-clock-rotate-left', ['superuser']),
                     ])),
@@ -92,7 +93,9 @@ class NavigationHelper
             ];
         }
 
-        if ($user->isAccountant()) {
+        // An accountant sees finance only, unless the farm has chosen what the
+        // role may use (Settings → Roles & access); then the menu follows that.
+        if ($user->isAccountant() && ! app(\App\Services\Access\RolePermissionResolver::class)->isCustomised($user->organization_id, (int) $user->role_id)) {
             return [
                 [
                     'title' => 'Finance',
@@ -101,7 +104,6 @@ class NavigationHelper
             ];
         }
 
-        $allRoles = ['superuser', 'admin', 'farmmanager', 'dataentry'];
         $managementRoles = ['superuser', 'admin', 'farmmanager'];
         $adminRoles = ['superuser', 'admin'];
 
@@ -116,66 +118,66 @@ class NavigationHelper
             [
                 'title' => 'Stock',
                 'items' => array_values(array_filter([
-                    self::link('All Stock', 'all-stocks.index', 'all-stocks*', 'fa-solid fa-list', $allRoles),
-                    self::link('Purchased Stock Intake', 'purchase-stock-intakes.index', 'purchase-stock-intakes*', 'fa-solid fa-truck-ramp-box', $managementRoles),
-                    self::link('Breeding Stock', 'breeding-stocks.index', 'breeding-stocks*', 'fa-solid fa-venus-mars', $allRoles),
-                    self::link('Standard Stock', 'standard-stocks.index', 'standard-stocks*', 'fa-solid fa-paw', $allRoles),
+                    self::permissionLinkFor($user, 'All Stock', 'all-stocks.index', 'all-stocks*', 'fa-solid fa-list', 'view_pigs'),
+                    self::permissionLinkFor($user, 'Purchased Stock Intake', 'purchase-stock-intakes.index', 'purchase-stock-intakes*', 'fa-solid fa-truck-ramp-box', 'operate_purchase_intakes'),
+                    self::permissionLinkFor($user, 'Breeding Stock', 'breeding-stocks.index', 'breeding-stocks*', 'fa-solid fa-venus-mars', 'view_pigs'),
+                    self::permissionLinkFor($user, 'Standard Stock', 'standard-stocks.index', 'standard-stocks*', 'fa-solid fa-paw', 'view_pigs'),
                     self::link('Audit Trail', 'audit-trail.index', ['audit-trail*', 'pigs/archived*'], 'fa-solid fa-clock-rotate-left', ['superuser', 'admin', 'farmmanager', 'dataentry', 'accountant', 'treasurer', 'salesperson', 'mill_operator']),
-                    self::link('Structures & Rooms', 'structures.index', ['structures*', 'rooms*'], 'fa-solid fa-warehouse', $managementRoles),
+                    self::permissionLinkFor($user, 'Structures & Rooms', 'structures.index', ['structures*', 'rooms*'], 'fa-solid fa-warehouse', 'view_facilities'),
                 ])),
             ],
             [
                 'title' => 'Breeding & Lifecycle',
                 'items' => array_values(array_filter([
-                    self::group('Mating Planner', 'fa-solid fa-heart-circle-plus', ['mating*'], [
-                        self::link('Plan Mating', 'mating.index', 'mating', 'fa-solid fa-plus', $allRoles),
-                        self::link('Manage Matings', 'mating.manage', 'mating/manage*', 'fa-solid fa-list-check', $allRoles),
-                    ], $allRoles),
-                    self::link('Gestation', 'gestation.index', 'gestation*', 'fa-regular fa-clock', $allRoles),
-                    self::link('Farrowing', 'farrowing.index', 'farrowing*', 'fa-solid fa-file-medical', $allRoles),
-                    self::link('Piglet Tracking', 'piglets.tracking', 'piglets*', 'fa-solid fa-chart-column', $allRoles),
-                    self::link('Weaning', 'weaning.dashboard', 'weaning*', 'fa-solid fa-seedling', $allRoles),
+                    self::permissionGroup('Mating Planner', 'fa-solid fa-heart-circle-plus', ['mating*'], [
+                        self::permissionLinkFor($user, 'Plan Mating', 'mating.index', 'mating', 'fa-solid fa-plus', 'record_breeding'),
+                        self::permissionLinkFor($user, 'Manage Matings', 'mating.manage', 'mating/manage*', 'fa-solid fa-list-check', 'view_breeding'),
+                    ]),
+                    self::permissionLinkFor($user, 'Gestation', 'gestation.index', 'gestation*', 'fa-regular fa-clock', 'view_breeding'),
+                    self::permissionLinkFor($user, 'Farrowing', 'farrowing.index', 'farrowing*', 'fa-solid fa-file-medical', 'view_farrowing'),
+                    self::permissionLinkFor($user, 'Piglet Tracking', 'piglets.tracking', 'piglets*', 'fa-solid fa-chart-column', 'view_farrowing'),
+                    self::permissionLinkFor($user, 'Weaning', 'weaning.dashboard', 'weaning*', 'fa-solid fa-seedling', 'view_breeding'),
                 ])),
             ],
             [
                 'title' => 'Monitoring',
                 'items' => array_values(array_filter([
-                    self::group('Weight Management', 'fa-solid fa-weight-scale', ['weights*', 'weight-alerts*', 'weight-standards*'], [
-                        self::link('All Weights', 'weights.index', 'weights', 'fa-solid fa-list', $allRoles),
-                        self::link('Weight Audit', 'weights.audit.index', 'weights/audit*', 'fa-solid fa-clock-rotate-left', $allRoles),
-                        self::link('Record Weight', 'weights.create', 'weights/create*', 'fa-solid fa-plus', $allRoles),
-                        self::link('Weight Reports', 'weights.reports', 'weights/reports*', 'fa-solid fa-chart-line', $allRoles),
-                        self::link('Weight Alerts', 'weight-alerts.index', ['weight-alerts*', 'weight-alerts-dashboard*'], 'fa-solid fa-triangle-exclamation', $allRoles),
+                    self::permissionGroup('Weight Management', 'fa-solid fa-weight-scale', ['weights*', 'weight-alerts*', 'weight-standards*'], [
+                        self::permissionLinkFor($user, 'All Weights', 'weights.index', 'weights', 'fa-solid fa-list', 'view_weights'),
+                        self::permissionLinkFor($user, 'Weight Audit', 'weights.audit.index', 'weights/audit*', 'fa-solid fa-clock-rotate-left', 'view_weights'),
+                        self::permissionLinkFor($user, 'Record Weight', 'weights.create', 'weights/create*', 'fa-solid fa-plus', 'record_weights'),
+                        self::permissionLinkFor($user, 'Weight Reports', 'weights.reports', 'weights/reports*', 'fa-solid fa-chart-line', 'view_weights'),
+                        self::permissionLinkFor($user, 'Weight Alerts', 'weight-alerts.index', ['weight-alerts*', 'weight-alerts-dashboard*'], 'fa-solid fa-triangle-exclamation', 'view_weights'),
                         self::link('Weight Standards', 'weight-standards.index', 'weight-standards*', 'fa-solid fa-ruler-combined', $managementRoles),
-                    ], $allRoles),
-                    self::group('Health & Medication', 'fa-solid fa-heart-pulse', ['health*', 'medications*', 'health-reports*', 'vet-visits*', 'medicines*'], [
+                    ]),
+                    self::permissionGroup('Health & Medication', 'fa-solid fa-heart-pulse', ['health*', 'medications*', 'health-reports*', 'vet-visits*', 'medicines*'], [
                         self::permissionLinkFor($user, 'Health Overview', 'health.index', 'health', 'fa-solid fa-heart', 'view_health_records'),
                         self::permissionLinkFor($user, 'Treatment Worklist', 'health.worklist', 'health/worklist*', 'fa-solid fa-list-check', 'view_health_records'),
                         self::permissionLinkFor($user, 'Vet Visits', 'vet-visits.index', 'vet-visits*', 'fa-solid fa-user-doctor', 'view_health_records'),
-                        self::link('Medications', 'medications.index', 'medications*', 'fa-solid fa-capsules', $allRoles),
+                        self::permissionLinkFor($user, 'Medications', 'medications.index', 'medications*', 'fa-solid fa-capsules', 'view_health_records'),
                         self::permissionLinkFor($user, 'Medicine Catalogue', 'medicines.index', 'medicines*', 'fa-solid fa-prescription-bottle-medical', 'view_health_records'),
                         self::permissionLinkFor($user, 'Health Reports', 'health.reports', 'health-reports*', 'fa-solid fa-notes-medical', 'view_health_records'),
-                    ], $allRoles),
-                    self::link('Mortality', 'deaths.index', 'deaths*', 'fa-solid fa-skull-crossbones', $allRoles),
-                    self::link('Sales', 'sales.index', 'sales*', 'fa-solid fa-coins', $allRoles),
-                    self::link('Transfers & Culls', 'pig-exits.index', 'pig-exits*', 'fa-solid fa-right-from-bracket', $allRoles),
+                    ]),
+                    self::permissionLinkFor($user, 'Mortality', 'deaths.index', 'deaths*', 'fa-solid fa-skull-crossbones', 'view_pig_deaths'),
+                    self::permissionLinkFor($user, 'Sales', 'sales.index', 'sales*', 'fa-solid fa-coins', 'view_pig_sales'),
+                    self::permissionLinkFor($user, 'Transfers & Culls', 'pig-exits.index', 'pig-exits*', 'fa-solid fa-right-from-bracket', 'view_pig_exits'),
                     self::link('Performance Metrics', 'performance_metrics.index', 'metrics*', 'fa-solid fa-chart-pie', $adminRoles),
                 ])),
             ],
             [
                 'title' => 'Feed Management',
                 'items' => array_values(array_filter([
-                    // Four pages, grouped by who does the work; each has tabs
-                    // (App\Support\FeedHubs). A link opens the first tab the user may see.
-                    self::permissionLinkFor($user, 'Feed Today',
-                        $user->hasPermission('view_feed_production') ? 'feed-dashboard.index' : 'feed.issues.create',
+                    // One link per job; every feed screen shares these four tabs (App\Support\FeedHubs).
+                    self::permissionLinkFor($user, 'Today',
+                        $user->hasPermission('manage_feed_issues') ? 'feed.issues.create' : 'feed-dashboard.index',
                         ['feed-dashboard*', 'feed/issues*', 'feed/planned-vs-actual*', 'feed-performance*'], 'fa-solid fa-bowl-food',
                         ['view_feed_production', 'manage_feed_issues']),
-                    self::permissionLinkFor($user, 'Mill', 'mill.plan', ['mill*', 'feed-production*'], 'fa-solid fa-industry', 'view_feed_production'),
-                    self::link('Store',
+                    self::permissionLinkFor($user, 'Mix & buy', 'feed.mix-buy', ['feed/mix-and-buy*', 'mill*', 'feed-production*'], 'fa-solid fa-industry', 'view_feed_production'),
+                    self::permissionLinkFor($user, 'Stock',
                         $user->hasAnyPermission(['view_raw_materials', 'manage_raw_materials']) ? 'raw-materials.index' : 'purchase-requests.index',
-                        ['raw-materials-stock*', 'stock-counts*', 'purchase-requests*'], 'fa-solid fa-boxes-stacked', $allRoles),
-                    self::permissionLinkFor($user, 'Feed Setup', 'feed-setup.index', 'feed-setup*', 'fa-solid fa-list-check', 'view_feed_production'),
+                        ['raw-materials-stock*', 'stock-counts*', 'purchase-requests*'], 'fa-solid fa-boxes-stacked',
+                        ['view_raw_materials', 'manage_raw_materials', 'view_purchase_requests']),
+                    self::permissionLinkFor($user, 'Setup', 'feed-setup.index', 'feed-setup*', 'fa-solid fa-list-check', 'view_feed_production'),
                 ])),
             ],
             self::storefrontSection($user),
@@ -203,11 +205,14 @@ class NavigationHelper
                     self::link('Bulk Weight Standards', 'weight-standards.bulk-create', 'weight-standards-bulk*', 'fa-solid fa-ruler-combined', ['admin']),
                     self::link('Ear Tag Reconciliation', 'settings.ear-tags.reconciliation', 'settings/ear-tags*', 'fa-solid fa-tags', ['admin']),
                     self::link('Email Settings', 'settings.email', 'settings/email*', 'fa-solid fa-envelope', $adminRoles),
+                    // Set once, used by invoices and sales; not a daily finance screen.
+                    self::permissionLinkFor($user, 'Tax Settings', 'finance.tax.index', 'finance/tax*', 'fa-solid fa-percent', 'manage_tax_settings'),
                     self::link('Modules & Features', 'settings.modules', 'settings/modules*', 'fa-solid fa-toggle-on', ['superuser']),
                     self::link('System Reports', 'settings.reports', 'settings/reports*', 'fa-solid fa-file-lines', $adminRoles),
                     self::link('Activity Log', 'settings.activity-log', 'settings/activity-log*', 'fa-solid fa-clock-rotate-left', ['superuser', 'admin']),
                     self::link('Farm Organizations', 'settings.organizations', 'settings/organizations*', 'fa-solid fa-building', ['superuser']),
                     self::link('User Management', 'settings.users', 'settings/users*', 'fa-solid fa-users-gear', ['superuser', 'admin']),
+                    self::link('Roles & Access', 'settings.roles-access', 'settings/roles-access*', 'fa-solid fa-user-shield', ['admin']),
                 ])),
             ],
         ]));
@@ -215,31 +220,7 @@ class NavigationHelper
 
     public static function dashboardRoute(?User $user): string
     {
-        if (! $user) {
-            return route('dashboard');
-        }
-
-        if ($user->isSuperuser()) {
-            return route('superuser.dashboard');
-        }
-
-        if ($user->isAdmin()) {
-            return route('admin.dashboard');
-        }
-
-        if ($user->isManager()) {
-            return route('manager.dashboard');
-        }
-
-        if ($user->isDataEntry()) {
-            return route('dataentry.dashboard');
-        }
-
-        if ($user->isTreasurer() || $user->isAccountant()) {
-            return route('finance.overview');
-        }
-
-        return route('dashboard');
+        return route($user ? \App\Services\Access\LandingPage::routeName($user) : 'dashboard');
     }
 
     public static function displayRole(?User $user): string
@@ -376,26 +357,12 @@ class NavigationHelper
 
     private static function dashboardRouteName(User $user): string
     {
-        return match (true) {
-            $user->isSuperuser() => 'superuser.dashboard',
-            $user->isAdmin() => 'admin.dashboard',
-            $user->isManager() => 'manager.dashboard',
-            $user->isDataEntry() => 'dataentry.dashboard',
-            $user->isTreasurer() || $user->isAccountant() => 'finance.overview',
-            default => 'dashboard',
-        };
+        return \App\Services\Access\LandingPage::routeName($user);
     }
 
     private static function dashboardPatterns(User $user): array|string
     {
-        return match (true) {
-            $user->isSuperuser() => ['superuser/dashboard*'],
-            $user->isAdmin() => ['admin/dashboard*'],
-            $user->isManager() => ['manager/dashboard*'],
-            $user->isDataEntry() => ['dataentry/dashboard*'],
-            $user->isTreasurer() || $user->isAccountant() => ['finance*'],
-            default => ['dashboard'],
-        };
+        return \App\Services\Access\LandingPage::activePatterns(self::dashboardRouteName($user));
     }
 
     /**
@@ -421,33 +388,14 @@ class NavigationHelper
         $items = [];
 
         foreach (FinanceNavigation::build($user) as $entry) {
-            $children = [];
-
-            foreach ($entry['children'] ?? [] as $child) {
-                $children[] = [
-                    'type'            => 'link',
-                    'label'           => $child['label'],
-                    'route'           => $child['route'],
-                    'active_patterns' => [$child['active']],
-                    'icon'            => 'fa-solid fa-angle-right',
-                ];
-            }
-
-            $items[] = $children === []
-                ? [
-                    'type'            => 'link',
-                    'label'           => $entry['label'],
-                    'route'           => $entry['route'],
-                    'active_patterns' => [$entry['active']],
-                    'icon'            => $entry['icon'],
-                ]
-                : [
-                    'type'            => 'group',
-                    'label'           => $entry['label'],
-                    'icon'            => $entry['icon'],
-                    'active_patterns' => [$entry['active']],
-                    'children'        => $children,
-                ];
+            $items[] = [
+                'type'            => 'link',
+                'label'           => $entry['label'],
+                'route'           => $entry['route'],
+                'active_patterns' => $entry['active'],
+                'icon'            => $entry['icon'],
+                'badge'           => $entry['addon'] ? 'Add-on' : null,
+            ];
         }
 
         return $items;
@@ -474,6 +422,12 @@ class NavigationHelper
                 : null,
             self::storefrontShopLink($user),
         ]));
+
+        // Only pages this farm can open: with its Online Store switched off
+        // that leaves Orders, for orders still being fulfilled.
+        $items = array_values(array_filter($items, fn (array $item) => $item['route'] === 'storefront.home'
+            ? \App\Storefront\Support\StorefrontSettings::moduleEnabled()
+            : \App\Support\Features\FinanceHubs::canOpen($item['route'], $user)));
 
         if ($items === []) {
             return null;

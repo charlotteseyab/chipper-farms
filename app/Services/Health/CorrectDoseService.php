@@ -6,6 +6,7 @@ use App\Models\Finance\InventoryMovement;
 use App\Models\MedicationAdministration;
 use App\Models\MedicationDosingEvent;
 use App\Models\MedicineBatch;
+use App\Models\PigManagement;
 use App\Models\ScheduledDose;
 use App\Models\TreatmentCourse;
 use App\Models\User;
@@ -29,8 +30,7 @@ class CorrectDoseService
         protected InventoryService $inventory,
         protected RecordDoseService $doses,
         protected AuditTrailService $audit,
-    ) {
-    }
+    ) {}
 
     public function void(User $actor, MedicationDosingEvent $event, string $reason): MedicationDosingEvent
     {
@@ -48,7 +48,7 @@ class CorrectDoseService
         }, 3);
     }
 
-    /** @param  iterable<\App\Models\PigManagement>  $pigs */
+    /** @param  iterable<PigManagement>  $pigs */
     public function correct(User $actor, MedicationDosingEvent $event, array $data, iterable $pigs, string $reason): MedicationDosingEvent
     {
         return DB::transaction(function () use ($actor, $event, $data, $pigs, $reason) {
@@ -56,7 +56,9 @@ class CorrectDoseService
             $original = $this->undo($actor, $event, MedicationAdministration::STATUS_CORRECTED, $reason);
             $pigIds = collect($pigs)->pluck('id')->map(fn ($id) => (int) $id);
             $data['scheduled_dose_ids'] = ScheduledDose::whereKey($released)->whereIn('pig_id', $pigIds)
-                ->where('status', ScheduledDose::SCHEDULED)->pluck('id')->all();
+                ->where('status', ScheduledDose::SCHEDULED)
+                ->whereHas('courseMedicine', fn ($q) => $q->where('medicine_id', $data['medicine_id']))
+                ->pluck('id')->all();
             $data['idempotency_key'] = (string) Str::uuid();
             $data['health_record_id'] ??= $original->administrations->first()?->health_record_id;
 

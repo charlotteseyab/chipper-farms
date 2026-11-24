@@ -15,18 +15,27 @@ use App\Storefront\Services\Exceptions\InventoryConflictException;
 use App\Storefront\Services\Exceptions\InvalidOrderTransitionException;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Owns the order status machine and the inventory side effects of order
  * confirmation/cancellation. Posts NOTHING to finance (Phase 4 subscribes to
  * order events for that).
  *
- * THE CONFIRMATION RULE (v1, non-negotiable):
- *   confirm() is the ONLY path to `confirmed`, and it is always an explicit
- *   staff action. A verified Paystack payment moves an order to
- *   payment_confirmed — never to confirmed. COD orders sit at
- *   pending_confirmation. Either way a human confirms before the order is
- *   accepted and inventory is reserved.
+ * THE CONFIRMATION RULE:
+ *   confirm() is the ONLY path to `confirmed`. Who calls it depends on whether
+ *   money has moved:
+ *
+ *   - COD orders sit at pending_confirmation and a member of staff confirms.
+ *     Nothing has been paid, so a person deciding costs the buyer nothing.
+ *   - A verified Paystack payment moves the order to payment_confirmed and
+ *     then straight on to confirmed (acceptPaidOrder()). The stock was held
+ *     and the exact animals committed at checkout, so there is nothing left
+ *     to check — and telling someone who has already paid that the farm is
+ *     "deciding whether to accept" their order is the wrong way round.
+ *     It stays at payment_confirmed only when a person still has work to do:
+ *     a carcass line whose animals staff choose, or a confirmation that
+ *     failed (stock lost, an animal no longer saleable) and needs resolving.
  *
  * Inventory effect on confirm:
  *   - pig-backed listing (single head) → listing transitions to `reserved`
@@ -111,9 +120,9 @@ class OrderService
      * caller's intent is already satisfied. What must never happen is a second
      * inventory effect.
      */
-    public function confirm(StorefrontOrder $order, User $actor): StorefrontOrder
+    public function confirm(StorefrontOrder $order, User $actor, string $note = 'Order confirmed by staff.'): StorefrontOrder
     {
-        return DB::transaction(function () use ($order, $actor) {
+        return DB::transaction(function () use ($order, $actor, $note) {
             // Reload under lock. Everything after this point reads committed
             // state that no other transaction can change until we commit.
             $locked = StorefrontOrder::query()
@@ -169,7 +178,7 @@ class OrderService
             ])->save();
 
             $this->recordEvent($locked, 'status_change', $from, StorefrontOrder::STATUS_CONFIRMED,
-                'Order confirmed by staff.', $actor->id);
+                $note, $actor->id);
 
             // Finance trigger (Phase 4): dispatch INSIDE this transaction so the
             // outbox row rolls back with the confirmation if anything fails. The
@@ -234,9 +243,14 @@ class OrderService
 
     /**
      * Apply a verified gateway payment. Moves pending_payment →
-     * payment_confirmed and sets payment_status. This is NOT acceptance — a
-     * human still confirms. Idempotent: a re-delivered verification on an order
+     * payment_confirmed and sets payment_status, then — after commit — accepts
+     * the order with acceptPaidOrder(). Idempotent: a re-delivered verification on an order
      * already past payment is a no-op.
+     *
+     * The order's holds stop expiring here. They were on a clock so a buyer
+     * who abandoned the gateway could not park stock; a buyer who has paid
+     * has not abandoned anything, and letting the sweep put their items back
+     * on sale would hand them to somebody else.
      */
     public function markPaymentConfirmed(StorefrontOrder $order, ?User $actor = null): StorefrontOrder
     {
@@ -257,11 +271,75 @@ class OrderService
                 'payment_status' => StorefrontOrder::PAY_PAYSTACK_VERIF,
             ])->save();
 
+            $this->holds->keepForOrder($order);
+
+            // Accept the order once the payment has COMMITTED, in its own
+            // transaction, so nothing that goes wrong there can undo the record
+            // that the buyer paid. Registered in this transaction and BEFORE
+            // the payment event: callbacks of one transaction run in order, so
+            // the buyer's "payment confirmed" email then sees an accepted order
+            // and stands aside for the "order confirmed" one.
+            DB::afterCommit(fn () => $this->acceptPaidOrder($order));
+
             $this->recordEvent($order, 'payment', $from, StorefrontOrder::STATUS_PAYMENT_CONFIRMED,
-                'Paystack payment verified. Awaiting staff confirmation.', $actor?->id);
+                'Paystack payment verified.', $actor?->id);
 
             return $order->refresh();
         });
+    }
+
+    /**
+     * Accept an order the buyer has paid for.
+     *
+     * Confirms it as the farm's Online shop account, unless a person still has
+     * something to do. Never throws: the payment is already recorded, and a
+     * failure here must leave a paid order for staff to resolve, not a webhook
+     * error that Paystack retries against an already-verified payment.
+     */
+    public function acceptPaidOrder(StorefrontOrder $order): StorefrontOrder
+    {
+        $order->refresh();
+
+        if ($order->status !== StorefrontOrder::STATUS_PAYMENT_CONFIRMED) {
+            return $order;
+        }
+
+        if ($this->awaitsPigSelection($order)) {
+            $this->recordEvent($order, 'system',
+                note: 'Paid. Choose the animals for this order to confirm it.');
+
+            return $order;
+        }
+
+        try {
+            return $this->confirm(
+                $order,
+                \App\Storefront\Support\OnlineShopActor::for((int) $order->organization_id),
+                'Confirmed automatically: payment received and the stock was secured at checkout.',
+            );
+        } catch (\Throwable $e) {
+            Log::warning('A paid storefront order could not be confirmed automatically.', [
+                'order_id' => $order->getKey(),
+                'error'    => $e->getMessage(),
+            ]);
+
+            $this->recordEvent($order, 'system',
+                note: 'Paid, but could not be confirmed automatically: ' . $e->getMessage()
+                    . ' Resolve it, or cancel and refund the buyer.');
+
+            return $order->refresh();
+        }
+    }
+
+    /** Whether a pooled line still needs a person to choose its animals. */
+    protected function awaitsPigSelection(StorefrontOrder $order): bool
+    {
+        $allocations = app(\App\Storefront\Services\StorefrontPigAllocationService::class);
+
+        return $order->loadMissing('items')->items->contains(
+            fn (StorefrontOrderItem $item) => $allocations->requiresPigSelection($item)
+                && $allocations->fulfilmentState($item) === \App\Storefront\Services\StorefrontPigAllocationService::STATE_NEEDS_SELECTION,
+        );
     }
 
     public function markFailed(StorefrontOrder $order, ?string $note = null, ?User $actor = null): StorefrontOrder

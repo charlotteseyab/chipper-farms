@@ -72,7 +72,7 @@ class EnsureFinanceAccess
             abort(403, 'You do not have permission to access the finance module.');
         }
 
-        if (! $this->holdsAnyAdmittedPermission((int) $user->role_id)) {
+        if (! $this->holdsAnyAdmittedPermission($user)) {
             abort(403, 'You do not have permission to access the finance module.');
         }
 
@@ -92,12 +92,13 @@ class EnsureFinanceAccess
      * This is one indexed EXISTS against a small pivot table, on finance
      * requests only. The correctness is worth far more than the query.
      */
-    protected function holdsAnyAdmittedPermission(int $roleId): bool
+    protected function holdsAnyAdmittedPermission($user): bool
     {
-        return DB::table('role_permissions')
-            ->join('permissions', 'permissions.id', '=', 'role_permissions.permission_id')
-            ->where('role_permissions.role_id', $roleId)
-            ->whereIn('permissions.module', static::ADMITTED_MODULES)
-            ->exists();
+        // The role's permissions on the user's farm (customised or default).
+        $names = array_keys(app(\App\Services\Access\RolePermissionResolver::class)
+            ->names($user->organization_id ? (int) $user->organization_id : null, (int) $user->role_id));
+
+        return $names !== [] && DB::table('permissions')->whereIn('name', $names)
+            ->whereIn('module', static::ADMITTED_MODULES)->exists();
     }
 }

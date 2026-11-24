@@ -15,10 +15,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Medicine extends Model
 {
-    use BelongsToOrganization, HasFactory;
+    use BelongsToOrganization, HasFactory, \App\Models\Concerns\HasAttachments;
 
     protected $fillable = [
-        'organization_id', 'name', 'formulation', 'concentration', 'dose_unit', 'stock_unit',
+        'organization_id', 'name', 'formulation', 'concentration', 'description', 'used_for', 'storage_instructions', 'precautions', 'dose_unit', 'stock_unit',
         'dose_units_per_stock_unit', 'allowed_routes', 'meat_withdrawal_days', 'withdrawal_source_note',
         'reorder_level', 'is_active', 'created_by',
     ];
@@ -31,6 +31,12 @@ class Medicine extends Model
     public function batches(): HasMany
     {
         return $this->hasMany(MedicineBatch::class);
+    }
+
+    /** The current photo of the pack or bottle, so staff can check they have the right one. */
+    public function photo(): \Illuminate\Database\Eloquent\Relations\MorphOne
+    {
+        return $this->morphOne(\App\Models\Attachment::class, 'attachable')->where('category', 'health_medicine')->latestOfMany();
     }
 
     public function getDisplayNameAttribute(): string

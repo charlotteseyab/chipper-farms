@@ -62,29 +62,30 @@ class JournalReversalService
         ?\DateTimeInterface $reversalDate = null,
         bool $bypassSoftLock = false,
     ): JournalBatch {
-        if ($original->reversed_by_batch_id !== null || $original->status === JournalBatch::STATUS_REVERSED) {
-            $suffix = $original->reversed_by_batch_id
-                ? " by batch #{$original->reversed_by_batch_id}"
-                : '';
-            throw new \DomainException(
-                "Batch #{$original->id} is already reversed{$suffix}"
-            );
-        }
+        return DB::transaction(function () use ($original, $reverser, $reason, $reversalDate, $bypassSoftLock) {
+            $original = JournalBatch::whereKey($original->id)->lockForUpdate()->firstOrFail();
+            if ($original->reversed_by_batch_id !== null || $original->status === JournalBatch::STATUS_REVERSED) {
+                $suffix = $original->reversed_by_batch_id
+                    ? " by batch #{$original->reversed_by_batch_id}"
+                    : '';
+                throw new \DomainException(
+                    "Batch #{$original->id} is already reversed{$suffix}"
+                );
+            }
 
-        if (! $original->isPosted()) {
-            throw new \DomainException(
-                "Cannot reverse batch #{$original->id}: status is '{$original->status}', expected 'posted'"
-            );
-        }
+            if (! $original->isPosted()) {
+                throw new \DomainException(
+                    "Cannot reverse batch #{$original->id}: status is '{$original->status}', expected 'posted'"
+                );
+            }
 
-        $original->load(['journals.lines', 'postings']);
+            $original->load(['journals.lines', 'postings']);
 
-        $reversalDate ??= CarbonImmutable::now();
+            $reversalDate ??= CarbonImmutable::now();
 
-        // Build the reversal draft from the original.
-        $reversalDraft = $this->buildReversalDraft($original, $reason, $reversalDate);
+            // Build the reversal draft from the original.
+            $reversalDraft = $this->buildReversalDraft($original, $reason, $reversalDate);
 
-        return DB::transaction(function () use ($original, $reverser, $reason, $reversalDraft, $bypassSoftLock) {
             // Post the reversal via PostingEngine — full validation runs.
             $reversalBatch = $this->postingEngine->post($reversalDraft, $reverser, $bypassSoftLock);
 

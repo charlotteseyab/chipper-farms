@@ -38,6 +38,21 @@ class HealthEndpointTest extends TestCase
         );
     }
 
+    public function test_public_readiness_does_not_scan_the_finance_outbox(): void
+    {
+        config(['app.health_check_token' => 'secret']);
+        \Illuminate\Support\Facades\DB::enableQueryLog();
+        try {
+            $this->getJson('/health/ready')->assertOk();
+            $queries = \Illuminate\Support\Facades\DB::getQueryLog();
+            foreach ($queries as $query) {
+                $this->assertStringNotContainsString('domain_events', $query['query']);
+            }
+        } finally {
+            \Illuminate\Support\Facades\DB::disableQueryLog();
+        }
+    }
+
     public function test_readiness_reports_per_check_status(): void
     {
         $response = $this->getJson('/health/ready');

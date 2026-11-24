@@ -37,6 +37,9 @@ class HealthRecord extends Model implements \App\Models\Concerns\ResolvesOrganiz
 
     public const TREATMENT_STATUSES = ['planned' => 'Planned', 'ongoing' => 'Ongoing', 'completed' => 'Completed', 'stopped' => 'Stopped'];
 
+    /** Outcomes that fit "Resolved — recovered, keep watching". */
+    public const RESOLVABLE_OUTCOMES = ['recovered', 'improved'];
+
     public const OUTCOMES = ['recovered' => 'Recovered', 'improved' => 'Improved', 'unchanged' => 'Unchanged', 'worsened' => 'Worsened',
         'died' => 'Died', 'left_herd' => 'Sold, culled or transferred'];
 
@@ -51,6 +54,7 @@ class HealthRecord extends Model implements \App\Models\Concerns\ResolvesOrganiz
         'treatment_status',
         'outcome',
         'resolved_at',
+        'check_on',
         'resolution_notes',
         'recorded_by',
         'legacy_severity',
@@ -70,6 +74,7 @@ class HealthRecord extends Model implements \App\Models\Concerns\ResolvesOrganiz
     ];
 
     protected $casts = [
+        'check_on' => 'date',
         'record_date' => 'date',
         'resolved_at' => 'date',
         'voided_at' => 'datetime',

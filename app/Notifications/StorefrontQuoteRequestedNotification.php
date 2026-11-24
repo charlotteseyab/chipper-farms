@@ -15,8 +15,18 @@ class StorefrontQuoteRequestedNotification extends Notification implements Shoul
 {
     use Queueable;
 
+    /** A notification that keeps failing stops after 3 tries instead of filling failed_jobs. */
+    public $tries = 3;
+
+    /** @var list<int> seconds before each retry */
+    public $backoff = [10, 60, 300];
+
     public function __construct(public StorefrontQuote $quote)
     {
+        // Stored without loaded relations: the queue must rebuild whatever a
+        // notification carries, and a relation it cannot rebuild fails the
+        // job on every retry (the WeightOverdueNotification incident).
+        $this->quote = $this->quote?->withoutRelations();
     }
 
     public function via($notifiable): array

@@ -25,7 +25,7 @@
             $stateCopy = match ($order->status) {
                 'pending_payment'      => ['Waiting for your payment', 'We have not received payment yet. If your payment was interrupted, contact us and we will help you finish it.', 'amber'],
                 'pending_confirmation' => ['We are checking availability', 'Live animals are confirmed by our team before your order is accepted. We will be in touch shortly.', 'amber'],
-                'payment_confirmed'    => ['Payment received', 'Thank you. Our team is confirming availability before we accept the order.', 'emerald'],
+                'payment_confirmed'    => ['Payment received', 'Thank you — your order is paid and reserved for you. We\'re getting it ready and will be in touch shortly.', 'emerald'],
                 'confirmed'            => ['Order confirmed', 'Your order is accepted and being prepared.', 'emerald'],
                 'ready_for_pickup'     => ['Ready for pickup', 'Come and collect when it suits you.', 'emerald'],
                 'out_for_delivery'     => ['On its way', 'Your order is out for delivery.', 'emerald'],

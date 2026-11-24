@@ -56,6 +56,7 @@ class AdjustRawMaterialService
      *   quantity: float,
      *   reference?: ?string,
      *   notes?: ?string,
+     *   adjusted_at?: ?string,
      * }  $data
      */
     public function execute(
@@ -75,8 +76,10 @@ class AdjustRawMaterialService
             throw new \InvalidArgumentException('Adjustment quantity must be non-negative.');
         }
 
+        $adjustedAt = isset($data['adjusted_at']) ? CarbonImmutable::parse($data['adjusted_at']) : CarbonImmutable::now();
+
         return DB::transaction(function () use (
-            $material, $actor, $data, $organizationId, $type, $magnitude, $allowNegative,
+            $material, $actor, $data, $organizationId, $type, $magnitude, $allowNegative, $adjustedAt,
         ) {
             $material = RawMaterial::where('organization_id', $organizationId)->whereKey($material->id)->lockForUpdate()->firstOrFail();
             // The ledger is the stock figure; the adjustment is measured and
@@ -131,7 +134,7 @@ class AdjustRawMaterialService
                 quantity:      $type === 'set' ? $newQuantity : $magnitude,
                 sourceType:    InventoryMovement::SOURCE_STOCK_LOG,
                 sourceId:      (int) $log->id,
-                occurredAt:    CarbonImmutable::instance($log->created_at ?? now()),
+                occurredAt:    $adjustedAt,
                 actorUserId:   $actor->id,
                 reference:     $data['reference'] ?? null,
                 notes:         $data['notes'] ?? null,
@@ -146,7 +149,7 @@ class AdjustRawMaterialService
                     sourceId:       (int) $log->id,
                     organizationId: $organizationId,
                 ),
-                occurredAt: CarbonImmutable::now(),
+                occurredAt: $adjustedAt,
                 dispatchedByUserId: $actor->id,
                 rawMaterialId:     (int) $material->id,
                 rawMaterialName:   (string) $material->name,

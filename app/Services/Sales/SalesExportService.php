@@ -107,6 +107,9 @@ class SalesExportService
 
     public function pdf(Request $request)
     {
+        if ($tooMany = \App\Support\PdfExportLimit::check($this->buildFilteredQuery($request)->count())) {
+            return $tooMany;
+        }
         $sales = $this->buildFilteredQuery($request)->get();
 
         $stats = [

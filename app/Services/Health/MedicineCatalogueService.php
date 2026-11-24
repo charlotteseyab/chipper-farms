@@ -17,7 +17,7 @@ use Illuminate\Validation\ValidationException;
 class MedicineCatalogueService
 {
     public const FIELDS = [
-        'name', 'formulation', 'concentration', 'dose_unit', 'stock_unit', 'dose_units_per_stock_unit',
+        'name', 'formulation', 'concentration', 'description', 'used_for', 'storage_instructions', 'precautions', 'dose_unit', 'stock_unit', 'dose_units_per_stock_unit',
         'allowed_routes', 'meat_withdrawal_days', 'withdrawal_source_note', 'reorder_level', 'is_active',
     ];
 

@@ -32,23 +32,13 @@ class PurchaseRequestController extends Controller
 {
     use AuthorizesRequests;
 
-    /**
-     * Legacy fallback used by views/routes that bypass policies.
-     */
-    protected function authorizeApprovalAction(): void
-    {
-        $this->abortUnlessRole('superuser', 'admin', 'farmmanager');
-    }
-
     protected function canManageRequest(PurchaseRequest $purchaseRequest): bool
     {
         $user = auth()->user();
         if (! $user) {
             return false;
         }
-        return $user->isSuperuser()
-            || $user->isAdmin()
-            || $user->isManager()
+        return $user->hasPermission('edit_purchase_requests')
             || (int) $purchaseRequest->requested_by === (int) $user->id;
     }
 
@@ -103,24 +93,52 @@ class PurchaseRequestController extends Controller
         $prefillItems = null;
         $prefillNotes = null;
         if ($request->filled('planning_material')) {
-            $input = $request->validate(['planning_material' => ['required', 'integer'],
+            $all = $request->input('planning_material') === 'all';
+            $input = $request->validate(['planning_material' => ['required', $all ? 'in:all' : 'integer'],
                 'planning_from' => ['required', 'date_format:Y-m-d'], 'planning_to' => ['required', 'date_format:Y-m-d'],
                 'stage' => ['nullable', 'string'], 'group_id' => ['nullable', 'integer'], 'room_id' => ['nullable', 'integer'],
                 'structure_id' => ['nullable', 'integer'], 'feed_type_id' => ['nullable', 'integer']]);
             $plan = app(\App\Services\Feed\FeedPlanningService::class)->calculate((int) $request->user()->organization_id,
                 $input['planning_from'], $input['planning_to'], $input);
             abort_unless($plan['exceptions'] === [], 422, 'Resolve the feed planning notices before creating a purchase request from this forecast.');
-            $shortage = collect($plan['materials'])->firstWhere('raw_material_id', (int) $input['planning_material']);
-            abort_unless($shortage && $shortage['shortfall_kg'] > 0, 422, 'This planning selection has no current shortage for that material.');
-            $material = RawMaterial::where('organization_id', $request->user()->organization_id)->findOrFail($input['planning_material']);
-            // Shortfalls are in kg; order whole bags for materials stocked in bags.
-            $kgPerUnit = $material->kgPerUnit() ?? 1.0;
-            $quantity = $kgPerUnit === 1.0
-                ? max(0.01, ceil($shortage['shortfall_kg'] * 100) / 100)
-                : (float) ceil($shortage['shortfall_kg'] / $kgPerUnit);
-            $prefillItems = [['raw_material_id' => $material->id, 'description' => $material->name,
-                'unit' => $material->unit, 'quantity' => $quantity, 'unit_price' => $material->unit_cost]];
-            $prefillNotes = 'Feed plan '.$plan['from'].' to '.$plan['to'].'. Required '.$shortage['required_kg'].' kg; available '.$shortage['available_kg'].' kg; shortage '.$shortage['shortfall_kg'].' kg. Review before submitting.';
+            // One ingredient, or every ingredient the plan is short of.
+            $shortages = collect($plan['materials'])->filter(fn ($m) => $m['shortfall_kg'] > 0)
+                ->when(! $all, fn ($c) => $c->where('raw_material_id', (int) $input['planning_material']))->values();
+            abort_if($shortages->isEmpty(), 422, $all ? 'This plan has no ingredient shortages.' : 'This planning selection has no current shortage for that material.');
+            $materials = RawMaterial::where('organization_id', $request->user()->organization_id)
+                ->whereKey($shortages->pluck('raw_material_id'))->get()->keyBy('id');
+            $prefillItems = $shortages->map(function (array $shortage) use ($materials) {
+                $material = $materials[$shortage['raw_material_id']] ?? abort(404);
+                // Shortfalls are in kg; order whole bags for materials stocked in bags.
+                $kgPerUnit = $material->kgPerUnit() ?? 1.0;
+                $quantity = $kgPerUnit === 1.0
+                    ? max(0.01, ceil($shortage['shortfall_kg'] * 100) / 100)
+                    : (float) ceil($shortage['shortfall_kg'] / $kgPerUnit);
+
+                return ['raw_material_id' => $material->id, 'description' => $material->name,
+                    'unit' => $material->unit, 'quantity' => $quantity, 'unit_price' => $material->unit_cost];
+            })->all();
+            $prefillNotes = 'Feed plan '.$plan['from'].' to '.$plan['to'].'. '.$shortages->map(fn ($s) => $s['name'].': required '.$s['required_kg'].' kg, available '.$s['available_kg'].' kg, short '.$s['shortfall_kg'].' kg')->implode('; ').'. Review before submitting.';
+        } elseif ($request->filled('restock_material') || $request->filled('restock_materials')) {
+            // From Store → Raw materials: one ingredient, or every one ticked,
+            // each with enough to get back to its reorder level.
+            $ids = collect((array) $request->input('restock_materials', []))->push($request->input('restock_material'))
+                ->filter(fn ($id) => is_numeric($id))->map(fn ($id) => (int) $id)->unique()->values();
+            $materials = RawMaterial::where('organization_id', $request->user()->organization_id)->whereKey($ids)->orderBy('name')->get();
+            abort_if($materials->isEmpty(), 404);
+            $qty = fn ($value) => rtrim(rtrim(number_format((float) $value, 2, '.', ''), '0'), '.');
+
+            $prefillItems = $materials->map(function (RawMaterial $material) {
+                // Both stock and reorder level are already in the material's stock unit.
+                $shortfall = max(0.0, (float) $material->reorder_level - (float) $material->quantity_in_stock);
+                $quantity = $shortfall <= 0 ? null
+                    : ($material->isMeasuredInKg() ? max(0.01, ceil($shortfall * 100) / 100) : (float) ceil($shortfall));
+
+                return ['raw_material_id' => $material->id, 'description' => $material->name,
+                    'unit' => $material->unit, 'quantity' => $quantity, 'unit_price' => $material->unit_cost];
+            })->all();
+            $prefillNotes = 'Restock: '.$materials->map(fn (RawMaterial $m) => $m->name.' ('.$qty($m->quantity_in_stock).' '.$m->unit.' in stock, reorder level '.$qty($m->reorder_level).' '.$m->unit.')')->implode('; ')
+                .'. Each quantity brings the ingredient back to its reorder level; increase any of them to order more.';
         }
         return view('feeds.purchase-requests.create', [
             'prefillItems' => $prefillItems, 'prefillNotes' => $prefillNotes,
@@ -236,7 +254,6 @@ class PurchaseRequestController extends Controller
     public function approve(Request $request, PurchaseRequest $purchaseRequest, PurchaseRequestLifecycleService $lifecycle, InAppNotificationService $notifications)
     {
         $this->authorize('approve', $purchaseRequest);
-        $this->authorizeApprovalAction();
 
         if (in_array($purchaseRequest->status, ['approved', 'paid'], true)) {
             return redirect()
@@ -280,7 +297,6 @@ class PurchaseRequestController extends Controller
     public function decline(Request $request, PurchaseRequest $purchaseRequest, PurchaseRequestLifecycleService $lifecycle, InAppNotificationService $notifications)
     {
         $this->authorize('decline', $purchaseRequest);
-        $this->authorizeApprovalAction();
 
         $request->validate([
             'decline_reason' => ['nullable', 'string', 'max:1000'],

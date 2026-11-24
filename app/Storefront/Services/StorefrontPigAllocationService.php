@@ -15,6 +15,7 @@ use App\Services\Sales\RecordPigSaleService;
 use App\Storefront\Services\Exceptions\InventoryConflictException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Which exact animals fulfil an order line, and turning that into real sales.
@@ -589,7 +590,25 @@ class StorefrontPigAllocationService
                 continue;
             }
 
-            foreach ($this->selectForOrderItem($item, $pigIds, $actor) as $allocation) {
+            // The validator's reasons are written for staff — they name
+            // diagnoses and medicines. A buyer gets a plain refusal; the
+            // detail goes to the log for the farm to act on.
+            try {
+                $allocations = $this->selectForOrderItem($item, $pigIds, $actor);
+            } catch (InventoryConflictException $e) {
+                Log::warning('Storefront checkout refused a customer-selected pig.', [
+                    'listing_id' => $item->listing_id,
+                    'pig_ids'    => $pigIds,
+                    'reason'     => $e->getMessage(),
+                ]);
+
+                throw new InventoryConflictException(sprintf(
+                    '"%s" — an animal you chose is no longer available for sale. Please remove it from your cart and choose another.',
+                    $item->description,
+                ), previous: $e);
+            }
+
+            foreach ($allocations as $allocation) {
                 // The customer chose this, not staff. It changes what a manager
                 // may substitute and what the audit trail has to explain.
                 $allocation->forceFill([

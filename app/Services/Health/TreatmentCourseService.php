@@ -29,8 +29,7 @@ class TreatmentCourseService
         protected HealthEntryDateGuard $dates,
         protected HealthRecordService $cases,
         protected AuditTrailService $audit,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  list<PigManagement>  $pigs
@@ -54,22 +53,30 @@ class TreatmentCourseService
         if ($case && ($case->isVoided() || $case->case_status === 'closed')) {
             throw ValidationException::withMessages(['health_record_id' => 'This case is closed or voided. Reopen it before prescribing.']);
         }
+        if ($case) {
+            $members = $case->animals()->pluck('pig_id')->push($case->pig_id)->map(fn ($id) => (int) $id);
+            $outside = $pigs->reject(fn ($pig) => $members->contains((int) $pig->id));
+            if ($outside->isNotEmpty()) {
+                throw ValidationException::withMessages(['pig_ids' => 'Not part of this case: '.$outside->pluck('code')->implode(', ').'.']);
+            }
+        }
         $lines = collect($medicines)->map(fn (array $line, int $i) => $this->validLine($line, $i));
 
         return DB::transaction(function () use ($actor, $data, $pigs, $lines, $case, $amends, $amendmentReason) {
             $course = TreatmentCourse::create([
-                'health_record_id'       => $case?->id ?? $amends?->health_record_id,
-                'vet_examination_id'     => $data['vet_examination_id'] ?? $amends?->vet_examination_id,
-                'purpose'                => $data['purpose'],
-                'prescriber_name'        => $data['prescriber_name'] ?? null,
-                'prescriber_user_id'     => $data['prescriber_user_id'] ?? null,
-                'responsible_user_id'    => $data['responsible_user_id'] ?? null,
-                'follow_up_on'           => $data['follow_up_on'] ?? null,
-                'notes'                  => $data['notes'] ?? null,
-                'status'                 => 'active',
+                'health_record_id' => $case?->id ?? $amends?->health_record_id,
+                'vet_examination_id' => $data['vet_examination_id'] ?? $amends?->vet_examination_id,
+                'health_programme_id' => $data['health_programme_id'] ?? $amends?->health_programme_id,
+                'purpose' => $data['purpose'],
+                'prescriber_name' => $data['prescriber_name'] ?? null,
+                'prescriber_user_id' => $data['prescriber_user_id'] ?? null,
+                'responsible_user_id' => $data['responsible_user_id'] ?? null,
+                'follow_up_on' => $data['follow_up_on'] ?? null,
+                'notes' => $data['notes'] ?? null,
+                'status' => 'active',
                 'amended_from_course_id' => $amends?->id,
-                'amendment_reason'       => $amendmentReason,
-                'created_by'             => $actor->id,
+                'amendment_reason' => $amendmentReason,
+                'created_by' => $actor->id,
             ]);
             $startedAt = CarbonImmutable::parse($lines->min('start_at'));
             foreach ($pigs as $pig) {
@@ -136,9 +143,9 @@ class TreatmentCourseService
         $times = [];
         for ($i = 0; $i < (int) $line['number_of_doses']; $i++) {
             $times[] = match ($line['frequency']) {
-                'once'          => $start,
-                'daily'         => $start->addDays($i),
-                'every_n_days'  => $start->addDays($i * (int) $line['interval']),
+                'once' => $start,
+                'daily' => $start->addDays($i),
+                'every_n_days' => $start->addDays($i * (int) $line['interval']),
                 'every_n_hours' => $start->addHours($i * (int) $line['interval']),
             };
         }

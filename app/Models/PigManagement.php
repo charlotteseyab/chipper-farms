@@ -1192,6 +1192,11 @@ public static function countFirstWeightPending(int $firstWeightGraceDays = 30)
         return $this->hasMany(Litter::class, 'sow_id');
     }
 
+    public function groupHealthRecords(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(HealthRecord::class, 'health_record_animals', 'pig_id', 'health_record_id');
+    }
+
     public function healthRecords(): HasMany
     {
         return $this->hasMany(HealthRecord::class, 'pig_id');

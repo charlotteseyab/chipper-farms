@@ -29,10 +29,18 @@
             </div>
         @endforeach
         @if($canAdd)
-            <form method="POST" action="{{ route('health.attachments.store', ['type' => $type, 'id' => $parent->getKey()]) }}" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2">
+            {{-- One field per line: in a narrow card the title box was squeezed
+                 beside the file picker until only a letter of its hint showed. --}}
+            <form method="POST" action="{{ route('health.attachments.store', ['type' => $type, 'id' => $parent->getKey()]) }}" enctype="multipart/form-data" class="space-y-2">
                 @csrf
-                <input type="file" name="file" required accept="application/pdf,image/*" class="max-w-full text-xs">
-                <input name="title" maxlength="255" placeholder="What is it? (optional)" class="min-w-0 flex-1 rounded-lg border-slate-300 text-sm">
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600">File (PDF or photo)</span>
+                    <input type="file" name="file" required accept="application/pdf,image/*" class="mt-1 block w-full text-xs">
+                </label>
+                <label class="block">
+                    <span class="text-xs font-semibold text-slate-600">Title <span class="font-normal text-slate-400">(optional)</span></span>
+                    <input name="title" maxlength="255" placeholder="For example: lab results, vet's invoice" class="mt-1 w-full rounded-lg border-slate-300 text-sm">
+                </label>
                 <button class="rounded-lg border border-emerald-700 px-3 py-1.5 text-xs font-semibold text-emerald-800">Attach</button>
             </form>
         @endif

@@ -159,7 +159,7 @@
                                 <tr>
                                     <td class="px-3 py-2 text-xs">{{ $r['payment_date'] ?? '—' }}</td>
                                     <td class="px-3 py-2 font-mono text-xs">
-                                        @if(\Illuminate\Support\Facades\Route::has('finance.payments.show') && ! empty($r['payment_id']))
+                                        @if(! empty($r['payment_id']) && \App\Support\Features\FinanceHubs::canOpen('finance.payments.show', auth()->user()))
                                             <a href="{{ route('finance.payments.show', $r['payment_id']) }}" class="text-emerald-700 hover:underline">{{ $r['payment_number'] ?? ('#' . $r['payment_id']) }}</a>
                                         @else
                                             {{ $r['payment_number'] ?? ('#' . ($r['payment_id'] ?? '')) }}

@@ -142,18 +142,19 @@ Production process definitions:
 
 - `deploy/supervisor/chipper-farms-worker.conf`
 - `deploy/systemd/chipper-farms-scheduler.{service,timer}`
+- `deploy/logrotate/chipper-farms` (server log rotation)
 
-### Seven scheduled tasks must be registered
+### Thirteen scheduled tasks must be registered
 
 ```bash
-php artisan schedule:list        # expect SEVEN
+php artisan schedule:list        # expect 13
 ```
 
 Five of these previously lived in `App\Console\Kernel`, which Laravel's slimmed
 bootstrap **never loads**. They silently never ran: no error, no symptom — just
 notifications that never arrived and interest that never accrued. Schedules
 belong in `routes/console.php` or a service provider. `ScheduleRegistrationTest`
-asserts all seven and fails if `app/Console/Kernel.php` reappears.
+asserts the critical ones and fails if `app/Console/Kernel.php` reappears.
 
 ### Finance outbox
 

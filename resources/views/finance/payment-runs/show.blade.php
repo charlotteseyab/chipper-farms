@@ -126,7 +126,7 @@
                                     <td class="px-2 py-2 text-xs">{{ $line->paymentMethod?->name ?? '—' }}</td>
                                     <td class="px-2 py-2 text-xs">{{ $line->sourceAccount ? $line->sourceAccount->code : '—' }}</td>
                                     <td class="px-2 py-2 text-xs">
-                                        @if($line->payment)
+                                        @if($line->payment && \App\Support\Features\FinanceHubs::canOpen('finance.payments.show', auth()->user()))
                                             <a href="{{ route('finance.payments.show', $line->payment) }}" class="font-mono text-emerald-700 hover:underline">{{ $line->payment->payment_number }}</a>
                                         @else
                                             <span class="text-slate-300">pending</span>

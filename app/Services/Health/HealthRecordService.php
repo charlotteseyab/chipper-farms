@@ -125,6 +125,8 @@ class HealthRecordService
                 'outcome'          => $data['outcome'],
                 'resolved_at'      => $at->toDateString(),
                 'closed_at'        => $status === 'closed' ? $at : null,
+                // Resolved: watched until a check on this date (worklist).
+                'check_on'         => $status === 'resolved' ? ($data['check_on'] ?? $at->addDays(7)->toDateString()) : null,
                 'closure_reason'   => $data['closure_notes'] ?? null,
                 'resolution_notes' => $data['closure_notes'] ?? $record->resolution_notes,
             ]);
@@ -143,7 +145,7 @@ class HealthRecordService
                 throw new \DomainException('Only a resolved or closed case can be reopened.');
             }
             $before = $record->only(['case_status', 'closed_at']);
-            $record->update(['case_status' => 'open', 'closed_at' => null]);
+            $record->update(['case_status' => 'open', 'closed_at' => null, 'check_on' => null]);
             $this->log($actor, $record, 'health_case_reopened', "Case #{$record->id} reopened: {$reason}", $before, $record->only(array_keys($before)));
 
             return $record->fresh();

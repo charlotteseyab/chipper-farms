@@ -25,9 +25,9 @@ use Illuminate\Support\Facades\DB;
  * For Phase 1d this is a flat (non-hierarchical) view. Phase 7 will add
  * the rolled-up hierarchical version for balance sheet / P&L statements.
  *
- * Only POSTED journals are included. Draft and reversed journals are
- * excluded. (A reversed journal's reversing batch IS included — the
- * net effect is zero, which is correct.)
+ * Posted journals and their reversed originals are included. Drafts and
+ * rejected drafts are excluded; each reversal offsets its original on
+ * its own posting date.
  *
  * Returns a collection of stdClass with:
  *   account_id
@@ -70,7 +70,7 @@ class TrialBalanceService
                 DB::raw('SUM(journal_lines.credit) as total_credit'),
             ])
             ->join('journals', 'journal_lines.journal_id', '=', 'journals.id')
-            ->where('journals.status', Journal::STATUS_POSTED)
+            ->whereIn('journals.id', Journal::query()->affectingLedger()->select('journals.id'))
             ->when(
                 $organizationId !== null,
                 fn ($q) => $q->where('journal_lines.organization_id', $organizationId),

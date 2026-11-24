@@ -44,7 +44,7 @@
                     @endcan
                 @endif
 
-                @if(in_array($purchaseRequest->status, ['approved', 'paid'], true) && $purchaseRequest->requiresAdvancePayment() && ! $advanceSatisfied && auth()->user()?->hasPermission('create_payment'))
+                @if(in_array($purchaseRequest->status, ['approved', 'paid'], true) && $purchaseRequest->requiresAdvancePayment() && ! $advanceSatisfied && \App\Support\Features\FinanceHubs::canOpen('finance.payments.create', auth()->user()))
                     <a href="{{ route('finance.payments.create', ['purchase_request_id' => $purchaseRequest->id]) }}" class="inline-flex items-center rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800">
                         {{ $purchaseRequest->payment_arrangement === 'deposit_balance' ? 'Record Deposit' : 'Record Advance Payment' }}
                     </a>
@@ -63,11 +63,11 @@
                 @endforeach
 
                 @php $invoiceToPay = $postedInvoices->first(fn ($invoice) => (float) $invoice->balance_due > 0.005); @endphp
-                @if($invoiceToPay && auth()->user()?->hasPermission('create_payment'))
+                @if($invoiceToPay && \App\Support\Features\FinanceHubs::canOpen('finance.payments.create', auth()->user()))
                     <a href="{{ route('finance.payments.create', ['purchase_request_id' => $purchaseRequest->id, 'vendor_invoice_id' => $invoiceToPay->id]) }}" class="inline-flex items-center rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800">{{ $paidAmount > 0 ? 'Pay Balance' : 'Record Payment' }}</a>
                 @endif
 
-                @foreach($purchaseRequest->payments as $payment)
+                @foreach(\App\Support\Features\FinanceHubs::canOpen('finance.payments.show', auth()->user()) ? $purchaseRequest->payments : [] as $payment)
                     <a href="{{ route('finance.payments.show', $payment) }}" class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800">View {{ $payment->payment_number }}</a>
                 @endforeach
 
@@ -238,23 +238,23 @@
             </div>
 
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Item Name</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Raw Material</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Description</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Unit</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Quantity</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Unit Price</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Total Price</th>
+                            <th>Item Name</th>
+                            <th>Raw Material</th>
+                            <th>Description</th>
+                            <th>Unit</th>
+                            <th>Quantity</th>
+                            <th>Unit Price</th>
+                            <th>Total Price</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-200 bg-white">
+                    <tbody>
                         @forelse($purchaseRequest->items as $item)
                             <tr>
-                                <td class="px-4 py-3 font-semibold text-gray-800">{{ $item->item_name }}</td>
-                                <td class="px-4 py-3">
+                                <td class="font-semibold text-gray-800">{{ $item->item_name }}</td>
+                                <td>
                                     @if($item->rawMaterial)
                                         <span class="inline-flex rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700 ring-1 ring-green-100">
                                             {{ $item->rawMaterial->name }}
@@ -263,11 +263,11 @@
                                         <span class="text-gray-500">Free text</span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-3">{{ $item->description ?: '—' }}</td>
-                                <td class="px-4 py-3">{{ $item->unit ?: '—' }}</td>
-                                <td class="px-4 py-3 font-mono text-sm">{{ number_format($item->quantity, 2) }}</td>
-                                <td class="px-4 py-3 font-mono text-sm">{{ number_format($item->unit_price, 2) }}</td>
-                                <td class="px-4 py-3 font-semibold">{{ number_format($item->total_price, 2) }}</td>
+                                <td>{{ $item->description ?: '—' }}</td>
+                                <td>{{ $item->unit ?: '—' }}</td>
+                                <td class="font-mono text-sm">{{ number_format($item->quantity, 2) }}</td>
+                                <td class="font-mono text-sm">{{ number_format($item->unit_price, 2) }}</td>
+                                <td class="font-semibold">{{ number_format($item->total_price, 2) }}</td>
                             </tr>
                         @empty
                             <tr>

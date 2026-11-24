@@ -4,7 +4,7 @@
         <h1 class="mt-2 text-2xl font-bold text-slate-900">{{ $medicine ? 'Edit '.$medicine->name : 'Add a Medicine' }}</h1>
         @if($medicine)<p class="text-sm text-slate-500">Doses already given keep the name, units and withdrawal they were given with.</p>@endif
         @if($errors->any())<ul role="alert" class="mt-4 list-disc list-inside rounded-xl bg-red-50 p-4 text-sm text-red-700">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>@endif
-        <form method="POST" action="{{ $medicine ? route('medicines.update', $medicine) : route('medicines.store') }}" class="mt-5 space-y-5 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+        <form method="POST" action="{{ $medicine ? route('medicines.update', $medicine) : route('medicines.store') }}" enctype="multipart/form-data" class="mt-5 space-y-5 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
             @csrf
             @if($medicine) @method('PUT') @endif
             <div class="grid gap-4 sm:grid-cols-3">
@@ -21,6 +21,20 @@
                     <input name="allowed_routes" value="{{ old('allowed_routes', implode(', ', $medicine?->allowed_routes ?? [])) }}" placeholder="Injection (IM), Oral" class="mt-1 block w-full rounded-lg border-slate-300 text-sm">
                 </label>
             </div>
+            <fieldset class="space-y-3 rounded-xl border border-slate-100 p-4">
+                <legend class="px-1 text-sm font-semibold text-slate-800">About this medicine</legend>
+                <p class="text-xs text-slate-500">Brief notes for staff, from the label or the vet. All optional.</p>
+                @foreach([
+                    'description' => ['What it is and what it does', 'e.g. Long-acting antibiotic'],
+                    'used_for' => ['Used for', 'e.g. Respiratory infections, scours'],
+                    'storage_instructions' => ['Storage', 'e.g. Below 25 °C, out of sunlight. Use within 28 days of opening.'],
+                    'precautions' => ['Precautions and side effects', 'e.g. Do not give to pigs allergic to penicillin. Swelling at the injection site can occur.'],
+                ] as $field => [$label, $hint])
+                    <label class="block text-sm font-medium text-slate-700">{{ $label }}
+                        <textarea name="{{ $field }}" rows="2" maxlength="2000" placeholder="{{ $hint }}" class="mt-1 block w-full rounded-lg border-slate-300 text-sm">{{ old($field, $medicine?->{$field}) }}</textarea>
+                    </label>
+                @endforeach
+            </fieldset>
             <fieldset class="rounded-xl border border-slate-100 p-4">
                 <legend class="px-1 text-sm font-semibold text-slate-800">Units</legend>
                 <div class="grid gap-4 sm:grid-cols-3">
@@ -58,6 +72,24 @@
                         <option value="0" @selected(! old('is_active', $medicine?->is_active ?? true))>Not in use</option>
                     </select>
                 </label>
+            </div>
+            @php $photo = $medicine?->photo; @endphp
+            <div x-data="{ preview: @js($photo ? route('health.attachments.view', $photo) : null), removing: false }" class="flex flex-wrap items-start gap-4 border-t border-slate-100 pt-5">
+                <div class="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                    <template x-if="preview && !removing"><img :src="preview" alt="Medicine photo" class="h-full w-full object-cover"></template>
+                    <span x-show="!preview || removing" class="px-2 text-center text-xs text-slate-400">No photo</span>
+                </div>
+                <div class="min-w-0 flex-1 space-y-2 text-sm">
+                    <label class="block font-medium text-slate-700">Photo of the pack or bottle (optional)
+                        <input type="file" name="photo" accept="image/jpeg,image/png,image/webp"
+                               @change="const f = $event.target.files[0]; if (f) { preview = URL.createObjectURL(f); removing = false }"
+                               class="mt-1 block w-full max-w-full text-xs">
+                    </label>
+                    <p class="text-xs text-slate-500">Shown in the catalogue and when recording a dose, so staff can check they have the right bottle. JPEG, PNG or WebP, up to 5 MB.</p>
+                    @if($photo)
+                        <label class="inline-flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" name="remove_photo" value="1" x-model="removing" class="rounded border-slate-300"> Remove the current photo</label>
+                    @endif
+                </div>
             </div>
             <div class="flex justify-end"><button class="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white">Save medicine</button></div>
         </form>

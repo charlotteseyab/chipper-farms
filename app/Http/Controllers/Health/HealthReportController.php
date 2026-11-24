@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Health;
 use App\Http\Controllers\Controller;
 use App\Models\VetExamination;
 use App\Services\Health\HealthReportService;
+use App\Support\CollectionPage;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -27,10 +28,10 @@ class HealthReportController extends Controller
         $data = match ($tab) {
             'cases' => ['page' => $reports->cases($f)->paginate(25)->withQueryString(), 'map' => 'caseRow'],
             'doses' => ['page' => $reports->doses($f)->paginate(25)->withQueryString(), 'map' => 'doseRow',
-                'notGiven' => $reports->notGiven($f)->limit(100)->get()->map(fn ($d) => $reports->notGivenRow($d))],
-            'usage' => ['usage' => $reports->usage($f)],
-            'stock' => ['batches' => $reports->batches(), 'lowStock' => $reports->lowStock(),
-                'withdrawal' => $reports->underWithdrawal()->get()->map(fn ($d) => $reports->withdrawalRow($d))],
+                'notGiven' => $this->rows($reports->notGiven($f)->paginate(25, ['*'], 'not_given_page')->withQueryString(), fn ($d) => $reports->notGivenRow($d))],
+            'usage' => ['usage' => ($usage = $reports->usage($f)), 'usageRows' => CollectionPage::make($usage['rows'], 25, 'usage_page')],
+            'stock' => ['batches' => CollectionPage::make($reports->batches(), 15, 'batches_page'), 'lowStock' => CollectionPage::make($reports->lowStock(), 15, 'low_page'),
+                'withdrawal' => $this->rows($reports->underWithdrawal()->paginate(25, ['*'], 'withdrawal_page')->withQueryString(), fn ($d) => $reports->withdrawalRow($d))],
             'visits' => ['page' => $reports->visits($f)->paginate(25)->withQueryString(), 'map' => 'visitRow'],
         };
         if (isset($data['page'])) {
@@ -76,6 +77,12 @@ class HealthReportController extends Controller
             }
             fclose($out);
         }, "health-{$tab}-".now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /** Map a page of models to report rows, keeping the paginator for the links. */
+    private function rows(\Illuminate\Contracts\Pagination\LengthAwarePaginator $page, \Closure $map): \Illuminate\Contracts\Pagination\LengthAwarePaginator
+    {
+        return $page->through($map);
     }
 
     /** The old /export/health.csv link: cases with its condition, severity and date filters. */

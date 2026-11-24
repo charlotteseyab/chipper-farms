@@ -28,6 +28,7 @@ class FeedIssue extends Model
         'organization_id',
         'group_id',
         'feeding_stage',
+        'room_id',
         'feed_type_id',
         'quantity_kg',
         'unit_cost_at_issuance',
@@ -59,6 +60,19 @@ class FeedIssue extends Model
         }
 
         return $this->planning_snapshot['group_name'] ?? $this->group?->name ?? '—';
+    }
+
+    /** What was fed and, when it was recorded, the pen or room: "Grower · Barn A · sty 1". */
+    public function getWhereLabelAttribute(): string
+    {
+        $room = $this->room;
+
+        return $this->recipient_label.($room ? ' · '.trim(($room->structure?->name ? $room->structure->name.' · ' : '').$room->name) : '');
+    }
+
+    public function room(): BelongsTo
+    {
+        return $this->belongsTo(Room::class);
     }
 
     public function isReversed(): bool

@@ -47,6 +47,6 @@ class TemplateMailChannel
             'store_name' => StorefrontSettings::storeName($organizationId),
             'support_email' => StorefrontSettings::supportEmail($organizationId),
             'support_phone' => StorefrontSettings::supportPhone($organizationId),
-        ]);
+        ], throwOnFailure: true);
     }
 }

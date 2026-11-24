@@ -256,6 +256,7 @@ class OrganizationFeatureService
         Organization|int|null $organization = null,
         ?User $actor = null,
         bool $exclusive = false,
+        ?array $resetOnly = null,
     ): array {
         ModulePreset::assertKnown($presetCode);
 
@@ -275,7 +276,7 @@ class OrganizationFeatureService
 
         $turnedOff = [];
 
-        DB::transaction(function () use ($required, $organizationId, $actor, $presetCode, $exclusive, &$turnedOff): void {
+        DB::transaction(function () use ($required, $organizationId, $actor, $presetCode, $exclusive, $resetOnly, &$turnedOff): void {
             foreach ($required as $key) {
                 $this->writeState($organizationId, $key, true, $actor, null, $presetCode);
             }
@@ -284,8 +285,11 @@ class OrganizationFeatureService
                 return;
             }
 
-            foreach (FeatureCatalog::keys() as $key) {
-                if (in_array($key, $required, true)) {
+            // $resetOnly limits the reset to those features (a finance setup
+            // leaves the shop alone).
+            foreach ($resetOnly ?? FeatureCatalog::keys() as $key) {
+                // Only what is on is switched off, so the result names real changes.
+                if (in_array($key, $required, true) || ! $this->enabled($key, $organizationId)) {
                     continue;
                 }
                 $this->writeState($organizationId, $key, false, $actor, null, $presetCode);

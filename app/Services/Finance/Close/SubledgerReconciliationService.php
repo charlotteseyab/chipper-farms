@@ -181,7 +181,7 @@ class SubledgerReconciliationService
 
         $row = JournalLine::query()
             ->join('journals', 'journal_lines.journal_id', '=', 'journals.id')
-            ->where('journals.status', Journal::STATUS_POSTED)
+            ->whereIn('journals.id', Journal::query()->affectingLedger()->select('journals.id'))
             ->whereIn('journal_lines.account_id', $accountIds)
             ->when(
                 $organizationId !== null,

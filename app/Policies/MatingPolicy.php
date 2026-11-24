@@ -31,46 +31,46 @@ class MatingPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager() || $user->isDataEntry() || $user->isAccountant();
+        return $user->hasPermission('view_breeding');
     }
 
     public function view(User $user, Mating $mating): bool
     {
         return $this->sameOrganization($user, $mating)
-            && ($user->isAdmin() || $user->isManager() || $user->isDataEntry() || $user->isAccountant());
+            && $user->hasPermission('view_breeding');
     }
 
     public function create(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager() || $user->isDataEntry();
+        return $user->hasPermission('record_breeding');
     }
 
     public function update(User $user, Mating $mating): bool
     {
         return $this->sameOrganization($user, $mating)
-            && ($user->isAdmin() || $user->isManager() || $user->isDataEntry());
+            && $user->hasPermission('record_breeding');
     }
 
     public function complete(User $user, Mating $mating): bool
     {
         return $this->sameOrganization($user, $mating)
-            && ($user->isAdmin() || $user->isManager());
+            && $user->hasPermission('manage_breeding');
     }
 
     public function cancel(User $user, Mating $mating): bool
     {
         return $this->sameOrganization($user, $mating)
-            && ($user->isAdmin() || $user->isManager());
+            && $user->hasPermission('manage_breeding');
     }
 
     public function pregnancyCheck(User $user, Mating $mating): bool
     {
         return $this->sameOrganization($user, $mating)
-            && ($user->isAdmin() || $user->isManager() || $user->isDataEntry());
+            && $user->hasPermission('record_breeding');
     }
 
     public function delete(User $user, Mating $mating): bool
     {
-        return $this->sameOrganization($user, $mating) && $user->isAdmin();
+        return $this->sameOrganization($user, $mating) && $user->hasPermission('delete_matings');
     }
 }

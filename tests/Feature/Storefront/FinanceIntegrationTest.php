@@ -34,6 +34,9 @@ class FinanceIntegrationTest extends StorefrontTestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // Invoice posting uses today's date; keep it inside the fixed fiscal periods below.
+        $this->travelTo(now()->setDate(2026, 8, 15)->setTime(10, 0));
+
         // These tests drive the outbox and individual finance subscribers by
         // hand, so events must stay pending until the test processes them.
         // Instant posting has its own coverage in InstantPostingTest.

@@ -471,7 +471,7 @@
                                 </div>
                                 <div class="pig-field">
                                     <label class="pig-label">Tag Number</label>
-                                    <input type="text" name="ear_tag_number" required readonly
+                                    <input type="text" name="ear_tag_number" readonly
                                            value="{{ old('ear_tag_number', $breedingStock->ear_tag_number) }}"
                                            class="pig-input bg-slate-100 text-slate-700">
                                     @error('ear_tag_number')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
@@ -486,7 +486,7 @@
                                         <a href="{{ route('settings.ear-tags.reconciliation', ['q' => $breedingStock->ear_tag_number]) }}" class="rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700">Confirm tag colour</a>
                                     @endif
                                 @else
-                                    <a href="{{ route('settings.ear-tags.reconciliation', ['q' => $breedingStock->ear_tag_number]) }}" class="rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700">Reconcile tag</a>
+                                    <a href="{{ route('pigs.ear-tag.assign', $breedingStock) }}" class="rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700">Assign physical tag</a>
                                 @endif
                             </div>
                         </div>
@@ -544,7 +544,7 @@
                                     <option value="" selected>-- None --</option>
                                     @foreach ($males as $male)
                                         <option value="{{ $male->id }}" @if(old('father_id', $breedingStock->father_id) == $male->id) selected @endif>
-                                            {{ $male->ear_tag_number }} - {{ $male->code }}
+                                            {{ $male->identityAt() }}
                                         </option>
                                     @endforeach
                                 </select>
@@ -556,7 +556,7 @@
                                     <option value="" selected>-- None --</option>
                                     @foreach ($females as $female)
                                         <option value="{{ $female->id }}" @if(old('mother_id', $breedingStock->mother_id) == $female->id) selected @endif>
-                                            {{ $female->ear_tag_number }} - {{ $female->code }}
+                                            {{ $female->identityAt() }}
                                         </option>
                                     @endforeach
                                 </select>

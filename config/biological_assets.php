@@ -113,6 +113,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Purchased stock (Purchased Stock Intake)
+    |--------------------------------------------------------------------------
+    | Animals bought through an intake are owed to the supplier: their cost is
+    | credited to Goods Received Not Invoiced, cleared when the supplier's bill
+    | or payment is recorded (as feed ingredient receipts are). Animals that
+    | die or are put down in quarantine are still paid for; their share of the
+    | cost is a mortality loss rather than an asset.
+    */
+    'purchase_offset_account_code' => '2050',
+    'quarantine_loss_account_code' => '5320',
+
+    /*
+    |--------------------------------------------------------------------------
     | Default stage when context is missing
     |--------------------------------------------------------------------------
     | If a group/pig has no resolvable age or stock_type (bad legacy data),

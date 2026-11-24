@@ -6,6 +6,7 @@ use App\Finance\Drafts\JournalBatchDraft;
 use App\Finance\Drafts\JournalDraft;
 use App\Finance\Drafts\JournalLineDraft;
 use App\Finance\Posting\PeriodResolver;
+use App\Finance\Posting\PostingEngine;
 use App\Models\Finance\JournalBatch;
 use App\Models\User;
 use App\Support\CurrentOrganization;
@@ -56,26 +57,14 @@ class JournalApprovalService
         User $approver,
         bool $bypassSoftLock = false,
     ): JournalBatch {
-        if (! $batch->isDraft()) {
-            throw new \DomainException(
-                "Cannot approve batch #{$batch->id}: status is '{$batch->status}', expected 'draft'"
-            );
-        }
+        return DB::transaction(function () use ($batch, $approver, $bypassSoftLock) {
+            $batch = JournalBatch::whereKey($batch->id)->lockForUpdate()->firstOrFail();
+            if (! $batch->isDraft()) {
+                throw new \DomainException("Cannot approve batch #{$batch->id}: status is '{$batch->status}', expected 'draft'");
+            }
+            $this->periodResolver->resolveForPosting($batch->posting_date, $bypassSoftLock);
+            app(PostingEngine::class)->validateAccounts($this->reconstituteDraft($batch));
 
-        // Re-validate period and lock state.
-        $this->periodResolver->resolveForPosting($batch->posting_date, $bypassSoftLock);
-
-        // Reconstitute drafts from persisted rows (purely for re-validation
-        // path — the data is already in the DB; we just re-build the in-memory
-        // shape PostingEngine works with).
-        $reconstituted = $this->reconstituteDraft($batch);
-
-        // The reconstitution itself runs JournalDraft / JournalBatchDraft
-        // constructors which re-validate balance + line counts. If the data
-        // was tampered with directly in the DB to be unbalanced, this will
-        // throw and the approval will fail loudly.
-
-        return DB::transaction(function () use ($batch, $approver) {
             // Flip every journal in the batch to posted.
             $batch->journals()->update([
                 'status' => \App\Models\Finance\Journal::STATUS_POSTED,
@@ -117,13 +106,11 @@ class JournalApprovalService
      */
     public function reject(JournalBatch $batch, User $rejecter, string $reason): JournalBatch
     {
-        if (! $batch->isDraft()) {
-            throw new \DomainException(
-                "Cannot reject batch #{$batch->id}: status is '{$batch->status}', expected 'draft'"
-            );
-        }
-
         return DB::transaction(function () use ($batch, $rejecter, $reason) {
+            $batch = JournalBatch::whereKey($batch->id)->lockForUpdate()->firstOrFail();
+            if (! $batch->isDraft()) {
+                throw new \DomainException("Cannot reject batch #{$batch->id}: status is '{$batch->status}', expected 'draft'");
+            }
             $batch->journals()->update([
                 'status' => \App\Models\Finance\Journal::STATUS_REVERSED,
             ]);

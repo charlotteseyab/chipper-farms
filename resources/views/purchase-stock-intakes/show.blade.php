@@ -47,7 +47,7 @@
                     <div class="grid gap-4 md:grid-cols-2">
                         <div><div class="text-xs font-semibold uppercase text-slate-400">Room</div><div class="mt-1 text-sm text-slate-800">{{ $intake->room ? $intake->room->name . ' / ' . optional($intake->room->structure)->name : 'Not assigned' }}</div></div>
                         <div><div class="text-xs font-semibold uppercase text-slate-400">Group</div><div class="mt-1 text-sm text-slate-800">{{ optional($intake->group)->name ?: 'Not assigned' }}</div></div>
-                        <div><div class="text-xs font-semibold uppercase text-slate-400">Health Status</div><div class="mt-1 text-sm text-slate-800">{{ $intake->health_status ?: 'Not recorded' }}</div></div>
+                        <div><div class="text-xs font-semibold uppercase text-slate-400">Health Status</div><div class="mt-1 text-sm text-slate-800">{{ $healthStatuses[$intake->health_status] ?? ($intake->health_status ?: 'Not recorded') }}</div></div>
                         <div><div class="text-xs font-semibold uppercase text-slate-400">Quarantine Release</div><div class="mt-1 text-sm text-slate-800">{{ optional($intake->quarantine_release_date)->format('M d, Y') ?: 'Not set' }}</div></div>
                         <div><div class="text-xs font-semibold uppercase text-slate-400">Quarantine Decision</div><div class="mt-1 text-sm font-semibold text-slate-800">{{ $intake->quarantine_outcome ? str_replace('_', ' ', ucfirst($intake->quarantine_outcome)) : 'Awaiting review' }}</div></div>
                         <div><div class="text-xs font-semibold uppercase text-slate-400">Cleared for Stock</div><div class="mt-1 text-sm font-semibold text-emerald-700">{{ number_format($intake->clearedQuantity()) }}</div></div>
@@ -82,9 +82,9 @@
                     @if($intake->status === \App\Models\PurchaseStockIntake::STATUS_PENDING_RECEIVE)
                         <form method="POST" action="{{ route('purchase-stock-intakes.receive', $intake) }}" class="space-y-3">
                             @csrf
-                            <label class="block"><span class="text-sm font-semibold text-slate-700">Quantity Received</span><input type="number" min="0" name="quantity_received" value="{{ old('quantity_received', $intake->quantity_ordered) }}" class="mt-1 w-full rounded-lg border-slate-300 text-sm" required></label>
+                            <label class="block"><span class="text-sm font-semibold text-slate-700">Quantity Received</span><input type="number" min="1" name="quantity_received" value="{{ old('quantity_received', $intake->quantity_ordered) }}" class="mt-1 w-full rounded-lg border-slate-300 text-sm" required></label>
                             <label class="block"><span class="text-sm font-semibold text-slate-700">Quantity Rejected</span><input type="number" min="0" name="quantity_rejected" value="{{ old('quantity_rejected', 0) }}" class="mt-1 w-full rounded-lg border-slate-300 text-sm"></label>
-                            <label class="block"><span class="text-sm font-semibold text-slate-700">Health Status</span><input name="health_status" value="{{ old('health_status', $intake->health_status) }}" class="mt-1 w-full rounded-lg border-slate-300 text-sm"></label>
+                            <label class="block"><span class="text-sm font-semibold text-slate-700">Health Status</span><select name="health_status" class="mt-1 w-full rounded-lg border-slate-300 text-sm"><option value="">Not checked yet</option>@foreach($healthStatuses as $value => $label)<option value="{{ $value }}" @selected(old('health_status', $intake->health_status) === $value)>{{ $label }}</option>@endforeach</select></label>
                             <label class="block"><span class="text-sm font-semibold text-slate-700">Health Notes</span><textarea name="health_notes" rows="3" class="mt-1 w-full rounded-lg border-slate-300 text-sm">{{ old('health_notes', $intake->health_notes) }}</textarea></label>
                             <button class="w-full rounded-lg px-4 py-2 text-sm font-semibold" style="background:#1d4ed8;color:#ffffff;border:1px solid #1d4ed8;box-shadow:0 8px 18px rgba(29,78,216,.18);">Receive Animals</button>
                         </form>
@@ -97,7 +97,7 @@
                                 </div>
                             @endif
                             <label class="block"><span class="text-sm font-semibold text-slate-700">Quarantine Room</span><select name="room_id" required class="mt-1 w-full rounded-lg border-slate-300 text-sm"><option value="">Select room</option>@foreach($rooms as $room)@php $available = $room->capacity ? max(0, (int) $room->capacity - (int) $room->active_pigs_count) : null; @endphp<option value="{{ $room->id }}" @selected(old('room_id', $intake->room_id) == $room->id)>{{ optional($room->structure)->name }} / {{ $room->name }} @if($available === null)(unlimited)@else({{ $available }} available)@endif</option>@endforeach</select><span class="mt-1 block text-xs text-slate-500">The physical room where the animals will remain isolated during quarantine.</span></label>
-                            <label class="block"><span class="text-sm font-semibold text-slate-700">Health Status</span><input name="health_status" value="{{ old('health_status', $intake->health_status) }}" class="mt-1 w-full rounded-lg border-slate-300 text-sm"></label>
+                            <label class="block"><span class="text-sm font-semibold text-slate-700">Health Status</span><select name="health_status" class="mt-1 w-full rounded-lg border-slate-300 text-sm"><option value="">Not checked yet</option>@foreach($healthStatuses as $value => $label)<option value="{{ $value }}" @selected(old('health_status', $intake->health_status) === $value)>{{ $label }}</option>@endforeach</select></label>
                             <label class="block"><span class="text-sm font-semibold text-slate-700">Release Date</span><input type="date" name="quarantine_release_date" value="{{ old('quarantine_release_date', optional($intake->quarantine_release_date)->format('Y-m-d')) }}" class="mt-1 w-full rounded-lg border-slate-300 text-sm"></label>
                             <label class="block"><span class="text-sm font-semibold text-slate-700">Health Notes</span><textarea name="health_notes" rows="3" class="mt-1 w-full rounded-lg border-slate-300 text-sm">{{ old('health_notes', $intake->health_notes) }}</textarea></label>
                             <button class="w-full rounded-lg px-4 py-2 text-sm font-semibold" style="background:#b45309;color:#ffffff;border:1px solid #b45309;box-shadow:0 8px 18px rgba(180,83,9,.18);">
@@ -120,7 +120,7 @@
                             <label x-show="outcome === 'partially_cleared'" x-cloak class="block"><span class="text-sm font-semibold text-slate-700">Number Rejected in Quarantine</span><input type="number" min="1" max="{{ max(1, $intake->receivedQuantity() - 1) }}" name="quarantine_rejected_quantity" value="{{ old('quarantine_rejected_quantity') }}" class="mt-1 w-full rounded-lg border-slate-300 text-sm"><span class="mt-1 block text-xs text-slate-500">Received: {{ $intake->receivedQuantity() }}. The remainder will be cleared.</span></label>
                             <label x-show="outcome === 'extended'" x-cloak class="block"><span class="text-sm font-semibold text-slate-700">Next Review Date</span><input type="date" min="{{ now()->toDateString() }}" name="quarantine_release_date" value="{{ old('quarantine_release_date', optional($intake->quarantine_release_date)->format('Y-m-d')) }}" class="mt-1 w-full rounded-lg border-slate-300 text-sm"></label>
                             <label x-show="outcome === 'partially_cleared' || outcome === 'rejected'" x-cloak class="block"><span class="text-sm font-semibold text-slate-700">Disposition of Rejected Animals</span><select name="quarantine_disposition" class="mt-1 w-full rounded-lg border-slate-300 text-sm"><option value="">Choose what happened</option><option value="returned_to_supplier" @selected(old('quarantine_disposition') === 'returned_to_supplier')>Returned to supplier</option><option value="euthanized" @selected(old('quarantine_disposition') === 'euthanized')>Humanely euthanized</option><option value="died_in_quarantine" @selected(old('quarantine_disposition') === 'died_in_quarantine')>Died in quarantine</option><option value="isolated_elsewhere" @selected(old('quarantine_disposition') === 'isolated_elsewhere')>Moved to continued isolation</option></select></label>
-                            <label class="block"><span class="text-sm font-semibold text-slate-700">Current Health Status</span><input name="health_status" value="{{ old('health_status', $intake->health_status) }}" class="mt-1 w-full rounded-lg border-slate-300 text-sm"></label>
+                            <label class="block"><span class="text-sm font-semibold text-slate-700">Current Health Status</span><select name="health_status" class="mt-1 w-full rounded-lg border-slate-300 text-sm"><option value="">Not checked yet</option>@foreach($healthStatuses as $value => $label)<option value="{{ $value }}" @selected(old('health_status', $intake->health_status) === $value)>{{ $label }}</option>@endforeach</select></label>
                             <label x-show="outcome === 'partially_cleared' || outcome === 'rejected'" x-cloak class="block"><span class="text-sm font-semibold text-slate-700">Decision Reason</span><textarea name="quarantine_review_notes" rows="3" class="mt-1 w-full rounded-lg border-slate-300 text-sm" placeholder="Record symptoms, veterinary advice and reason for the decision.">{{ old('quarantine_review_notes') }}</textarea></label>
                             <label class="block"><span class="text-sm font-semibold text-slate-700">Updated Health Notes</span><textarea name="health_notes" rows="3" class="mt-1 w-full rounded-lg border-slate-300 text-sm">{{ old('health_notes', $intake->health_notes) }}</textarea></label>
                             <button class="w-full rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white">Save Quarantine Decision</button>
@@ -175,7 +175,8 @@
                             </div>
                             <div class="mb-4 max-h-72 space-y-3 overflow-y-auto pr-1">
                                 @for($i = 0; $i < $intake->clearedQuantity(); $i++)
-                                    <div class="grid gap-2 sm:grid-cols-2">
+                                    <div class="grid gap-2 sm:grid-cols-3">
+                                    <label class="block"><span class="text-sm font-semibold text-slate-700">Animal {{ $i + 1 }} Sex</span><select name="genders[]" required class="mt-1 w-full rounded-lg border-slate-300 text-sm"><option value="">Select</option>@foreach(['F' => 'Female', 'M' => 'Male'] as $value => $label)<option value="{{ $value }}" @selected(old('genders.' . $i, $proposedGenders[$i] ?? null) === $value)>{{ $label }}</option>@endforeach</select></label>
                                     <label class="block"><span class="text-sm font-semibold text-slate-700">Animal {{ $i + 1 }} Tag Colour</span><select name="tag_color_ids[]" required class="mt-1 w-full rounded-lg border-slate-300 text-sm"><option value="">Select tag colour</option>@foreach($tagColors as $color)<option value="{{ $color->id }}" @selected((string) old('tag_color_ids.' . $i) === (string) $color->id)>{{ $color->name }}</option>@endforeach</select></label>
                                     <label class="block">
                                         <span class="text-sm font-semibold text-slate-700">Animal {{ $i + 1 }} Ear Tag</span>
@@ -190,6 +191,20 @@
                     @else
                         <p class="text-sm text-slate-500">No further workflow actions are available.</p>
                     @endif
+
+                    @can('cancel', $intake)
+                        @if(in_array($intake->status, ['pending_receive', 'received', 'quarantined', 'approved'], true) && ! $canMaterializeLegacyPiglets)
+                            <details class="mt-5 border-t border-slate-100 pt-4">
+                                <summary class="cursor-pointer text-sm font-semibold text-red-700">Cancel this intake</summary>
+                                <form method="POST" action="{{ route('purchase-stock-intakes.cancel', $intake) }}" class="mt-3 space-y-3"
+                                      onsubmit="return confirm('Cancel {{ $intake->batch_number }}? No animals will be added to stock.')">
+                                    @csrf
+                                    <label class="block"><span class="text-sm font-semibold text-slate-700">Reason</span><textarea name="cancellation_reason" rows="2" required maxlength="1000" class="mt-1 w-full rounded-lg border-slate-300 text-sm" placeholder="For example: supplier did not deliver">{{ old('cancellation_reason') }}</textarea></label>
+                                    <button class="w-full rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Cancel Intake</button>
+                                </form>
+                            </details>
+                        @endif
+                    @endcan
                 </div>
 
                 <div class="bg-white border border-slate-200 rounded-xl p-5">

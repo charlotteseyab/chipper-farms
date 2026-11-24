@@ -2,7 +2,6 @@
 
 namespace App\Services\Stock;
 
-use App\Models\HealthRecord;
 use App\Models\EarTag;
 use App\Models\PigManagement;
 use App\Models\PigWeight;
@@ -20,6 +19,13 @@ use Illuminate\Support\Facades\DB;
 
 class PurchaseStockIntakeService
 {
+    /** Health on arrival: healthy animals need no health case. */
+    public const HEALTH_STATUSES = [
+        'healthy' => 'Healthy',
+        'needs_observation' => 'Needs observation',
+        'sick' => 'Sick',
+    ];
+
     public function __construct(
         protected DispatchDomainEvent $dispatcher,
         protected CurrentOrganization $currentOrganization,
@@ -237,6 +243,37 @@ class PurchaseStockIntakeService
         return $intake->fresh();
     }
 
+    /** Cancel an intake that has not entered stock. */
+    public function cancel(PurchaseStockIntake $intake, string $reason): PurchaseStockIntake
+    {
+        return DB::transaction(function () use ($intake, $reason) {
+            $locked = PurchaseStockIntake::whereKey($intake->id)->lockForUpdate()->firstOrFail();
+            $this->assertStatus($locked, [
+                PurchaseStockIntake::STATUS_PENDING_RECEIVE,
+                PurchaseStockIntake::STATUS_RECEIVED,
+                PurchaseStockIntake::STATUS_QUARANTINED,
+                PurchaseStockIntake::STATUS_APPROVED,
+            ], 'Only an intake that has not entered stock can be cancelled.');
+
+            $previous = $locked->status;
+            $locked->update([
+                'status' => PurchaseStockIntake::STATUS_CANCELLED,
+                'notes' => trim(($locked->notes ? $locked->notes . "\n" : '') . 'Cancelled: ' . $reason),
+            ]);
+
+            $this->audit->log('purchased_stock', 'cancelled', [
+                'auditable' => $locked,
+                'organization_id' => $locked->organization_id,
+                'record_label' => $locked->batch_number,
+                'description' => "Purchased stock intake {$locked->batch_number} was cancelled: {$reason}",
+                'old_values' => ['status' => $previous],
+                'new_values' => ['status' => PurchaseStockIntake::STATUS_CANCELLED],
+            ]);
+
+            return $locked->fresh();
+        });
+    }
+
     public function addToStock(PurchaseStockIntake $intake, array $earTagNumbers = [], array $housing = []): PurchaseStockIntake
     {
         return DB::transaction(function () use ($intake, $earTagNumbers, $housing) {
@@ -274,7 +311,12 @@ class PurchaseStockIntakeService
                 $lockedIntake,
                 $this->normalizeEarTagNumbers($lockedIntake, $earTagNumbers, $housing['tag_color_ids'] ?? []),
                 $housing['tag_color_ids'] ?? [],
+                $this->normalizeGenders($lockedIntake, $housing['genders'] ?? []),
             );
+
+            if (! $legacyPigletConversion) {
+                $this->recordQuarantineLoss($lockedIntake);
+            }
 
             if ($legacyPigletConversion) {
                 \App\Models\StockMovement::where('source_type', \App\Models\StockMovement::SOURCE_PURCHASE_STOCK_INTAKE)
@@ -305,6 +347,36 @@ class PurchaseStockIntakeService
 
             return $lockedIntake->fresh(['pigs']);
         });
+    }
+
+    /**
+     * Animals that died or were put down in quarantine were paid for but
+     * never became stock: their share of the cost is posted as a loss.
+     * Animals returned to the supplier are not paid for, so post nothing.
+     */
+    protected function recordQuarantineLoss(PurchaseStockIntake $intake): void
+    {
+        $lost = (int) $intake->quarantine_rejected_quantity;
+        $organizationId = $this->currentOrganization->id();
+        if ($lost <= 0 || $organizationId === null
+            || ! in_array($intake->quarantine_disposition, ['died_in_quarantine', 'euthanized'], true)) {
+            return;
+        }
+
+        $amount = round($intake->costPerReceivedAnimal() * $lost, 4);
+        if ($amount <= 0) {
+            return;
+        }
+
+        $this->dispatcher->dispatch(new \App\Domain\Events\Lifecycle\PurchaseQuarantineLoss(
+            source: new SourceReference('purchase_stock_intake', PurchaseStockIntake::class, (int) $intake->id, $organizationId),
+            occurredAt: CarbonImmutable::parse($intake->quarantine_reviewed_at ?? now()),
+            dispatchedByUserId: auth()->id(),
+            batchNumber: (string) $intake->batch_number,
+            quantity: $lost,
+            amount: $amount,
+            disposition: (string) $intake->quarantine_disposition,
+        ));
     }
 
     /** @return array<int,string> */
@@ -393,19 +465,54 @@ class PurchaseStockIntakeService
         return $tags;
     }
 
-    protected function createIndividualPigs(PurchaseStockIntake $intake, array $earTagNumbers, array $tagColorIds = []): void
+    /**
+     * The sex of each animal, as seen when it is tagged. Without it, an
+     * order's split is used, and animals beyond the split are refused rather
+     * than guessed.
+     *
+     * @return list<string> 'M' | 'F', one per cleared animal
+     */
+    protected function normalizeGenders(PurchaseStockIntake $intake, array $genders): array
+    {
+        $count = $intake->clearedQuantity();
+        $genders = array_values(array_map(fn ($g) => strtoupper(trim((string) $g)), $genders));
+
+        if ($genders === []) {
+            $females = (int) $intake->female_quantity;
+            $males = (int) $intake->male_quantity;
+            if ($females + $males < $count) {
+                throw new StockValidationException('genders', 'Choose male or female for each animal.');
+            }
+            $genders = array_slice([...array_fill(0, $females, 'F'), ...array_fill(0, $males, 'M')], 0, $count);
+        }
+
+        if (count($genders) !== $count || array_diff($genders, ['M', 'F']) !== []) {
+            throw new StockValidationException('genders', 'Choose male or female for each animal.');
+        }
+
+        return $genders;
+    }
+
+    /** The order's split as a starting point for the add-to-stock form; null where unknown. */
+    public function proposedGenders(PurchaseStockIntake $intake): array
+    {
+        $split = [...array_fill(0, (int) $intake->female_quantity, 'F'), ...array_fill(0, (int) $intake->male_quantity, 'M')];
+
+        return array_map(fn ($i) => $split[$i] ?? null, range(0, max(0, $intake->clearedQuantity() - 1)));
+    }
+
+    protected function createIndividualPigs(PurchaseStockIntake $intake, array $earTagNumbers, array $tagColorIds = [], array $genders = []): void
     {
         $count = $intake->clearedQuantity();
         $costPerPig = $intake->costPerReceivedAnimal();
+        $created = [];
         $dob = $intake->estimated_date_of_birth
             ? Carbon::parse($intake->estimated_date_of_birth)
             : Carbon::parse($intake->purchase_date)->subDays((int) ($intake->estimated_age_days ?? 0));
         $organizationId = $this->currentOrganization->id();
-        $maleRemaining = $intake->male_quantity;
-        $femaleRemaining = $intake->female_quantity;
 
         for ($i = 1; $i <= $count; $i++) {
-            $gender = $this->nextGender($maleRemaining, $femaleRemaining);
+            $gender = $genders[$i - 1];
             $pig = PigManagement::create([
                 'organization_id' => $organizationId,
                 'ear_tag_number' => $earTagNumbers[$i - 1],
@@ -436,9 +543,13 @@ class PurchaseStockIntakeService
                 );
 
             if ($intake->average_weight_kg) {
-                $weightHealthStatus = in_array($intake->health_status, ['excellent', 'good', 'fair', 'poor'], true)
-                    ? $intake->health_status
-                    : null;
+                $weightHealthStatus = match ($intake->health_status) {
+                    'healthy' => 'good',
+                    'needs_observation' => 'fair',
+                    'sick' => 'poor',
+                    'excellent', 'good', 'fair', 'poor' => $intake->health_status,
+                    default => null,
+                };
 
                 PigWeight::create([
                     'pig_id' => $pig->id,
@@ -452,23 +563,19 @@ class PurchaseStockIntakeService
                 ]);
             }
 
-            if ($intake->health_status || $intake->health_notes) {
-                HealthRecord::create([
-                    'pig_id' => $pig->id,
-                    'record_date' => $intake->purchase_date,
-                    'condition' => $intake->health_status ?: 'intake',
-                    'severity' => 'low',
-                    'diagnosis' => $intake->health_notes,
-                    'recorded_by' => auth()->id(),
-                ]);
-            }
+            $created[] = $pig;
 
             if ($organizationId !== null) {
+                // One event per pig, sourced from the pig: finance posts each
+                // animal's cost against that animal. (Sourcing it from the
+                // intake made every pig's event the same event, so only the
+                // first was recorded, and finance read the intake's id as a
+                // pig's id and posted that cost against an unrelated pig.)
                 $this->dispatcher->dispatch(new PigAcquired(
                     source: new SourceReference(
                         module: 'purchase_stock_intake',
-                        sourceType: PurchaseStockIntake::class,
-                        sourceId: (int) $intake->id,
+                        sourceType: PigManagement::class,
+                        sourceId: (int) $pig->id,
                         organizationId: $organizationId,
                     ),
                     occurredAt: CarbonImmutable::parse($intake->purchase_date),
@@ -484,26 +591,35 @@ class PurchaseStockIntakeService
                 ));
             }
         }
+
+        $this->openArrivalHealthCase($intake, $created);
+    }
+
+    /**
+     * Animals that arrive needing observation or sick get one health case for
+     * the batch, on the health worklist. Healthy animals get none: a record
+     * saying "healthy" would count as a health case on the dashboards.
+     */
+    protected function openArrivalHealthCase(PurchaseStockIntake $intake, array $pigs): void
+    {
+        $status = (string) $intake->health_status;
+        $legacyHealthy = in_array(strtolower($status), ['', 'healthy', 'excellent', 'good'], true);
+        if ($pigs === [] || ($legacyHealthy && trim((string) $intake->health_notes) === '') || $status === 'healthy') {
+            return;
+        }
+
+        app(\App\Services\Health\HealthRecordService::class)->openCase(auth()->user(), $pigs, [
+            'observed_at' => now(),
+            'condition' => $status === 'sick' ? 'Sick on arrival' : (isset(self::HEALTH_STATUSES[$status]) || $legacyHealthy ? 'Needs observation after purchase' : $status),
+            'severity' => $status === 'sick' ? 'moderate' : 'mild',
+            'symptoms' => $intake->health_notes,
+            'group_label' => 'Purchase ' . $intake->batch_number,
+        ]);
     }
 
     protected function purchasedPigCode(PurchaseStockIntake $intake, int $sequence, Carbon $dob): string
     {
         return 'CFPG-' . $dob->format('ym') . '-' . $intake->id . '-' . str_pad((string) $sequence, 3, '0', STR_PAD_LEFT);
-    }
-
-    protected function nextGender(?int &$maleRemaining, ?int &$femaleRemaining): string
-    {
-        if ($femaleRemaining !== null && $femaleRemaining > 0) {
-            $femaleRemaining--;
-            return 'F';
-        }
-
-        if ($maleRemaining !== null && $maleRemaining > 0) {
-            $maleRemaining--;
-            return 'M';
-        }
-
-        return 'M';
     }
 
     protected function assertStatus(PurchaseStockIntake $intake, array $allowed, string $message): void
@@ -517,7 +633,8 @@ class PurchaseStockIntakeService
     {
         $message = strtolower($exception->getMessage());
 
-        return str_contains($message, 'purchase_stock_intakes_batch_number_unique')
+        return str_contains($message, 'purchase_stock_intakes_org_batch_unique')
+            || str_contains($message, 'purchase_stock_intakes_batch_number_unique')
             || str_contains($message, 'batch_number')
             || str_contains($message, 'duplicate')
             || str_contains($message, 'unique constraint');

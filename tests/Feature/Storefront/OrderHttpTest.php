@@ -197,7 +197,7 @@ class OrderHttpTest extends StorefrontTestCase
         )->assertOk();
 
         $this->assertSame(StorefrontOrderPayment::STATUS_VERIFIED, StorefrontOrderPayment::first()->status);
-        $this->assertSame(StorefrontOrder::STATUS_PAYMENT_CONFIRMED, $order->fresh()->status);
+        $this->assertSame(StorefrontOrder::STATUS_CONFIRMED, $order->fresh()->status);
     }
 
     public function test_refund_processed_webhook_marks_pending_paystack_refund_settled(): void

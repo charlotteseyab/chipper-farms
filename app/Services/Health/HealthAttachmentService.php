@@ -5,6 +5,7 @@ namespace App\Services\Health;
 use App\Models\Attachment;
 use App\Models\HealthFollowUp;
 use App\Models\HealthRecord;
+use App\Models\Medicine;
 use App\Models\User;
 use App\Models\VetExamination;
 use App\Models\VetVisit;
@@ -30,7 +31,11 @@ class HealthAttachmentService
         'examination' => VetExamination::class,
         'case' => HealthRecord::class,
         'follow-up' => HealthFollowUp::class,
+        'medicine' => Medicine::class,
     ];
+
+    /** Photos must display in a browser, so no PDF or HEIC. */
+    public const PHOTO_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
     public function __construct(protected AuditTrailService $audit)
     {
@@ -41,10 +46,14 @@ class HealthAttachmentService
         return array_search($parent::class, self::PARENTS, true) ?: throw new \InvalidArgumentException('Files cannot be attached to '.$parent::class.'.');
     }
 
-    /** May this user add a file to this record? Visits and examinations need manage_vet_visits; cases and follow-ups manage_health_records. */
+    /** May this user add a file to this record? Visits and examinations need manage_vet_visits; medicines manage_medicine_catalogue; cases and follow-ups manage_health_records. */
     public function canAdd(User $user, Model $parent): bool
     {
-        $permission = in_array(self::typeOf($parent), ['visit', 'examination'], true) ? 'manage_vet_visits' : 'manage_health_records';
+        $permission = match (self::typeOf($parent)) {
+            'visit', 'examination' => 'manage_vet_visits',
+            'medicine' => 'manage_medicine_catalogue',
+            default => 'manage_health_records',
+        };
 
         return $user->hasPermission($permission) && empty($parent->voided_at);
     }
@@ -89,6 +98,33 @@ class HealthAttachmentService
                 'old_values' => ['attachment_id' => $attachment->id, 'file' => $attachment->original_filename],
             ]);
         });
+    }
+
+    /** Set a medicine's photo. The previous one is kept, marked replaced. */
+    public function replacePhoto(User $actor, Medicine $medicine, UploadedFile $file): Attachment
+    {
+        if (! in_array($file->getMimeType(), self::PHOTO_MIME_TYPES, true)) {
+            throw ValidationException::withMessages(['photo' => 'Use a JPEG, PNG or WebP photo.']);
+        }
+
+        return DB::transaction(function () use ($actor, $medicine, $file) {
+            if ($old = $medicine->photo()->first()) {
+                $this->remove($actor, $old, 'Replaced by a new photo');
+            }
+
+            return $this->add($actor, $medicine, $file, 'Photo');
+        });
+    }
+
+    /** Show an image in the page rather than downloading it. */
+    public function inline(Attachment $attachment)
+    {
+        abort_unless(in_array($attachment->mime_type, self::PHOTO_MIME_TYPES, true), 404);
+        $disk = Storage::disk($attachment->disk ?: 'local');
+        abort_unless($disk->exists($attachment->path), 404, 'The file is missing from storage.');
+
+        return $disk->response($attachment->path, $attachment->original_filename,
+            ['Content-Type' => $attachment->mime_type, 'Cache-Control' => 'private, max-age=86400'], 'inline');
     }
 
     public function stream(Attachment $attachment)

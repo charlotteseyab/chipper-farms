@@ -29,6 +29,16 @@ class PigAcquiredSubscriber extends Subscriber
     ) {
     }
 
+    /**
+     * The pig the event is about: its payload's pig_id. The event's source is
+     * normally that pig, but purchased-stock events were once sourced from
+     * the intake, whose id is not a pig's.
+     */
+    protected function pigId(DomainEvent $event): int
+    {
+        return (int) ($event->payload['pig_id'] ?? $event->source_id);
+    }
+
     protected function eventType(): string
     {
         return \App\Domain\Events\Lifecycle\PigAcquired::TYPE;
@@ -36,7 +46,7 @@ class PigAcquiredSubscriber extends Subscriber
 
     protected function buildDraft(DomainEvent $event): ?JournalBatchDraft
     {
-        $pig = PigManagement::withTrashed()->find((int) $event->source_id);
+        $pig = PigManagement::withTrashed()->find($this->pigId($event));
         if (! $pig) {
             return null;
         }
@@ -49,9 +59,12 @@ class PigAcquiredSubscriber extends Subscriber
         $assetAccount = $this->stageResolver->accountForStage(
             $this->stageResolver->stageForPig($pig)
         );
-        $offsetAccount = $this->accountResolver->byCode(
-            (string) config('biological_assets.acquisition_offset_account_code', '3010')
-        );
+        // Bought through a purchased-stock intake: owed to the supplier, not
+        // owner's capital.
+        $purchased = $event->source_module === 'purchase_stock_intake';
+        $offsetAccount = $this->accountResolver->byCode($purchased
+            ? (string) config('biological_assets.purchase_offset_account_code', '2050')
+            : (string) config('biological_assets.acquisition_offset_account_code', '3010'));
 
         $description = sprintf(
             'Pig acquisition: %s',
@@ -74,7 +87,7 @@ class PigAcquiredSubscriber extends Subscriber
                 JournalLineDraft::credit(
                     accountId: $offsetAccount->id,
                     amount: $amount,
-                    description: 'Acquisition funding / opening livestock value',
+                    description: $purchased ? 'Purchased stock received, supplier bill to follow' : 'Acquisition funding / opening livestock value',
                     dimensions: [
                         'source_type' => PigManagement::class,
                         'source_id' => $pig->id,
@@ -112,7 +125,7 @@ class PigAcquiredSubscriber extends Subscriber
 
     protected function onPostedSuccessfully(DomainEvent $event, JournalBatch $batch): void
     {
-        $pig = PigManagement::withTrashed()->find((int) $event->source_id);
+        $pig = PigManagement::withTrashed()->find($this->pigId($event));
         if (! $pig) {
             return;
         }

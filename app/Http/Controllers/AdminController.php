@@ -259,7 +259,32 @@ class AdminController extends Controller
         ->count();
     $totalAlerts = WeightAlert::where('acknowledged', false)->count();
 
+    $healthMetrics = app(\App\Services\Dashboard\DashboardHealthMetrics::class)->summary(\Carbon\CarbonImmutable::now());
+
     $attentionItems = collect([
+        [
+            'key' => 'health_overdue',
+            'type' => 'Health',
+            'title' => 'Health tasks overdue',
+            'count' => $healthMetrics['tasks']['overdue'],
+            'severity' => 'high',
+            'summary' => 'Scheduled doses or follow-ups have passed their due date without being recorded: '
+                .$healthMetrics['tasks']['overdue_detail'].'. Late vaccination or deworming leaves animals unprotected.',
+            'next_steps' => ['Open the overdue health alerts.', 'Give and record each dose, or mark it missed with a reason.', 'Carry out the follow-up checks and record what was found.'],
+            'action_label' => 'Review overdue health tasks',
+            'action_url' => route('health.alerts', ['state' => 'overdue']),
+        ],
+        [
+            'key' => 'health_due_today',
+            'type' => 'Health',
+            'title' => 'Health tasks due today',
+            'count' => $healthMetrics['tasks']['today'],
+            'severity' => 'medium',
+            'summary' => 'Due today: '.$healthMetrics['tasks']['today_detail'].'.',
+            'next_steps' => ['Open today\'s treatment worklist.', 'Record each dose as it is given.', 'Check animals whose withdrawal ends today before selling them.'],
+            'action_label' => 'Open the worklist',
+            'action_url' => route('health.worklist'),
+        ],
         [
             'key' => 'overdue_weighing',
             'type' => 'Weight',
@@ -479,7 +504,7 @@ class AdminController extends Controller
             'totalFarmValue', 'weightsThisWeek', 'weightsThisMonth', 'criticalAlerts', 'totalAlerts',
             'overduePigsData', 'allOverduePigsData', 'weightLabels', 'weightValues', 'weightMonthlyLabels', 'weightMonthlyAvg',
             'firstWeightPending', 'firstWeightPendingData', 'allFirstWeightPendingData',
-            'attentionItems', 'selectedAttention', 'selectedAttentionKey',
+            'attentionItems', 'selectedAttention', 'selectedAttentionKey', 'healthMetrics',
             // Health
             'totalHealthRecords', 'healthRecordsThisMonth', 'totalMedications', 'medicationsThisMonth',
             'topConditions', 'severityCounts', 'recentHealthRecords', 'recentMedications',

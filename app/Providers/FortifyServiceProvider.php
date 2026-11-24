@@ -52,7 +52,16 @@ class FortifyServiceProvider extends ServiceProvider
         // Relax Fortify built-in throttle; we'll enforce our custom 60s lock below
         RateLimiter::for('login', function (Request $request) {
             $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())).'|'.$request->ip());
-            return Limit::perMinute(1000)->by($throttleKey);
+
+            // Per account and IP (the 5-attempt lockout below is the real
+            // guard there), and per IP: one address trying many accounts was
+            // otherwise unlimited, and each attempt runs a deliberately slow
+            // password hash, so it could also exhaust the server's CPU. 60 a
+            // minute leaves room for a farm office sharing one address.
+            return [
+                Limit::perMinute(1000)->by($throttleKey),
+                Limit::perMinute(60)->by('ip:'.$request->ip()),
+            ];
         });
 
         RateLimiter::for('two-factor', function (Request $request) {
@@ -75,22 +84,9 @@ class FortifyServiceProvider extends ServiceProvider
 
             if (Cache::has($lockKey)) {
                 $remaining = max(1, (int) Cache::get($lockUntilKey, time()) - time());
-                // Log locked attempt
-                try {
-                    ActivityLog::create([
-                        'user_id' => optional(User::where($username, $request->input($username))->first())->id,
-                        'name' => (string) $request->input($username),
-                        'action' => 'login_attempt',
-                        'ip_address' => $request->ip(),
-                        'user_agent' => $request->userAgent(),
-                        'metadata' => [
-                            'result' => 'locked',
-                            'retry_after_seconds' => $remaining,
-                        ],
-                    ]);
-                } catch (\Throwable $e) {
-                report($e);
-            }
+                // Not audited: the lock itself was recorded when it was set,
+                // and a row per request here would let a bot that keeps
+                // hammering a locked login grow the audit table without limit.
                 throw ValidationException::withMessages([
                     $username => "Too many attempts. Please wait {$remaining} seconds before trying again.",
                 ]);
@@ -100,21 +96,7 @@ class FortifyServiceProvider extends ServiceProvider
             if ($user && Hash::check($request->input('password'), $user->password)) {
                 // Check if user is active
                 if (!$user->active_status) {
-                    // Log inactive login attempt
-                    try {
-                        ActivityLog::create([
-                            'user_id' => $user->id,
-                            'name' => (string) $request->input($username),
-                            'action' => 'login_attempt',
-                            'ip_address' => $request->ip(),
-                            'user_agent' => $request->userAgent(),
-                            'metadata' => [
-                                'result' => 'inactive_account',
-                            ],
-                        ]);
-                    } catch (\Throwable $e) {
-                report($e);
-            }
+                    $this->logLoginAttempt($request, $user, ['result' => 'inactive_account']);
                     throw ValidationException::withMessages([
                         $username => __('Your account has been deactivated. Please contact an administrator.'),
                     ]);
@@ -139,40 +121,16 @@ class FortifyServiceProvider extends ServiceProvider
                 Cache::put($lockUntilKey, $until, now()->addSeconds(60));
                 Cache::forget($attemptsKey);
                 $remaining = 60;
-                // Log locked-on-threshold attempt
-                try {
-                    ActivityLog::create([
-                        'user_id' => optional($user)->id,
-                        'name' => (string) $request->input($username),
-                        'action' => 'login_attempt',
-                        'ip_address' => $request->ip(),
-                        'user_agent' => $request->userAgent(),
-                        'metadata' => [
-                            'result' => 'locked',
-                            'retry_after_seconds' => $remaining,
-                        ],
-                    ]);
-                } catch (\Throwable $e) {
-                report($e);
-            }
+                $this->logLoginAttempt($request, $user, [
+                    'result' => 'locked',
+                    'retry_after_seconds' => $remaining,
+                ]);
                 throw ValidationException::withMessages([
                     $username => "Too many attempts. Please wait {$remaining} seconds before trying again.",
                 ]);
             }
 
-            // Log failed attempt
-            try {
-                ActivityLog::create([
-                    'user_id' => optional($user)->id,
-                    'name' => (string) $request->input($username),
-                    'action' => 'login_attempt',
-                    'ip_address' => $request->ip(),
-                    'user_agent' => $request->userAgent(),
-                    'metadata' => [ 'result' => 'failed', 'attempts' => $attempts ],
-                ]);
-            } catch (\Throwable $e) {
-                report($e);
-            }
+            $this->logLoginAttempt($request, $user, ['result' => 'failed', 'attempts' => $attempts]);
             throw ValidationException::withMessages([
                 $username => __('These credentials do not match our records.'),
             ]);
@@ -192,28 +150,43 @@ class FortifyServiceProvider extends ServiceProvider
                         return redirect()->route('onboarding.show');
                     }
                     
-                    // Use User model helper methods which handle both string and relationship roles
-                    if ($user->isSuperuser()) {
-                        return redirect('/superuser/dashboard');
-                    } elseif ($user->isAdmin()) {
-                        return redirect('/admin/dashboard');
-                    } elseif ($user->isManager()) {
-                        return redirect('/manager/dashboard');
-                    } elseif ($user->isDataEntry()) {
-                        return redirect('/dataentry/dashboard');
-                    } elseif ($user->isAccountant() || $user->isTreasurer()) {
-                        return redirect()->route('finance.overview');
-                    } elseif (method_exists($user, 'isCustomer') && $user->isCustomer()) {
-                        // Storefront customers land in their account area, not
-                        // the operational dashboard.
-                        return redirect()->route('storefront.account.dashboard');
-                    } elseif (method_exists($user, 'isSalesperson') && $user->isSalesperson()) {
-                        return redirect()->route('storefront.admin.dashboard');
-                    }
-                    
-                    return redirect('/dashboard');
+                    // The role's usual dashboard when the user can open it, else
+                    // the first one they can: a customised role must not land
+                    // on a page that answers 403.
+                    return redirect()->route(\App\Services\Access\LandingPage::routeName($user));
                 }
             };
         });
+    }
+
+    /**
+     * Audit a login attempt that did not sign in.
+     *
+     * The typed username is stored only when it belongs to a real account.
+     * Anything else is often a password typed into the wrong field, so it is
+     * kept only as a short hash: repeated attempts with the same text can still
+     * be matched up without the text itself sitting in the audit trail.
+     */
+    protected function logLoginAttempt(Request $request, ?User $user, array $metadata): void
+    {
+        $typed = (string) $request->input(Fortify::username());
+
+        if (! $user) {
+            $metadata['unknown_identifier_hash'] = substr(hash('sha256', Str::lower($typed)), 0, 12);
+        }
+
+        try {
+            ActivityLog::create([
+                'user_id' => $user?->id,
+                'organization_id' => $user?->organization_id,
+                'name' => $user ? $typed : null,
+                'action' => 'login_attempt',
+                'ip_address' => $request->ip(),
+                'user_agent' => Str::limit((string) $request->userAgent(), 500, ''),
+                'metadata' => $metadata,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 }

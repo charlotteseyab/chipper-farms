@@ -34,6 +34,7 @@ class StoreFeedIssueRequest extends FormRequest
             'entries.*.quantity_kg'      => ['nullable', 'decimal:0,4', 'numeric', 'gt:0', 'max:1000000'],
             'entries.*.feed_type_id'     => ['nullable', 'required_with:entries.*.quantity_kg', 'integer',
                 Rule::exists('feed_types', 'id')->where('organization_id', $organizationId)],
+            'entries.*.room_id'          => ['nullable', 'integer', Rule::exists('rooms', 'id')->where('organization_id', $organizationId)],
         ];
     }
 
@@ -62,7 +63,7 @@ class StoreFeedIssueRequest extends FormRequest
     /**
      * Rows that have a quantity entered.
      *
-     * @return array<int, array{stage: string, feed_type_id: int, quantity_kg: float, submission_key: ?string}>
+     * @return array<int, array{stage: string, feed_type_id: int, quantity_kg: float, submission_key: ?string, room_id: ?int}>
      */
     public function filledEntries(): array
     {
@@ -73,6 +74,7 @@ class StoreFeedIssueRequest extends FormRequest
                 'feed_type_id'   => (int) $entry['feed_type_id'],
                 'quantity_kg'    => (float) $entry['quantity_kg'],
                 'submission_key' => $entry['submission_key'] ?? null,
+                'room_id'        => ! empty($entry['room_id']) ? (int) $entry['room_id'] : null,
             ])
             ->values()
             ->all();

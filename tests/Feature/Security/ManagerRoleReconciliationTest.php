@@ -45,8 +45,9 @@ class ManagerRoleReconciliationTest extends TestCase
         $onlyOnLegacy = Permission::create([
             'name' => 'view_finance', 'description' => 'View finance', 'module' => 'finance',
         ]);
-        $onBoth = Permission::create([
-            'name' => 'view_pigs', 'description' => 'View pigs', 'module' => 'operations',
+        // view_pigs is created by a migration now; reuse it.
+        $onBoth = Permission::firstOrCreate(['name' => 'view_pigs'], [
+            'description' => 'View pigs', 'module' => 'operations',
         ]);
 
         $legacy->permissions()->sync([$onlyOnLegacy->id, $onBoth->id]);

@@ -207,16 +207,34 @@ class StorefrontPigPricingService
      */
     public function carcassCapacityKg(StorefrontListing $listing): string
     {
-        $pigs = StorefrontListingPig::query()
+        $pigs = $this->saleablePoolPigs($listing);
+
+        return $this->summarise($pigs)['total_weight_kg'];
+    }
+
+    /**
+     * The pool's animals that may be sold right now. A pig under medicine
+     * withdrawal or a health hold stays in the pool but contributes nothing —
+     * no head, no kilograms, no carcass weight — until it clears.
+     *
+     * @return Collection<int, PigManagement>
+     */
+    protected function saleablePoolPigs(StorefrontListing $listing): Collection
+    {
+        $eligibility = app(PigListingEligibilityService::class);
+        $organizationId = (int) $listing->organization_id;
+
+        return StorefrontListingPig::query()
             ->where('storefront_listing_id', $listing->getKey())
             ->whereIn('status', StorefrontListingPig::SELLABLE_STATUSES)
             ->with('pig.latestWeight')
             ->get()
             ->map(fn ($row) => $row->pig)
             ->filter()
+            ->filter(fn (PigManagement $pig) => ($eligibility->check(
+                $pig, null, $organizationId, (int) $listing->getKey(),
+            )['eligible'] ?? false) === true)
             ->values();
-
-        return $this->summarise($pigs)['total_weight_kg'];
     }
 
     /**
@@ -232,14 +250,7 @@ class StorefrontPigPricingService
      */
     public function refreshListingSnapshot(StorefrontListing $listing): StorefrontListing
     {
-        $pigs = StorefrontListingPig::query()
-            ->where('storefront_listing_id', $listing->getKey())
-            ->whereIn('status', StorefrontListingPig::SELLABLE_STATUSES)
-            ->with('pig.latestWeight')
-            ->get()
-            ->map(fn ($row) => $row->pig)
-            ->filter()
-            ->values();
+        $pigs = $this->saleablePoolPigs($listing);
 
         if ($pigs->isEmpty() && $listing->source_category === self::CATEGORY_MANUAL) {
             return $listing;

@@ -79,7 +79,7 @@ class PigWeightObserver
 
             $this->alerts->generate($pigWeight, $existing);
 
-            Log::info('Weight alert regenerated due to weight update', [
+            Log::debug('Weight alert regenerated due to weight update', [
                 'pig_weight_id' => $pigWeight->id,
                 'old_weight'    => $pigWeight->getOriginal('weight'),
                 'new_weight'    => $pigWeight->weight,
@@ -94,7 +94,7 @@ class PigWeightObserver
         try {
             $deletedCount = $this->alerts->deleteAlertsFor($pigWeight);
             if ($deletedCount > 0) {
-                Log::info("Cleaned up {$deletedCount} weight alert(s) for deleted weight record ID {$pigWeight->id}");
+                Log::debug("Cleaned up {$deletedCount} weight alert(s) for deleted weight record ID {$pigWeight->id}");
             }
         } catch (\Throwable $e) {
             Log::error("Failed to clean up weight alerts for deleted weight record ID {$pigWeight->id}: " . $e->getMessage());

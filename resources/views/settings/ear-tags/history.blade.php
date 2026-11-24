@@ -12,8 +12,8 @@
                 @if(auth()->user()->isAdmin())
                     <details><summary class="cursor-pointer">Correct dates or release reason</summary>
                         <form method="POST" action="{{ route('ear-tags.correct', $assignment) }}" class="grid gap-3 mt-3">@csrf @method('PATCH')
-                            <label>Assigned at <input type="datetime-local" name="assigned_at" required value="{{ $assignment->assigned_at->format('Y-m-d\TH:i:s') }}" step="1"></label>
-                            @if($assignment->released_at)<label>Released at <input type="datetime-local" name="released_at" required value="{{ $assignment->released_at->format('Y-m-d\TH:i:s') }}" step="1"></label>
+                            <label>Assigned at <input type="datetime-local" name="assigned_at" required max="{{ now()->format('Y-m-d\TH:i:s') }}" value="{{ $assignment->assigned_at->format('Y-m-d\TH:i:s') }}" step="1"></label>
+                            @if($assignment->released_at)<label>Released at <input type="datetime-local" name="released_at" required max="{{ now()->format('Y-m-d\TH:i:s') }}" value="{{ $assignment->released_at->format('Y-m-d\TH:i:s') }}" step="1"></label>
                             <label>Release reason <input name="release_reason" required maxlength="30" value="{{ $assignment->release_reason }}"></label>@endif
                             <label>Reason for correction <input name="correction_reason" required minlength="5" maxlength="2000" class="w-full"></label>
                             <button class="bg-emerald-700 text-white rounded p-2">Save audited correction</button>

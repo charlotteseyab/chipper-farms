@@ -506,11 +506,27 @@ class StorefrontPigPoolService
      */
     public function availableCount(StorefrontListing $listing): int
     {
+        return $this->eligibleRows($listing)->count();
+    }
+
+    /**
+     * The pool rows the shop may actually offer right now.
+     *
+     * A row being `available` is not enough. Eligibility moves with the
+     * calendar — a pig treated after it was pooled is under withdrawal until a
+     * date, then sellable again — so the row stays in the pool and is filtered
+     * here, by the same authority that refused it at listing time. Everything
+     * the buyer sees or can pick goes through this.
+     *
+     * @return Collection<int, StorefrontListingPig>
+     */
+    public function eligibleRows(StorefrontListing $listing): Collection
+    {
         $organizationId = (int) $listing->organization_id;
         $requiredStockType = $this->stockTypeForListing($listing);
 
         if ($requiredStockType === null) {
-            return 0;
+            return collect();
         }
 
         return StorefrontListingPig::query()
@@ -537,7 +553,63 @@ class StorefrontPigPoolService
 
                 return ($verdict['eligible'] ?? false) === true;
             })
-            ->count();
+            ->values();
+    }
+
+    /**
+     * Refresh every listing this pig is pooled in.
+     *
+     * Called when something about the animal's saleability changes off the
+     * shop — a dose with a withdrawal period, a health record — so the public
+     * count, price range and sold-out state follow at once rather than at the
+     * next sweep.
+     */
+    public function resyncListingsForPig(int $pigId, ?User $actor = null): void
+    {
+        $listingIds = StorefrontListingPig::query()
+            ->where('pig_id', $pigId)
+            ->whereIn('status', StorefrontListingPig::ACTIVE_STATUSES)
+            ->pluck('storefront_listing_id')
+            ->unique();
+
+        foreach ($listingIds as $listingId) {
+            $this->resyncListing((int) $listingId, $actor);
+        }
+    }
+
+    /**
+     * Refresh every live pooled listing. Run on a schedule, because withdrawal
+     * ends on a date with nothing saved: without a sweep a pig whose withdrawal
+     * has run out would never come back to the shop on its own.
+     */
+    public function resyncAllPools(?int $organizationId = null, ?User $actor = null): int
+    {
+        $listingIds = StorefrontListing::query()
+            ->whereIn('status', [
+                StorefrontListing::STATUS_PUBLISHED,
+                StorefrontListing::STATUS_RESERVED,
+                StorefrontListing::STATUS_SOLD_OUT,
+            ])
+            ->when($organizationId !== null, fn ($q) => $q->where('organization_id', $organizationId))
+            ->whereHas('listingPigs')
+            ->pluck('id');
+
+        foreach ($listingIds as $listingId) {
+            $this->resyncListing((int) $listingId, $actor);
+        }
+
+        return $listingIds->count();
+    }
+
+    protected function resyncListing(int $listingId, ?User $actor): void
+    {
+        DB::transaction(function () use ($listingId, $actor) {
+            $listing = StorefrontListing::query()->whereKey($listingId)->lockForUpdate()->first();
+
+            if ($listing !== null && $listing->status !== StorefrontListing::STATUS_ARCHIVED) {
+                $this->syncListingAvailability($listing, $actor);
+            }
+        });
     }
 
     /**

@@ -276,7 +276,7 @@
 
         .allstock-table{
             width: 100%;
-            min-width: 1380px;
+            min-width: 1480px;
             border-collapse: separate;
             border-spacing: 0;
         }
@@ -331,6 +331,21 @@
         .chip-standard{ background: #dbeafe; color: #1d4ed8; }
         .chip-male{ background: #dbeafe; color: #1d4ed8; }
         .chip-female{ background: #fce7f3; color: #be185d; }
+        .chip-withdrawal{ background: #fef3c7; color: #92400e; }
+        .chip-sick{ background: #ffe4e6; color: #9f1239; }
+        .chip-severe{ background: #fee2e2; color: #b91c1c; }
+
+        .allstock-weight-value{
+            font-weight: 900;
+            color: #0f172a;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .allstock-health{
+            display: grid;
+            gap: 6px;
+            justify-items: start;
+        }
 
         .allstock-meta-stack{
             display: grid;
@@ -640,6 +655,7 @@
                                 <th>Age</th>
                                 <th>Location</th>
                                 <th>Weight</th>
+                                <th>Health</th>
                                 <th>Parents</th>
                                 <th>Actions</th>
                             </tr>
@@ -689,29 +705,51 @@
                                     </td>
 
                                     <td>
-                                        @if($pig->recentWeightAlerts->count() > 0)
-                                            @php
-                                                $alert = $pig->recentWeightAlerts->first();
-                                                $alertConfig = [
-                                                    'under_weight' => ['icon' => 'Under', 'color' => 'text-blue-700', 'bg' => 'bg-blue-100', 'text' => 'Under'],
-                                                    'over_weight' => ['icon' => 'Over', 'color' => 'text-orange-700', 'bg' => 'bg-orange-100', 'text' => 'Over'],
-                                                    'normal' => ['icon' => 'OK', 'color' => 'text-green-700', 'bg' => 'bg-green-100', 'text' => 'Normal'],
-                                                    'no_standard' => ['icon' => 'None', 'color' => 'text-gray-700', 'bg' => 'bg-gray-100', 'text' => 'No Std'],
-                                                ];
-                                                $config = $alertConfig[$alert->alert_type] ?? $alertConfig['no_standard'];
-                                            @endphp
+                                        @php
+                                            $latest = $pig->latestWeight;
+                                            $alert = $pig->recentWeightAlerts->first();
+                                            $alertConfig = [
+                                                'under_weight' => ['color' => 'text-blue-700', 'bg' => 'bg-blue-100', 'text' => 'Under target'],
+                                                'over_weight' => ['color' => 'text-orange-700', 'bg' => 'bg-orange-100', 'text' => 'Over target'],
+                                            ];
+                                            $config = $alert ? ($alertConfig[$alert->alert_type] ?? null) : null;
+                                        @endphp
 
-                                            <span class="allstock-weight-badge {{ $config['bg'] }} {{ $config['color'] }}">
-                                                {{ $config['icon'] }} {{ $config['text'] }}
+                                        @if($latest)
+                                            <div class="allstock-meta-stack">
+                                                <div class="allstock-weight-value">{{ rtrim(rtrim(number_format((float) $latest->weight, 2, '.', ''), '0'), '.') }} kg</div>
+                                                <div>{{ \Carbon\Carbon::parse($latest->weigh_date)->format('Y-m-d') }}</div>
+                                            </div>
+                                        @else
+                                            <span class="allstock-weight-badge bg-gray-50 text-gray-500 border border-gray-200">Not weighed</span>
+                                        @endif
+
+                                        @if($config)
+                                            <span class="allstock-weight-badge {{ $config['bg'] }} {{ $config['color'] }} mt-1">
+                                                {{ $config['text'] }}
                                                 @if($alert->severity === 'high')
                                                     <span class="text-red-600 font-black">!</span>
                                                 @endif
                                             </span>
-                                        @else
-                                            <span class="allstock-weight-badge bg-gray-50 text-gray-500 border border-gray-200">
-                                                No Data
-                                            </span>
                                         @endif
+                                    </td>
+
+                                    <td>
+                                        @php
+                                            $until = $withdrawalUntil[$pig->id] ?? null;
+                                            $case = $openCases[$pig->id] ?? null;
+                                        @endphp
+                                        <div class="allstock-health">
+                                            @if($until)
+                                                <span class="allstock-chip chip-withdrawal" title="Inside a medicine withdrawal period: do not sell for food">Withdrawal to {{ $until->format('Y-m-d') }}</span>
+                                            @endif
+                                            @if($case)
+                                                <a href="{{ route('health-cases.show', $case) }}" class="allstock-chip {{ in_array($case->severity, ['severe', 'high'], true) ? 'chip-severe' : 'chip-sick' }}">{{ $case->condition }}</a>
+                                            @endif
+                                            @unless($until || $case)
+                                                <span class="text-gray-400 text-sm">None</span>
+                                            @endunless
+                                        </div>
                                     </td>
 
                                     <td>
@@ -726,7 +764,7 @@
                                     </td>
 
                                     <td>
-                                        <div class="relative inline-block text-left" x-data="{ open: false, place: 'down', toggle(){ this.open = !this.open; if(!this.open){ return; } this.$nextTick(() => { const menu = this.$refs.menu; const trigger = this.$refs.trigger; if(!menu || !trigger) return; const mr = menu.getBoundingClientRect(); const tr = trigger.getBoundingClientRect(); const below = window.innerHeight - tr.bottom; const above = tr.top; this.place = (below < mr.height + 16 && above > mr.height) ? 'up' : 'down'; }); } }">
+                                        <div class="relative inline-block text-left" @scroll.window="open = false" @resize.window="open = false" x-data="{ open: false, top: 0, left: 0, toggle(){ this.open = !this.open; if(!this.open){ return; } this.$nextTick(() => { const menu = this.$refs.menu; const trigger = this.$refs.trigger; if(!menu || !trigger) return; const mr = menu.getBoundingClientRect(); const tr = trigger.getBoundingClientRect(); const below = window.innerHeight - tr.bottom; this.top = (below < mr.height + 16 && tr.top > mr.height + 16) ? tr.top - mr.height - 8 : tr.bottom + 8; this.left = Math.max(8, tr.right - mr.width); }); } }">
                                             <button x-ref="trigger" @click="toggle()" class="allstock-action-btn">
                                                 Actions
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -743,8 +781,8 @@
                                                  x-transition:leave="transition ease-in duration-75"
                                                  x-transition:leave-start="transform opacity-100 scale-100"
                                                  x-transition:leave-end="transform opacity-0 scale-95"
-                                                 :class="place === 'down' ? 'origin-top-right mt-2 top-full' : 'origin-bottom-right mb-2 bottom-full'"
-                                                 class="absolute right-0 z-50 allstock-menu">
+                                                 :style="`top:${top}px;left:${left}px`"
+                                                 class="fixed z-50 allstock-menu">
 
                                                 <a href="{{ route('pigs.show', $pig->id) }}" class="allstock-menu-item">View Details</a>
 
@@ -758,12 +796,12 @@
 
                                                 <div class="border-t border-gray-100"></div>
 
-                                                <form action="{{ route('breeding-stocks.destroy', $pig) }}" method="POST" class="inline w-full">
+                                                <form action="{{ route('breeding-stocks.destroy', $pig) }}" method="POST" class="inline w-full"
+                                                      data-confirm="Are you sure you want to delete {{ $pig->ear_tag_number ?: $pig->code }}? This action cannot be undone."
+                                                      onsubmit="return confirm(this.dataset.confirm)">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit"
-                                                            onclick="return confirm('Are you sure you want to delete {{ $pig->ear_tag_number }}? This action cannot be undone.')"
-                                                            class="allstock-menu-item danger">
+                                                    <button type="submit" class="allstock-menu-item danger">
                                                         Delete Pig
                                                     </button>
                                                 </form>
@@ -773,7 +811,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="11">
+                                    <td colspan="12">
                                         <div class="allstock-empty">
                                             <svg class="allstock-empty-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.29-1.009-5.824-2.562M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.636 6.636a9 9 0 000 12.728"></path>

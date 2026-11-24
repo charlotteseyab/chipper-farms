@@ -22,6 +22,13 @@ class FarmManagerDashboardController extends Controller
     {
         $weaningAge = config('breeding.cycle.birth_to_weaning_days', 45);
 
+        // The dashboard is admitted by role; each panel is shown only when the
+        // user may open the module it summarises (see DashboardAccess).
+        $access = \App\Services\Access\DashboardAccess::for(auth()->user());
+        $see = collect(['pigs', 'weights', 'health', 'breeding', 'weaning', 'deaths', 'raw_materials',
+            'feed_production', 'purchase_requests', 'intakes', 'farm_activity'])
+            ->mapWithKeys(fn (string $area) => [$area => $access->sees($area)])->all();
+
     $activeBaseQuery = PigManagement::active();
 
     $weanedActive = (clone $activeBaseQuery)->count();
@@ -83,31 +90,12 @@ class FarmManagerDashboardController extends Controller
     $mediumAlerts = WeightAlert::where('severity', 'medium')->where('acknowledged', false)->count();
     $lowAlerts = WeightAlert::where('severity', 'low')->where('acknowledged', false)->count();
 
-    $openHealthQuery = PigManagement::active()
-        ->whereDoesntHave('deaths')
-        ->whereDoesntHave('sales')
-        ->whereHas('healthRecords', function ($health) {
-            $health->whereNull('resolved_at')
-                ->where(function ($status) {
-                    $status->whereNull('treatment_status')
-                        ->orWhereIn('treatment_status', ['planned', 'ongoing']);
-                });
-        });
-    $openHealthCases = (clone $openHealthQuery)->count();
-    $criticalHealthCases = PigManagement::active()
-        ->whereDoesntHave('deaths')
-        ->whereDoesntHave('sales')
-        ->whereHas('healthRecords', function ($health) {
-            $health->whereNull('resolved_at')
-                ->where(function ($status) {
-                    $status->whereNull('treatment_status')
-                        ->orWhereIn('treatment_status', ['planned', 'ongoing']);
-                })
-                ->whereIn('severity', ['high', 'severe']);
-        })
-        ->count();
-    // Animals on the farm, not doses: the same count as the health overview.
-    $activeWithdrawals = app(\App\Services\Health\WithdrawalStatusService::class)->restrictedCount();
+    // One health picture for the whole page, so the work queue, the side
+    // panel and the health section never show two different numbers.
+    $healthMetrics = app(\App\Services\Dashboard\DashboardHealthMetrics::class)->summary(\Carbon\CarbonImmutable::now());
+    $openHealthCases = $healthMetrics['cases']['sick_animals'];
+    $criticalHealthCases = $healthMetrics['cases']['severe_animals'];
+    $activeWithdrawals = $healthMetrics['withdrawal']['animals'];
 
     $rawMaterialsOut = RawMaterial::where('quantity_in_stock', '<=', 0)->count();
     $rawMaterialsLow = RawMaterial::where('quantity_in_stock', '>', 0)
@@ -176,7 +164,7 @@ class FarmManagerDashboardController extends Controller
         ])
         ->count();
 
-    $allOverduePigs = PigManagement::active()
+    $allOverduePigs = (! $see['weights'] ? PigManagement::query()->whereRaw('1 = 0') : PigManagement::active())
     ->with(['weights' => fn ($query) => $query->orderByDesc('weigh_date')])
     ->get()
     ->filter(function ($pig) {
@@ -225,12 +213,30 @@ class FarmManagerDashboardController extends Controller
     $managerWorkQueue = collect([
         [
             'type' => 'Health',
+            'item' => 'Overdue health tasks',
+            'details' => $healthMetrics['tasks']['overdue_detail'].' not yet recorded.',
+            'count' => $healthMetrics['tasks']['overdue'],
+            'due' => 'Overdue',
+            'severity' => 'high',
+            'area' => 'health', 'route' => route('health.alerts', ['state' => 'overdue']),
+        ],
+        [
+            'type' => 'Health',
+            'item' => 'Health tasks due today',
+            'details' => $healthMetrics['tasks']['today_detail'].'.',
+            'count' => $healthMetrics['tasks']['today'],
+            'due' => 'Today',
+            'severity' => 'medium',
+            'area' => 'health', 'route' => route('health.worklist'),
+        ],
+        [
+            'type' => 'Health',
             'item' => 'Open health cases',
             'details' => 'Animals with unresolved treatment or observation records.',
             'count' => $openHealthCases,
             'due' => $criticalHealthCases > 0 ? 'Immediate' : 'Today',
             'severity' => $criticalHealthCases > 0 ? 'high' : 'medium',
-            'route' => route('health.index'),
+            'area' => 'health', 'route' => route('health.index'),
         ],
         [
             'type' => 'Weight',
@@ -239,7 +245,7 @@ class FarmManagerDashboardController extends Controller
             'count' => $overdueForWeighing,
             'due' => 'Overdue',
             'severity' => 'high',
-            'route' => route('weight-alerts.index'),
+            'area' => 'weights', 'route' => route('weight-alerts.index'),
         ],
         [
             'type' => 'Breeding',
@@ -248,7 +254,7 @@ class FarmManagerDashboardController extends Controller
             'count' => $pregnancyChecksDue,
             'due' => $pregnancyChecksOverdue > 0 ? 'Overdue' : 'Today',
             'severity' => $pregnancyChecksOverdue > 0 ? 'high' : 'medium',
-            'route' => route('mating.manage'),
+            'area' => 'breeding', 'route' => route('mating.manage'),
         ],
         [
             'type' => 'Breeding',
@@ -257,7 +263,7 @@ class FarmManagerDashboardController extends Controller
             'count' => $pregnancyFollowUpsDue,
             'due' => $pregnancyFollowUpsOverdue > 0 ? 'Overdue' : 'Scheduled',
             'severity' => $pregnancyFollowUpsOverdue > 0 ? 'high' : 'medium',
-            'route' => route('mating.manage'),
+            'area' => 'breeding', 'route' => route('mating.manage'),
         ],
         [
             'type' => 'Weaning',
@@ -266,7 +272,7 @@ class FarmManagerDashboardController extends Controller
             'count' => $readyToWean,
             'due' => $overdueWeaning > 0 ? 'Overdue' : 'This week',
             'severity' => $overdueWeaning > 0 ? 'high' : 'medium',
-            'route' => route('weaning.dashboard'),
+            'area' => 'weaning', 'route' => route('weaning.dashboard'),
         ],
         [
             'type' => 'Inventory',
@@ -275,7 +281,7 @@ class FarmManagerDashboardController extends Controller
             'count' => $rawMaterialsOut,
             'due' => 'Today',
             'severity' => 'high',
-            'route' => route('raw-materials.index', ['status' => 'out_of_stock']),
+            'area' => 'raw_materials', 'route' => route('raw-materials.index', ['status' => 'out_of_stock']),
         ],
         [
             'type' => 'Procurement',
@@ -284,7 +290,7 @@ class FarmManagerDashboardController extends Controller
             'count' => $purchaseRequestsPending,
             'due' => 'Today',
             'severity' => 'medium',
-            'route' => route('purchase-requests.index', ['status' => 'pending']),
+            'area' => 'purchase_requests', 'route' => route('purchase-requests.index', ['status' => 'pending']),
         ],
         [
             'type' => 'Stock',
@@ -293,9 +299,9 @@ class FarmManagerDashboardController extends Controller
             'count' => $maturityReviews,
             'due' => 'This week',
             'severity' => $maturityReviews > 0 ? 'low' : 'low',
-            'route' => route('all-stocks.index'),
+            'area' => 'pigs', 'route' => route('all-stocks.index'),
         ],
-    ])->filter(fn ($item) => $item['count'] > 0)->values();
+    ])->filter(fn ($item) => $item['count'] > 0 && $see[$item['area']])->values();
 
     $weightTrendLabels = [];
     $weightTrendValues = [];
@@ -321,6 +327,7 @@ class FarmManagerDashboardController extends Controller
     $recentActivity = ActivityLog::query()
         ->with('user:id,name')
         ->when(auth()->user()?->organization_id, fn ($query, $orgId) => $query->where('organization_id', $orgId))
+        ->when(! $see['farm_activity'], fn ($query) => $query->where('user_id', auth()->id()))
         ->whereNotIn('action', ['login', 'logout'])
         ->latest()
         ->limit(8)
@@ -333,23 +340,29 @@ class FarmManagerDashboardController extends Controller
             'severity' => in_array($activity->action, ['deleted', 'declined', 'failed'], true) ? 'high' : 'low',
         ]);
 
-    $recentDeaths30 = PigDeath::whereDate('death_date', '>=', now()->subDays(29)->toDateString())->count();
-    $mortalityRate30 = ($totalStockActive + $recentDeaths30) > 0
-        ? ($recentDeaths30 / ($totalStockActive + $recentDeaths30)) * 100
-        : 0;
+    // Same figure as the main dashboard's Mortality panel, so the two agree:
+    // pig and piglet deaths over every animal on the farm in the 30 days.
+    $livestock30 = app(\App\Services\Dashboard\DashboardLivestockMetrics::class)
+        ->summary(app(\App\Support\CurrentOrganization::class)->id());
+    $recentDeaths30 = $livestock30['deaths_30_days'];
+    $mortalityRate30 = $livestock30['mortality_rate_30_days'];
 
     $immediateAttention = collect([
-        ['label' => 'Critical health cases', 'count' => $criticalHealthCases, 'route' => route('health.index', ['attention' => 'open_critical']), 'tone' => 'red'],
-        ['label' => 'Pregnancy checks overdue', 'count' => $pregnancyChecksOverdue, 'route' => route('mating.manage', ['attention' => 'pregnancy_checks_overdue']), 'tone' => 'red'],
-        ['label' => 'Weaning overdue', 'count' => $overdueWeaning, 'route' => route('weaning.dashboard', ['attention' => 'overdue']), 'tone' => 'amber'],
-        ['label' => 'Raw materials out', 'count' => $rawMaterialsOut, 'route' => route('raw-materials.index', ['status' => 'out_of_stock']), 'tone' => 'red'],
-        ['label' => 'Requests awaiting approval', 'count' => $purchaseRequestsPending, 'route' => route('purchase-requests.index', ['status' => 'pending']), 'tone' => 'amber'],
-    ])->filter(fn ($item) => $item['count'] > 0)->values();
+        ['label' => 'Critical health cases', 'count' => $criticalHealthCases, 'area' => 'health', 'route' => route('health.index', ['attention' => 'open_critical']), 'tone' => 'red'],
+        ['label' => 'Health tasks overdue', 'count' => $healthMetrics['tasks']['overdue'], 'area' => 'health', 'route' => route('health.alerts', ['state' => 'overdue']), 'tone' => 'red'],
+        ['label' => 'Pregnancy checks overdue', 'count' => $pregnancyChecksOverdue, 'area' => 'breeding', 'route' => route('mating.manage', ['attention' => 'pregnancy_checks_overdue']), 'tone' => 'red'],
+        ['label' => 'Weaning overdue', 'count' => $overdueWeaning, 'area' => 'weaning', 'route' => route('weaning.dashboard', ['attention' => 'overdue']), 'tone' => 'amber'],
+        ['label' => 'Raw materials out', 'count' => $rawMaterialsOut, 'area' => 'raw_materials', 'route' => route('raw-materials.index', ['status' => 'out_of_stock']), 'tone' => 'red'],
+        ['label' => 'Requests awaiting approval', 'count' => $purchaseRequestsPending, 'area' => 'purchase_requests', 'route' => route('purchase-requests.index', ['status' => 'pending']), 'tone' => 'amber'],
+    ])->filter(fn ($item) => $item['count'] > 0 && $see[$item['area']])->values();
 
     $healthSummary = [
         'open_cases' => $openHealthCases,
         'critical_cases' => $criticalHealthCases,
         'active_withdrawals' => $activeWithdrawals,
+        'alerts_upcoming' => $healthMetrics['tasks']['upcoming'],
+        'alerts_upcoming_detail' => $healthMetrics['tasks']['upcoming_detail'],
+        'alerts_days' => $healthMetrics['days'],
         'deaths_30_days' => $recentDeaths30,
         'mortality_rate_30_days' => $mortalityRate30,
     ];
@@ -366,7 +379,22 @@ class FarmManagerDashboardController extends Controller
         'quarantined' => $purchasedStockMetrics['quarantined'] ?? 0,
     ];
 
+    if (! $see['pigs']) {
+        $stockDistributionTotals = ['breeding' => 0, 'standard' => 0, 'piglets' => 0];
+        $breedCounts = collect();
+    }
+    if (! $see['weights']) {
+        $weightTrendValues = array_fill(0, count($weightTrendValues), 0);
+    }
+    if (! $see['breeding']) {
+        $breedingReadiness = ['ready' => 0, 'due_soon' => 0, 'not_ready' => 0];
+    }
+    if (! $see['pigs'] && ! $see['weights'] && ! $see['breeding']) {
+        $upcomingEvents = [];
+    }
+
     return view('manager.dashboard', [
+        'see' => $see,
         'totalStockActive' => $totalStockActive,
         'weanedActive' => $weanedActive,
         'activePigletsAdjusted' => $activePigletsAdjusted,
@@ -410,6 +438,7 @@ class FarmManagerDashboardController extends Controller
         'purchasedStockMetrics' => $purchasedStockMetrics,
         'immediateAttention' => $immediateAttention,
         'healthSummary' => $healthSummary,
+        'healthMetrics' => $healthMetrics,
         'inventorySummary' => $inventorySummary,
         'procurementSummary' => $procurementSummary,
         'refreshedAt' => now(),

@@ -10,6 +10,7 @@ use App\Models\Medicine;
 use App\Models\MedicineBatch;
 use App\Models\MedicineStockAdjustment;
 use App\Services\Health\MedicineStockService;
+use App\Support\CollectionPage;
 
 /** One medicine's batches and stock: receive a batch, adjust or count it, see where it went. */
 class MedicineStockController extends Controller
@@ -23,11 +24,12 @@ class MedicineStockController extends Controller
         $total = $batches->reduce(fn ($sum, $b) => bcadd($sum, $b->on_hand, 4), '0');
 
         $usage = MedicationDosingAllocation::with(['event.administrations.pig', 'batch'])
-            ->whereIn('medicine_batch_id', $batches->modelKeys())->latest('id')->limit(25)->get();
+            ->whereIn('medicine_batch_id', $batches->modelKeys())->latest('id')->paginate(10, ['*'], 'usage_page')->withQueryString();
         $adjustments = MedicineStockAdjustment::with(['batch', 'adjustedBy'])
-            ->whereIn('medicine_batch_id', $batches->modelKeys())->latest('id')->limit(25)->get();
+            ->whereIn('medicine_batch_id', $batches->modelKeys())->latest('id')->paginate(10, ['*'], 'adjustments_page')->withQueryString();
+        $batchPage = CollectionPage::make($batches, 10, 'batches_page');
 
-        return view('health.medicines.show', compact('medicine', 'batches', 'total', 'usage', 'adjustments'));
+        return view('health.medicines.show', compact('medicine', 'batches', 'batchPage', 'total', 'usage', 'adjustments') + ['glance' => app(\App\Services\Health\HealthGlanceService::class)->medicine($medicine)]);
     }
 
     public function receive(ReceiveMedicineBatchRequest $request, Medicine $medicine, MedicineStockService $stock)

@@ -16,7 +16,7 @@ final class EmailTemplateCatalog
                 'Track order', $orderVars),
             'storefront.payment_confirmed' => self::item('Payment confirmed', 'Storefront orders', 'customer',
                 'Payment confirmed for {{ order_reference }}',
-                "Hello {{ customer_name }},\n\nYour payment for order {{ order_reference }} has been confirmed. The farm will review and confirm the order next.",
+                "Hello {{ customer_name }},\n\nYour payment for order {{ order_reference }} has been received, and your order is reserved for you. We're getting it ready and will let you know as soon as it is.",
                 'View order', $orderVars),
             'storefront.order_confirmed' => self::item('Order confirmed', 'Storefront orders', 'customer',
                 'Order {{ order_reference }} is confirmed',

@@ -35,7 +35,7 @@ class VetVisitController extends Controller
             ->when($filters['animal'] ?? null, fn ($q, $code) => $q->whereHas('examinations.pig', fn ($p) => $p->withTrashed()->where('code', 'like', "%{$code}%")))
             ->latest('visited_at')->paginate(20)->withQueryString();
 
-        return view('health.visits.index', compact('visits'));
+        return view('health.visits.index', compact('visits') + ['glance' => app(\App\Services\Health\HealthGlanceService::class)->visits()]);
     }
 
     public function create(Request $request)
@@ -64,7 +64,7 @@ class VetVisitController extends Controller
             ->latest('id')->limit(100)->get();
         $rooms = Room::orderBy('name')->get(['id', 'name']);
 
-        return view('health.visits.show', compact('visit', 'notYetExamined', 'openCases', 'rooms'));
+        return view('health.visits.show', compact('visit', 'notYetExamined', 'openCases', 'rooms') + ['glance' => app(\App\Services\Health\HealthGlanceService::class)->visit($visit)]);
     }
 
     public function update(VetVisitRequest $request, VetVisit $vetVisit, RecordVetVisitService $service)

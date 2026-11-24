@@ -17,4 +17,6 @@
             </a>
         @endforeach
     </div>
+    @php $current = collect($tabs)->firstWhere('current', true); @endphp
+    @if($current && ! empty($current['hint']))<p class="mt-2 text-xs text-slate-500">{{ $current['hint'] }}</p>@endif
 </nav>

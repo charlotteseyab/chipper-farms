@@ -42,15 +42,16 @@
             </div>
         </section>
 
-        <section class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-            <h2 class="font-bold text-slate-900">Animals ({{ $event->administrations->count() }})</h2>
-            <div class="mt-3 overflow-x-auto">
-                <table class="w-full min-w-[560px] text-sm">
-                    <thead class="text-left text-xs uppercase text-slate-500"><tr><th class="py-2">Animal</th><th>Tag that day</th><th>Can be sold from</th><th>Course / case</th></tr></thead>
-                    <tbody class="divide-y divide-slate-100">
-                        @foreach($event->administrations as $dose)
+        <section class="space-y-3">
+            <h2 class="font-bold text-slate-900">Animals ({{ $animals->total() }})</h2>
+            <div class="health-table-wrap">
+              <div class="overflow-x-auto">
+                <table class="health-table min-w-[560px]">
+                    <thead><tr><th>Animal</th><th>Tag that day</th><th>Can be sold from</th><th>Course / case</th></tr></thead>
+                    <tbody>
+                        @foreach($animals as $dose)
                             <tr>
-                                <td class="py-2"><a class="font-semibold text-emerald-700 hover:underline" href="{{ route('health.show', $dose->pig_id) }}">{{ $dose->pig?->code }}</a></td>
+                                <td><a class="font-semibold text-emerald-700 hover:underline" href="{{ route('health.show', $dose->pig_id) }}">{{ $dose->pig?->code }}</a></td>
                                 <td>{{ $dose->pig?->tagLabelAt($dose->administered_at) ?? '—' }}</td>
                                 <td>{{ $dose->isVoided() ? '—' : ($dose->withdrawal_ends_on ? $dose->withdrawal_ends_on->copy()->addDay()->format('d M Y') : 'No withdrawal recorded') }}</td>
                                 <td class="text-xs">
@@ -61,17 +62,21 @@
                         @endforeach
                     </tbody>
                 </table>
+              </div>
+              <div class="health-table-footer"><x-health.pagination :paginator="$animals" label="animals" /></div>
             </div>
         </section>
 
-        <section class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+        <section class="space-y-3">
             <h2 class="font-bold text-slate-900">Stock taken</h2>
-            <table class="mt-3 w-full text-sm">
-                <thead class="text-left text-xs uppercase text-slate-500"><tr><th class="py-2">Batch</th><th>Expiry</th><th class="text-right">Quantity</th><th class="text-right">Cost</th></tr></thead>
-                <tbody class="divide-y divide-slate-100">
+            <div class="health-table-wrap">
+              <div class="overflow-x-auto">
+            <table class="health-table min-w-[480px]">
+                <thead><tr><th>Batch</th><th>Expiry</th><th class="num">Quantity</th><th class="num">Cost</th></tr></thead>
+                <tbody>
                     @foreach($event->allocations as $allocation)
                         <tr>
-                            <td class="py-2">{{ $allocation->batch?->batch_number }}</td>
+                            <td>{{ $allocation->batch?->batch_number }}</td>
                             <td>{{ $allocation->expiry_snapshot->format('d M Y') }}</td>
                             <td class="text-right tabular-nums">{{ $qty($allocation->stock_quantity) }} {{ $event->stock_unit }}</td>
                             <td class="text-right tabular-nums">{{ number_format((float) bcmul((string) $allocation->stock_quantity, (string) $allocation->unit_cost_snapshot, 4), 2) }}</td>
@@ -79,6 +84,8 @@
                     @endforeach
                 </tbody>
             </table>
+              </div>
+            </div>
         </section>
 
         @if($event->notes)<p class="rounded-xl bg-slate-50 p-4 text-sm text-slate-700 whitespace-pre-line">{{ $event->notes }}</p>@endif

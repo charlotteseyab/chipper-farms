@@ -151,7 +151,10 @@ class PermissionMatrixTest extends TestCase
      */
     public function test_a_farm_manager_can_open_the_finance_overview(): void
     {
+        // /finance opens the overview, or the ledger dashboard for a farm
+        // with Advanced Accounting.
         $this->actingAs($this->userWithRole('farmmanager'))
+            ->followingRedirects()
             ->get('/finance')
             ->assertOk();
     }

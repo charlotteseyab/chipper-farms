@@ -26,6 +26,12 @@
                 </div>
             </div>
 
+            @if(!empty($preview['duplicate_headers']))
+                <div class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                    These columns appear more than once: <strong>{{ implode(', ', $preview['duplicate_headers']) }}</strong>. Keep one of each.
+                </div>
+            @endif
+
             @if(!empty($preview['missing_headers']))
                 <div class="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     Missing required headers: <strong>{{ implode(', ', $preview['missing_headers']) }}</strong>
@@ -39,8 +45,10 @@
                         <p class="text-sm text-slate-500">Invalid rows must be fixed in the Excel file before import.</p>
                     </div>
                     @if(($preview['invalid_count'] ?? 0) === 0 && ($preview['valid_count'] ?? 0) > 0)
-                        <form method="POST" action="{{ route('all-stocks.import.confirm') }}">
+                        <form method="POST" action="{{ route('all-stocks.import.confirm') }}"
+                              onsubmit="this.querySelector('button').disabled = true">
                             @csrf
+                            <input type="hidden" name="preview_token" value="{{ $preview['token'] ?? '' }}">
                             <button type="submit" class="px-5 py-2.5 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700">
                                 Confirm Import
                             </button>
@@ -53,59 +61,46 @@
                 </div>
 
                 <div class="overflow-x-auto">
+                    {{-- Every column of the uploaded file, as uploaded, in the file's order. --}}
+                    @php
+                        $columns = $preview['columns'] ?? \App\Services\Stock\Imports\StockExcelImportService::HEADERS;
+                        $rows = collect($preview['valid_rows'])->map(fn ($r) => $r + ['valid' => true])
+                            ->merge(collect($preview['invalid_rows'])->map(fn ($r) => $r + ['valid' => false]))
+                            ->sortBy('row_number');
+                    @endphp
                     <table class="min-w-full divide-y divide-slate-200">
                         <thead class="bg-slate-50">
                             <tr>
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Row</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Ear Tag</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Tag Colour</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Breed</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Type</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Gender</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">DOB</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Location</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Weight</th>
-                                <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Actions</th>
+                                @foreach($columns as $column)
+                                    <th class="whitespace-nowrap px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $column }}</th>
+                                @endforeach
                                 <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 bg-white">
-                            @foreach($preview['valid_rows'] as $row)
-                                <tr>
+                            @foreach($rows as $row)
+                                <tr @class(['bg-red-50/50' => ! $row['valid']])>
                                     <td class="px-4 py-3 text-sm text-slate-600">{{ $row['row_number'] }}</td>
-                                    <td class="px-4 py-3 text-sm font-semibold text-slate-900">{{ $row['data']['ear_tag_number'] }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['tag_color'] }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['breed'] }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['stock_type'] }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['gender'] }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['date_of_birth'] }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['location'] ?: 'Not assigned' }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['weight'] !== '' ? $row['data']['weight'].' kg' : '—' }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-400">Ignored</td>
+                                    @foreach($columns as $i => $column)
+                                        @php $cell = $row['cells'][$i] ?? ''; @endphp
+                                        <td @class(['whitespace-nowrap px-4 py-3 text-sm', 'font-semibold text-slate-900' => $i === 0, 'text-slate-600' => $i !== 0])>
+                                            @if($cell === '')<span class="text-slate-300">—</span>@else{{ $cell }}@endif
+                                        </td>
+                                    @endforeach
                                     <td class="px-4 py-3">
-                                        <span class="inline-flex rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">Valid</span>
-                                    </td>
-                                </tr>
-                            @endforeach
-                            @foreach($preview['invalid_rows'] as $row)
-                                <tr class="bg-red-50/50">
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['row_number'] }}</td>
-                                    <td class="px-4 py-3 text-sm font-semibold text-slate-900">{{ $row['data']['ear_tag_number'] ?? '' }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['tag_color'] ?? '' }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['breed'] ?? '' }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['stock_type'] ?? '' }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['gender'] ?? '' }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['date_of_birth'] ?? '' }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['location'] ?? '' }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['weight'] ?? '' }}</td>
-                                    <td class="px-4 py-3 text-sm text-slate-600">{{ $row['data']['actions'] ?? '' }}</td>
-                                    <td class="px-4 py-3 text-sm text-red-700">
-                                        <div class="font-semibold">Invalid</div>
-                                        <ul class="list-disc pl-4 mt-1">
-                                            @foreach($row['errors'] as $error)
-                                                <li>{{ $error }}</li>
-                                            @endforeach
-                                        </ul>
+                                        @if($row['valid'])
+                                            <span class="inline-flex rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">Valid</span>
+                                        @else
+                                            <div class="text-sm text-red-700">
+                                                <div class="font-semibold">Invalid</div>
+                                                <ul class="mt-1 list-disc pl-4">
+                                                    @foreach($row['errors'] as $error)
+                                                        <li>{{ $error }}</li>
+                                                    @endforeach
+                                                </ul>
+                                            </div>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach

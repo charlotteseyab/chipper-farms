@@ -16,8 +16,18 @@ class WeightOverdueNotification extends Notification implements ShouldQueue
     use Queueable;
     use SerializesModels;
 
+    /** A notification that keeps failing stops after 3 tries instead of filling failed_jobs. */
+    public $tries = 3;
+
+    /** @var list<int> seconds before each retry */
+    public $backoff = [10, 60, 300];
+
     public function __construct(public ?PigManagement $pig, public string $dateKey)
     {
+        // Stored without loaded relations: the queue must rebuild whatever a
+        // notification carries, and a relation it cannot rebuild fails the
+        // job on every retry (the WeightOverdueNotification incident).
+        $this->pig = $this->pig?->withoutRelations();
     }
 
     public function via($notifiable): array

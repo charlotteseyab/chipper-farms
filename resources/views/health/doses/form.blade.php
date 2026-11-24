@@ -73,6 +73,13 @@
                 </label>
                 <template x-if="m">
                     <div class="space-y-4">
+                        <div class="flex flex-wrap items-start gap-4" x-show="m.photo || m.used_for || m.precautions">
+                            <template x-if="m.photo"><img :src="m.photo" alt="Photo of the selected medicine" class="h-32 w-32 rounded-xl border border-slate-200 object-cover"></template>
+                            <div class="min-w-0 flex-1 space-y-1 text-sm">
+                                <p x-show="m.used_for"><span class="font-semibold text-slate-700">Used for:</span> <span x-text="m.used_for"></span></p>
+                                <p x-show="m.precautions" class="text-amber-900"><span class="font-semibold">Precautions:</span> <span x-text="m.precautions"></span></p>
+                            </div>
+                        </div>
                         <p class="text-xs" :class="m.withdrawal == null ? 'text-amber-700' : 'text-slate-500'"
                            x-text="m.withdrawal == null ? 'No withdrawal period recorded for this medicine. Check the label before selling.' : 'Withdrawal: ' + m.withdrawal + ' days. Each animal can be sold from the day after.'"></p>
                         <fieldset class="text-sm">

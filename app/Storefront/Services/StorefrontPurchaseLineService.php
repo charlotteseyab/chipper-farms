@@ -51,6 +51,7 @@ class StorefrontPurchaseLineService
         protected StorefrontPigPricingService $pricing,
         protected ListingAvailabilityService $availability,
         protected HoldService $holds,
+        protected PigListingEligibilityService $eligibility,
     ) {
     }
 
@@ -101,6 +102,7 @@ class StorefrontPurchaseLineService
                 ->get();
 
             $this->assertEveryPigWasFound($rows, $ids);
+            $this->assertEveryPigIsSaleable($rows, $listing);
 
             $cart  = $this->cartFor($owner, $listing);
             $lines = collect();
@@ -145,6 +147,7 @@ class StorefrontPurchaseLineService
                 ->get();
 
             $this->assertEveryPigWasFound($rows, $ids);
+            $this->assertEveryPigIsSaleable($rows, $listing);
 
             $cart = $this->cartFor($owner, $listing);
 
@@ -384,6 +387,31 @@ class StorefrontPurchaseLineService
 
         if ($unavailable->isNotEmpty()) {
             throw new CartException('One or more of the animals chosen has already been taken.');
+        }
+    }
+
+    /**
+     * The page may be stale: a pig treated after the buyer opened it is under
+     * withdrawal now, and must not reach a basket. The buyer is told it is
+     * unavailable — the medical reason is the farm's, not the shop's.
+     */
+    protected function assertEveryPigIsSaleable(EloquentCollection $rows, StorefrontListing $listing): void
+    {
+        foreach ($rows as $row) {
+            $pig = $row->pig;
+
+            if ($pig === null) {
+                continue; // reported by the line builders
+            }
+
+            $verdict = $this->eligibility->check($pig, null, (int) $listing->organization_id, (int) $listing->getKey());
+
+            if (($verdict['eligible'] ?? false) !== true) {
+                throw new CartException(
+                    'Animal ' . ($pig->ear_tag_number ?: ('#' . $pig->getKey())) .
+                    ' is not available for sale right now. Please choose another.',
+                );
+            }
         }
     }
 

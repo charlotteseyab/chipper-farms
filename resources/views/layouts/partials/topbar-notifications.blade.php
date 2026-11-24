@@ -156,7 +156,9 @@
                 <a href="{{ $data['link'] ?? route('notifications.index') }}" class="flex items-start gap-3 border-t border-slate-100 px-4 py-3 transition hover:bg-slate-50 {{ is_null($notification->read_at) ? 'bg-blue-50/60' : '' }}">
                     <span class="mt-1 inline-flex h-2.5 w-2.5 rounded-full {{ is_null($notification->read_at) ? 'bg-blue-600' : 'bg-slate-300' }}"></span>
                     <div class="min-w-0 flex-1">
-                        <p class="text-sm font-medium text-slate-800">{{ ucfirst(str_replace('_', ' ', $data['type'] ?? 'notification')) }}</p>
+                        {{-- Newer notifications carry a title and message; older ones only a type. --}}
+                        <p class="text-sm font-medium text-slate-800">{{ $data['title'] ?? ucfirst(str_replace(['_', '.'], ' ', $data['type'] ?? 'notification')) }}</p>
+                        @if(! empty($data['message']))<p class="mt-0.5 line-clamp-2 text-xs text-slate-600">{{ $data['message'] }}</p>@endif
                         <p class="mt-1 text-xs text-slate-500">{{ $notification->created_at->diffForHumans() }}</p>
                     </div>
                 </a>

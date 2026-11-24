@@ -52,6 +52,7 @@ class PurchaseStockIntakeTest extends TestCase
                 'quantity_ordered' => 5,
                 'male_quantity' => 2,
                 'female_quantity' => 3,
+                'estimated_age_days' => 42,
                 'total_purchase_cost' => 1000,
                 'transport_cost' => 50,
             ])
@@ -415,6 +416,144 @@ class PurchaseStockIntakeTest extends TestCase
         $this->actingAs($this->dataEntry)
             ->post(route('purchase-stock-intakes.add-to-stock', $intake))
             ->assertForbidden();
+    }
+
+    /* Review fixes ------------------------------------------------------- */
+
+    private function validCreatePayload(array $overrides = []): array
+    {
+        return array_merge([
+            'supplier_name' => 'External Farm', 'purchase_date' => now()->toDateString(),
+            'animal_category' => PurchaseStockIntake::CATEGORY_GROWER, 'breed' => 'LWDR',
+            'quantity_ordered' => 2, 'estimated_age_days' => 90, 'total_purchase_cost' => 1000,
+        ], $overrides);
+    }
+
+    public function test_each_purchased_pig_gets_its_own_acquisition_event(): void
+    {
+        $this->actingAs($this->manager);
+        $intake = app(PurchaseStockIntakeService::class)->addToStock(
+            $this->makeApprovedIntake(PurchaseStockIntake::CATEGORY_GROWER, 3, $this->makeRoom(10)),
+            ['E-1', 'E-2', 'E-3'],
+        );
+
+        $pigIds = $intake->pigs->pluck('id')->sort()->values()->all();
+        $events = \DB::table('domain_events')->where('event_type', 'pig.acquired')->get();
+
+        // One per pig, sourced from that pig, each with its own cost: before,
+        // all three shared the intake as source, so only one was recorded and
+        // finance read the intake's id as a pig's id.
+        $this->assertCount(3, $events);
+        $this->assertSame($pigIds, $events->pluck('source_id')->map(fn ($id) => (int) $id)->sort()->values()->all());
+        $this->assertSame([PigManagement::class], $events->pluck('source_type')->unique()->values()->all());
+        $this->assertSame(['366.6667'], $events->map(fn ($e) => number_format(json_decode($e->payload, true)['acquisition_cost'], 4, '.', ''))->unique()->values()->all());
+    }
+
+    public function test_each_animals_sex_comes_from_tagging_not_a_guess(): void
+    {
+        $this->actingAs($this->manager);
+        $service = app(PurchaseStockIntakeService::class);
+        $intake = $this->makeApprovedIntake(PurchaseStockIntake::CATEGORY_GROWER, 3, $this->makeRoom(10));
+        $intake->update(['male_quantity' => 0, 'female_quantity' => 1]);
+
+        // The order only says 1 female: the other two are not made up.
+        try {
+            $service->addToStock($intake->fresh(), ['S-1', 'S-2', 'S-3']);
+            $this->fail('Animals with no known sex were given one.');
+        } catch (StockValidationException $e) {
+            $this->assertSame('genders', $e->field);
+        }
+
+        $intake = $service->addToStock($intake->fresh(), ['S-1', 'S-2', 'S-3'], ['genders' => ['F', 'M', 'M']]);
+        $this->assertSame(['F', 'M', 'M'], $intake->pigs->sortBy('id')->pluck('gender')->values()->all());
+    }
+
+    public function test_only_animals_that_arrive_unwell_open_a_health_case(): void
+    {
+        $this->actingAs($this->manager);
+        $service = app(PurchaseStockIntakeService::class);
+
+        $healthy = $this->makeApprovedIntake(PurchaseStockIntake::CATEGORY_GROWER, 2, $this->makeRoom(10));
+        $healthy->update(['health_status' => 'healthy']);
+        $service->addToStock($healthy->fresh(), ['H-1', 'H-2']);
+        $this->assertSame(0, \App\Models\HealthRecord::count(), 'Healthy animals must not count as health cases.');
+
+        $sick = $this->makeApprovedIntake(PurchaseStockIntake::CATEGORY_GROWER, 2, $this->makeRoom(10));
+        $sick->update(['health_status' => 'sick', 'health_notes' => 'Coughing']);
+        $sick = $service->addToStock($sick->fresh(), ['K-1', 'K-2']);
+
+        $case = \App\Models\HealthRecord::sole();
+        $this->assertSame('open', $case->case_status);
+        $this->assertSame('moderate', $case->severity);
+        $this->assertSame('Coughing', $case->symptoms);
+        $this->assertSame($sick->pigs->pluck('id')->sort()->values()->all(), $case->animals()->pluck('pig_id')->sort()->values()->all());
+    }
+
+    public function test_creating_an_intake_needs_sound_dates_breed_age_and_cost(): void
+    {
+        $this->actingAs($this->dataEntry);
+
+        $this->post(route('purchase-stock-intakes.store'), $this->validCreatePayload(['purchase_date' => now()->addDay()->toDateString()]))
+            ->assertSessionHasErrors('purchase_date');
+        $this->post(route('purchase-stock-intakes.store'), $this->validCreatePayload(['breed' => null]))
+            ->assertSessionHasErrors('breed');
+        $this->post(route('purchase-stock-intakes.store'), $this->validCreatePayload(['estimated_age_days' => null]))
+            ->assertSessionHasErrors(['estimated_age_days', 'estimated_date_of_birth']);
+        $this->post(route('purchase-stock-intakes.store'), $this->validCreatePayload(['estimated_age_days' => null, 'estimated_date_of_birth' => now()->addDay()->toDateString()]))
+            ->assertSessionHasErrors('estimated_date_of_birth');
+        $this->post(route('purchase-stock-intakes.store'), $this->validCreatePayload(['total_purchase_cost' => null]))
+            ->assertSessionHasErrors('total_purchase_cost');
+        $this->post(route('purchase-stock-intakes.store'), $this->validCreatePayload(['quantity_ordered' => 5000, 'average_weight_kg' => 9000]))
+            ->assertSessionHasErrors(['quantity_ordered', 'average_weight_kg']);
+        $this->post(route('purchase-stock-intakes.store'), $this->validCreatePayload(['health_status' => 'good-ish']))
+            ->assertSessionHasErrors('health_status');
+
+        $this->assertSame(0, PurchaseStockIntake::count());
+    }
+
+    public function test_receiving_nothing_is_refused_and_the_intake_can_be_cancelled_instead(): void
+    {
+        $intake = $this->makePendingIntake(PurchaseStockIntake::CATEGORY_GROWER, 2);
+
+        $this->actingAs($this->dataEntry)
+            ->post(route('purchase-stock-intakes.receive', $intake), ['quantity_received' => 0])
+            ->assertSessionHasErrors('quantity_received');
+        $this->actingAs($this->dataEntry)
+            ->post(route('purchase-stock-intakes.cancel', $intake), ['cancellation_reason' => 'Not delivered'])
+            ->assertForbidden();
+
+        $this->flushSession();
+        $this->actingAs($this->manager)
+            ->post(route('purchase-stock-intakes.cancel', $intake), ['cancellation_reason' => 'Not delivered'])
+            ->assertRedirect(route('purchase-stock-intakes.show', $intake));
+        $this->assertSame(PurchaseStockIntake::STATUS_CANCELLED, $intake->fresh()->status);
+        $this->assertStringContainsString('Cancelled: Not delivered', $intake->fresh()->notes);
+    }
+
+    public function test_an_intake_in_stock_cannot_be_cancelled(): void
+    {
+        $this->actingAs($this->manager);
+        $intake = app(PurchaseStockIntakeService::class)->addToStock(
+            $this->makeApprovedIntake(PurchaseStockIntake::CATEGORY_GROWER, 1, $this->makeRoom(10)), ['C-1'],
+        );
+
+        $this->post(route('purchase-stock-intakes.cancel', $intake), ['cancellation_reason' => 'oops'])
+            ->assertSessionHasErrors('status');
+        $this->assertSame(PurchaseStockIntake::STATUS_ADDED_TO_STOCK, $intake->fresh()->status);
+    }
+
+    public function test_each_farm_numbers_its_own_batches(): void
+    {
+        $this->makePendingIntake(PurchaseStockIntake::CATEGORY_GROWER, 1);
+        $other = Organization::create(['slug' => 'other-farm', 'name' => 'Other Farm']);
+        $this->app->make(CurrentOrganization::class)->bind($other);
+
+        // Same number as the first farm's first batch; unique per farm only.
+        $this->assertSame('PP-' . now()->year . '-001', PurchaseStockIntake::nextBatchNumber());
+        PurchaseStockIntake::create(['batch_number' => PurchaseStockIntake::nextBatchNumber(), 'organization_id' => $other->id,
+            'supplier_name' => 'S', 'purchase_date' => now(), 'animal_category' => 'grower', 'quantity_ordered' => 1,
+            'status' => PurchaseStockIntake::STATUS_PENDING_RECEIVE]);
+        $this->assertSame(2, PurchaseStockIntake::withoutGlobalScopes()->where('batch_number', 'PP-' . now()->year . '-001')->count());
     }
 
     protected function makeUser(string $roleName, ?Organization $organization = null): User

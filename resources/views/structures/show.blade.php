@@ -1,4 +1,5 @@
 <x-app-layout>
+    @php $canManageFacilities = auth()->user()?->hasPermission('manage_facilities'); @endphp
     <style>
         .structure-show-page{
             min-height: 100vh;
@@ -661,6 +662,7 @@
                         </div>
                     </div>
 
+                    @if($canManageFacilities)
                     <div class="structure-show-actions">
                         <a href="{{ route('structures.edit', $structure) }}" class="structure-top-btn edit">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -680,6 +682,7 @@
                             </button>
                         </form>
                     </div>
+                    @endif
                 </div>
             </div>
 
@@ -743,9 +746,11 @@
                             <h2 class="structure-card-title">Room Inventory</h2>
                             <div class="structure-card-sub">Filter rooms and manage existing room allocation inside this structure.</div>
                         </div>
+                        @if($canManageFacilities)
                         <button type="button" class="structure-add-room-btn" data-room-modal-open>
                             Add Room
                         </button>
+                        @endif
                     </div>
                 </div>
 
@@ -893,6 +898,7 @@
                                     <td>
                                         <div class="structure-actions">
                                             <a href="{{ route('rooms.show', $room) }}" class="structure-action-link view">View</a>
+                                            @if($canManageFacilities)
                                             <a href="{{ route('rooms.edit', $room) }}" class="structure-action-link edit">Edit</a>
 
                                             <form action="{{ route('structures.rooms.destroy', [$structure, $room]) }}" method="POST" onsubmit="return confirm('Delete this room?');" class="inline">
@@ -900,6 +906,7 @@
                                                 @method('DELETE')
                                                 <button type="submit" class="structure-action-link delete">Delete</button>
                                             </form>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>
@@ -930,6 +937,7 @@
         </div>
     </div>
 
+    @if($canManageFacilities)
     <div class="structure-modal-backdrop" data-room-modal aria-hidden="true">
         <div class="structure-modal" role="dialog" aria-modal="true" aria-labelledby="roomModalTitle">
             <div class="structure-modal-head">
@@ -985,6 +993,7 @@
             </form>
         </div>
     </div>
+    @endif
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {

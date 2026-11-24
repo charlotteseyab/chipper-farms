@@ -19,9 +19,9 @@ class StockCountController extends Controller
         $counts = StockCount::with('counter')
             ->withCount(['lines', 'lines as differences_count' => fn ($q) => $q->where('difference_qty', '!=', 0)])
             ->latest('counted_at')->latest('id')
-            ->paginate(20);
+            ->paginate(20)->withQueryString();
 
-        return view('stock-counts.index', compact('counts'));
+        return view('stock-counts.index', compact('counts') + ['glance' => app(\App\Services\Feed\FeedGlanceService::class)->stockCounts()]);
     }
 
     public function create(Request $request, FeedPlanningService $planning)

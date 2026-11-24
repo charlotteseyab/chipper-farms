@@ -13,6 +13,7 @@
             </div>
             <p class="mt-1 text-sm text-slate-500">{{ $visit->visited_at->format('H:i') }}@if($visit->clinic) · {{ $visit->clinic }}@endif @if($visit->room) · {{ $visit->room->name }}@endif · notes entered by {{ $visit->enteredBy?->name ?? '—' }}</p>
         </div>
+        <x-health.glance :cards="$glance" />
         @if(session('success'))<p role="status" class="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{{ session('success') }}</p>@endif
         @if(session('error'))<p role="alert" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ session('error') }}</p>@endif
         @if($errors->any())<ul role="alert" class="list-disc list-inside rounded-xl bg-red-50 p-3 text-sm text-red-700">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>@endif

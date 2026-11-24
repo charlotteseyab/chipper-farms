@@ -5,6 +5,7 @@ namespace App\Console\Commands\Finance;
 use App\Models\Finance\Loan;
 use App\Models\Finance\LoanScheduleLine;
 use App\Models\User;
+use App\Models\Organization;
 use App\Services\Finance\Loans\LoanService;
 use App\Support\CurrentOrganization;
 use Carbon\CarbonImmutable;
@@ -31,14 +32,39 @@ class AccrueLoanInterestCommand extends Command
 
     public function handle(LoanService $loans, CurrentOrganization $currentOrg): int
     {
+        if ($currentOrg->id() !== null) {
+            return $this->accrueForOrganization($loans, $currentOrg);
+        }
+
+        // Scheduler invocations have no tenant bound. Process each active
+        // farm under its own context rather than silently selecting orgless loans.
+        $previous = $currentOrg->get();
+        $status = self::SUCCESS;
+        try {
+            foreach (Organization::active()->lazyById(100) as $organization) {
+                $currentOrg->bind($organization);
+                try {
+                    if ($this->accrueForOrganization($loans, $currentOrg) !== self::SUCCESS) {
+                        $status = self::FAILURE;
+                    }
+                } catch (\Throwable $e) {
+                    report($e);
+                    $this->error("Interest accrual failed for organization {$organization->id}.");
+                    $status = self::FAILURE;
+                }
+            }
+        } finally {
+            $currentOrg->bind($previous);
+        }
+
+        return $status;
+    }
+
+    private function accrueForOrganization(LoanService $loans, CurrentOrganization $currentOrg): int
+    {
         $asOf = $this->option('date') ? CarbonImmutable::parse($this->option('date')) : CarbonImmutable::now();
         $dryRun = (bool) $this->option('dry-run');
-        $actor = $this->resolveActor();
-
-        if (! $actor && ! $dryRun) {
-            $this->error('No actor user found. Pass --actor=<user_id>.');
-            return self::FAILURE;
-        }
+        $actor = $this->resolveActor($currentOrg->requireId());
 
         $organizationId = $currentOrg->id();
 
@@ -48,6 +74,15 @@ class AccrueLoanInterestCommand extends Command
                 fn ($q) => $q->whereNull('organization_id'))
             ->where('status', Loan::STATUS_ACTIVE)
             ->get();
+
+        if ($activeLoans->isEmpty()) {
+            return self::SUCCESS;
+        }
+
+        if (! $actor && ! $dryRun) {
+            $this->error('No actor user found. Pass --actor=<user_id>.');
+            return self::FAILURE;
+        }
 
         $planned = 0;
         $posted = 0;
@@ -85,12 +120,15 @@ class AccrueLoanInterestCommand extends Command
         return self::SUCCESS;
     }
 
-    protected function resolveActor(): ?User
+    protected function resolveActor(int $organizationId): ?User
     {
         if ($id = $this->option('actor')) {
-            return User::find((int) $id);
+            return User::query()->where('active_status', true)
+                ->where(fn ($q) => $q->where('organization_id', $organizationId)->orWhere('role', 'superuser'))
+                ->find((int) $id);
         }
-        return User::query()->where('role', 'admin')->orWhere('role', 'superuser')->first()
-            ?? User::query()->first();
+        return User::query()->where('organization_id', $organizationId)
+            ->where('active_status', true)->where('role', 'admin')->orderBy('id')->first()
+            ?? User::query()->where('active_status', true)->where('role', 'superuser')->orderBy('id')->first();
     }
 }

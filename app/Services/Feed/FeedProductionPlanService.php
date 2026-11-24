@@ -43,6 +43,7 @@ class FeedProductionPlanService
             if ($plan->status === 'completed') {
                 return $plan;
             }
+            abort_unless($plan->status === 'planned', 422, 'This production plan was cancelled. Create a new plan if it is needed again.');
             abort_if(($plan->recipe_snapshot['effective_from'] ?? null) && $data['batch_date'] < $plan->recipe_snapshot['effective_from'], 422, 'Production cannot precede the selected recipe effective date.');
             $result = app(ProduceFeedBatchService::class)->execute($actor, [
                 'feed_type_id' => $plan->feed_type_id, 'batch_date' => $data['batch_date'],

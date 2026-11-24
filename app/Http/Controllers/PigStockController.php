@@ -62,6 +62,8 @@ class PigStockController extends Controller
         $query = PigManagement::active();
         $this->applyAllStockFilters($query, $request);
 
+        $perPage = in_array((int) $request->get('per_page'), self::ALL_STOCK_PAGE_SIZES, true) ? (int) $request->get('per_page') : 10;
+
         $pigmanagement = $query
             ->with([
                 'recentWeightAlerts' => fn ($q) => $q->where('acknowledged', false)->orderBy('created_at', 'desc')->limit(1),
@@ -71,10 +73,64 @@ class PigStockController extends Controller
                 'currentEarTagAssignment.tag.color',
             ])
             ->orderBy('created_at', 'desc')
-            ->paginate(10)
+            ->paginate($perPage)
             ->appends($request->query());
 
-        return view('stocks.all.index', compact('pigmanagement', 'q'));
+        // Health status for the animals on this page only: two queries,
+        // not one per row.
+        $pageIds = $pigmanagement->getCollection()->modelKeys();
+        $withdrawalUntil = app(\App\Services\Health\WithdrawalStatusService::class)->restrictedAnimals()
+            ->whereIn('pig_id', $pageIds)->get()
+            ->mapWithKeys(fn ($dose) => [(int) $dose->pig_id => $dose->withdrawal_ends_on]);
+        $openCases = $this->openCasesByPig($pageIds);
+
+        return view('stocks.all.index', compact('pigmanagement', 'q', 'withdrawalUntil', 'openCases', 'perPage'));
+    }
+
+    public const ALL_STOCK_PAGE_SIZES = [10, 25, 50, 100];
+
+    /** Pigs inside a medicine withdrawal period today. */
+    protected function restrictedPigIds(): array
+    {
+        return app(\App\Services\Health\WithdrawalStatusService::class)->restrictedAnimals()->pluck('pig_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
+    }
+
+    /** Pigs in an open health case, on their own or as part of a group case. */
+    protected function sickPigIds(): array
+    {
+        return array_keys($this->openCasesByPig());
+    }
+
+    /**
+     * The most serious open case for each pig.
+     *
+     * @return array<int, \App\Models\HealthRecord>
+     */
+    protected function openCasesByPig(?array $pigIds = null): array
+    {
+        $rank = ['severe' => 3, 'high' => 3, 'moderate' => 2, 'medium' => 2, 'mild' => 1];
+
+        $cases = \App\Models\HealthRecord::query()->notVoided()->whereIn('case_status', ['open', 'under_treatment'])
+            ->when($pigIds !== null, fn ($q) => $q->where(fn ($w) => $w->whereIn('pig_id', $pigIds ?: [0])
+                ->orWhereHas('animals', fn ($a) => $a->whereIn('pig_id', $pigIds ?: [0]))))
+            ->with('animals:id,health_record_id,pig_id')
+            ->get();
+
+        $byPig = [];
+        foreach ($cases as $case) {
+            $ids = $case->animals->pluck('pig_id')->push($case->pig_id)->filter()->map(fn ($id) => (int) $id)->unique();
+            foreach ($ids as $id) {
+                if ($pigIds !== null && ! in_array($id, $pigIds, true)) {
+                    continue;
+                }
+                $current = $byPig[$id] ?? null;
+                if ($current === null || ($rank[$case->severity] ?? 0) > ($rank[$current->severity] ?? 0)) {
+                    $byPig[$id] = $case;
+                }
+            }
+        }
+
+        return $byPig;
     }
 
     protected function applyAllStockFilters($query, Request $request): void
@@ -109,6 +165,9 @@ class PigStockController extends Controller
         if ($request->filled('stock_type')) $query->where('stock_type', $request->stock_type);
         if ($request->filled('breed'))      $query->where('breed', $request->breed);
         if ($request->filled('gender'))     $query->where('gender', $request->gender);
+
+        if ($request->get('health') === 'withdrawal') $query->whereIn('id', $this->restrictedPigIds());
+        if ($request->get('health') === 'sick')       $query->whereIn('id', $this->sickPigIds());
 
         if ($request->filled('has_weights')) {
             if ($request->has_weights === 'yes') {
@@ -177,24 +236,24 @@ class PigStockController extends Controller
     public function create()
     {
         $this->authorize('create', PigManagement::class);
-        $males   = PigManagement::active()->where('gender', 'M')->get();
-        $females = PigManagement::active()->where('gender', 'F')->get();
+        $males   = PigManagement::active()->with('earTagAssignments.tag.color')->where('gender', 'M')->get();
+        $females = PigManagement::active()->with('earTagAssignments.tag.color')->where('gender', 'F')->get();
         return view('breeding_stocks.create', compact('males', 'females'));
     }
 
     public function standardCreate()
     {
         $this->authorize('create', PigManagement::class);
-        $males   = PigManagement::active()->where('gender', 'M')->get();
-        $females = PigManagement::active()->where('gender', 'F')->get();
+        $males   = PigManagement::active()->with('earTagAssignments.tag.color')->where('gender', 'M')->get();
+        $females = PigManagement::active()->with('earTagAssignments.tag.color')->where('gender', 'F')->get();
         return view('stocks.standard.create', compact('males', 'females'));
     }
 
     public function allCreate(\App\Services\Stock\Tags\EarTagAllocator $tagAllocator)
     {
         $this->authorize('create', PigManagement::class);
-        $males      = PigManagement::active()->where('gender', 'M')->get();
-        $females    = PigManagement::active()->where('gender', 'F')->get();
+        $males      = PigManagement::active()->with('earTagAssignments.tag.color')->where('gender', 'M')->get();
+        $females    = PigManagement::active()->with('earTagAssignments.tag.color')->where('gender', 'F')->get();
         $structures = Structure::orderBy('name')->where('status', 'active')->get();
         $tagColors = \App\Models\EarTagColor::where('is_active', true)
             ->where('normalized_name', '!=', 'unspecified')->orderBy('name')->get();
@@ -209,8 +268,8 @@ class PigStockController extends Controller
         $pig = PigManagement::findOrFail($id);
         $this->authorize('update', $pig);
         $pig->load('currentEarTagAssignment.tag.color');
-        $males   = PigManagement::where('gender', 'M')->get();
-        $females = PigManagement::where('gender', 'F')->get();
+        $males   = PigManagement::with('earTagAssignments.tag.color')->where('gender', 'M')->get();
+        $females = PigManagement::with('earTagAssignments.tag.color')->where('gender', 'F')->get();
         $rooms   = Room::with('structure')->orderBy('name')->get();
 
         return view('breeding_stocks.edit', [
@@ -231,8 +290,8 @@ class PigStockController extends Controller
         $structures          = Structure::orderBy('name')->get(['id', 'name']);
         $rooms               = Room::orderBy('name')->get(['id', 'name', 'structure_id']);
         $selectedStructureId = $pig->structure_id ?: optional($pig->room)->structure_id;
-        $fathers             = PigManagement::where('gender', 'M')->orderBy('ear_tag_number')->get(['id', 'ear_tag_number']);
-        $mothers             = PigManagement::where('gender', 'F')->orderBy('ear_tag_number')->get(['id', 'ear_tag_number']);
+        $fathers             = PigManagement::with('earTagAssignments.tag.color')->where('gender', 'M')->orderBy('ear_tag_number')->get();
+        $mothers             = PigManagement::with('earTagAssignments.tag.color')->where('gender', 'F')->orderBy('ear_tag_number')->get();
 
         return view('stocks.standard.edit', compact('pig', 'structures', 'rooms', 'fathers', 'mothers', 'selectedStructureId'));
     }
@@ -415,6 +474,8 @@ class PigStockController extends Controller
             'medication_records' => $pig->medicationAdministrations()->count(),
             'under_withdrawal' => app(\App\Services\Health\WithdrawalStatusService::class)->forPig($pig)['restricted'],
         ];
+        $healthAlerts = app(\App\Services\Health\HealthAlertService::class)
+            ->alerts(\Carbon\CarbonImmutable::now(), pigId: $pig->id);
 
         $offspring = PigManagement::where(function ($query) use ($pig) {
             if ($pig->gender === 'M') {
@@ -498,6 +559,7 @@ class PigStockController extends Controller
             'latestHealthRecord',
             'latestMedication',
             'healthSummary',
+            'healthAlerts',
         );
     }
 
@@ -506,7 +568,7 @@ class PigStockController extends Controller
     public function exportCsv(Request $request)
     {
         $this->authorize('viewAny', PigManagement::class);
-        $query = PigManagement::active()->where('stock_type', 'breeding')->with(['latestWeight', 'sale']);
+        $query = PigManagement::active()->where('stock_type', 'breeding')->with(['latestWeight', 'sale', 'earTagAssignments.tag.color', 'father.earTagAssignments.tag.color', 'mother.earTagAssignments.tag.color']);
         $this->applyBasicFilters($query, $request);
 
         return $this->streamCsv('breeding_stocks_' . date('Y-m-d') . '.csv', $query->get(), [
@@ -517,7 +579,7 @@ class PigStockController extends Controller
             $r = $pig->breeding_readiness;
             return [
                 $pig->code,
-                $pig->ear_tag_number,
+                $pig->tagLabelAt(null) ?? '',
                 $pig->breed,
                 $pig->gender === 'M' ? 'Male' : 'Female',
                 $pig->date_of_birth ? $pig->date_of_birth->format('Y-m-d') : 'Not set',
@@ -527,8 +589,8 @@ class PigStockController extends Controller
                 ucfirst(str_replace('_', ' ', $r['factors']['weight']['status'])),
                 $pig->latestWeight ? $pig->latestWeight->weight . ' kg' : 'No data',
                 $pig->latestWeight && $pig->latestWeight->weigh_date ? $pig->latestWeight->weigh_date->format('Y-m-d') : 'No data',
-                $pig->father ? $pig->father->ear_tag_number : 'N/A',
-                $pig->mother ? $pig->mother->ear_tag_number : 'N/A',
+                $pig->father?->identityAt() ?? 'N/A',
+                $pig->mother?->identityAt() ?? 'N/A',
             ];
         });
     }
@@ -536,8 +598,11 @@ class PigStockController extends Controller
     public function exportPdf(Request $request)
     {
         $this->authorize('viewAny', PigManagement::class);
-        $query = PigManagement::active()->where('stock_type', 'breeding')->with(['latestWeight', 'sale', 'father', 'mother']);
+        $query = PigManagement::active()->where('stock_type', 'breeding')->with(['latestWeight', 'sale', 'earTagAssignments.tag.color', 'father.earTagAssignments.tag.color', 'mother.earTagAssignments.tag.color']);
         $this->applyBasicFilters($query, $request);
+        if ($tooMany = \App\Support\PdfExportLimit::check((clone $query)->count())) {
+            return $tooMany;
+        }
         $pigs = $query->get();
         $pdf = Pdf::loadView('breeding_stocks.pdf', compact('pigs'));
         return $pdf->download('breeding_stocks_' . date('Y-m-d') . '.pdf');
@@ -571,7 +636,6 @@ class PigStockController extends Controller
                         ? $pig->room->structure->name . ' / ' . $pig->room->name
                         : '',
                     $pig->latestWeight ? $pig->latestWeight->weight . ' kg' : '',
-                    '',
                 ];
             }
         })();
@@ -600,7 +664,13 @@ class PigStockController extends Controller
             'stock_file' => ['required', 'file', 'mimes:xlsx', 'max:4096'],
         ]);
 
-        $preview = $service->preview($data['stock_file']);
+        try {
+            $preview = $service->preview($data['stock_file']);
+        } catch (StockValidationException $e) {
+            // An unreadable, oversized or too-long file: say so on the upload page.
+            return redirect()->route('all-stocks.import.create')->withErrors(['stock_file' => $e->getMessage()]);
+        }
+        $preview['user_id'] = $request->user()->id;
         $request->session()->put('stock_import_preview', $preview);
 
         return view('stocks.all.import.preview', compact('preview'));
@@ -610,20 +680,31 @@ class PigStockController extends Controller
     {
         $this->authorize('create', PigManagement::class);
 
-        $preview = $request->session()->get('stock_import_preview');
+        // Taken out of the session as it is used, so a second click (or a
+        // second tab) cannot import the same rows again.
+        $preview = $request->session()->pull('stock_import_preview');
         if (! $preview) {
             return redirect()->route('all-stocks.import.create')
                 ->withErrors(['stock_file' => 'Upload and preview an Excel file before confirming import.']);
+        }
+
+        // Confirm imports the file that was previewed on this page: a newer
+        // upload in another tab replaces the stored preview, and this one
+        // must not import that file instead.
+        if (! hash_equals((string) ($preview['token'] ?? ''), (string) $request->input('preview_token'))
+            || ($preview['user_id'] ?? null) !== $request->user()->id) {
+            $request->session()->put('stock_import_preview', $preview);
+
+            return redirect()->route('all-stocks.import.create')
+                ->withErrors(['stock_file' => 'That preview is out of date: another file was previewed since. Upload the file again.']);
         }
 
         try {
             $result = $service->import($preview, $request->user());
         } catch (StockValidationException $e) {
             return redirect()->route('all-stocks.import.create')
-                ->withErrors([$e->field => $e->getMessage()]);
+                ->withErrors(['stock_file' => $e->getMessage()]);
         }
-
-        $request->session()->forget('stock_import_preview');
 
         return redirect()->route('all-stocks.index')
             ->with('success', $result['created_count'] . ' stock record(s) imported successfully.');
@@ -650,9 +731,12 @@ class PigStockController extends Controller
     public function allExportPdf(Request $request)
     {
         $this->authorize('viewAny', PigManagement::class);
-        $query = PigManagement::active()->with(['latestWeight', 'sale', 'father', 'mother']);
+        $query = PigManagement::active()->with(['latestWeight', 'sale', 'earTagAssignments.tag.color', 'father.earTagAssignments.tag.color', 'mother.earTagAssignments.tag.color']);
         $this->applyBasicFilters($query, $request);
         if ($request->stock_type) $query->where('stock_type', $request->stock_type);
+        if ($tooMany = \App\Support\PdfExportLimit::check((clone $query)->count())) {
+            return $tooMany;
+        }
 
         $pigs = $query->get();
         $pdf = Pdf::loadView('stocks.all.pdf', compact('pigs'));
@@ -662,7 +746,7 @@ class PigStockController extends Controller
     public function standardExportCsv(Request $request)
     {
         $this->authorize('viewAny', PigManagement::class);
-        $query = PigManagement::active()->where('stock_type', 'standard')->with(['latestWeight', 'sale']);
+        $query = PigManagement::active()->where('stock_type', 'standard')->with(['latestWeight', 'sale', 'earTagAssignments.tag.color', 'father.earTagAssignments.tag.color', 'mother.earTagAssignments.tag.color']);
         $this->applyBasicFilters($query, $request);
 
         return $this->streamCsv('standard_stocks_' . date('Y-m-d') . '.csv', $query->get(), [
@@ -674,7 +758,7 @@ class PigStockController extends Controller
             $ss = $pig->sale_status;
             return [
                 $pig->code,
-                $pig->ear_tag_number,
+                $pig->tagLabelAt(null) ?? '',
                 $pig->breed,
                 $pig->gender === 'M' ? 'Male' : 'Female',
                 $pig->date_of_birth ? $pig->date_of_birth->format('Y-m-d') : 'Not set',
@@ -687,8 +771,8 @@ class PigStockController extends Controller
                 $ss['sold'] && $pig->sale ? $pig->sale->formatted_sale_price : 'N/A',
                 $ss['sold'] && $pig->sale ? $pig->sale->sale_date->format('Y-m-d') : 'N/A',
                 $ss['sold'] && $pig->sale ? $pig->sale->buyer_name : 'N/A',
-                $pig->father ? $pig->father->ear_tag_number : 'N/A',
-                $pig->mother ? $pig->mother->ear_tag_number : 'N/A',
+                $pig->father?->identityAt() ?? 'N/A',
+                $pig->mother?->identityAt() ?? 'N/A',
             ];
         });
     }
@@ -696,8 +780,11 @@ class PigStockController extends Controller
     public function standardExportPdf(Request $request)
     {
         $this->authorize('viewAny', PigManagement::class);
-        $query = PigManagement::active()->where('stock_type', 'standard')->with(['latestWeight', 'sale', 'father', 'mother']);
+        $query = PigManagement::active()->where('stock_type', 'standard')->with(['latestWeight', 'sale', 'earTagAssignments.tag.color', 'father.earTagAssignments.tag.color', 'mother.earTagAssignments.tag.color']);
         $this->applyBasicFilters($query, $request);
+        if ($tooMany = \App\Support\PdfExportLimit::check((clone $query)->count())) {
+            return $tooMany;
+        }
 
         $pigs = $query->get();
         $pdf = Pdf::loadView('stocks.standard.pdf', compact('pigs'));

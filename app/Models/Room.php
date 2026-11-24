@@ -45,4 +45,19 @@ class Room extends Model
         $currentActive = (int) $activePigsQuery->count();
         return $currentActive < (int) $this->capacity;
     }
+
+    /**
+     * How many more pigs fit, by the same count canAccommodatePig() uses;
+     * null when the room has no capacity limit.
+     */
+    public function freePlaces(): ?int
+    {
+        if (is_null($this->capacity) || (int) $this->capacity <= 0) {
+            return null;
+        }
+
+        $currentActive = (int) $this->pigs()->whereDoesntHave('sales')->whereDoesntHave('deaths')->count();
+
+        return max(0, (int) $this->capacity - $currentActive);
+    }
 }

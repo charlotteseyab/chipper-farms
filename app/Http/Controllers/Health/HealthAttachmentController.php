@@ -36,6 +36,14 @@ class HealthAttachmentController extends Controller
         return $files->stream($attachment);
     }
 
+    /** Images shown in the page, such as a medicine's photo. */
+    public function view(Attachment $attachment, HealthAttachmentService $files)
+    {
+        $this->parentOf($attachment);
+
+        return $files->inline($attachment);
+    }
+
     public function remove(Request $request, Attachment $attachment, HealthAttachmentService $files)
     {
         $this->parentOf($attachment);

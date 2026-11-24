@@ -22,7 +22,7 @@ class UpdateStandardPigRequest extends FormRequest
     {
         return [
             'ear_tag_number' => [
-                'required',
+                'nullable',
                 'string',
                 'max:50',
             ],

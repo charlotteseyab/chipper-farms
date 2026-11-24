@@ -278,4 +278,34 @@ class BankReconciliationServiceTest extends TestCase
         $this->expectException(\DomainException::class);
         $this->service->archive($rec, $this->user, 'cleanup');
     }
+    public function test_uncleared_deposit_reconciles_against_lower_bank_balance(): void
+    {
+        $batch = $this->postJournalToBank('2026-05-15', '100', '0');
+        $method = \App\Models\PaymentMethod::create(['code' => 'BANK-REVIEW', 'name' => 'Bank review', 'is_bank' => true, 'is_active' => true]);
+        $customer = \App\Models\Counterparty::create(['type' => 'customer', 'code' => 'REVIEW-CUST', 'name' => 'Review customer']);
+        \App\Models\Finance\Receipt::create(['receipt_number' => 'REVIEW-RCT', 'counterparty_id' => $customer->id,
+            'receipt_date' => '2026-05-15', 'currency_code' => 'GHS', 'exchange_rate' => '1', 'amount' => '100',
+            'allocated_amount' => '0', 'payment_method_id' => $method->id, 'source_account_id' => $this->cashAccount->id,
+            'status' => 'posted', 'journal_batch_id' => $batch->id, 'created_by_user_id' => $this->user->id]);
+        $rec = $this->service->createDraft($this->bankAccount, '2026-05-01', '2026-05-31', '0', $this->user);
+        $this->assertEquals(100, (float) $rec->outstanding_deposits);
+        $this->assertEquals(0, (float) $rec->reconciliation_difference);
+        $this->assertSame(BankReconciliation::STATUS_RECONCILED, $this->service->reconcile($rec, $this->user)->status);
+    }
+
+    public function test_uncleared_withdrawal_reconciles_against_higher_bank_balance(): void
+    {
+        $batch = $this->postJournalToBank('2026-05-15', '0', '100');
+        $method = \App\Models\PaymentMethod::create(['code' => 'BANK-OUT', 'name' => 'Bank out', 'is_bank' => true, 'is_active' => true]);
+        $supplier = \App\Models\Counterparty::create(['type' => 'supplier', 'code' => 'REVIEW-SUP', 'name' => 'Review supplier']);
+        \App\Models\Finance\Payment::create(['payment_number' => 'REVIEW-PAY', 'counterparty_id' => $supplier->id,
+            'payment_date' => '2026-05-15', 'currency_code' => 'GHS', 'exchange_rate' => '1', 'amount' => '100',
+            'allocated_amount' => '0', 'payment_method_id' => $method->id, 'source_account_id' => $this->cashAccount->id,
+            'status' => 'posted', 'journal_batch_id' => $batch->id, 'created_by_user_id' => $this->user->id]);
+        $rec = $this->service->createDraft($this->bankAccount, '2026-05-01', '2026-05-31', '0', $this->user);
+        $this->assertEquals(100, (float) $rec->outstanding_withdrawals);
+        $this->assertEquals(0, (float) $rec->reconciliation_difference);
+        $this->assertSame(BankReconciliation::STATUS_RECONCILED, $this->service->reconcile($rec, $this->user)->status);
+    }
+
 }

@@ -77,6 +77,18 @@ class Journal extends Model
         return $q->where('status', self::STATUS_POSTED);
     }
 
+    /** Posted history remains in the ledger after reversal; rejected drafts do not. */
+    public function scopeAffectingLedger(Builder $query): Builder
+    {
+        return $query->where(function (Builder $q) {
+            $q->where('journals.status', self::STATUS_POSTED)
+                ->orWhere(function (Builder $reversed) {
+                    $reversed->where('journals.status', self::STATUS_REVERSED)
+                        ->whereHas('batch', fn (Builder $batch) => $batch->whereNotNull('posted_at')->orWhereNotNull('reversed_by_batch_id'));
+                });
+        });
+    }
+
     public function scopeForPeriod(Builder $q, int $periodId): Builder
     {
         return $q->where('fiscal_period_id', $periodId);

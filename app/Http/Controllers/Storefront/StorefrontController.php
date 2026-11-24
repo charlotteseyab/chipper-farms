@@ -236,6 +236,9 @@ class StorefrontController extends Controller
         $animalQuery = \App\Models\Storefront\StorefrontListingPig::query()
             ->where('storefront_listing_id', $listing->getKey())
             ->whereIn('status', \App\Models\Storefront\StorefrontListingPig::SELLABLE_STATUSES)
+            // Only animals that may be sold today: one under medicine
+            // withdrawal or a health hold is not offered, not even greyed out.
+            ->whereKey(app(\App\Storefront\Services\StorefrontPigPoolService::class)->eligibleRows($listing)->pluck('id')->all())
             ->with('pig.latestWeight')
             ->when($animalSearch !== '', function ($q) use ($animalSearch) {
                 $term = '%' . $animalSearch . '%';

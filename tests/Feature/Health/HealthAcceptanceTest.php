@@ -92,6 +92,45 @@ class HealthAcceptanceTest extends TestCase
             ->assertSeeInOrder(['Case closed: Recovered', 'Follow-up: Improving', 'Dose: Amoxicillin', 'Treatment course', 'Health case: Lameness']);
     }
 
+    /**
+     * "Resolved — recovered, keep watching" puts a recovery check on the
+     * worklist on the chosen day; "still well" then closes the case, and the
+     * check is gone. Resolved cannot go with an outcome like died.
+     */
+    public function test_a_resolved_case_is_checked_again_on_the_worklist(): void
+    {
+        $pig = $this->pig();
+        $case = $this->openCase([$pig], 'Cough');
+
+        $this->actingAs($this->dataEntry)->from(route('health-cases.show', $case))->post(route('health-cases.close', $case), [
+            'final_status' => 'resolved', 'outcome' => 'died', 'closed_at' => now()->format('Y-m-d H:i'), 'check_on' => now()->addWeek()->toDateString(),
+        ])->assertSessionHasErrors('outcome');
+
+        $this->actingAs($this->dataEntry)->post(route('health-cases.close', $case), [
+            'final_status' => 'resolved', 'outcome' => 'recovered', 'closed_at' => now()->format('Y-m-d H:i'), 'check_on' => now()->addWeek()->toDateString(),
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(now()->addWeek()->toDateString(), $case->fresh()->check_on->toDateString());
+
+        $worklist = app(\App\Services\Health\HealthWorklistService::class);
+        $this->assertCount(0, $worklist->followUpsDue(\Carbon\CarbonImmutable::now()), 'Not due before the check date.');
+
+        $this->travelTo(now()->addWeek()->setTime(9, 0));
+        $due = $worklist->followUpsDue(\Carbon\CarbonImmutable::now());
+        $this->assertCount(1, $due);
+        $this->assertSame('case_check', $due->first()['kind']);
+        $this->assertStringContainsString('Check recovery', $due->first()['title']);
+        $this->actingAs($this->dataEntry)->get(route('health-cases.show', $case))->assertOk()
+            ->assertSee('Recovered, being watched until')->assertSee('Still well — close the case');
+
+        // Still well: one click closes it, and the check is done.
+        $this->actingAs($this->dataEntry)->post(route('health-cases.close', $case), [
+            'final_status' => 'closed', 'outcome' => 'recovered', 'closed_at' => now()->format('Y-m-d H:i'), 'closure_notes' => 'Still well at the recovery check.',
+        ])->assertSessionHasNoErrors();
+        $this->assertSame('closed', $case->fresh()->case_status);
+        $this->assertNull($case->fresh()->check_on);
+        $this->assertCount(0, $worklist->followUpsDue(\Carbon\CarbonImmutable::now()));
+    }
+
     /** Scenario 3: a group treated in part, then a pen change; who was treated and what was used stay as recorded. */
     public function test_scenario_3_partial_group_treatment_survives_a_pen_change(): void
     {

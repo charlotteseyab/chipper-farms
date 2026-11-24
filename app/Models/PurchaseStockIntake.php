@@ -131,10 +131,12 @@ class PurchaseStockIntake extends Model
         $prefix = "PP-{$year}-";
         $last = static::withTrashed()
             ->where('batch_number', 'like', $prefix . '%')
+            // By length first, so PP-2026-1000 comes after PP-2026-999.
+            ->orderByRaw('LENGTH(batch_number) DESC')
             ->orderByDesc('batch_number')
             ->value('batch_number');
 
-        $next = $last ? ((int) substr($last, -3)) + 1 : 1;
+        $next = $last ? ((int) substr($last, strlen($prefix))) + 1 : 1;
 
         return $prefix . str_pad((string) $next, 3, '0', STR_PAD_LEFT);
     }

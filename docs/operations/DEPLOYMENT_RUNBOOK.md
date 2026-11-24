@@ -12,12 +12,13 @@ sequenced deliberately and the reasons are given inline.
 
 | Requirement | Version | Why this specific version |
 |---|---|---|
-| PHP | **8.3+** | Laravel 13's minimum. 8.4 is what the suite runs on. |
+| PHP | **8.4.1+** | Required by the locked Symfony 8 dependencies. Verify CLI and FPM versions before deployment. |
 | MariaDB / MySQL | **MariaDB 11.4+ / MySQL 8.0+** | Row-level locking is load-bearing — order confirmation and document numbering rely on `SELECT ... FOR UPDATE`. SQLite cannot provide it. |
 | Node | **20+** | Vite 6 build toolchain. |
 | Composer | 2.x | |
 | Supervisor | any | Queue workers (`deploy/supervisor/`). |
 | systemd | any | Scheduler (`deploy/systemd/`). |
+| logrotate | any | Rotates `/var/log/chipper-farms/*.log` (`deploy/logrotate/`). Without it the scheduler log grows forever. |
 
 PHP extensions: `pdo_mysql`, `bcmath`, `gd`, `zip`, `mbstring`, `openssl`.
 
@@ -43,6 +44,16 @@ DB_CONNECTION=mysql
 DB_HOST= DB_PORT= DB_DATABASE= DB_USERNAME= DB_PASSWORD=
 
 SESSION_SECURE_COOKIE=true    # if served over HTTPS
+```
+
+**Keep the server from filling up or hanging (October 2026 incident):**
+
+```
+LOG_STACK=daily          # or leave unset; "single" never rotates
+LOG_DAILY_DAYS=14
+LOG_LEVEL=warning        # "debug" in production multiplies log volume
+MAIL_TIMEOUT=10          # seconds before a slow mail server is given up on
+HEALTH_CHECK_TOKEN=…     # enables /health/metrics (disk, queue, outbox)
 ```
 
 **Required for the storefront to function at all:**
@@ -317,12 +328,43 @@ php artisan finance:process-events --replay-failed
 Safe to run: journal postings carry a unique idempotency key, so a replayed
 event that already posted is recognised rather than duplicated.
 
+### Housekeeping (scheduled, nothing to do)
+
+- `queue:prune-failed --hours=168` daily: failed jobs older than a week.
+- `system:prune-housekeeping` daily: read notifications older than 90 days,
+  unread older than 180, expired cache rows. Never touches audit, activity or
+  finance records. `--dry-run` shows what it would remove.
+- Laravel logs: daily files, `LOG_DAILY_DAYS` (14) kept. Set `LOG_STACK=daily`
+  (or leave unset); `LOG_CHANNEL=single` or `LOG_STACK=single` turns rotation off.
+- Server logs: `deploy/logrotate/chipper-farms`.
+
+### Queue incident containment
+
+Supervisor is the only automatic queue consumer. `notifications:process` is
+manual recovery only, limited to 100 jobs or 60 seconds between jobs (an in-flight
+job can take up to its timeout). Do not add it to cron or the scheduler.
+
+During a serialization/disk incident, keep `chipper-farms-worker:*` stopped until
+the corrected release and configuration are deployed. Verify no old cron entry,
+`schedule:work`, manual worker or previous scheduler process still consumes jobs.
+Stop any already-running scheduler-spawned queue worker as well.
+
+Use `--timeout=60` with a queue `retry_after` greater than 60 (default 90).
+Set `LOG_CHANNEL=stack`, `LOG_STACK=daily`, and rebuild cached configuration.
+Install the logrotate file and confirm its timer runs. Daily rotation and record
+truncation are safeguards, not a hard disk quota; monitor free space and growth.
+
+Already queued payloads containing `role.permissions` are not repaired by the
+new serialization code. Inspect affected pending/failed jobs before retrying;
+archive or remove obsolete incident jobs only after operational review. Do not
+blindly retry the entire failed-job backlog. Pruning database rows may not return
+InnoDB file space to the operating system; plan any table rebuild separately.
+
 ### Failed queue jobs
 
 ```bash
 php artisan queue:failed
 php artisan queue:retry <id>
-php artisan queue:retry all
 ```
 
 ---
@@ -337,7 +379,9 @@ consume them. Alert on:
 | `/health/ready` returns 503 | Instance cannot serve traffic |
 | outbox `pending` rising for >15 min | Scheduler dead or subscribers failing |
 | outbox `failed` > 0 | Finance postings dead-lettered — will not self-heal |
-| `failed_jobs` rising | Queue work being lost |
+| `failed_jobs` rising | Queue work being lost — and, in October 2026, a job failing in a loop grew `failed_jobs` to 44 GB |
+| `disk.free_percent` < 15 | A full disk stops the database, the queue and the logs at once (the October 2026 outage) |
+| `disk.log_bytes` > 2 GB | Something is logging in a loop |
 | No `schedule:run` in 5 min | Scheduler stopped; every timed control is inert |
 | Refund `refund_pending` older than 24h | Provider refund submitted but never settled |
 | COD settlement blocked events | Orders cannot complete; cash not recognised |

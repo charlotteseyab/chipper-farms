@@ -74,6 +74,15 @@ class YearEndCloseService
      */
     public function close(FiscalYear $year, User $actor, ?string $notes = null): YearEndClosing
     {
+        return DB::transaction(function () use ($year, $actor, $notes) {
+            $year = FiscalYear::whereKey($year->id)->lockForUpdate()->firstOrFail();
+
+            return $this->closeLocked($year, $actor, $notes);
+        }, 3);
+    }
+
+    private function closeLocked(FiscalYear $year, User $actor, ?string $notes): YearEndClosing
+    {
         if ($year->isLocked()) {
             throw new PeriodCloseException("Fiscal year #{$year->id} is locked; cannot run year-end close.");
         }
@@ -186,7 +195,7 @@ class YearEndCloseService
                 sourceModule:   'finance.close',
                 sourceType:     'year_end_closing',
                 sourceId:       $closing->id,
-                idempotencyKey: 'year_end_close:' . ($organizationId ?? 'null') . ':' . $year->id,
+                idempotencyKey: 'year_end_close:' . ($organizationId ?? 'null') . ':' . $year->id . ':cycle:' . $closing->id,
                 postingPurpose: 'year_end_close',
             );
 
@@ -212,6 +221,15 @@ class YearEndCloseService
      */
     public function reverse(FiscalYear $year, User $actor, string $reason): YearEndClosing
     {
+        return DB::transaction(function () use ($year, $actor, $reason) {
+            $year = FiscalYear::whereKey($year->id)->lockForUpdate()->firstOrFail();
+
+            return $this->reverseLocked($year, $actor, $reason);
+        }, 3);
+    }
+
+    private function reverseLocked(FiscalYear $year, User $actor, string $reason): YearEndClosing
+    {
         if (trim($reason) === '') {
             throw new PeriodCloseException('A reason is required to reverse a year-end close.');
         }
@@ -230,6 +248,9 @@ class YearEndCloseService
         }
 
         return DB::transaction(function () use ($year, $actor, $reason, $closing) {
+            // Reopen under the same year lock before posting the reversal.
+            // A failed reversal rolls this status change back as well.
+            $year->update(['status' => FiscalYear::STATUS_OPEN]);
             $batch = $closing->closingBatch;
             $reversalBatch = $this->reversalService->reverse($batch, $actor, $reason);
 
@@ -275,7 +296,8 @@ class YearEndCloseService
                 DB::raw('SUM(journal_lines.credit) as total_credit'),
             ])
             ->join('journals', 'journal_lines.journal_id', '=', 'journals.id')
-            ->where('journals.status', Journal::STATUS_POSTED)
+            ->whereIn('journals.id', Journal::query()->affectingLedger()->select('journals.id'))
+            ->where('journals.journal_type', '!=', 'closing')
             ->when(
                 $organizationId !== null,
                 fn ($q) => $q->where('journal_lines.organization_id', $organizationId),

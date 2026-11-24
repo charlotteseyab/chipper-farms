@@ -26,10 +26,14 @@ class FinanceRouteViewRegressionTest extends TestCase
 
     public function test_finance_routes_are_not_nested_under_api_prefix(): void
     {
+        // /finance is the module's home (it redirects); the ledger dashboard
+        // sits beside it at /finance/ledger.
+        $home = Route::getRoutes()->getByName('finance.home');
         $dashboard = Route::getRoutes()->getByName('finance.dashboard');
 
-        $this->assertNotNull($dashboard);
-        $this->assertSame('finance', $dashboard->uri());
+        $this->assertNotNull($home);
+        $this->assertSame('finance', $home->uri());
+        $this->assertSame('finance/ledger', $dashboard->uri());
 
         foreach (Route::getRoutes() as $route) {
             $name = $route->getName();

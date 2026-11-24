@@ -197,7 +197,7 @@ class PigWeight extends Model
             // Generate new weight alert
             $alert = \App\Models\WeightAlert::createFromWeight($this, $pig, $standard);
 
-            \Log::info("Weight alert regenerated", [
+            \Log::debug("Weight alert regenerated", [
                 'pig_id' => $pig->id,
                 'ear_tag' => $pig->ear_tag_number,
                 'weight_record_id' => $this->id,

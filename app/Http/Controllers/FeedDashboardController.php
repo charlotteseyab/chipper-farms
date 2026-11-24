@@ -8,9 +8,13 @@ use App\Models\RawMaterial;
 use App\Services\Feed\FeedPerformanceService;
 use App\Services\Feed\FeedPlanningService;
 use App\Services\Feed\FeedStageResolver;
+use App\Services\Feed\FeedTodayService;
 use App\Support\CurrentOrganization;
 use Carbon\CarbonImmutable;
+use App\Services\Feed\FeedReminderService;
+use App\Support\Qty;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 /**
  * One page for the day's feed picture: who is due what today and what has
@@ -19,50 +23,33 @@ use Illuminate\Http\Request;
  */
 class FeedDashboardController extends Controller
 {
-    public function index(FeedPlanningService $planning, FeedPerformanceService $performance)
+    /**
+     * The read-only day's picture, for people who review feed but do not
+     * record it. Anyone who records feedings works from Today (the feeding
+     * form), which carries the same "Needs doing" list.
+     */
+    public function index(FeedTodayService $today, FeedPerformanceService $performance)
     {
+        if (request()->user()->hasPermission('manage_feed_issues')) {
+            return redirect()->route('feed.issues.create');
+        }
+
         $orgId = app(CurrentOrganization::class)->requireId();
-        $today = CarbonImmutable::today();
-
-        $todayPlan = $planning->calculate($orgId, $today->toDateString(), $today->toDateString(), applyWastage: false);
-        $expected = collect($todayPlan['rows'])->keyBy('stage');
-        $animals = collect($todayPlan['locations'])->countBy('stage');
-        $fed = FeedIssue::where('organization_id', $orgId)->notReversed()->whereNotNull('feeding_stage')
-            ->whereDate('issued_at', $today->toDateString())
-            ->selectRaw('feeding_stage, sum(quantity_kg) as kg')->groupBy('feeding_stage')->pluck('kg', 'feeding_stage');
-
-        $stages = collect(FeedStageResolver::STAGES)
-            ->map(function (string $label, string $stage) use ($expected, $animals, $fed) {
-                $due = isset($expected[$stage]) ? (float) $expected[$stage]['daily_kg'] : null;
-                $given = (float) ($fed[$stage] ?? 0);
-
-                return [
-                    'stage' => $stage, 'label' => $label, 'animals' => (int) ($animals[$stage] ?? 0),
-                    'expected_kg' => $due, 'fed_kg' => $given,
-                    'status' => match (true) {
-                        $given <= 0 => 'not_fed',
-                        $due === null => 'fed',
-                        $given < $due * 0.9 => 'under',
-                        $given > $due * 1.1 => 'over',
-                        default => 'fed',
-                    },
-                ];
-            })
-            ->filter(fn (array $row) => $row['animals'] > 0 || $row['fed_kg'] > 0)
-            ->values();
-
-        $week = $planning->calculate($orgId, $today->toDateString(), $today->addDays(6)->toDateString());
-        $fortnight = $planning->calculate($orgId, $today->toDateString(), $today->addDays(13)->toDateString());
+        $summary = $today->summary($orgId);
+        $week = $summary['week'];
+        $date = CarbonImmutable::today();
 
         return view('feeds.dashboard.index', [
-            'stages'      => $stages,
-            'setupIncomplete' => ! $todayPlan['demand_complete'],
+            'needs'       => $summary['needs'],
+            'stages'      => $summary['stages'],
+            'setupIncomplete' => $summary['setupIncomplete'],
             'feeds'       => $week['feeds'],
-            'wastagePercent' => $week['wastage_percent'],
-            'shortMaterials' => collect($fortnight['materials'])->where('shortfall_kg', '>', 0)->values(),
-            'lowMaterials' => RawMaterial::where('is_active', true)->whereColumn('quantity_in_stock', '<=', 'reorder_level')->orderBy('quantity_in_stock')->get(),
-            'openPlans'   => FeedProductionPlan::where('status', 'planned')->count(),
-            'performance' => $performance->forPeriod($orgId, $today->subDays(29), $today),
+            'wastagePercent' => $week['wastage_kg'] > 0 ? (collect($week['feeds'])->first()['wastage_percent'] ?? $week['wastage_percent']) : 0,
+            'wastageVaries' => $week['wastage_varies'] && $week['wastage_kg'] > 0,
+            'shortMaterials' => collect($summary['fortnight']['materials'])->where('shortfall_kg', '>', 0)->values(),
+            'lowMaterials' => $summary['lowMaterials'],
+            'openPlans'   => $summary['openPlans'],
+            'performance' => $performance->forPeriod($orgId, $date->subDays(29), $date),
             'showCosts'   => request()->user()->hasPermission('view_finance'),
         ]);
     }

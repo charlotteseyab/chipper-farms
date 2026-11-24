@@ -25,16 +25,16 @@ use Illuminate\Support\Facades\DB;
  *   GL closing balance for bank account X at period_to
  *     + outstanding withdrawals (cheques we wrote but bank hasn't cleared)
  *     - outstanding deposits     (deposits we recorded but bank hasn't credited)
- *     + bank-only debits         (bank fees, charges, errors against us)
- *     - bank-only credits        (interest, refunds, errors in our favour)
+ *     - bank-only debits         (bank fees, charges, errors against us)
+ *     + bank-only credits        (interest, refunds, errors in our favour)
  *   = bank's stated closing balance
  *
  * Rearranged, the difference must be zero:
  *
  *   diff = bank_closing
  *        - book_closing
- *        - outstanding_deposits
- *        + outstanding_withdrawals
+ *        + outstanding_deposits
+ *        - outstanding_withdrawals
  *        - bank_only_credits
  *        + bank_only_debits
  *
@@ -224,10 +224,10 @@ class BankReconciliationService
         $bankOnly = $this->computeBankOnly($rec);
 
         // The reconciliation difference.
-        // diff = bank_close - book_close - outstanding_deposits + outstanding_withdrawals - bank_only_credits + bank_only_debits
+        // diff = bank_close - book_close + outstanding_deposits - outstanding_withdrawals - bank_only_credits + bank_only_debits
         $diff = bcsub((string) $rec->closing_balance_per_bank, $closingBook, 2);
-        $diff = bcsub($diff, $outstandingDeposits, 2);
-        $diff = bcadd($diff, $outstandingWithdrawals, 2);
+        $diff = bcadd($diff, $outstandingDeposits, 2);
+        $diff = bcsub($diff, $outstandingWithdrawals, 2);
         $diff = bcsub($diff, $bankOnly['credits'], 2);
         $diff = bcadd($diff, $bankOnly['debits'], 2);
 
@@ -458,9 +458,9 @@ class BankReconciliationService
         string $opening,
     ): string {
         $row = JournalLine::query()
-            ->whereHas('journal.batch', function ($q) use ($from, $to, $bankAccount) {
+            ->whereHas('journal', function ($q) use ($from, $to, $bankAccount) {
                 $q->where('organization_id', $bankAccount->organization_id)
-                  ->where('status', JournalBatch::STATUS_POSTED)
+                  ->affectingLedger()
                   ->whereBetween('posting_date', [$from->toDateString(), $to->toDateString()]);
             })
             ->where('account_id', $bankAccount->account_id)

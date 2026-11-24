@@ -642,7 +642,7 @@
                                     <option value="" {{ old('father_id') ? '' : 'selected' }} disabled>Select father</option>
                                     @foreach ($males as $male)
                                         <option value="{{ $male->id }}" {{ old('father_id') == $male->id ? 'selected' : '' }}>
-                                            {{ $male->code }} - {{ $male->ear_tag_number }} ({{ $male->stock_type === 'breeding' ? 'Breeding' : 'Standard' }})
+                                            {{ $male->identityAt() }} ({{ $male->stock_type === 'breeding' ? 'Breeding' : 'Standard' }})
                                         </option>
                                     @endforeach
                                 </select>
@@ -654,7 +654,7 @@
                                     <option value="" {{ old('mother_id') ? '' : 'selected' }} disabled>Select mother</option>
                                     @foreach ($females as $female)
                                         <option value="{{ $female->id }}" {{ old('mother_id') == $female->id ? 'selected' : '' }}>
-                                            {{ $female->code }} - {{ $female->ear_tag_number }} ({{ $female->stock_type === 'breeding' ? 'Breeding' : 'Standard' }})
+                                            {{ $female->identityAt() }} ({{ $female->stock_type === 'breeding' ? 'Breeding' : 'Standard' }})
                                         </option>
                                     @endforeach
                                 </select>

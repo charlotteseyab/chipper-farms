@@ -36,19 +36,20 @@ class FinanceSidebarNavigationTest extends TestCase
 
         $this->actingAs($manager);
 
-        $items = $this->flattenNavigationItems(NavigationHelper::sidebarSections($manager));
+        // Finance screens are tabs on the six finance pages since the merge.
+        $items = $this->financeTabs($manager);
         $labels = array_column($items, 'label');
         $routes = array_column($items, 'route');
 
         $this->assertContains('Reports', $labels);
-        $this->assertContains('Income Statement', $labels);
-        $this->assertContains('Balance Sheet', $labels);
-        $this->assertContains('Cash Flow', $labels);
-        $this->assertContains('Period Close', $labels);
-        $this->assertContains('Year End', $labels);
+        $this->assertContains('Profit & loss', $labels);
+        $this->assertContains('Balance sheet', $labels);
+        $this->assertContains('Cash flow', $labels);
+        $this->assertContains('Month end', $labels);
+        $this->assertContains('Year end', $labels);
         $this->assertContains('Treasury', $labels);
         $this->assertContains('Loans', $labels);
-        $this->assertContains('Reclassification', $labels);
+        $this->assertContains('Loan reclassification', $labels);
 
         $this->assertContains('finance.reports.income-statement', $routes);
         $this->assertContains('finance.reports.balance-sheet', $routes);
@@ -95,14 +96,15 @@ class FinanceSidebarNavigationTest extends TestCase
 
         $this->actingAs($accountant);
 
-        $items = $this->flattenNavigationItems(NavigationHelper::sidebarSections($accountant));
+        // Finance screens are tabs on the six finance pages since the merge.
+        $items = $this->financeTabs($accountant);
         $labels = array_column($items, 'label');
         $routes = array_column($items, 'route');
 
         $this->assertContains('Investors', $labels);
         $this->assertContains('Investors', $labels);
-        $this->assertContains('Investor Cap Table', $labels);
-        $this->assertContains('Allocate Investor Profit', $labels);
+        $this->assertContains('Cap table', $labels);
+        $this->assertContains('Share profit', $labels);
 
         $this->assertContains('finance.investors.index', $routes);
         $this->assertContains('finance.investors.cap-table', $routes);
@@ -153,18 +155,19 @@ class FinanceSidebarNavigationTest extends TestCase
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * Every finance page, tab and sub-tab this user sees, as label/route pairs.
+     *
+     * @return list<array{label: string, route: string}>
      */
-    private function flattenNavigationItems(array $sections): array
+    private function financeTabs(User $user): array
     {
         $items = [];
-
-        foreach ($sections as $section) {
-            foreach ($section['items'] as $item) {
-                $items[] = $item;
-
-                foreach ($item['children'] ?? [] as $child) {
-                    $items[] = $child;
+        foreach (\App\Support\Features\FinanceHubs::visible($user) as $hub) {
+            $items[] = ['label' => $hub['title'], 'route' => $hub['route']];
+            foreach ($hub['tabs'] as $tab) {
+                $items[] = ['label' => $tab['label'], 'route' => $tab['route']];
+                foreach ($tab['children'] as $child) {
+                    $items[] = ['label' => $child['label'], 'route' => $child['route']];
                 }
             }
         }

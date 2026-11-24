@@ -55,7 +55,7 @@ class FeedIssueControllerTest extends TestCase
         $resp = $this->actingAs($this->user)
             ->get(route('feed.issues.create'))
             ->assertOk()
-            ->assertSee('Record Feeding');
+            ->assertSee('Today')->assertSee('id="feeding"', false);
 
         foreach (FeedStageResolver::STAGES as $stage => $label) {
             $resp->assertSee('value="'.$stage.'"', false);
@@ -79,7 +79,7 @@ class FeedIssueControllerTest extends TestCase
             ],
         ]);
 
-        $resp->assertRedirect(route('feed.issues.index'));
+        $resp->assertRedirect(route('feed.issues.create'));
         $resp->assertSessionHas('success');
 
         $this->assertDatabaseHas('feed_issues', ['feeding_stage' => 'grower', 'feed_type_id' => $grower->id, 'quantity_kg' => '50.0000']);
@@ -166,7 +166,7 @@ class FeedIssueControllerTest extends TestCase
 
         $this->actingAs($this->user)->post(route('feed.issues.store'), [
             'entries' => [['stage' => 'grower', 'feed_type_id' => $feed->id, 'quantity_kg' => 10, 'submission_key' => (string) Str::uuid()]],
-        ])->assertRedirect(route('feed.issues.index'));
+        ])->assertRedirect(route('feed.issues.create'));
 
         $this->actingAs($this->user)->get(route('feed.issues.index'))
             ->assertOk()

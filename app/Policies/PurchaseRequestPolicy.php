@@ -38,18 +38,18 @@ class PurchaseRequestPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager() || $user->isDataEntry() || $user->isAccountant();
+        return $user->hasPermission('view_purchase_requests');
     }
 
     public function view(User $user, PurchaseRequest $request): bool
     {
         return $this->sameOrganization($user, $request)
-            && ($user->isAdmin() || $user->isManager() || $user->isDataEntry() || $user->isAccountant());
+            && $user->hasPermission('view_purchase_requests');
     }
 
     public function create(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager() || $user->isDataEntry();
+        return $user->hasPermission('create_purchase_requests');
     }
 
     public function update(User $user, PurchaseRequest $request): bool
@@ -60,7 +60,7 @@ class PurchaseRequestPolicy
         if ($request->status !== 'pending') {
             return false;
         }
-        return $user->isAdmin() || $user->isManager();
+        return $user->hasPermission('edit_purchase_requests');
     }
 
     public function approve(User $user, PurchaseRequest $request): bool
@@ -71,7 +71,7 @@ class PurchaseRequestPolicy
         if ($request->status !== 'pending') {
             return false;
         }
-        return $user->isAdmin();
+        return $user->hasPermission('approve_purchase_requests');
     }
 
     public function decline(User $user, PurchaseRequest $request): bool
@@ -82,14 +82,14 @@ class PurchaseRequestPolicy
         if ($request->status !== 'pending') {
             return false;
         }
-        return $user->isAdmin();
+        return $user->hasPermission('approve_purchase_requests');
     }
 
     public function complete(User $user, PurchaseRequest $request): bool
     {
         return $this->sameOrganization($user, $request)
             && in_array($request->status, ['approved', 'paid'], true)
-            && ($user->isAdmin() || $user->isAccountant());
+            && $user->hasPermission('complete_purchase_requests');
     }
 
     public function delete(User $user, PurchaseRequest $request): bool
@@ -100,6 +100,6 @@ class PurchaseRequestPolicy
         if ($request->status !== 'pending') {
             return false;
         }
-        return $user->isAdmin();
+        return $user->hasPermission('approve_purchase_requests');
     }
 }

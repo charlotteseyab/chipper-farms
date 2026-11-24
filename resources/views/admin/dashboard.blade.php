@@ -1086,6 +1086,8 @@
 
             <x-dashboard.livestock-overview />
 
+            <x-dashboard.health-overview :health="$healthMetrics" />
+
             <div class="admin-dashboard-grid">
                 <div class="admin-card">
                     <div class="admin-card-head">

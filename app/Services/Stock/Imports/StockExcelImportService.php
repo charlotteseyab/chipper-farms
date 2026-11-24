@@ -30,8 +30,28 @@ class StockExcelImportService
         'DOB',
         'Location',
         'Weight',
-        'Actions',
     ];
+
+    /**
+     * Columns older exports carried that the import never used. A file that
+     * still has one imports normally; the column is left out of the preview.
+     */
+    private const DROPPED_HEADERS = ['actions'];
+
+    /** Rows one file may hold; larger herds import in several files. */
+    public const MAX_ROWS = 1000;
+
+    /** Largest unpacked worksheet or string table read (a 4 MB upload can unpack far larger). */
+    private const MAX_XML_BYTES = 20 * 1024 * 1024;
+
+    /** The same limits the add-a-pig form and weighings use. */
+    private const TAG_MAX_LENGTH = 50;
+    private const WEIGHT_MIN_KG = 0.1;
+    private const WEIGHT_MAX_KG = 500;
+    private const MAX_AGE_YEARS = 15;
+
+    /** What Excel shows in a cell whose formula failed. */
+    private const EXCEL_ERRORS = ['#N/A', '#REF!', '#VALUE!', '#DIV/0!', '#NAME?', '#NUM!', '#NULL!', '#SPILL!', '#CALC!'];
 
     private const FIELD_BY_HEADER = [
         'ear tag' => 'ear_tag_number',
@@ -42,7 +62,6 @@ class StockExcelImportService
         'dob' => 'date_of_birth',
         'location' => 'location',
         'weight' => 'weight',
-        'actions' => 'actions',
     ];
 
     public function __construct(
@@ -57,6 +76,11 @@ class StockExcelImportService
     {
         $rows = $this->readXlsx($file->getRealPath());
         $headers = array_shift($rows) ?? [];
+        $dataRows = count(array_filter($rows, fn ($row) => ! $this->isEmptyRow($row)));
+        if ($dataRows > self::MAX_ROWS) {
+            throw new StockValidationException('stock_file', 'The file has ' . number_format($dataRows) . ' rows; import at most '
+                . number_format(self::MAX_ROWS) . ' at a time. Split it into smaller files.');
+        }
         $normalizedHeaders = array_map(fn ($header) => $this->normalizeHeader($header), $headers);
         $expectedHeaders = array_values(self::FIELD_BY_HEADER);
         $missingFields = array_values(array_diff($expectedHeaders, $normalizedHeaders));
@@ -65,23 +89,52 @@ class StockExcelImportService
             $missingFields,
         ));
 
+        // A column given twice is ambiguous: which one holds the pig's data?
+        $duplicateHeaders = array_values(array_map(
+            fn (string $field) => self::HEADERS[array_search($field, $expectedHeaders, true)],
+            array_keys(array_filter(array_count_values(array_filter($normalizedHeaders)), fn ($n) => $n > 1)),
+        ));
+
+        // The file's own columns, as titled in it, so the preview can show
+        // every cell exactly as uploaded (including columns the import does
+        // not use).
+        $columns = [];
+        foreach ($headers as $index => $header) {
+            $title = trim((string) $header);
+            if ($title !== '' && ! in_array(strtolower($title), self::DROPPED_HEADERS, true)) {
+                $columns[$index] = $title;
+            }
+        }
+
         $preview = [
+            // Confirm must name this preview and come from the same farm.
+            'token' => \Illuminate\Support\Str::random(40),
+            'organization_id' => $this->currentOrganization->id(),
             'file_name' => $file->getClientOriginalName(),
             'headers' => $normalizedHeaders,
+            'columns' => array_values($columns),
             'missing_headers' => $missingHeaders,
-            'total_rows' => count($rows),
+            'duplicate_headers' => $duplicateHeaders,
+            'total_rows' => $dataRows,
             'valid_count' => 0,
             'invalid_count' => 0,
             'valid_rows' => [],
             'invalid_rows' => [],
         ];
 
-        if ($missingHeaders !== []) {
+        if ($missingHeaders !== [] || $duplicateHeaders !== []) {
+            $problem = $missingHeaders !== []
+                ? 'Missing required Excel headers: ' . implode(', ', $missingHeaders)
+                : 'These columns appear more than once: ' . implode(', ', $duplicateHeaders) . '. Keep one of each.';
             foreach ($rows as $index => $row) {
+                if ($this->isEmptyRow($row)) {
+                    continue;
+                }
                 $preview['invalid_rows'][] = [
                     'row_number' => $index + 2,
                     'data' => $row,
-                    'errors' => ['Missing required Excel headers: ' . implode(', ', $missingHeaders)],
+                    'cells' => $this->cells($columns, $row),
+                    'errors' => [$problem],
                 ];
             }
             $preview['invalid_count'] = count($preview['invalid_rows']);
@@ -89,6 +142,8 @@ class StockExcelImportService
         }
 
         $seenEarTags = [];
+        $roomFree = [];
+        $roomPlaced = [];
         foreach ($rows as $index => $row) {
             if ($this->isEmptyRow($row)) {
                 continue;
@@ -98,16 +153,36 @@ class StockExcelImportService
             $data = $this->mapRow($normalizedHeaders, $row);
             $result = $this->validateRow($data, $seenEarTags);
 
+            // Room capacity, as saving checks it, counting the pigs this file
+            // has already put in the room: the first rows fill the free
+            // places, and the rows after them are refused here rather than
+            // failing the whole import on confirm.
+            if (! empty($result['data']['room_id'])) {
+                $roomId = $result['data']['room_id'];
+                $roomFree[$roomId] ??= Room::find($roomId)?->freePlaces();
+                if ($roomFree[$roomId] !== null) {
+                    $roomPlaced[$roomId] = ($roomPlaced[$roomId] ?? 0) + 1;
+                    if ($roomPlaced[$roomId] > $roomFree[$roomId]) {
+                        $where = $result['data']['location'];
+                        $result['errors'][] = $roomFree[$roomId] === 0
+                            ? "Room {$where} is full. Choose another room."
+                            : "Room {$where} has space for {$roomFree[$roomId]} more pig(s), and earlier rows in this file already fill it. Choose another room.";
+                    }
+                }
+            }
+
             if ($result['errors'] === []) {
                 $preview['valid_rows'][] = [
                     'row_number' => $rowNumber,
                     'data' => $result['data'],
+                    'cells' => $this->cells($columns, $row),
                 ];
                 $preview['valid_count']++;
             } else {
                 $preview['invalid_rows'][] = [
                     'row_number' => $rowNumber,
                     'data' => $result['data'],
+                    'cells' => $this->cells($columns, $row),
                     'errors' => $result['errors'],
                 ];
                 $preview['invalid_count']++;
@@ -126,12 +201,21 @@ class StockExcelImportService
         if (($preview['invalid_count'] ?? 0) > 0) {
             throw new StockValidationException('import', 'Fix invalid rows before confirming the stock import.');
         }
+        if (($preview['organization_id'] ?? null) !== $this->currentOrganization->id()) {
+            throw new StockValidationException('import', 'This preview belongs to another farm. Upload the file again.');
+        }
 
         $created = [];
 
         DB::transaction(function () use ($preview, &$created) {
             foreach ($preview['valid_rows'] as $row) {
-                $pig = $this->stockService->create($this->creationPayload($row['data']));
+                // Things can change between preview and confirm (another pig
+                // put in the room); say which row, and nothing is imported.
+                try {
+                    $pig = $this->stockService->create($this->creationPayload($row['data']));
+                } catch (StockValidationException $e) {
+                    throw new StockValidationException('stock_file', "Row {$row['row_number']}: {$e->getMessage()} Nothing was imported; upload the file again.");
+                }
 
                 if (($row['data']['weight'] ?? '') !== '') {
                     PigWeight::create([
@@ -176,7 +260,10 @@ class StockExcelImportService
         $roomName = '';
 
         try {
-            $room = Room::with('structure')->orderBy('name')->first();
+            // A room with space for every sample row, so the sample imports as is.
+            $needed = min(3, count(Setting::animalBreeds()));
+            $room = Room::with('structure')->whereHas('structure')->orderBy('name')->get()
+                ->first(fn (Room $room) => ($free = $room->freePlaces()) === null || $free >= $needed);
             $structureName = $room?->structure?->name ?? '';
             $roomName = $room?->name ?? '';
         } catch (\Throwable) {
@@ -200,7 +287,6 @@ class StockExcelImportService
                 $index % 2 === 0 ? 'Male' : 'Female',
                 now()->subMonths(8 + $index)->format('Y-m-d'),
                 $structureName !== '' && $roomName !== '' ? "{$structureName} / {$roomName}" : '',
-                '',
                 '',
             ];
         }
@@ -233,14 +319,14 @@ class StockExcelImportService
         }
 
         $sharedStrings = $this->readSharedStrings($zip);
-        $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+        $sheetXml = $this->readPart($zip, $this->firstSheetPath($zip));
         $zip->close();
 
         if ($sheetXml === false) {
             throw new StockValidationException('stock_file', 'The Excel file must contain a first worksheet.');
         }
 
-        $xml = simplexml_load_string($sheetXml);
+        $xml = $this->parseXml($sheetXml);
         $rows = [];
 
         foreach ($xml->sheetData->row ?? [] as $row) {
@@ -265,15 +351,82 @@ class StockExcelImportService
         return $rows;
     }
 
+    /**
+     * The first worksheet as the workbook orders it. Excel names sheet files
+     * by creation, so after sheets are added, removed or reordered the first
+     * tab need not be sheet1.xml.
+     */
+    protected function firstSheetPath(ZipArchive $zip): string
+    {
+        $fallback = 'xl/worksheets/sheet1.xml';
+        $workbook = $this->readPart($zip, 'xl/workbook.xml');
+        $rels = $this->readPart($zip, 'xl/_rels/workbook.xml.rels');
+        if ($workbook === false || $rels === false) {
+            return $fallback;
+        }
+
+        $book = $this->parseXml($workbook);
+        $sheet = $book->sheets->sheet[0] ?? null;
+        $relId = $sheet ? (string) ($sheet->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships')['id'] ?? '') : '';
+        foreach ($this->parseXml($rels)->Relationship ?? [] as $rel) {
+            if ((string) $rel['Id'] === $relId) {
+                $target = ltrim((string) $rel['Target'], '/');
+
+                return str_starts_with($target, 'xl/') ? $target : 'xl/' . $target;
+            }
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * One part of the workbook, refusing parts that unpack to more than
+     * MAX_XML_BYTES: a small upload can hide a huge file (a "zip bomb").
+     */
+    protected function readPart(ZipArchive $zip, string $name): string|false
+    {
+        $stat = $zip->statName($name);
+        if ($stat === false) {
+            return false;
+        }
+        if ($stat['size'] > self::MAX_XML_BYTES) {
+            throw new StockValidationException('stock_file', 'The Excel file is too large to read. Remove unused rows, columns and sheets, or split it.');
+        }
+
+        return $zip->getFromName($name);
+    }
+
+    /**
+     * Parse workbook XML. Spreadsheet parts never declare a DOCTYPE; one that
+     * does is refused, which shuts out entity tricks (external files,
+     * "billion laughs" expansion) whatever the XML library's defaults.
+     */
+    protected function parseXml(string $xml): \SimpleXMLElement
+    {
+        if (stripos($xml, '<!DOCTYPE') !== false || stripos($xml, '<!ENTITY') !== false) {
+            throw new StockValidationException('stock_file', 'The Excel file could not be read. Save it again from Excel and retry.');
+        }
+
+        $previous = libxml_use_internal_errors(true);
+        $parsed = simplexml_load_string($xml, \SimpleXMLElement::class, LIBXML_NONET);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+        if ($parsed === false) {
+            throw new StockValidationException('stock_file', 'The Excel file could not be read. Save it again from Excel and retry.');
+        }
+
+        return $parsed;
+    }
+
     protected function readSharedStrings(ZipArchive $zip): array
     {
-        $xml = $zip->getFromName('xl/sharedStrings.xml');
+        $xml = $this->readPart($zip, 'xl/sharedStrings.xml');
         if ($xml === false) {
             return [];
         }
 
         $shared = [];
-        $strings = simplexml_load_string($xml);
+        $strings = $this->parseXml($xml);
         foreach ($strings->si ?? [] as $si) {
             if (isset($si->t)) {
                 $shared[] = (string) $si->t;
@@ -335,6 +488,27 @@ class StockExcelImportService
         return $data;
     }
 
+    /**
+     * A row's cells under the file's own column titles, as uploaded. Dates
+     * Excel stored as serial numbers are shown as dates.
+     *
+     * @param  array<int, string>  $columns  column index => title
+     * @return list<string>
+     */
+    protected function cells(array $columns, array $row): array
+    {
+        $cells = [];
+        foreach ($columns as $index => $title) {
+            $value = trim((string) ($row[$index] ?? ''));
+            if ($this->normalizeHeader($title) === 'date_of_birth') {
+                $value = $this->normalizeDateInput($value);
+            }
+            $cells[] = $value;
+        }
+
+        return $cells;
+    }
+
     protected function isEmptyRow(array $row): bool
     {
         return implode('', array_map(fn ($value) => trim((string) $value), $row)) === '';
@@ -343,6 +517,16 @@ class StockExcelImportService
     protected function validateRow(array $data, array $seenEarTags): array
     {
         $errors = [];
+
+        // A failed formula in Excel leaves its error text in the cell.
+        $flagged = [];
+        foreach (self::FIELD_BY_HEADER as $header => $field) {
+            if (in_array(strtoupper(trim((string) ($data[$field] ?? ''))), self::EXCEL_ERRORS, true)) {
+                $errors[] = ucfirst($header) . ' holds an Excel error (' . trim($data[$field]) . '). Fix the cell in Excel.';
+                $data[$field] = '';
+                $flagged[] = $field;
+            }
+        }
         $data['ear_tag_number'] = $this->normalizeTextInput($data['ear_tag_number'] ?? '');
         $data['tag_color'] = trim($data['tag_color'] ?? '');
         $data['breed'] = $this->normalizeBreed($data['breed'] ?? '');
@@ -363,9 +547,13 @@ class StockExcelImportService
         $data['weight'] = $this->normalizeWeight($data['weight'] ?? '');
 
         foreach (['ear_tag_number', 'tag_color', 'breed', 'gender', 'stock_type', 'date_of_birth'] as $field) {
-            if ($data[$field] === '') {
+            if ($data[$field] === '' && ! in_array($field, $flagged, true)) {
                 $errors[] = str_replace('_', ' ', $field) . ' is required.';
             }
+        }
+
+        if (mb_strlen($data['ear_tag_number']) > self::TAG_MAX_LENGTH) {
+            $errors[] = 'Ear tag must be at most ' . self::TAG_MAX_LENGTH . ' characters.';
         }
 
         if ($data['ear_tag_number'] !== '') {
@@ -424,6 +612,13 @@ class StockExcelImportService
 
         if ($data['date_of_birth'] !== '' && ! $this->validDate($data['date_of_birth'])) {
             $errors[] = 'Date of birth must use YYYY-MM-DD.';
+        } elseif ($data['date_of_birth'] !== '') {
+            $born = Carbon::createFromFormat('Y-m-d', $data['date_of_birth'])->startOfDay();
+            if ($born->isAfter(today())) {
+                $errors[] = 'Date of birth cannot be in the future.';
+            } elseif ($born->isBefore(today()->subYears(self::MAX_AGE_YEARS))) {
+                $errors[] = 'Date of birth is more than ' . self::MAX_AGE_YEARS . ' years ago. Check the year.';
+            }
         }
 
         if ($data['acquisition_source'] !== '' && ! in_array($data['acquisition_source'], ['born_on_farm', 'purchased'], true)) {
@@ -436,6 +631,15 @@ class StockExcelImportService
 
         if ($data['weight'] !== '' && (! is_numeric($data['weight']) || (float) $data['weight'] <= 0)) {
             $errors[] = 'Weight must be a number greater than zero, expressed in kg.';
+        } elseif ($data['weight'] !== '' && ((float) $data['weight'] < self::WEIGHT_MIN_KG || (float) $data['weight'] > self::WEIGHT_MAX_KG)) {
+            $errors[] = 'Weight must be between ' . self::WEIGHT_MIN_KG . ' and ' . self::WEIGHT_MAX_KG . ' kg.';
+        }
+
+        // A location has to name a room, written as "Structure / Room";
+        // otherwise the pig would be imported with no room, silently.
+        if (trim($data['location'] ?? '') !== '' && strcasecmp(trim($data['location']), 'N/A') !== 0
+            && ($data['structure'] === '' || $data['room_name'] === '')) {
+            $errors[] = 'Location must be written as Structure / Room, for example "Structure one / sty 1".';
         }
 
         $data['room_id'] = null;
@@ -447,16 +651,10 @@ class StockExcelImportService
             }
         }
 
-        if ($data['room_name'] !== '') {
-            $roomQuery = Room::where('name', $data['room_name']);
-            if ($structure) {
-                $roomQuery->where('structure_id', $structure->id);
-            }
-            $room = $roomQuery->first();
+        if ($data['room_name'] !== '' && $data['structure'] !== '' && $structure) {
+            $room = Room::where('name', $data['room_name'])->where('structure_id', $structure->id)->first();
             if (! $room) {
-                $errors[] = $structure
-                    ? 'Room name does not match an existing room in the selected structure.'
-                    : 'Room name does not match an existing room.';
+                $errors[] = 'Room name does not match an existing room in the selected structure.';
             } else {
                 $data['room_id'] = $room->id;
             }
@@ -561,12 +759,16 @@ class StockExcelImportService
         return $date;
     }
 
+    /**
+     * Tag numbers as typed. Only a whole number Excel stored as a decimal
+     * ("12.0") is tidied; leading zeros ("004") are kept, as the tag reads.
+     */
     protected function normalizeTextInput(string $value): string
     {
         $value = trim($value);
 
-        if ($value !== '' && is_numeric($value) && floor((float) $value) == (float) $value) {
-            return (string) (int) $value;
+        if (preg_match('/^(\d+)\.0+$/', $value, $m)) {
+            return $m[1];
         }
 
         return $value;

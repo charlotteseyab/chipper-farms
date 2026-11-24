@@ -22,6 +22,8 @@ class SendHealthReminders extends Command
     {
         $now = CarbonImmutable::now();
         $organizations = Organization::query()->when($this->option('organization'), fn ($q, $id) => $q->whereKey($id))->get();
+        // Put back whatever organisation was bound before, so a caller (or a test) keeps its context.
+        $previous = $current->get();
 
         foreach ($organizations as $organization) {
             // Health models are scoped to the bound organisation; bind each in
@@ -30,7 +32,7 @@ class SendHealthReminders extends Command
             try {
                 $sent = $reminders->send((int) $organization->id, $now);
             } finally {
-                $current->bind(null);
+                $current->bind($previous);
             }
             if ($sent !== []) {
                 $this->info($organization->name.': '.collect($sent)->map(fn ($n, $type) => "{$n} {$type}")->implode(', '));

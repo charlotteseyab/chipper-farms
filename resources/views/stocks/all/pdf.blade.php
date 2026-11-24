@@ -211,7 +211,7 @@
             @endphp
             <tr>
                 <td>{{ $pig->code }}</td>
-                <td>{{ $pig->ear_tag_number }}</td>
+                <td>{{ $pig->tagLabelAt(null) ?? 'No tag' }}</td>
                 <td class="stock-{{ $pig->stock_type }}">
                     {{ ucfirst($pig->stock_type) }}
                 </td>
@@ -235,8 +235,8 @@
                 <td class="{{ $saleStatus['sold'] ? 'text-blue-600' : 'text-green-600' }}">
                     {{ $saleStatus['sold'] ? 'Sold' : 'Available' }}
                 </td>
-                <td>{{ $pig->father ? $pig->father->ear_tag_number : 'N/A' }}</td>
-                <td>{{ $pig->mother ? $pig->mother->ear_tag_number : 'N/A' }}</td>
+                <td>{{ $pig->father?->identityAt() ?? 'N/A' }}</td>
+                <td>{{ $pig->mother?->identityAt() ?? 'N/A' }}</td>
             </tr>
             @endforeach
         </tbody>

@@ -36,10 +36,10 @@ class ScheduleRegistrationTest extends TestCase
     public static function expectedScheduleProvider(): array
     {
         return [
-            // Livestock — every minute; a missed window is a welfare issue.
-            'weight notifications'   => ['weights:notify', '* * * * *'],
-            'gestation notifications' => ['gestation:notify', '* * * * *'],
-            'notification dispatch'  => ['notifications:process', '*/5 * * * *'],
+            // Livestock — hourly; reminders are one per pig per day.
+            'weight notifications'   => ['weights:notify', '0 * * * *'],
+            'gestation notifications' => ['gestation:notify', '0 * * * *'],
+            'failed job pruning'     => ['queue:prune-failed', '30 3 * * *'],
 
             // Finance.
             'invoice reconciliation' => ['finance:reconcile-invoice-aggregates', '30 2 * * *'],
@@ -125,6 +125,30 @@ class ScheduleRegistrationTest extends TestCase
             . 'it, so any schedule() method on it is inert and its tasks will never run. '
             . 'Register schedules in routes/console.php instead.',
         );
+    }
+
+    /**
+     * A failed run is logged with the command's output, which only works if
+     * the output is captured. It goes to one per-task file overwritten on every
+     * run (not appended), so it cannot grow without bound.
+     */
+    public function test_scheduled_commands_capture_output_for_failure_logs(): void
+    {
+        foreach (['weights:notify', 'gestation:notify', 'health:notify', 'feed:notify',
+            'finance:reconcile-invoice-aggregates',
+            'finance:accrue-loan-interest'] as $command) {
+            $event = $this->findEventByCommand($command);
+
+            $this->assertNotNull($event, "{$command} is not scheduled.");
+            $this->assertStringStartsWith(storage_path('logs/schedule-'), (string) $event->output, "{$command} does not capture its output.");
+            $this->assertFalse($event->shouldAppendOutput, "{$command} appends its output, so the file would grow forever.");
+        }
+    }
+
+    public function test_scheduler_does_not_start_queue_workers(): void
+    {
+        $this->assertNull($this->findEventByCommand('notifications:process'));
+        $this->assertNull($this->findEventByCommand('queue:work'));
     }
 
     protected function findEventByCommand(string $command): ?Event

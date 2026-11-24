@@ -8,7 +8,6 @@ use App\Models\FeedIssue;
 use App\Models\HealthRecord;
 use App\Models\Mating;
 use App\Models\Organization;
-use App\Models\PigDeath;
 use App\Models\PigManagement;
 use App\Models\PigSale;
 use App\Models\PigWeight;
@@ -29,20 +28,26 @@ class PlatformReportingService
             ->when($organizationId, fn ($query) => $query->whereKey($organizationId))
             ->orderBy('name')->get();
 
-        $rows = $organizations->map(function (Organization $organization) use ($from, $to): array {
+        $farmReports = app(SystemReportService::class);
+
+        $rows = $organizations->map(function (Organization $organization) use ($from, $to, $farmReports): array {
             $orgId = (int) $organization->id;
+            // Same herd, death and mortality figures as the farm report.
+            $period = $farmReports->periodSummary($orgId, $from, $to);
             $pigs = PigManagement::query()->forOrganization($orgId);
             $periodPigs = (clone $pigs)->withTrashed()->whereBetween('created_at', [$from, $to]);
             $sales = PigSale::query()->forOrganization($orgId)->whereBetween('sale_date', [$from->toDateString(), $to->toDateString()]);
-            $deaths = PigDeath::query()->where('organization_id', $orgId)->whereBetween('death_date', [$from->toDateString(), $to->toDateString()]);
             $openOrders = StorefrontOrder::query()->forOrganization($orgId)->open();
             $orders = StorefrontOrder::query()->forOrganization($orgId)->whereBetween('created_at', [$from, $to]);
             $alerts = WeightAlert::query()->where('acknowledged', false)->whereHas('pig', fn ($query) => $query->forOrganization($orgId));
             $matings = Mating::query()->whereHas('female', fn ($query) => $query->forOrganization($orgId))->whereBetween('actual_date', [$from, $to]);
             $farrowings = Farrowing::query()->whereHas('sow', fn ($query) => $query->forOrganization($orgId))->whereBetween('farrowing_date', [$from, $to]);
             $weanings = Weaning::query()->whereHas('pig', fn ($query) => $query->forOrganization($orgId))->whereBetween('weaning_date', [$from, $to]);
-            $health = HealthRecord::query()->whereHas('pig', fn ($query) => $query->forOrganization($orgId))->whereBetween('record_date', [$from, $to]);
-            $feed = FeedIssue::query()->forOrganization($orgId)->whereBetween('issued_at', [$from, $to]);
+            // Health cases (not voided) opened in the period, by the farm they belong to.
+            $health = HealthRecord::query()->withoutGlobalScopes()->where('organization_id', $orgId)->whereNull('voided_at')->whereNull('deleted_at')
+                ->whereBetween('record_date', [$from->toDateString(), $to->toDateString()]);
+            // Reversed feedings were mistakes, not feed given.
+            $feed = FeedIssue::query()->forOrganization($orgId)->notReversed()->whereBetween('issued_at', [$from, $to]);
             $purchases = PurchaseRequest::query()->forOrganization($orgId)->whereBetween('request_date', [$from->toDateString(), $to->toDateString()]);
             $weights = PigWeight::query()->whereHas('pig', fn ($query) => $query->forOrganization($orgId))->whereBetween('weigh_date', [$from->toDateString(), $to->toDateString()]);
             $activity = ActivityLog::query()->where('organization_id', $orgId)->whereBetween('created_at', [$from, $to]);
@@ -70,7 +75,10 @@ class PlatformReportingService
                 'active_pigs' => $active,
                 'added' => (clone $periodPigs)->count(),
                 'sold' => (clone $sales)->count(),
-                'deaths' => (clone $deaths)->count(),
+                'deaths' => $period['deaths'] + $period['piglet_deaths'],
+                'pig_deaths' => $period['deaths'],
+                'piglet_deaths' => $period['piglet_deaths'],
+                'mortality_rate' => (float) ($period['mortality_rate'] ?? 0),
                 'revenue' => (float) ((clone $sales)->sum('sale_price') ?? 0),
                 'open_orders' => (clone $openOrders)->count(),
                 'order_pipeline' => (float) ((clone $openOrders)->sum('total') ?? 0),
@@ -83,12 +91,14 @@ class PlatformReportingService
                 'data_quality' => $dataQuality,
                 'status' => $status,
                 'matings' => (clone $matings)->count(),
-                'pregnant' => (clone $matings)->where('pregnancy_status', 'pregnant')->count(),
+                'pregnant' => (clone $matings)->whereIn('pregnancy_status', ['pregnant', 'farrowed', 'lost_pregnancy', 'aborted'])->count(),
+                // Of matings whose pregnancy has been checked.
+                'checked_matings' => (clone $matings)->whereIn('pregnancy_status', ['pregnant', 'farrowed', 'lost_pregnancy', 'aborted', 'not_pregnant'])->count(),
                 'farrowings' => (clone $farrowings)->count(),
                 'live_births' => (int) ((clone $farrowings)->sum('live_births') ?? 0),
                 'weanings' => (clone $weanings)->count(),
                 'health_records' => (clone $health)->count(),
-                'open_health_cases' => (clone $health)->whereNotIn('treatment_status', ['completed', 'resolved'])->count(),
+                'open_health_cases' => (clone $health)->whereIn('case_status', ['open', 'under_treatment'])->count(),
                 'feed_issued_kg' => (float) ((clone $feed)->sum('quantity_kg') ?? 0),
                 'feed_cost' => (float) ((clone $feed)->sum('total_cost') ?? 0),
                 'purchase_requests' => (clone $purchases)->count(),

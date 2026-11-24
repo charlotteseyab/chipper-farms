@@ -242,7 +242,7 @@
                     </label>
                     <label class="field">
                         <span>Purchase Date</span>
-                        <input type="date" name="purchase_date" value="{{ old('purchase_date', now()->toDateString()) }}" required>
+                        <input type="date" name="purchase_date" value="{{ old('purchase_date', now()->toDateString()) }}" max="{{ now()->toDateString() }}" required>
                     </label>
                     <label class="field wide">
                         <span>Document / Receipt Reference</span>
@@ -270,7 +270,7 @@
                     </label>
                     <label class="field">
                         <span>Breed</span>
-                        <select name="breed" data-searchable-select>
+                        <select name="breed" data-searchable-select required>
                             <option value="">Select breed</option>
                             @foreach($breeds as $code => $name)
                                 <option value="{{ $code }}" @selected(old('breed') === $code)>{{ $name }} ({{ $code }})</option>
@@ -278,16 +278,16 @@
                         </select>
                     </label>
                     <label class="field">
-                        <span>Estimated Age Days</span>
-                        <input type="number" min="0" name="estimated_age_days" value="{{ old('estimated_age_days') }}" placeholder="Example: 42">
+                        <span>Estimated Age Days <small>(this or date of birth)</small></span>
+                        <input type="number" min="0" max="5475" name="estimated_age_days" value="{{ old('estimated_age_days') }}" placeholder="Example: 42">
                     </label>
                     <label class="field">
                         <span>Estimated Date of Birth</span>
-                        <input type="date" name="estimated_date_of_birth" value="{{ old('estimated_date_of_birth') }}">
+                        <input type="date" name="estimated_date_of_birth" value="{{ old('estimated_date_of_birth') }}" max="{{ now()->toDateString() }}">
                     </label>
                     <label class="field wide">
                         <span>Average Weight kg</span>
-                        <input type="number" step="0.01" min="0" name="average_weight_kg" value="{{ old('average_weight_kg') }}" placeholder="Average intake weight per animal">
+                        <input type="number" step="0.01" min="0.1" max="500" name="average_weight_kg" value="{{ old('average_weight_kg') }}" placeholder="Average intake weight per animal">
                     </label>
                 </div>
             </section>
@@ -296,14 +296,14 @@
                 <div class="section-head">
                     <div>
                         <h2 class="section-title">Quantity And Cost</h2>
-                        <p class="section-hint">Male and female quantities are optional, but their total cannot exceed ordered quantity.</p>
+                        <p class="section-hint">Male and female quantities are optional and cannot exceed the ordered quantity. Each animal's sex is confirmed when it is tagged.</p>
                     </div>
                 </div>
 
                 <div class="field-grid three">
                     <label class="field">
                         <span>Quantity Ordered</span>
-                        <input type="number" min="1" name="quantity_ordered" value="{{ old('quantity_ordered') }}" required placeholder="Total animals bought">
+                        <input type="number" min="1" max="1000" name="quantity_ordered" value="{{ old('quantity_ordered') }}" required placeholder="Total animals bought">
                     </label>
                     <label class="field">
                         <span>Male Quantity</span>
@@ -315,7 +315,7 @@
                     </label>
                     <label class="field">
                         <span>Purchase Cost</span>
-                        <input type="number" step="0.01" min="0" name="total_purchase_cost" value="{{ old('total_purchase_cost') }}" placeholder="Total paid for animals">
+                        <input type="number" step="0.01" min="0" name="total_purchase_cost" value="{{ old('total_purchase_cost') }}" required placeholder="Total paid for animals">
                     </label>
                     <label class="field">
                         <span>Transport / Extra Cost</span>
@@ -335,7 +335,12 @@
                 <div class="field-grid">
                     <label class="field">
                         <span>Health Status</span>
-                        <input name="health_status" value="{{ old('health_status') }}" placeholder="Good, needs observation, treated">
+                        <select name="health_status">
+                            <option value="">Not checked yet</option>
+                            @foreach($healthStatuses as $value => $label)
+                                <option value="{{ $value }}" @selected(old('health_status') === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
                     </label>
                     <label class="field wide">
                         <span>Health Notes</span>

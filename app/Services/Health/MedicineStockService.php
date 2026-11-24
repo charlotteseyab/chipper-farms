@@ -156,6 +156,7 @@ class MedicineStockService
     {
         $batches = MedicineBatch::where('medicine_id', $medicine->id)->where('is_active', true)
             ->whereDate('expiry_date', '>=', CarbonImmutable::parse($date)->toDateString())
+            ->whereDate('received_at', '<=', CarbonImmutable::parse($date)->toDateString())
             ->orderBy('expiry_date')->orderBy('id')->get();
         $onHand = $this->onHandByBatch($batches->modelKeys());
 

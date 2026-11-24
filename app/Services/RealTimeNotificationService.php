@@ -155,7 +155,7 @@ class RealTimeNotificationService
                 continue;
             }
             
-            $daysUntil = $today->diffInDays($expected, false); // positive=future, 0=today, negative=past
+            $daysUntil = (int) $today->diffInDays($expected, false); // positive=future, 0=today, negative=past
             
             // Overdue (past expected date) - check first as highest priority
             if ($daysUntil < 0) {

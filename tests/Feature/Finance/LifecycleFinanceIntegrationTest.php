@@ -195,6 +195,71 @@ class LifecycleFinanceIntegrationTest extends TestCase
         $this->assertSame(0, (int) $pool->fresh()->on_hand_pig_count);
     }
 
+    /**
+     * Purchased-stock events were once sourced from the intake, not the pig.
+     * The payload's pig_id decides which animal is posted, so such an event
+     * can never post its cost against the pig whose id equals the intake's.
+     */
+    public function test_an_acquisition_is_posted_against_the_pig_in_its_payload(): void
+    {
+        $this->actingAs($this->user);
+        app(\App\Services\Finance\ChartOfAccountsProvisioner::class)->sync($this->org->id);
+        $bystander = PigManagement::create(['ear_tag_number' => 'BY-1', 'breed' => 'LW', 'gender' => 'M',
+            'stock_type' => 'standard', 'date_of_birth' => '2026-01-01', 'code' => 'BY-1']);
+        $bought = PigManagement::create(['ear_tag_number' => 'BUY-1', 'breed' => 'LW', 'gender' => 'F',
+            'stock_type' => 'standard', 'date_of_birth' => '2026-01-01', 'code' => 'BUY-1', 'acquisition_cost' => 500]);
+
+        $event = DomainEventRecord::create([
+            'organization_id' => $this->org->id, 'event_type' => 'pig.acquired',
+            'idempotency_key' => 'legacy-intake-event', 'source_module' => 'purchase_stock_intake',
+            'source_type' => \App\Models\PurchaseStockIntake::class, 'source_id' => $bystander->id,
+            'payload' => ['pig_id' => $bought->id, 'pig_code' => 'BUY-1', 'acquisition_cost' => 500],
+            'payload_version' => 1, 'status' => DomainEventRecord::STATUS_PENDING, 'occurred_at' => '2026-06-15',
+        ]);
+
+        ProcessPendingDomainEventsJob::dispatchSync(10);
+
+        $this->assertSame(DomainEventRecord::STATUS_PROCESSED, $event->fresh()->status);
+        $this->assertNotNull($bought->fresh()->acquisition_journal_batch_id);
+        $this->assertNull($bystander->fresh()->acquisition_journal_batch_id, 'The cost was posted against the wrong pig.');
+    }
+
+    /**
+     * Four pigs bought for 4,000; one dies in quarantine. The three that
+     * enter stock are assets at 1,000 each, the dead one is a 1,000
+     * mortality loss, and the supplier is owed the full 4,000 (GR/IR).
+     */
+    public function test_purchased_stock_is_owed_to_the_supplier_and_quarantine_deaths_are_a_loss(): void
+    {
+        $this->actingAs($this->user);
+        app(\App\Services\Finance\ChartOfAccountsProvisioner::class)->sync($this->org->id);
+        \App\Models\Setting::setAnimalBreeds(['LW' => 'Large White']);
+        $structure = \App\Models\Structure::create(['name' => 'Q', 'code' => 'Q', 'created_by' => $this->user->id]);
+        $room = \App\Models\Room::create(['structure_id' => $structure->id, 'name' => 'Q1', 'code' => 'Q1']);
+        $intake = \App\Models\PurchaseStockIntake::create([
+            'batch_number' => 'PP-2026-001', 'organization_id' => $this->org->id, 'supplier_name' => 'Seller',
+            'purchase_date' => '2026-06-15', 'animal_category' => 'grower', 'breed' => 'LW', 'quantity_ordered' => 4,
+            'female_quantity' => 4, 'estimated_age_days' => 90, 'total_purchase_cost' => 4000,
+            'quantity_received' => 4, 'quantity_rejected' => 0, 'room_id' => $room->id,
+            'quarantine_outcome' => 'partially_cleared', 'quarantine_rejected_quantity' => 1,
+            'quarantine_disposition' => 'died_in_quarantine', 'quarantine_reviewed_at' => '2026-06-20',
+            'status' => \App\Models\PurchaseStockIntake::STATUS_APPROVED,
+        ]);
+
+        $this->app->make(\App\Services\Stock\PurchaseStockIntakeService::class)->addToStock($intake, ['Q-1', 'Q-2', 'Q-3']);
+        ProcessPendingDomainEventsJob::dispatchSync(20);
+
+        $balance = fn (string $code) => (string) JournalLine::query()
+            ->whereHas('journal', fn ($q) => $q->where('status', 'posted'))
+            ->where('account_id', Account::where('organization_id', $this->org->id)->where('code', $code)->value('id'))
+            ->selectRaw('COALESCE(SUM(debit - credit), 0) as b')->value('b');
+
+        $this->assertEquals(-4000, (float) $balance('2050'), 'The supplier is owed for all four animals.');
+        $this->assertEquals(1000, (float) $balance('5320'), 'The animal that died in quarantine is a loss.');
+        $this->assertEquals(0, (float) $balance('3010'), 'Bought pigs are not owner\'s capital.');
+        $this->assertSame(3, PigManagement::where('purchase_stock_intake_id', $intake->id)->whereNotNull('acquisition_journal_batch_id')->count());
+    }
+
     public function test_birth_records_new_piglets_in_piglet_stage_not_sow_stage(): void
     {
         $group = Group::create(['name' => 'Farrowing Group', 'type' => 'pen']);

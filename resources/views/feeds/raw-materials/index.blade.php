@@ -1,6 +1,9 @@
 <x-app-layout>
     <x-feed-hub hub="store" />
     @php
+        // Only people who manage raw materials see the forms; everyone else sees the stock.
+        $canManage = auth()->user()->hasPermission('manage_raw_materials');
+        $canRequest = auth()->user()->can('create', \App\Models\PurchaseRequest::class);
         $statusClasses = [
             'in_stock' => 'bg-green-100 text-green-800 border border-green-200',
             'low_stock' => 'bg-amber-100 text-amber-800 border border-amber-200',
@@ -11,122 +14,58 @@
     <div class="max-w-7xl mx-auto py-6 px-4" x-data="{ openModal: {{ $errors->any() ? "'add'" : 'null' }}, selectedMaterial: null, openingQuantity: {{ (float) old('quantity_in_stock', 0) }} }">
         <div class="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-                <h1 class="text-2xl font-bold text-gray-800">Raw Materials & Stock</h1>
-                <p class="text-sm text-gray-500">Manage raw materials, stock levels, receiving, and adjustments.</p>
+                <h1 class="text-2xl font-bold text-gray-800">Stock</h1>
+                <p class="text-sm text-gray-500">Feed that is mixed and ready, and the ingredients in the store.</p>
             </div>
 
             <div class="flex flex-wrap gap-2">
+                <a href="{{ route('purchase-requests.index') }}"
+                   class="inline-flex items-center justify-center px-4 py-2.5 border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-semibold rounded-xl transition">
+                    Purchase requests
+                </a>
                 @if(auth()->user()->hasAnyPermission(['manage_raw_materials', 'manage_feed_production']))
                     <a href="{{ route('stock-counts.create') }}"
                        class="inline-flex items-center justify-center px-4 py-2.5 border border-green-600 text-green-700 hover:bg-green-50 text-sm font-semibold rounded-xl transition">
                         Count stock
                     </a>
                 @endif
+                @if($canManage)
                 <button type="button"
                         @click="openModal = 'add'"
                         class="inline-flex items-center justify-center px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl shadow-sm transition">
                     + Add Raw Material
                 </button>
+                @endif
             </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
-            <div class="rounded-2xl border border-slate-100 bg-white shadow-sm p-5">
-                <p class="text-sm font-medium text-gray-500">Total Materials</p>
-                <h3 class="mt-2 text-3xl font-bold text-slate-800">{{ $stats['total_materials'] ?? 0 }}</h3>
-                <p class="mt-1 text-xs text-gray-400">All raw materials in store</p>
-            </div>
-
-            <div class="rounded-2xl border border-amber-100 bg-white shadow-sm p-5">
-                <p class="text-sm font-medium text-gray-500">Low Stock</p>
-                <h3 class="mt-2 text-3xl font-bold text-amber-700">{{ $stats['low_stock'] ?? 0 }}</h3>
-                <p class="mt-1 text-xs text-gray-400">Materials at or below reorder level</p>
-            </div>
-
-            <div class="rounded-2xl border border-red-100 bg-white shadow-sm p-5">
-                <p class="text-sm font-medium text-gray-500">Out of Stock</p>
-                <h3 class="mt-2 text-3xl font-bold text-red-700">{{ $stats['out_of_stock'] ?? 0 }}</h3>
-                <p class="mt-1 text-xs text-gray-400">Materials with zero balance</p>
-            </div>
-
-            <div class="rounded-2xl border border-emerald-100 bg-white shadow-sm p-5">
-                <p class="text-sm font-medium text-gray-500">Total Stock Value</p>
-                <h3 class="mt-2 text-3xl font-bold text-emerald-700">{{ number_format($stats['stock_value'] ?? 0, 2) }}</h3>
-                <p class="mt-1 text-xs text-gray-400">Estimated inventory value</p>
-            </div>
-        </div>
-
-        @if(($lowStockAlerts ?? collect())->count())
-            <div class="mb-6 overflow-hidden rounded-2xl border border-amber-200 bg-amber-50 shadow-sm">
-                <div class="border-b border-amber-200 px-6 py-4">
-                    <div class="flex items-center justify-between gap-3">
-                        <div>
-                            <h2 class="text-base font-semibold text-amber-900">Low Stock Alerts</h2>
-                            <p class="mt-1 text-sm text-amber-700">
-                                These materials need attention because stock is low or exhausted.
-                            </p>
-                        </div>
-
-                        <span class="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-800 border border-amber-200">
-                            {{ $lowStockAlerts->count() }} item{{ $lowStockAlerts->count() > 1 ? 's' : '' }}
-                        </span>
+        {{-- Feed ready to use --}}
+        <section class="mb-8" aria-labelledby="ready-feed">
+            <h2 id="ready-feed" class="text-lg font-bold text-gray-800">Feed ready to use</h2>
+            <p class="text-sm text-gray-500">Mixed and waiting to be fed. Mix more on <a href="{{ route('feed.mix-buy') }}" class="font-semibold text-emerald-700 underline">Mix &amp; buy</a>.</p>
+            <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                @forelse($readyFeed as $feed)
+                    @php $days = $feed['days_cover']; $tone = $days === null ? 'text-gray-500' : ($days < 2 ? 'text-red-700' : ($days < 7 ? 'text-amber-700' : 'text-emerald-700')); @endphp
+                    <div class="rounded-2xl border bg-white p-4 shadow-sm {{ $days !== null && $days < 2 ? 'border-red-200' : 'border-gray-100' }}">
+                        <p class="text-sm font-semibold text-gray-700">{{ $feed['name'] }}</p>
+                        <p class="mt-1 text-2xl font-bold text-gray-900">{{ \App\Support\Qty::kg($feed['available_kg'], 0) }} <span class="text-sm font-semibold text-gray-500">kg</span></p>
+                        <p class="text-xs font-semibold {{ $tone }}">{{ $days === null ? 'Not eaten at the moment' : 'Lasts about '.(rtrim(rtrim(number_format($days, 1), '0'), '.') ?: '0').' days' }}</p>
                     </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-6">
-                    @foreach($lowStockAlerts as $alert)
-                        @php
-                            $isOut = (float) $alert->quantity_in_stock <= 0;
-                        @endphp
-
-                        <div class="rounded-xl border {{ $isOut ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-white' }} p-4">
-                            <div class="flex items-start justify-between gap-3">
-                                <div>
-                                    <h3 class="text-sm font-semibold text-gray-900">{{ $alert->name }}</h3>
-                                    <p class="mt-1 text-xs text-gray-500">
-                                        {{ $alert->category ?: 'No category' }} • Unit: {{ $alert->unit }}
-                                    </p>
-                                </div>
-
-                                <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold {{ $isOut ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700' }}">
-                                    {{ $isOut ? 'Out of Stock' : 'Low Stock' }}
-                                </span>
-                            </div>
-
-                            <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
-                                <div class="rounded-lg bg-white/80 px-3 py-2 border border-gray-100">
-                                    <p class="text-gray-500">Available</p>
-                                    <p class="font-semibold text-gray-800">
-                                        {{ number_format($alert->quantity_in_stock, 2) }} {{ $alert->unit }}
-                                    </p>
-                                </div>
-
-                                <div class="rounded-lg bg-white/80 px-3 py-2 border border-gray-100">
-                                    <p class="text-gray-500">Reorder Level</p>
-                                    <p class="font-semibold text-gray-800">
-                                        {{ number_format($alert->reorder_level, 2) }} {{ $alert->unit }}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div class="mt-4 flex flex-wrap gap-2">
-                                <button type="button"
-                                        @click='selectedMaterial = @json($alert); openModal = "receive"'
-                                        class="inline-flex items-center rounded-lg bg-green-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-700 transition">
-                                    Receive Stock
-                                </button>
-
-                                <button type="button"
-                                        @click='selectedMaterial = @json($alert); openModal = "adjust"'
-                                        class="inline-flex items-center rounded-lg bg-white px-3 py-1.5 text-sm font-semibold text-amber-700 border border-amber-200 hover:bg-amber-100 transition">
-                                    Adjust Stock
-                                </button>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
+                @empty
+                    <p class="text-sm text-gray-500">No feed types yet. Add them in <a href="{{ route('feed-setup.index') }}" class="font-semibold text-emerald-700 underline">Setup</a>.</p>
+                @endforelse
             </div>
-        @endif
+        </section>
+
+        <h2 class="mb-3 text-lg font-bold text-gray-800">Ingredients in the store</h2>
+
+        {{-- The cards are the filters: one list, with what needs attention first. --}}
+        <x-glance class="mb-6" :cards="[
+            ['label' => 'All materials', 'value' => $stats['total_materials'] ?? 0, 'hint' => 'in the store', 'url' => route('raw-materials.index', array_filter(['search' => $search])), 'current' => $status === ''],
+            ['label' => 'Low stock', 'value' => $stats['low_stock'] ?? 0, 'hint' => 'at or below reorder level', 'url' => route('raw-materials.index', array_filter(['search' => $search, 'status' => 'low_stock'])), 'tone' => ($stats['low_stock'] ?? 0) ? 'warn' : 'good', 'current' => $status === 'low_stock'],
+            ['label' => 'Out of stock', 'value' => $stats['out_of_stock'] ?? 0, 'hint' => 'nothing left', 'url' => route('raw-materials.index', array_filter(['search' => $search, 'status' => 'out_of_stock'])), 'tone' => ($stats['out_of_stock'] ?? 0) ? 'alert' : 'good', 'current' => $status === 'out_of_stock'],
+            ['label' => 'Stock value', 'value' => number_format($stats['stock_value'] ?? 0, 2), 'hint' => 'at average cost'],
+        ]" />
 
         <form method="GET" action="{{ route('raw-materials.index') }}" class="mb-6">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -164,73 +103,104 @@
             </div>
         </form>
 
-        <div class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-            <div class="border-b border-gray-100 px-6 py-4">
-                <h2 class="text-base font-semibold text-gray-800">Raw Materials Inventory</h2>
-                <p class="text-sm text-gray-500 mt-1">Monitor available stock, unit cost, reorder level, and stock actions.</p>
+        @php $needing = $rawMaterials->filter(fn ($m) => $m->stock_status !== 'in_stock')->pluck('id')->values(); @endphp
+        <div class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm"
+             x-data="{ picked: [], needing: @js($needing) }">
+            <div class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 px-6 py-4">
+                <div>
+                    <h2 class="text-base font-semibold text-gray-800">Raw Materials Inventory</h2>
+                    <p class="text-sm text-gray-500 mt-1">Monitor available stock, unit cost, reorder level, and stock actions.@if($canRequest) Tick several ingredients to put them all on one purchase request.@endif</p>
+                </div>
+                @if($canRequest)
+                    {{-- One purchase request for every ingredient ticked. --}}
+                    <form id="bulk-request" method="GET" action="{{ route('purchase-requests.create') }}" class="flex flex-wrap items-center gap-2">
+                        <template x-for="id in picked" :key="id"><input type="hidden" name="restock_materials[]" :value="id"></template>
+                        @if($needing->isNotEmpty())
+                            <button type="button" @click="picked = [...needing]"
+                                    class="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-50">
+                                Select all low / out of stock ({{ $needing->count() }})
+                            </button>
+                        @endif
+                        <button type="submit" :disabled="picked.length === 0"
+                                class="rounded-lg bg-emerald-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">
+                            Request purchase for selected (<span x-text="picked.length">0</span>)
+                        </button>
+                    </form>
+                @endif
             </div>
 
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-100">
-                    <thead class="bg-gray-50">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Material</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Category</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Unit</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Quantity</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Avg Cost</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Reorder Level</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Stock Value</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
-                            <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Actions</th>
+                            @if($canRequest)<th class="w-10"><span class="sr-only">Select</span></th>@endif
+                            <th>Material</th>
+                            <th>Category</th>
+                            <th>Unit</th>
+                            <th>Quantity</th>
+                            <th>Avg Cost</th>
+                            <th>Reorder Level</th>
+                            <th>Stock Value</th>
+                            <th>Status</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
 
-                    <tbody class="divide-y divide-gray-100 bg-white">
+                    <tbody>
                         @forelse($rawMaterials as $material)
                             @php
                                 $materialStatus = $material->stock_status;
                             @endphp
-                            <tr class="hover:bg-gray-50 transition">
-                                <td class="px-6 py-4">
+                            <tr>
+                                @if($canRequest)
+                                    <td><input type="checkbox" value="{{ $material->id }}" x-model.number="picked" aria-label="Select {{ $material->name }}" class="rounded border-gray-300 text-emerald-700 focus:ring-emerald-500"></td>
+                                @endif
+                                <td>
                                     <div class="font-semibold text-gray-800">{{ $material->name }}</div>
                                     @if($material->notes)
                                         <div class="text-xs text-gray-400 mt-1 line-clamp-1">{{ $material->notes }}</div>
                                     @endif
                                 </td>
 
-                                <td class="px-6 py-4 text-sm text-gray-700">
+                                <td class="text-sm text-gray-700">
                                     {{ $material->category ?: '—' }}
                                 </td>
 
-                                <td class="px-6 py-4 text-sm text-gray-700">
+                                <td class="text-sm text-gray-700">
                                     {{ $material->unit }}
                                 </td>
 
-                                <td class="px-6 py-4 text-sm font-semibold text-gray-800">
+                                <td class="text-sm font-semibold text-gray-800">
                                     {{ number_format($material->quantity_in_stock, 2) }}
                                 </td>
 
-                                <td class="px-6 py-4 text-sm text-gray-700">
+                                <td class="text-sm text-gray-700">
                                     {{ number_format($material->current_wac, 2) }}
                                 </td>
 
-                                <td class="px-6 py-4 text-sm text-gray-700">
+                                <td class="text-sm text-gray-700">
                                     {{ number_format($material->reorder_level, 2) }}
                                 </td>
 
-                                <td class="px-6 py-4 text-sm font-semibold text-gray-800">
+                                <td class="text-sm font-semibold text-gray-800">
                                     {{ number_format($material->stock_value, 2) }}
                                 </td>
 
-                                <td class="px-6 py-4">
+                                <td>
                                     <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold {{ $statusClasses[$materialStatus] ?? 'bg-gray-100 text-gray-700 border border-gray-200' }}">
                                         {{ ucfirst(str_replace('_', ' ', $materialStatus)) }}
                                     </span>
                                 </td>
 
-                                <td class="px-6 py-4">
+                                <td>
                                     <div class="flex flex-wrap gap-2">
+                                        @if($canRequest && $materialStatus !== 'in_stock')
+                                            <a href="{{ route('purchase-requests.create', ['restock_material' => $material->id]) }}"
+                                               class="inline-flex items-center rounded-lg bg-emerald-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-800 transition">
+                                                Request purchase
+                                            </a>
+                                        @endif
+                                        @if($canManage)
                                         <button type="button"
                                                 @click='selectedMaterial = @json($material); openModal = "edit"'
                                                 class="inline-flex items-center rounded-lg bg-blue-50 px-3 py-1.5 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition">
@@ -248,12 +218,16 @@
                                                 class="inline-flex items-center rounded-lg bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-700 hover:bg-amber-100 transition">
                                             Adjust
                                         </button>
+                                        @endif
+                                        @if(! $canManage && ! ($canRequest && $materialStatus !== 'in_stock'))
+                                            <span class="text-xs text-gray-400">View only</span>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="px-6 py-12 text-center">
+                                <td colspan="{{ $canRequest ? 10 : 9 }}" class="px-6 py-12 text-center">
                                     <div class="flex flex-col items-center justify-center">
                                         <div class="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-400">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -262,11 +236,13 @@
                                         </div>
                                         <h3 class="text-base font-semibold text-gray-700">No raw materials found</h3>
                                         <p class="mt-1 text-sm text-gray-500">Add your first raw material to begin inventory tracking.</p>
+                                        @if($canManage)
                                         <button type="button"
                                                 @click="openModal = 'add'"
                                                 class="mt-4 inline-flex items-center rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 transition">
                                             + Add Raw Material
                                         </button>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>
@@ -276,9 +252,7 @@
             </div>
         </div>
 
-        <div class="mt-5">
-            {{ $rawMaterials->links() }}
-        </div>
+        <div class="mt-4"><x-pager :paginator="$rawMaterials" label="materials" /></div>
 
         @if(($recentStockActivities ?? collect())->count())
             <div class="mt-6 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
@@ -288,20 +262,20 @@
                 </div>
 
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-100">
-                        <thead class="bg-gray-50">
+                    <table class="data-table">
+                        <thead>
                             <tr>
-                                <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Material</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Activity Type</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Quantity</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Unit Cost</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Reference</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Performed By</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Date</th>
+                                <th>Material</th>
+                                <th>Activity Type</th>
+                                <th>Quantity</th>
+                                <th>Unit Cost</th>
+                                <th>Reference</th>
+                                <th>Performed By</th>
+                                <th>Date</th>
                             </tr>
                         </thead>
 
-                        <tbody class="divide-y divide-gray-100 bg-white">
+                        <tbody>
                             @foreach($recentStockActivities as $activity)
                                 @php
                                     $typeClasses = match($activity->type) {
@@ -312,34 +286,34 @@
                                     };
                                 @endphp
 
-                                <tr class="hover:bg-gray-50 transition">
-                                    <td class="px-6 py-4">
+                                <tr>
+                                    <td>
                                         <div class="font-semibold text-gray-800">{{ $activity->rawMaterial->name ?? '—' }}</div>
                                     </td>
 
-                                    <td class="px-6 py-4">
+                                    <td>
                                         <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold {{ $typeClasses }}">
                                             {{ ucfirst($activity->type) }}
                                         </span>
                                     </td>
 
-                                    <td class="px-6 py-4 text-sm font-semibold text-gray-800">
+                                    <td class="text-sm font-semibold text-gray-800">
                                         {{ number_format($activity->quantity, 2) }}
                                     </td>
 
-                                    <td class="px-6 py-4 text-sm text-gray-700">
+                                    <td class="text-sm text-gray-700">
                                         {{ $activity->unit_cost !== null ? number_format($activity->unit_cost, 2) : '—' }}
                                     </td>
 
-                                    <td class="px-6 py-4 text-sm text-gray-700">
+                                    <td class="text-sm text-gray-700">
                                         {{ $activity->reference ?: '—' }}
                                     </td>
 
-                                    <td class="px-6 py-4 text-sm text-gray-700">
+                                    <td class="text-sm text-gray-700">
                                         {{ trim(($activity->performer->first_name ?? '') . ' ' . ($activity->performer->last_name ?? '')) ?: ($activity->performer->name ?? 'System') }}
                                     </td>
 
-                                    <td class="px-6 py-4 text-sm text-gray-600">
+                                    <td class="text-sm text-gray-600">
                                         {{ optional($activity->created_at)->format('M d, Y h:i A') }}
                                     </td>
                                 </tr>
@@ -348,12 +322,11 @@
                     </table>
                 </div>
 
-                <div class="px-6 py-4 border-t border-gray-100">
-                    {{ $recentStockActivities->links() }}
-                </div>
+                <div class="data-table-footer"><x-pager :paginator="$recentStockActivities" label="stock changes" /></div>
             </div>
         @endif
 
+        @if($canManage)
         <!-- Add Modal -->
         <div x-show="openModal === 'add'" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
             <div @click.away="openModal = null" class="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden">
@@ -661,6 +634,7 @@
                 </form>
             </div>
         </div>
+        @endif
     </div>
 
     <style>

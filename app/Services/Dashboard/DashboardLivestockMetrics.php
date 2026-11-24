@@ -20,6 +20,7 @@ class DashboardLivestockMetrics
         $summary = [
             'active_animals' => 0,
             'deaths_30_days' => 0,
+            'left_30_days' => 0,
             'deaths_all_time' => 0,
             'mortality_rate_30_days' => 0.0,
             'stages' => ['piglet' => 0, 'weaner' => 0, 'grower' => 0, 'finisher' => 0, 'unclassified' => 0],
@@ -31,6 +32,7 @@ class DashboardLivestockMetrics
             $farm = $this->farmSummary((int) $id);
             $summary['active_animals'] += $farm['active_animals'];
             $summary['deaths_30_days'] += $farm['deaths_30_days'];
+            $summary['left_30_days'] += $farm['left_30_days'];
             $summary['deaths_all_time'] += $farm['deaths_all_time'];
             $summary['configured_organizations'] += $farm['stages_configured'] ? 1 : 0;
 
@@ -39,7 +41,10 @@ class DashboardLivestockMetrics
             }
         }
 
-        $populationAtRisk = $summary['active_animals'] + $summary['deaths_30_days'];
+        // Every animal on the farm at some point in the 30 days: those alive
+        // now, those that died, and those sold or moved out. Leaving out the
+        // ones that left made the rate look higher than it was.
+        $populationAtRisk = $summary['active_animals'] + $summary['deaths_30_days'] + $summary['left_30_days'];
         $summary['mortality_rate_30_days'] = $populationAtRisk > 0
             ? round(($summary['deaths_30_days'] / $populationAtRisk) * 100, 2)
             : 0.0;
@@ -82,21 +87,22 @@ class DashboardLivestockMetrics
 
         // Newborn litters are tracked as quantities until individual pig records
         // are created. Include them in Piglets so the dashboard reflects the
-        // actual living population rather than only tagged animals.
-        $unweanedPiglets = 0;
-        if ($configured) {
-            $farrowings = Farrowing::withoutGlobalScopes()
-                ->with(['pigletDeaths' => fn ($query) => $query->withoutGlobalScopes()])
-                ->whereHas('sow', fn ($query) => $query->withoutGlobalScopes()->where('organization_id', $organizationId))
-                ->where('status', 'active')
-                ->whereDate('farrowing_date', '>=', now()->subDays($pigletMax)->toDateString())
-                ->get(['id', 'live_births']);
+        // actual living population rather than only tagged animals. Always:
+        // their deaths are always counted, so leaving the living ones out when
+        // a farm has not set its stage ages overstated mortality. Without the
+        // farm's piglet age, the default one bounds which litters count.
+        $pigletWindow = $pigletMax ?? \App\Services\Feed\FeedStageResolver::DEFAULT_LIMITS['piglet'];
+        $farrowings = Farrowing::withoutGlobalScopes()
+            ->with(['pigletDeaths' => fn ($query) => $query->withoutGlobalScopes()])
+            ->whereHas('sow', fn ($query) => $query->withoutGlobalScopes()->where('organization_id', $organizationId))
+            ->where('status', 'active')
+            ->whereDate('farrowing_date', '>=', now()->subDays($pigletWindow)->toDateString())
+            ->get(['id', 'live_births']);
 
-            $unweanedPiglets = (int) $farrowings->sum(
-                fn (Farrowing $farrowing) => max(0, (int) $farrowing->live_births - (int) $farrowing->pigletDeaths->sum('count'))
-            );
-            $stages['piglet'] += $unweanedPiglets;
-        }
+        $unweanedPiglets = (int) $farrowings->sum(
+            fn (Farrowing $farrowing) => max(0, (int) $farrowing->live_births - (int) $farrowing->pigletDeaths->sum('count'))
+        );
+        $stages['piglet'] += $unweanedPiglets;
 
         $pigDeaths = PigDeath::withoutGlobalScopes()->where('organization_id', $organizationId);
         $pigletDeaths = PigletDeath::withoutGlobalScopes()
@@ -105,9 +111,19 @@ class DashboardLivestockMetrics
         $deaths30 = (clone $pigDeaths)->whereDate('death_date', '>=', now()->subDays(30)->toDateString())->count()
             + (int) (clone $pigletDeaths)->whereDate('death_date', '>=', now()->subDays(30)->toDateString())->sum('count');
 
+        // Animals that left in the 30 days: sold (sales not reversed) or moved
+        // out / culled, each counted once.
+        $since = now()->subDays(30)->toDateString();
+        $left30 = \Illuminate\Support\Facades\DB::table('pig_sales')
+            ->where('organization_id', $organizationId)->whereNull('deleted_at')->whereDate('sale_date', '>=', $since)->pluck('pig_id')
+            ->merge(\Illuminate\Support\Facades\DB::table('pig_exits')
+                ->where('organization_id', $organizationId)->whereDate('exit_date', '>=', $since)->pluck('pig_id'))
+            ->filter()->unique()->count();
+
         return [
             'active_animals' => $activePigs->count() + $unweanedPiglets,
             'deaths_30_days' => $deaths30,
+            'left_30_days' => $left30,
             'deaths_all_time' => (clone $pigDeaths)->count() + (int) (clone $pigletDeaths)->sum('count'),
             'stages' => $stages,
             'stages_configured' => $configured,

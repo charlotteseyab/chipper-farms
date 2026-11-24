@@ -6,11 +6,34 @@
             <div>
                 <h1 class="text-2xl font-semibold text-slate-900">Modules &amp; Features</h1>
                 <p class="mt-1 text-sm text-slate-600">
-                    Choose what {{ $organization?->name ?? 'your farm' }} uses. Switching something off
-                    hides it from menus — it never deletes your records, and anything already in progress
-                    can still be finished.
+                    Choose what each farm uses. Switching something off hides it from menus and closes its
+                    pages — it never deletes records, and anything already in progress can still be finished.
                 </p>
             </div>
+
+            {{-- Which farm. Every change applies only to the farm chosen here. --}}
+            <form method="GET" action="{{ route('settings.modules') }}"
+                  class="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm sm:flex-row sm:items-end sm:px-6">
+                <label class="flex-1">
+                    <span class="text-sm font-semibold text-slate-900">Farm</span>
+                    <select name="farm" onchange="this.form.submit()"
+                            class="mt-1 w-full rounded-xl border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500">
+                        <option value="" @selected($farm === null)>Choose a farm…</option>
+                        @foreach ($farms as $option)
+                            <option value="{{ $option->id }}" @selected($farm === $option->id)>{{ $option->name }}</option>
+                        @endforeach
+                        <option value="all" @selected($allFarms)>All farms ({{ $farms->count() }})</option>
+                    </select>
+                </label>
+                <noscript><button type="submit" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white">Show</button></noscript>
+            </form>
+
+            @if ($allFarms)
+                <div class="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    <p class="font-semibold">You are changing every farm at once.</p>
+                    <p class="mt-0.5">Each switch below applies to all {{ $farms->count() }} active farms, including add-ons farms pay for. To change one farm, choose it above.</p>
+                </div>
+            @endif
 
             @if (session('success'))
                 <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
@@ -18,6 +41,11 @@
                 </div>
             @endif
 
+            @if ($farm === null)
+                <p class="rounded-3xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center text-sm text-slate-500">
+                    Choose a farm to see and change what it uses.
+                </p>
+            @else
             {{-- Presets --}}
             <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                 <div class="border-b border-slate-100 px-5 py-4 sm:px-6">
@@ -54,7 +82,9 @@
                             <form method="POST" action="{{ route('settings.modules.preset') }}" class="shrink-0">
                                 @csrf
                                 <input type="hidden" name="preset" value="{{ $code }}">
+                                <input type="hidden" name="farm" value="{{ $farm }}">
                                 <button type="submit"
+                                        @if ($allFarms) onclick="return confirm('Apply {{ $preset['label'] }} to all {{ $farms->count() }} farms?')" @endif
                                         class="w-full rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 sm:w-auto">
                                     {{ $preset['overlay'] ? 'Add these' : 'Use this setup' }}
                                 </button>
@@ -64,8 +94,9 @@
                 </div>
 
                 <p class="border-t border-slate-100 bg-slate-50/60 px-5 py-3 text-xs text-slate-500 sm:px-6">
-                    Applying a setup only switches things <em>on</em>. Nothing you are already using is
-                    turned off.
+                    A setup gives the farm exactly its finance features: finance features it does not include
+                    are switched off, so choosing a smaller setup downgrades the farm. The shop is left as it is;
+                    add-on setups only switch things on.
                 </p>
             </section>
 
@@ -81,7 +112,7 @@
 
                         <div class="border-b border-slate-100 bg-slate-50/60 px-5 py-2 sm:px-6">
                             <span class="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                                {{ $category === 'essential' ? 'Everyday' : 'Advanced' }}
+                                {{ $category === 'essential' ? 'Included' : 'Add-ons (paid)' }}
                             </span>
                         </div>
 
@@ -93,6 +124,13 @@
                                             <span class="font-medium text-slate-900">
                                                 {{ $item['definition']['label'] }}
                                             </span>
+                                            @if ($allFarms)
+                                                <span @class([
+                                                    'rounded-full px-2 py-0.5 text-xs font-medium',
+                                                    'bg-emerald-50 text-emerald-700' => $item['on_count'] > 0,
+                                                    'bg-slate-100 text-slate-500' => $item['on_count'] === 0,
+                                                ])>On for {{ $item['on_count'] }} of {{ $farms->count() }}</span>
+                                            @endif
                                             @if ($item['enabled'] && ! $item['usable'])
                                                 <span class="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
                                                     Needs setup
@@ -110,7 +148,8 @@
                                             </p>
                                         @endif
 
-                                        @if (! $item['enabled'] && $item['dependents'])
+                                        @if ($allFarms)
+                                        @elseif (! $item['enabled'] && $item['dependents'])
                                             <p class="mt-1.5 text-xs text-slate-500">
                                                 Turning this on also enables what depends on it.
                                             </p>
@@ -132,9 +171,28 @@
                                         @endif
                                     </div>
 
+                                    @if ($allFarms)
+                                        <div class="flex shrink-0 gap-2">
+                                            @foreach ([1 => 'On for all', 0 => 'Off for all'] as $value => $text)
+                                                <form method="POST" action="{{ route('settings.modules.update') }}">
+                                                    @csrf
+                                                    @method('PUT')
+                                                    <input type="hidden" name="farm" value="all">
+                                                    <input type="hidden" name="feature_key" value="{{ $key }}">
+                                                    <input type="hidden" name="enabled" value="{{ $value }}">
+                                                    <button type="submit"
+                                                            onclick="return confirm('{{ $value ? 'Switch on' : 'Switch off' }} {{ $item['definition']['label'] }} for all {{ $farms->count() }} farms?')"
+                                                            class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                                        {{ $text }}
+                                                    </button>
+                                                </form>
+                                            @endforeach
+                                        </div>
+                                    @else
                                     <form method="POST" action="{{ route('settings.modules.update') }}" class="shrink-0">
                                         @csrf
                                         @method('PUT')
+                                        <input type="hidden" name="farm" value="{{ $farm }}">
                                         <input type="hidden" name="feature_key" value="{{ $key }}">
                                         <input type="hidden" name="enabled" value="{{ $item['enabled'] ? 0 : 1 }}">
                                         <button type="submit"
@@ -149,15 +207,17 @@
                                             {{ $item['enabled'] ? 'Turn off' : 'Turn on' }}
                                         </button>
                                     </form>
+                                    @endif
                                 </div>
                             @endforeach
                         </div>
                     @endforeach
                 </section>
             @endforeach
+            @endif
 
             <p class="pb-8 text-xs text-slate-500">
-                Switching a module off hides its menus and pages. Your records stay exactly where they
+                Switching a module off hides its menus and closes its pages. Records stay exactly where they
                 are, and automatic bookkeeping keeps running in the background.
             </p>
         </div>

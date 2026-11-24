@@ -25,8 +25,18 @@ final class InAppNotificationCatalog
             'audience' => 'staff',
             'permissions' => self::permissions('pigs'),
         ];
+        // Feed reminders, in-app only.
+        foreach (['feed.stock_low', 'feed.stock_critical', 'feed.not_recorded', 'feed.ingredients_short', 'feed.plan_waiting', 'feed.variance'] as $key) {
+            $catalogue[$key] = [
+                'module' => self::module('feed'),
+                'audience' => 'staff',
+                'permissions' => ['view_feed_production', 'view_raw_materials', 'manage_feed_issues'],
+            ];
+        }
+
         // Health reminders that are in-app only (decision D9).
-        foreach (['health.dose_overdue', 'health.follow_up_due', 'health.batch_expiring'] as $key) {
+        foreach (['health.dose_overdue', 'health.dose_upcoming', 'health.follow_up_due', 'health.batch_expiring', 'health.medicine_out_of_stock', 'health.stock_short',
+            'health.batch_expired', 'health.course_finished', 'health.follow_up_overdue', 'health.case_needs_review'] as $key) {
             $catalogue[$key] = [
                 'module' => self::module('health'),
                 'audience' => 'staff',

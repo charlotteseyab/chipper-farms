@@ -634,7 +634,7 @@ class ReusableEarTagFoundationTest extends TestCase
             'ear_tag_number' => $tag,
             'code' => 'TAG-PIG-'.$tag,
             'breed' => 'LW', 'gender' => 'F', 'stock_type' => 'standard',
-            'date_of_birth' => now()->subMonths(4)->toDateString(),
+            'date_of_birth' => '2025-01-01',
         ]);
     }
 }

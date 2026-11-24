@@ -68,30 +68,33 @@
         @endunless
 
         @if(isset($rows))
-            <div class="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
-                <table class="w-full min-w-[900px] text-sm">
-                    <thead class="bg-slate-50 text-left text-xs uppercase text-slate-500"><tr>@foreach(array_keys(array_diff_key($rows->first() ?? [], array_flip($hidden))) as $h)<th class="px-3 py-2">{{ $h }}</th>@endforeach</tr></thead>
-                    <tbody class="divide-y divide-slate-100">
+            @php $labels = ['cases' => 'cases', 'doses' => 'doses', 'visits' => 'visits']; @endphp
+            <div class="health-table-wrap">
+              <div class="overflow-x-auto">
+                <table class="health-table min-w-[900px]">
+                    <thead><tr>@foreach(array_keys(array_diff_key($rows->first() ?? [], array_flip($hidden))) as $h)<th>{{ $h }}</th>@endforeach</tr></thead>
+                    <tbody>
                         @forelse($rows as $i => $row)
                             @php $url = $link($page->items()[$i]); @endphp
-                            <tr class="hover:bg-slate-50">
+                            <tr>
                                 @foreach(array_values(array_diff_key($row, array_flip($hidden))) as $c => $value)
-                                    <td class="px-3 py-2 align-top {{ $c === 0 ? 'whitespace-nowrap' : '' }}">@if($c === 0 && $url)<a href="{{ $url }}" class="font-semibold text-emerald-800 hover:underline">{{ $value }}</a>@else{{ $value }}@endif</td>
+                                    <td class="{{ $c === 0 ? 'whitespace-nowrap' : '' }}">@if($c === 0 && $url)<a href="{{ $url }}" class="font-semibold text-emerald-800 hover:underline">{{ $value }}</a>@else{{ $value }}@endif</td>
                                 @endforeach
                             </tr>
                         @empty
-                            <tr><td class="px-3 py-10 text-center text-slate-500">Nothing in this period.</td></tr>
+                            <tr><td class="health-table-empty">Nothing in this period.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
+              </div>
+              <div class="health-table-footer"><x-health.pagination :paginator="$page" :label="$labels[$tab] ?? 'rows'" /></div>
             </div>
-            <div>{{ $page->links() }}</div>
         @endif
 
         @if($tab === 'doses')
             <section class="space-y-2">
                 <h2 class="font-bold text-slate-900">Scheduled doses not given</h2>
-                @include('health.partials.report-table', ['rows' => $notGiven, 'empty' => 'No missed or cancelled doses in this period.'])
+                @include('health.partials.report-table', ['rows' => $notGiven, 'empty' => 'No missed or cancelled doses in this period.', 'label' => 'doses not given'])
             </section>
         @endif
 
@@ -104,22 +107,22 @@
                     <p class="text-xs">{{ $usage['allocations'] }} batch withdrawal(s) by doses still on record</p>
                 </div>
             </div>
-            @include('health.partials.report-table', ['rows' => $usage['rows'], 'empty' => 'No medicine used in this period.'])
+            @include('health.partials.report-table', ['rows' => $usageRows, 'empty' => 'No medicine used in this period.', 'label' => 'rows'])
             <p class="text-xs text-slate-500">Cost is the batch's cost when the dose was given. Medicine cost is not posted to the accounts (decision D10). A group is what the dose was for: the case's group name (or its condition for one animal), or the course for preventive doses.</p>
         @endif
 
         @if($tab === 'stock')
             <section class="space-y-2">
                 <div class="flex items-center justify-between"><h2 class="font-bold text-slate-900">Batches in stock</h2>@if($canExport)<a href="{{ route('health.reports.export', ['tab' => 'batches']) }}" class="text-sm font-semibold text-emerald-800">Download CSV</a>@endif</div>
-                @include('health.partials.report-table', ['rows' => $batches, 'empty' => 'No medicine in stock.', 'linkKey' => 'medicine_id', 'route' => 'medicines.show'])
+                @include('health.partials.report-table', ['rows' => $batches, 'empty' => 'No medicine in stock.', 'linkKey' => 'medicine_id', 'route' => 'medicines.show', 'label' => 'batches'])
             </section>
             <section class="space-y-2">
                 <h2 class="font-bold text-slate-900">At or below reorder level</h2>
-                @include('health.partials.report-table', ['rows' => $lowStock, 'empty' => 'Nothing is low.', 'linkKey' => 'medicine_id', 'route' => 'medicines.show'])
+                @include('health.partials.report-table', ['rows' => $lowStock, 'empty' => 'Nothing is low.', 'linkKey' => 'medicine_id', 'route' => 'medicines.show', 'label' => 'medicines'])
             </section>
             <section id="withdrawal" class="space-y-2">
-                <div class="flex items-center justify-between"><h2 class="font-bold text-slate-900">Animals under withdrawal today ({{ $withdrawal->count() }})</h2>@if($canExport)<a href="{{ route('health.reports.export', ['tab' => 'withdrawal']) }}" class="text-sm font-semibold text-emerald-800">Download CSV</a>@endif</div>
-                @include('health.partials.report-table', ['rows' => $withdrawal, 'empty' => 'No animal on the farm is under withdrawal.', 'linkKey' => 'pig_id', 'route' => 'health.show'])
+                <div class="flex items-center justify-between"><h2 class="font-bold text-slate-900">Animals under withdrawal today ({{ $withdrawal->total() }})</h2>@if($canExport)<a href="{{ route('health.reports.export', ['tab' => 'withdrawal']) }}" class="text-sm font-semibold text-emerald-800">Download CSV</a>@endif</div>
+                @include('health.partials.report-table', ['rows' => $withdrawal, 'empty' => 'No animal on the farm is under withdrawal.', 'linkKey' => 'pig_id', 'route' => 'health.show', 'label' => 'animals'])
             </section>
         @endif
 

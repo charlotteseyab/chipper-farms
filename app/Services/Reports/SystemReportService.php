@@ -30,7 +30,25 @@ class SystemReportService
     ) {
     }
 
+    /**
+     * The farm report. Finance figures read the "current" farm, which a
+     * superuser viewing one farm does not have, so the farm is made current
+     * while the report is built and the previous one is restored after.
+     */
     public function build(int $organizationId, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $current = app(\App\Support\CurrentOrganization::class);
+        $previousOrganization = $current->get();
+        $current->bind(\App\Models\Organization::find($organizationId));
+
+        try {
+            return $this->report($organizationId, $from, $to);
+        } finally {
+            $current->bind($previousOrganization);
+        }
+    }
+
+    private function report(int $organizationId, CarbonImmutable $from, CarbonImmutable $to): array
     {
         $from = $from->startOfDay();
         $to = $to->endOfDay();
@@ -41,22 +59,22 @@ class SystemReportService
         $current = $this->periodSummary($organizationId, $from, $to);
         $previous = $this->periodSummary($organizationId, $previousFrom, $previousTo);
 
+        // Pig records only: piglets still with the sow are counted under
+        // Piglet tracking until they are weaned into stock.
         $opening = $this->herdAsOf($organizationId, $from->subSecond());
-        $periodPigs = $this->pigs($organizationId)->withTrashed()->whereBetween('created_at', [$from, $to]);
-        $purchased = (clone $periodPigs)->whereNotNull('purchase_stock_intake_id')->count();
-        $manuallyAdded = max(0, $current['new_pigs'] - $purchased);
         $closing = $this->herdAsOf($organizationId, $to);
 
         $herdMovement = [
             'opening' => $opening,
-            'manually_added' => $manuallyAdded,
-            'purchased' => $purchased,
+            'weaned_into_stock' => $current['weaned_into_stock'],
+            'purchased' => $current['purchased'],
+            'manually_added' => $current['manually_added'],
             'sold' => $current['sold'],
             'deaths' => $current['deaths'],
             'transferred_or_culled' => $current['exits'],
             'closing' => $closing,
         ];
-        $herdMovement['variance'] = $closing - ($opening + $manuallyAdded + $purchased - $current['sold'] - $current['deaths'] - $current['exits']);
+        $herdMovement['variance'] = $closing - ($opening + $current['new_pigs'] - $current['sold'] - $current['deaths'] - $current['exits']);
 
         $activeHerd = $this->pigs($organizationId)->active();
         $distribution = (clone $activeHerd)
@@ -97,9 +115,15 @@ class SystemReportService
             'weanings' => $this->weanings($organizationId)->whereBetween('weaning_date', [$from, $to])->count(),
             'average_litter_size' => (float) ($this->farrowings($organizationId)->whereBetween('farrowing_date', [$from, $to])->avg('total_piglets_born') ?? 0),
         ];
-        $eligibleMatings = $this->matings($organizationId)->whereBetween('actual_date', [$from, $to])->whereNotNull('female_id')->count();
-        $pregnant = $this->matings($organizationId)->whereBetween('actual_date', [$from, $to])->where('pregnancy_status', 'pregnant')->count();
-        $breeding['pregnancy_rate'] = $eligibleMatings ? round(($pregnant / $eligibleMatings) * 100, 1) : null;
+        // Of matings whose pregnancy has been checked: one not checked yet is
+        // neither a success nor a failure.
+        // A mating that later farrowed, or was lost or aborted, did conceive.
+        $conceived = ['pregnant', 'farrowed', 'lost_pregnancy', 'aborted'];
+        $checked = $this->matings($organizationId)->whereBetween('actual_date', [$from, $to])->whereIn('pregnancy_status', [...$conceived, 'not_pregnant']);
+        $checkedCount = (clone $checked)->count();
+        $pregnant = (clone $checked)->whereIn('pregnancy_status', $conceived)->count();
+        $breeding['pregnancy_checked'] = $checkedCount;
+        $breeding['pregnancy_rate'] = $checkedCount ? round(($pregnant / $checkedCount) * 100, 1) : null;
 
         $periodLitters = $this->farrowings($organizationId)
             ->whereBetween('farrowing_date', [$from, $to])
@@ -143,21 +167,48 @@ class SystemReportService
             ->selectRaw("COALESCE(NULLIF(death_cause, ''), 'Unspecified') as label, COUNT(*) as total")
             ->groupBy('death_cause')->orderByDesc('total')->limit(6)->get();
 
-        $health = [
-            'records' => HealthRecord::query()->whereHas('pig', fn (Builder $query) => $query->forOrganization($organizationId))->whereBetween('record_date', [$from, $to])->count(),
-            'open_cases' => HealthRecord::query()->whereHas('pig', fn (Builder $query) => $query->forOrganization($organizationId))->whereBetween('record_date', [$from, $to])->whereNotIn('treatment_status', ['completed', 'resolved'])->count(),
-        ];
+        $health = $this->health($organizationId, $from, $to);
 
-        $feedBase = FeedIssue::query()->forOrganization($organizationId)->whereBetween('issued_at', [$from, $to]);
+        // Feedings that were reversed (entered by mistake) are not feed given.
+        $feedBase = FeedIssue::query()->forOrganization($organizationId)->notReversed()->whereBetween('issued_at', [$from, $to]);
+        $mixed = \App\Models\FeedBatch::query()->where('organization_id', $organizationId)->whereNull('reversed_at')
+            ->whereBetween('batch_date', [$from->toDateString(), $to->toDateString()]);
         $feed = [
             'issued_kg' => (float) ((clone $feedBase)->sum('quantity_kg') ?? 0),
             'issued_cost' => (float) ((clone $feedBase)->sum('total_cost') ?? 0),
             'issues' => (clone $feedBase)->count(),
-            'by_group' => (clone $feedBase)->with('group:id,name')->get()->groupBy('group_id')->map(fn (Collection $rows) => (object) [
-                'name' => $rows->first()?->group?->name ?? 'Unassigned group',
-                'quantity_kg' => $rows->sum(fn (FeedIssue $issue) => (float) $issue->quantity_kg),
-                'cost' => $rows->sum(fn (FeedIssue $issue) => (float) $issue->total_cost),
-            ])->sortByDesc('quantity_kg')->values(),
+            'mixed_kg' => (float) ((clone $mixed)->sum('batch_size_kg') ?? 0),
+            'mixed_cost' => (float) ((clone $mixed)->sum('total_cost') ?? 0),
+            'mixes' => (clone $mixed)->count(),
+            'by_stage' => (clone $feedBase)->get(['feeding_stage', 'quantity_kg', 'total_cost'])->groupBy(fn (FeedIssue $issue) => $issue->feeding_stage ?: 'other')
+                ->map(fn (Collection $rows, string $stage) => (object) [
+                    'name' => \App\Services\Feed\FeedStageResolver::STAGES[$stage] ?? 'Other (not by stage)',
+                    'quantity_kg' => $rows->sum(fn (FeedIssue $issue) => (float) $issue->quantity_kg),
+                    'cost' => $rows->sum(fn (FeedIssue $issue) => (float) $issue->total_cost),
+                ])->sortByDesc('quantity_kg')->values(),
+        ];
+
+        // Shop pig orders also record a pig sale, so pig sales already include
+        // them; this splits the two rather than adding the shop on top.
+        $shopSaleIds = \Illuminate\Support\Facades\DB::table('storefront_order_item_pig_allocations')->whereNotNull('pig_sale_id')->pluck('pig_sale_id');
+        $periodSales = $this->sales($organizationId)->whereBetween('sale_date', [$from->toDateString(), $to->toDateString()]);
+        $pigSales = [
+            'direct' => (clone $periodSales)->whereNotIn('id', $shopSaleIds)->count(),
+            'direct_revenue' => (float) ((clone $periodSales)->whereNotIn('id', $shopSaleIds)->sum('sale_price') ?? 0),
+            'shop' => (clone $periodSales)->whereIn('id', $shopSaleIds)->count(),
+            'shop_revenue' => (float) ((clone $periodSales)->whereIn('id', $shopSaleIds)->sum('sale_price') ?? 0),
+        ];
+
+        $intakes = \App\Models\PurchaseStockIntake::query()->where('organization_id', $organizationId)
+            ->whereBetween('purchase_date', [$from->toDateString(), $to->toDateString()]);
+        $purchases = [
+            'intakes' => (clone $intakes)->where('status', '!=', \App\Models\PurchaseStockIntake::STATUS_CANCELLED)->count(),
+            'animals_bought' => (int) ((clone $intakes)->where('status', '!=', \App\Models\PurchaseStockIntake::STATUS_CANCELLED)->sum('quantity_received') ?? 0),
+            'added_to_stock' => (int) $this->pigs($organizationId)->withTrashed()->whereIn('purchase_stock_intake_id', (clone $intakes)->select('id'))->count(),
+            'lost_in_quarantine' => (int) ((clone $intakes)->sum('quarantine_rejected_quantity') ?? 0),
+            'cost' => (float) (clone $intakes)->where('status', '!=', \App\Models\PurchaseStockIntake::STATUS_CANCELLED)->get()->sum(fn ($i) => $i->totalLandedCost()),
+            'waiting' => \App\Models\PurchaseStockIntake::query()->where('organization_id', $organizationId)
+                ->whereIn('status', [\App\Models\PurchaseStockIntake::STATUS_PENDING_RECEIVE, \App\Models\PurchaseStockIntake::STATUS_RECEIVED, \App\Models\PurchaseStockIntake::STATUS_QUARANTINED, \App\Models\PurchaseStockIntake::STATUS_APPROVED])->count(),
         ];
 
         $storefrontBase = StorefrontOrder::query()->forOrganization($organizationId)->whereBetween('placed_at', [$from, $to]);
@@ -207,6 +258,9 @@ class SystemReportService
         if ($weights['records'] === 0 && $closing > 0) {
             $exceptions->push(['severity' => 'medium', 'title' => 'No weights recorded', 'detail' => 'No weighing activity exists in the selected period.']);
         }
+        if ($health['severe_open'] > 0) {
+            $exceptions->push(['severity' => 'high', 'title' => 'Severe health cases are open', 'detail' => $health['severe_open'].' severe case(s) not yet resolved.']);
+        }
         if ($herdMovement['variance'] !== 0) {
             $exceptions->push(['severity' => 'medium', 'title' => 'Herd movement needs reconciliation', 'detail' => abs($herdMovement['variance']).' animal(s) are not reconciled.']);
         }
@@ -215,30 +269,93 @@ class SystemReportService
             'from', 'to', 'previousFrom', 'previousTo', 'current', 'previous', 'herdMovement',
             'distribution', 'genderDistribution', 'breedDistribution', 'herdIndicators', 'monthlySales',
             'breeding', 'pigletTracking', 'weights', 'deathCauses', 'health', 'feed',
-            'storefront', 'finance', 'facilities', 'exceptions'
+            'pigSales', 'purchases', 'storefront', 'finance', 'facilities', 'exceptions'
         );
     }
 
-    private function periodSummary(int $organizationId, CarbonImmutable $from, CarbonImmutable $to): array
+    /** Herd, sales and mortality for one farm and period; the platform report uses it too. */
+    public function periodSummary(int $organizationId, CarbonImmutable $from, CarbonImmutable $to): array
     {
-        $sales = $this->sales($organizationId)->whereBetween('sale_date', [$from, $to]);
-        $deaths = $this->deaths($organizationId)->whereBetween('death_date', [$from, $to])->count();
+        $sales = $this->sales($organizationId)->whereBetween('sale_date', [$from->toDateString(), $to->toDateString()]);
+        $deaths = $this->deaths($organizationId)->whereBetween('death_date', [$from->toDateString(), $to->toDateString()])->count();
+        $pigletDeaths = (int) PigletDeath::query()
+            ->whereHas('farrowing.sow', fn (Builder $query) => $query->forOrganization($organizationId))
+            ->whereBetween('death_date', [$from->toDateString(), $to->toDateString()])->sum('count');
         $exits = \App\Models\PigExit::withoutGlobalScopes()->where('organization_id', $organizationId)
             ->whereDate('exit_date', '>=', $from->toDateString())->whereDate('exit_date', '<=', $to->toDateString())->count();
         $opening = $this->herdAsOf($organizationId, $from->subSecond());
-        $newPigs = $this->pigs($organizationId)->withTrashed()->whereBetween('created_at', [$from, $to])->count();
-        $populationAtRisk = $opening + $newPigs;
+
+        // New pig records, by where they came from.
+        $newPigs = $this->pigs($organizationId)->withTrashed()->whereBetween('created_at', [$from, $to]);
+        $weanedIntoStock = (clone $newPigs)->whereIn('id', Weaning::withoutGlobalScopes()->whereNotNull('pig_id')->select('pig_id'))->count();
+        $purchased = (clone $newPigs)->whereNotNull('purchase_stock_intake_id')->count();
+        $newCount = (clone $newPigs)->count();
+
+        // Every animal on the farm during the period: the opening herd, piglets
+        // already with their sows, piglets born, and animals bought or added.
+        // Weaned piglets are already counted as piglets, so not again as new pigs.
+        $litters = Farrowing::query()->whereHas('sow', fn (Builder $query) => $query->forOrganization($organizationId))->with('pigletDeaths');
+        $pigletsAtStart = (clone $litters)->where('farrowing_date', '<', $from->toDateString())
+            ->where(fn ($q) => $q->whereNull('date_weaned')->orWhere('date_weaned', '>=', $from->toDateString()))
+            ->get()->sum(fn (Farrowing $f) => max(0, (int) $f->live_births - (int) $f->pigletDeaths->where('death_date', '<', $from)->sum('count')));
+        $liveBirths = (int) (clone $litters)->whereBetween('farrowing_date', [$from->toDateString(), $to->toDateString()])->sum('live_births');
+        $populationAtRisk = $opening + $pigletsAtStart + $liveBirths + ($newCount - $weanedIntoStock);
+        $allDeaths = $deaths + $pigletDeaths;
 
         return [
             'closing_herd' => $this->herdAsOf($organizationId, $to),
-            'new_pigs' => $newPigs,
+            'new_pigs' => $newCount,
+            'weaned_into_stock' => $weanedIntoStock,
+            'purchased' => $purchased,
+            'manually_added' => max(0, $newCount - $weanedIntoStock - $purchased),
             'sold' => (clone $sales)->count(),
             'deaths' => $deaths,
+            'piglet_deaths' => $pigletDeaths,
             'exits' => $exits,
             'revenue' => (float) ((clone $sales)->sum('sale_price') ?? 0),
             'average_sale' => (float) ((clone $sales)->avg('sale_price') ?? 0),
             'average_price_per_kg' => (float) ((clone $sales)->whereNotNull('price_per_kg')->avg('price_per_kg') ?? 0),
-            'mortality_rate' => $populationAtRisk > 0 ? round(($deaths / $populationAtRisk) * 100, 2) : null,
+            // Pig and piglet deaths over every animal on the farm in the period.
+            'mortality_rate' => $populationAtRisk > 0 ? round(($allDeaths / $populationAtRisk) * 100, 2) : null,
+        ];
+    }
+
+    /** Health work in the period, from health cases and recorded doses. */
+    private function health(int $organizationId, CarbonImmutable $from, CarbonImmutable $to): array
+    {
+        $cases = HealthRecord::query()->withoutGlobalScopes()->where('organization_id', $organizationId)->whereNull('voided_at')->whereNull('deleted_at');
+        $opened = (clone $cases)->whereBetween('record_date', [$from->toDateString(), $to->toDateString()]);
+        $openNow = (clone $cases)->whereIn('case_status', ['open', 'under_treatment']);
+
+        $doses = \App\Models\MedicationAdministration::query()->withoutGlobalScopes()->where('organization_id', $organizationId)
+            ->whereNull('voided_at')->whereBetween('administration_date', [$from->toDateString(), $to->toDateString()]);
+        $purpose = fn (?string $p) => match (true) {
+            str_contains(strtolower((string) $p), 'vaccin') => 'Vaccination',
+            str_contains(strtolower((string) $p), 'deworm') => 'Deworming',
+            str_contains(strtolower((string) $p), 'treat') => 'Treatment',
+            blank($p) => 'Not stated',
+            default => 'Other',
+        };
+
+        $medicineCost = (float) \Illuminate\Support\Facades\DB::table('medication_dosing_allocations as a')
+            ->join('medication_dosing_events as e', 'e.id', '=', 'a.medication_dosing_event_id')
+            ->where('e.organization_id', $organizationId)->where('e.status', 'recorded')
+            ->whereBetween('e.administered_at', [$from, $to])
+            ->selectRaw('COALESCE(SUM(a.stock_quantity * a.unit_cost_snapshot), 0) as cost')->value('cost');
+
+        return [
+            'cases_opened' => (clone $opened)->count(),
+            'animals_affected' => (int) \Illuminate\Support\Facades\DB::table('health_record_animals')
+                ->whereIn('health_record_id', (clone $opened)->select('id'))->distinct()->count('pig_id'),
+            'cases_finished' => (clone $cases)->whereIn('case_status', ['resolved', 'closed'])->whereBetween('resolved_at', [$from->toDateString(), $to->toDateString()])->count(),
+            'open_now' => (clone $openNow)->count(),
+            'severe_open' => (clone $openNow)->where('severity', 'severe')->count(),
+            'top_conditions' => (clone $opened)->selectRaw("COALESCE(NULLIF(`condition`, ''), 'Not stated') as label, COUNT(*) as total")
+                ->groupBy('label')->orderByDesc('total')->limit(6)->get(),
+            'doses' => (clone $doses)->count(),
+            'doses_by_purpose' => (clone $doses)->pluck('purpose')->map($purpose)->countBy()->sortDesc()->all(),
+            'medicine_cost' => $medicineCost,
+            'under_withdrawal' => app(\App\Services\Health\WithdrawalStatusService::class)->restrictedCount(now()->toDateString()),
         ];
     }
 
@@ -250,8 +367,9 @@ class SystemReportService
     private function herdAsOf(int $organizationId, CarbonImmutable $date): int
     {
         $registered = $this->pigs($organizationId)->withTrashed()->where('created_at', '<=', $date)->count();
-        $sold = $this->sales($organizationId)->withTrashed()->where('sale_date', '<=', $date->toDateString())->count();
-        $deceased = $this->deaths($organizationId)->withTrashed()->where('death_date', '<=', $date->toDateString())->count();
+        // A reversed (deleted) sale or death did not take the pig away.
+        $sold = $this->sales($organizationId)->where('sale_date', '<=', $date->toDateString())->count();
+        $deceased = $this->deaths($organizationId)->where('death_date', '<=', $date->toDateString())->count();
         $exited = \App\Models\PigExit::withoutGlobalScopes()->where('organization_id', $organizationId)
             ->whereDate('exit_date', '<=', $date->toDateString())->count();
 
@@ -290,16 +408,11 @@ class SystemReportService
 
     private function structures(int $organizationId): Builder
     {
-        return Structure::query()->whereIn('created_by', $this->organizationUserIds($organizationId));
+        return Structure::query()->withoutGlobalScopes()->where('organization_id', $organizationId);
     }
 
     private function rooms(int $organizationId): Builder
     {
-        return Room::query()->whereHas('structure', fn (Builder $query) => $query->whereIn('created_by', $this->organizationUserIds($organizationId)));
-    }
-
-    private function organizationUserIds(int $organizationId): Collection
-    {
-        return \App\Models\User::query()->where('organization_id', $organizationId)->pluck('id');
+        return Room::query()->withoutGlobalScopes()->where('organization_id', $organizationId);
     }
 }

@@ -66,6 +66,10 @@ class SalesReturnController extends Controller
                 ->orderByDesc('id')
                 ->paginate(25),
 
+            // Credit note documents are the Advanced Accounting add-on; without
+            // it the number is shown but not linked.
+            'creditNotesOpen' => \App\Support\Features\FinanceHubs::canOpen('finance.credit-notes.show', $request->user()),
+
             // Sales still open to return, newest first. Deliberately limited:
             // this is a "what came back today" screen, not a sales register.
             'feedSales' => FeedSale::query()

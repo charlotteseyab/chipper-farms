@@ -24,7 +24,7 @@ class UpdateBreedingPigRequest extends FormRequest
             'stock_type'     => ['required', 'in:breeding,standard'],
             'date_of_birth'  => ['required', 'date', 'before_or_equal:today'],
             'ear_tag_number' => [
-                'required',
+                'nullable',
                 'string',
                 'max:50',
             ],

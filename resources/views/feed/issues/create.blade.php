@@ -2,10 +2,12 @@
     <x-feed-hub hub="today" />
     <div class="max-w-5xl mx-auto pt-6 pb-24 px-4">
         <div class="mb-6">
-            <a href="{{ route('feed.issues.index') }}" class="text-sm text-slate-500 hover:text-slate-700">← Back to feedings</a>
-            <h1 class="text-2xl font-bold text-slate-800 mt-2">Record Feeding</h1>
-            <p class="text-sm text-slate-500">Enter the kg of feed given to each stage. Leave a stage blank if it was not fed. Confirming deducts the feed from finished-feed stock.</p>
+            <h1 class="text-2xl font-bold text-slate-800">Today</h1>
+            <p class="text-sm text-slate-500">{{ now()->format('l j F') }} · feed the animals. Fill in what each stage was given and save; the feed comes out of stock.</p>
         </div>
+
+        @include('feeds.partials.needs', ['needs' => $needs])
+        <div class="mb-6"></div>
 
         @if($errors->any())
             <div role="alert" class="mb-4 px-4 py-3 rounded-xl bg-red-50 text-red-700 text-sm">
@@ -37,7 +39,7 @@
                 $oldEntries = collect(old('entries', []))->keyBy('stage');
             @endphp
 
-            <form method="POST" action="{{ route('feed.issues.store') }}" class="space-y-5"
+            <form id="feeding" method="POST" action="{{ route('feed.issues.store') }}" class="space-y-5"
                   x-data="{
                       feeds: @js($feedTypes->keyBy('id')->all()),
                       rows: @js($stages->map(fn ($s) => [
@@ -61,6 +63,9 @@
                           }));
                       },
                       get totalCost() { return this.totals.reduce((sum, t) => sum + t.cost, 0); },
+                      get fillable() { return this.rows.filter(r => r.expected !== null && r.expected > 0 && r.feed).length; },
+                      fillAll() { this.rows.forEach(r => { if (r.expected !== null && r.expected > 0 && r.feed) r.qty = String(r.expected); }); },
+                      clearAll() { this.rows.forEach(r => r.qty = ''); },
                   }">
                 @csrf
 
@@ -80,9 +85,19 @@
                     </div>
                 </div>
 
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3" x-show="fillable > 0">
+                    <p class="text-sm text-emerald-900">Fed as the ration says? Fill every stage at once, then change only the ones fed differently.</p>
+                    <div class="flex gap-2">
+                        <button type="button" @click="fillAll()" class="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Fill all with today's ration</button>
+                        <button type="button" @click="clearAll()" class="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-100">Clear</button>
+                    </div>
+                </div>
+
                 <div class="space-y-3">
                     @foreach($stages as $i => $stage)
-                        <div class="rounded-2xl border bg-white p-4 shadow-sm transition"
+                        {{-- Opened from a stage's Record button on Feed Today: that stage is marked and its kg field takes the cursor. --}}
+                        @php $chosen = request('stage') === $stage['stage']; @endphp
+                        <div id="stage-{{ $stage['stage'] }}" class="scroll-mt-24 rounded-2xl border bg-white p-4 shadow-sm transition {{ $chosen ? 'ring-2 ring-emerald-500' : '' }}"
                              :class="(parseFloat(rows[{{ $i }}].qty) || 0) > 0 ? 'border-emerald-300 ring-1 ring-emerald-100' : 'border-slate-100'">
                             <input type="hidden" name="entries[{{ $i }}][stage]" value="{{ $stage['stage'] }}">
                             <input type="hidden" name="entries[{{ $i }}][submission_key]" value="{{ $oldEntries[$stage['stage']]['submission_key'] ?? $stage['submission_key'] }}">
@@ -111,12 +126,32 @@
                                     </div>
                                     <div class="relative">
                                         <label for="qty-{{ $i }}" class="sr-only">Kg fed to {{ $stage['label'] }}</label>
-                                        <input id="qty-{{ $i }}" type="number" step="0.0001" min="0.0001" inputmode="decimal"
+                                        <input id="qty-{{ $i }}" type="number" step="0.0001" min="0.0001" inputmode="decimal" @if($chosen) autofocus @endif
                                                name="entries[{{ $i }}][quantity_kg]" x-model="rows[{{ $i }}].qty"
                                                placeholder="{{ $stage['expected_kg'] !== null ? rtrim(rtrim(number_format($stage['expected_kg'], 2), '0'), '.') : '0' }}"
                                                class="w-full rounded-lg border-slate-200 pr-10 text-right font-mono">
                                         <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-slate-400">kg</span>
                                     </div>
+                                    @if($rooms->isNotEmpty())
+                                        @php
+                                            [$here, $elsewhere] = $rooms->partition(fn ($room) => in_array($room['id'], $stage['room_ids'], true));
+                                            $pickedRoom = (string) ($oldEntries[$stage['stage']]['room_id'] ?? '');
+                                        @endphp
+                                        <div class="sm:col-span-2">
+                                            <label for="room-{{ $i }}" class="sr-only">Pen or room for {{ $stage['label'] }}</label>
+                                            <select id="room-{{ $i }}" name="entries[{{ $i }}][room_id]" class="w-full rounded-lg border-slate-200 text-sm text-slate-600">
+                                                <option value="">Whole stage (all pens)</option>
+                                                @if($here->isNotEmpty())
+                                                    <optgroup label="Where {{ strtolower($stage['label']) }}s are">
+                                                        @foreach($here as $room)<option value="{{ $room['id'] }}" @selected($pickedRoom === (string) $room['id'])>{{ $room['name'] }}</option>@endforeach
+                                                    </optgroup>
+                                                @endif
+                                                <optgroup label="{{ $here->isNotEmpty() ? 'Other pens' : 'Pens' }}">
+                                                    @foreach($elsewhere as $room)<option value="{{ $room['id'] }}" @selected($pickedRoom === (string) $room['id'])>{{ $room['name'] }}</option>@endforeach
+                                                </optgroup>
+                                            </select>
+                                        </div>
+                                    @endif
                                 </div>
 
                                 @if($stage['expected_kg'] !== null)
@@ -156,5 +191,28 @@
                 </button>
             </form>
         @endif
+
+        <section class="mt-8 space-y-3" aria-labelledby="today-feedings">
+            <div class="flex flex-wrap items-end justify-between gap-2">
+                <h2 id="today-feedings" class="text-lg font-bold text-slate-900">Recorded today</h2>
+                <span class="flex flex-wrap gap-4 text-sm font-semibold">
+                    <a href="{{ route('feed.issues.index') }}" class="text-emerald-700 hover:underline">All feedings and corrections</a>
+                    @if(auth()->user()->hasPermission('view_feed_production'))<a href="{{ route('feed.planned-vs-actual') }}" class="text-emerald-700 hover:underline">Reports</a>@endif
+                </span>
+            </div>
+            <div class="divide-y divide-slate-100 rounded-2xl border border-slate-100 bg-white shadow-sm">
+                @forelse($todayIssues as $issue)
+                    <a href="{{ route('feed.issues.show', $issue) }}" class="flex items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 {{ $issue->isReversed() ? 'opacity-60' : '' }}">
+                        <span class="min-w-0">
+                            <span class="block font-semibold text-slate-900 {{ $issue->isReversed() ? 'line-through' : '' }}">{{ $issue->where_label }} · {{ $issue->feedType?->name }}</span>
+                            <span class="block text-xs text-slate-500">{{ $issue->issued_at->format('H:i') }} · {{ $issue->issuedBy?->name ?? '—' }}@if($issue->isReversed()) · reversed @endif</span>
+                        </span>
+                        <span class="whitespace-nowrap font-mono text-sm font-semibold text-slate-900">{{ rtrim(rtrim(number_format((float) $issue->quantity_kg, 2), '0'), '.') }} kg</span>
+                    </a>
+                @empty
+                    <p class="px-4 py-6 text-center text-sm text-slate-500">Nothing recorded yet today.</p>
+                @endforelse
+            </div>
+        </section>
     </div>
 </x-app-layout>

@@ -129,7 +129,8 @@
             </dd>
         </div>
     </dl>
-    @if(auth()->user()?->hasPermission('edit_customer') || auth()->user()?->hasPermission('manage_customer_credit'))
+    @if((auth()->user()?->hasPermission('edit_customer') || auth()->user()?->hasPermission('manage_customer_credit'))
+        && app(\App\Services\Organizations\OrganizationFeatureService::class)->usable(\App\Support\Features\FeatureCatalog::FINANCE_CUSTOMER_CREDIT))
         <a href="{{ route('finance.customers.credit-hold.edit', $customer) }}"
            class="mt-3 inline-block text-xs text-emerald-700 hover:underline">Edit credit settings →</a>
     @endif

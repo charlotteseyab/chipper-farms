@@ -155,6 +155,11 @@ class OrganizationAccountManagementTest extends TestCase
             'organization_id' => $organization->id,
         ]);
         $this->assertDatabaseHas('password_reset_tokens', ['email' => 'ama@north.test']);
+        // The new farm gets its own chart of accounts, so it can post from day one.
+        $this->assertSame(
+            \DB::table('chart_of_accounts')->whereNull('organization_id')->count(),
+            \DB::table('chart_of_accounts')->where('organization_id', $organization->id)->count(),
+        );
         $this->assertDatabaseHas('email_templates', [
             'organization_id' => $organization->id,
             'key' => 'users.organization_admin_welcome',

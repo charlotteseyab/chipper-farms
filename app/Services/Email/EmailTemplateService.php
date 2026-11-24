@@ -30,7 +30,7 @@ class EmailTemplateService
         }
     }
 
-    public function send(int $organizationId, string $key, ?string $recipient, array $variables = []): bool
+    public function send(int $organizationId, string $key, ?string $recipient, array $variables = [], bool $throwOnFailure = false): bool
     {
         $recipient = trim((string) $recipient);
         if ($recipient === '' || filter_var($recipient, FILTER_VALIDATE_EMAIL) === false) {
@@ -86,6 +86,12 @@ class EmailTemplateService
                 'recipient' => $recipient,
                 'error' => $e->getMessage(),
             ]);
+
+            // Queue workers must see transport failures to apply their finite
+            // retries. Synchronous business operations retain best-effort mail.
+            if ($throwOnFailure) {
+                throw $e;
+            }
 
             return false;
         }

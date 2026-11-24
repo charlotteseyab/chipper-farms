@@ -23,7 +23,7 @@ class PigExitPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager() || $user->hasRoleName('manager') || $user->isDataEntry() || $user->isAccountant();
+        return $user->hasPermission('view_pig_exits');
     }
 
     public function view(User $user, PigExit $exit): bool
@@ -33,6 +33,6 @@ class PigExitPolicy
 
     public function create(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager() || $user->hasRoleName('manager');
+        return $user->hasPermission('record_pig_exits');
     }
 }

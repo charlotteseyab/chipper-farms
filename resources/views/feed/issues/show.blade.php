@@ -7,7 +7,7 @@
             <h1 class="text-2xl font-bold text-slate-800 mt-2">Feeding #{{ $issue->id }}</h1>
             <p class="text-sm text-slate-500">
                 {{ $issue->issued_at?->format('Y-m-d H:i') }}
-                · {{ $issue->feeding_stage ? 'Stage' : 'Group' }} <strong>{{ $issue->recipient_label }}</strong>
+                · {{ $issue->feeding_stage ? 'Stage' : 'Group' }} <strong>{{ $issue->where_label }}</strong>
                 · Feed <strong>{{ $issue->feedType?->name }}</strong>
                 · By {{ $issue->issuedBy?->name ?? '—' }}
             </p>
@@ -24,12 +24,12 @@
         <div class="grid grid-cols-1 {{ $showCosts ? 'sm:grid-cols-4' : 'sm:grid-cols-2' }} gap-4 mb-6">
             <div class="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
                 <p class="text-xs text-slate-500">Quantity</p>
-                <p class="mt-1 text-2xl font-bold text-slate-800 font-mono">{{ number_format((float) $issue->quantity_kg, 4) }} <span class="text-base text-slate-500">kg</span></p>
+                <p class="mt-1 text-2xl font-bold text-slate-800 font-mono">{{ \App\Support\Qty::kg((float) $issue->quantity_kg) }} <span class="text-base text-slate-500">kg</span></p>
             </div>
             @if($showCosts)
             <div class="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
                 <p class="text-xs text-slate-500">Unit cost (WAC)</p>
-                <p class="mt-1 text-2xl font-bold text-slate-800 font-mono">{{ number_format((float) $issue->unit_cost_at_issuance, 6) }}</p>
+                <p class="mt-1 text-2xl font-bold text-slate-800 font-mono">{{ \App\Support\Qty::money((float) $issue->unit_cost_at_issuance) }}</p>
             </div>
             <div class="rounded-2xl border border-slate-100 bg-white shadow-sm p-4">
                 <p class="text-xs text-slate-500">Total cost</p>
@@ -60,7 +60,7 @@
         </div>
 
         <section class="rounded-xl border bg-white p-4 mb-6"><h2 class="font-bold">Saved daily feeding plan</h2>
-            <p>Daily target for this {{ $issue->feeding_stage ? 'stage' : 'group' }} and feed: {{ $issue->planned_quantity_kg === null ? 'Unknown (no reliable plan recorded)' : number_format($issue->planned_quantity_kg, 4).' kg' }}. Multiple deliveries share this one daily target.</p>
+            <p>Daily target for this {{ $issue->feeding_stage ? 'stage' : 'group' }} and feed: {{ $issue->planned_quantity_kg === null ? 'Unknown (no reliable plan recorded)' : \App\Support\Qty::kg($issue->planned_quantity_kg).' kg' }}. Multiple deliveries share this one daily target.</p>
             @foreach($issue->planning_snapshot['rows'] ?? [] as $row)<p>{{ \App\Services\Feed\FeedStageResolver::STAGES[$row['stage']] ?? $row['stage'] }}: {{ $row['animal_count'] }} animals × {{ $row['rate'] }} kg/day = {{ $row['daily_kg'] }} kg (standard #{{ $row['standard_id'] }}).</p>@endforeach
             <p class="text-sm text-slate-500">Saved when the first delivery was recorded. Later herd, standard and stock changes do not rewrite this target.</p>
         </section>

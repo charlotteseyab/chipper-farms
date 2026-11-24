@@ -502,8 +502,8 @@
                         @endif
 
                         @can('update', $pig)
-                            @if(!$pig->trashed() && $pig->currentEarTagAssignment)
-                                <a href="{{ route('pigs.ear-tag.replace', $pig) }}" class="pigshow-top-btn dark">Replace Tag</a>
+                            @if(!$pig->trashed())
+                                <a href="{{ route($pig->currentEarTagAssignment ? 'pigs.ear-tag.replace' : 'pigs.ear-tag.assign', $pig) }}" class="pigshow-top-btn dark">{{ $pig->currentEarTagAssignment ? 'Replace Tag' : 'Assign Tag' }}</a>
                             @endif
                         @endcan
                         <a href="{{ route('breeding-stocks.edit', $pig->id) }}" class="pigshow-top-btn blue">Edit</a>
@@ -667,6 +667,15 @@
                                 </div>
                             </section>
                         </div>
+
+                        <section class="mt-4" aria-labelledby="pig-health-alerts">
+                            <div class="mb-2 flex items-center justify-between gap-3">
+                                <p id="pig-health-alerts" class="text-xs font-black uppercase tracking-[.12em] text-slate-500">Health alerts</p>
+                                <a href="{{ route('health.alerts') }}" class="pigshow-link text-xs">All farm alerts →</a>
+                            </div>
+                            <x-health.alert-list :alerts="$healthAlerts ?? collect()" :show-state="true"
+                                :empty="'No vaccination, deworming, treatment or follow-up due in the next '.\App\Services\Health\HealthAlertService::defaultDays().' days.'" />
+                        </section>
                     </div>
                 @endif
 

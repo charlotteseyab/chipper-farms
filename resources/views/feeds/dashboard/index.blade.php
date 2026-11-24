@@ -12,21 +12,17 @@
     <div class="max-w-7xl mx-auto px-4 pt-6 pb-24 space-y-6">
         <header class="flex flex-wrap items-start justify-between gap-4">
             <div>
-                <h1 class="text-2xl font-bold text-slate-900">Feed Dashboard</h1>
-                <p class="text-sm text-slate-500">{{ now()->format('l j F Y') }} · today's feeding, stock against the next week and ingredients short for the next two weeks.</p>
+                <h1 class="text-2xl font-bold text-slate-900">Feed Today</h1>
+                <p class="text-sm text-slate-500">{{ now()->format('l j F Y') }} · what needs doing, today's feeding, and stock against the days ahead.</p>
             </div>
             <div class="flex flex-wrap gap-2 text-sm">
-                @if(auth()->user()->hasPermission('manage_feed_issues'))<a href="{{ route('feed.issues.create') }}" class="rounded-xl bg-emerald-600 px-4 py-2 font-semibold text-white hover:bg-emerald-700">Record feeding</a>@endif
-                <a href="{{ route('feed-production.index') }}" class="rounded-xl border bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50">Mix feed</a>
-                <a href="{{ route('mill.plan') }}" class="rounded-xl border bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50">Plan</a>
+                <a href="{{ route('feed.mix-buy') }}" class="rounded-xl border bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50">Mix &amp; buy</a>
+                <a href="{{ route('raw-materials.index') }}" class="rounded-xl border bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-50">Stock</a>
             </div>
         </header>
 
-        @if($setupIncomplete)
-            <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                Some stages have animals but no daily ration, so their expected amounts are missing. <a href="{{ route('feed-setup.index') }}#step-standards" class="font-semibold underline">Finish feed setup</a>
-            </div>
-        @endif
+        @php $canRecord = auth()->user()->hasPermission('manage_feed_issues'); @endphp
+        @include('feeds.partials.needs', ['needs' => $needs])
 
         <section class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
             <h2 class="text-lg font-bold text-slate-900">Today's feeding</h2>
@@ -40,6 +36,12 @@
                         <p class="text-xs text-slate-500">{{ $row['animals'] }} {{ \Illuminate\Support\Str::plural('animal', $row['animals']) }}</p>
                         <p class="mt-2 text-2xl font-bold text-slate-900">{{ $kg($row['fed_kg']) }} <span class="text-sm font-semibold text-slate-500">kg fed</span></p>
                         <p class="text-xs text-slate-500">{{ $row['expected_kg'] !== null ? 'of '.$kg($row['expected_kg']).' kg by ration' : 'No ration set' }}</p>
+                        @if($canRecord && $row['animals'] > 0)
+                            <a href="{{ route('feed.issues.create', ['stage' => $row['stage']]) }}#stage-{{ $row['stage'] }}"
+                               class="mt-3 inline-block rounded-lg px-3 py-1.5 text-sm font-semibold {{ $row['status'] === 'not_fed' ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'border border-slate-200 text-slate-700 hover:bg-slate-50' }}">
+                                {{ $row['status'] === 'not_fed' ? 'Record' : 'Record more' }}
+                            </a>
+                        @endif
                     </div>
                 @empty
                     <p class="text-sm text-slate-500">No animals or feedings today.</p>
@@ -50,7 +52,7 @@
         <div class="grid gap-6 lg:grid-cols-2">
             <section class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
                 <h2 class="text-lg font-bold text-slate-900">Finished feed: next 7 days</h2>
-                @if($wastagePercent > 0)<p class="text-xs text-slate-500">Needs include a {{ $kg($wastagePercent) }}% wastage allowance.</p>@endif
+                @if($wastageVaries)<p class="text-xs text-slate-500">Needs include each feed's wastage allowance.</p>@elseif($wastagePercent > 0)<p class="text-xs text-slate-500">Needs include a {{ $kg($wastagePercent) }}% wastage allowance.</p>@endif
                 <div class="mt-3 divide-y divide-slate-100">
                     @forelse($feeds as $feed)
                         <div class="flex items-center justify-between gap-3 py-3">

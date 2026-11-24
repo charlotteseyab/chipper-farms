@@ -33,13 +33,13 @@ class PigManagementPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager() || $user->isDataEntry() || $user->isAccountant();
+        return $user->hasPermission('view_pigs');
     }
 
     public function view(User $user, PigManagement $pig): bool
     {
         return $this->sameOrganization($user, $pig)
-            && ($user->isAdmin() || $user->isManager() || $user->isDataEntry() || $user->isAccountant());
+            && $user->hasPermission('view_pigs');
     }
 
     /** A pig's health history, including after it was sold or died. */
@@ -50,30 +50,30 @@ class PigManagementPolicy
 
     public function create(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager() || $user->isDataEntry();
+        return $user->hasPermission('manage_pigs');
     }
 
     public function update(User $user, PigManagement $pig): bool
     {
         return $this->sameOrganization($user, $pig)
-            && ($user->isAdmin() || $user->isManager() || $user->isDataEntry());
+            && $user->hasPermission('manage_pigs');
     }
 
     public function delete(User $user, PigManagement $pig): bool
     {
         return $this->sameOrganization($user, $pig)
-            && ($user->isAdmin() || $user->isManager());
+            && $user->hasPermission('delete_pigs');
     }
 
     public function restore(User $user, PigManagement $pig): bool
     {
-        return $this->sameOrganization($user, $pig) && $user->isAdmin();
+        return $this->sameOrganization($user, $pig) && $user->hasPermission('restore_pigs');
     }
 
     public function promote(User $user, PigManagement $pig): bool
     {
         return $this->sameOrganization($user, $pig)
-            && ($user->isAdmin() || $user->isManager());
+            && $user->hasPermission('promote_pigs');
     }
 
     public function demote(User $user, PigManagement $pig): bool

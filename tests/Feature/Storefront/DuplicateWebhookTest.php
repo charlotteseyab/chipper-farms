@@ -150,7 +150,7 @@ class DuplicateWebhookTest extends StorefrontTestCase
 
         $this->deliver($reference)->assertOk();
 
-        $this->assertSame(StorefrontOrder::STATUS_PAYMENT_CONFIRMED, $first);
+        $this->assertSame(StorefrontOrder::STATUS_CONFIRMED, $first);
         $this->assertSame($first, $order->fresh()->status);
     }
 

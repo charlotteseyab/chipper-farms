@@ -11,6 +11,7 @@ use App\Services\Feed\FeedCorrectionService;
 use App\Services\Feed\FeedPlanningService;
 use App\Services\Feed\FeedStageResolver;
 use App\Services\Feed\IssueFeedToGroupService;
+use App\Services\Finance\Inventory\InsufficientInventoryException;
 use App\Support\CurrentOrganization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,12 +44,14 @@ class FeedIssueController extends Controller
         $orgId = $this->currentOrganization->id();
 
         $issues = FeedIssue::query()
-            ->with(['group', 'feedType', 'issuedBy', 'journalBatch'])
+            ->with(['group', 'feedType', 'issuedBy', 'journalBatch', 'room.structure'])
             ->when(
                 $orgId !== null,
                 fn ($q) => $q->where('organization_id', $orgId),
                 fn ($q) => $q->whereNull('organization_id'),
             )
+            // From Planned vs actual: the feedings of one day.
+            ->when($request->date('date'), fn ($q, $date) => $q->whereDate('issued_at', $date->toDateString()))
             ->orderByDesc('issued_at')
             ->orderByDesc('id')
             ->paginate(25)
@@ -56,6 +59,8 @@ class FeedIssueController extends Controller
 
         return view('feed.issues.index', [
             'issues' => $issues,
+            'date' => $request->date('date'),
+            'glance' => $orgId !== null ? app(\App\Services\Feed\FeedGlanceService::class)->feedings($orgId) : [],
         ]);
     }
 
@@ -74,6 +79,11 @@ class FeedIssueController extends Controller
         // and expected daily kg.
         $plan = app(FeedPlanningService::class)->calculate($orgId, now()->toDateString(), now()->toDateString(), applyWastage: false);
         $animalCounts = collect($plan['locations'])->countBy('stage');
+        // Where each stage's animals are, so the pen list starts with those rooms.
+        $roomsByStage = collect($plan['locations'])->groupBy('stage')->map(fn ($l) => $l->pluck('room_id')->filter()->unique()->values()->all());
+        $rooms = \App\Models\Room::with('structure')->get()
+            ->map(fn ($room) => ['id' => $room->id, 'name' => trim(($room->structure?->name ? $room->structure->name.' · ' : '').$room->name)])
+            ->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
         $rows = collect($plan['rows'])->keyBy('stage');
 
         $stages = collect(FeedStageResolver::STAGES)->map(fn (string $label, string $stage) => [
@@ -84,13 +94,23 @@ class FeedIssueController extends Controller
             'feed_type'     => $rows[$stage]['feed_type'] ?? null,
             'rate'          => $rows[$stage]['rate'] ?? null,
             'expected_kg'   => isset($rows[$stage]) ? round((float) $rows[$stage]['daily_kg'], 2) : null,
+            'room_ids'      => $roomsByStage[$stage] ?? [],
             'submission_key' => (string) Str::uuid(),
         ])->sortByDesc('animal_count')->values();
 
+        // Today's feedings sit under the form, so checking what is already
+        // recorded needs no second page.
+        $today = FeedIssue::with(['feedType', 'issuedBy', 'group', 'room.structure'])
+            ->whereDate('issued_at', now()->toDateString())
+            ->orderByDesc('issued_at')->orderByDesc('id')->get();
+
         return view('feed.issues.create', [
+            'needs'      => app(\App\Services\Feed\FeedTodayService::class)->summary($orgId)['needs'],
             'stages'     => $stages,
             'feedTypes'  => $availableFeedTypes,
             'demandComplete' => $plan['demand_complete'],
+            'todayIssues' => $today,
+            'rooms'      => $rooms,
         ]);
     }
 
@@ -98,23 +118,8 @@ class FeedIssueController extends Controller
     {
         $validated = $request->validated();
         $entries = $request->filledEntries();
-        $orgId = (int) $this->currentOrganization->requireId();
-
-        // Check stock per feed before writing anything, so a round that
-        // overdraws one feed is rejected with a clear message.
-        $onHand = $this->availableFeedTypes($orgId)->keyBy('id');
-        foreach (collect($entries)->groupBy('feed_type_id') as $feedTypeId => $rows) {
-            $needed = (float) $rows->sum('quantity_kg');
-            $available = (float) ($onHand[$feedTypeId]['on_hand'] ?? 0);
-            if ($needed > $available) {
-                $name = $onHand[$feedTypeId]['name'] ?? FeedType::find($feedTypeId)?->name ?? 'this feed';
-
-                return back()->withInput()->with('error', sprintf(
-                    'Not enough %s in stock: this round uses %s kg but only %s kg is available. Mix more or reduce the quantities.',
-                    $name, number_format($needed, 2), number_format($available, 2),
-                ));
-            }
-        }
+        // The service recognizes saved submissions before checking stock.
+        // One transaction keeps a multi-stage round atomic if a new row overdraws.
 
         try {
             $issues = DB::transaction(fn () => collect($entries)->map(fn (array $entry) => $this->service->execute(
@@ -122,6 +127,7 @@ class FeedIssueController extends Controller
                 data: [
                     'submission_key' => $entry['submission_key'],
                     'feeding_stage'  => $entry['stage'],
+                    'room_id'        => $entry['room_id'] ?? null,
                     'feed_type_id'   => $entry['feed_type_id'],
                     'quantity_kg'    => $entry['quantity_kg'],
                     'issued_at'      => $validated['issued_at'] ?? null,
@@ -129,6 +135,13 @@ class FeedIssueController extends Controller
                     'notes'          => $validated['notes'] ?? null,
                 ],
             )), 3);
+        } catch (InsufficientInventoryException $e) {
+            $name = FeedType::find($e->itemId)?->name ?? 'this feed';
+
+            return back()->withInput()->with('error', sprintf(
+                'Not enough %s in stock: this feeding needs %s kg but only %s kg is available. Nothing new was saved. Mix more or reduce the quantities.',
+                $name, number_format($e->requested, 2), number_format($e->available, 2),
+            ));
         } catch (\DomainException|\InvalidArgumentException $e) {
             return back()->withInput()->with('error', $e->getMessage());
         } catch (\Throwable $e) {
@@ -137,11 +150,12 @@ class FeedIssueController extends Controller
             return back()->withInput()->with('error', 'The feeding could not be recorded. Nothing was saved; please try again.');
         }
 
+        // Back to the form: what was just saved is listed under it.
         return redirect()
-            ->route('feed.issues.index')
+            ->route('feed.issues.create')
             ->with('success', 'Feeding recorded: '.$issues->map(fn (FeedIssue $issue) => sprintf(
                 '%s %s kg (%s)',
-                $issue->recipient_label,
+                $issue->where_label,
                 rtrim(rtrim(number_format((float) $issue->quantity_kg, 2), '0'), '.'),
                 $issue->feedType?->name,
             ))->implode(', ').'.');

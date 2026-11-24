@@ -210,11 +210,11 @@
                                                     <div class="text-amber-700">Δ {{ number_format((float) $line->amount_difference, 2) }}</div>
                                                 @endif
                                             @elseif($line->matched_type === 'payment')
-                                                @if(\Illuminate\Support\Facades\Route::has('finance.payments.show'))
+                                                @canopen('finance.payments.show')
                                                     <a href="{{ route('finance.payments.show', $matched) }}" class="text-emerald-700 hover:underline">{{ $matched->payment_number }}</a>
                                                 @else
                                                     <span class="text-emerald-700">{{ $matched->payment_number }}</span>
-                                                @endif
+                                                @endcanopen
                                             @endif
                                         @elseif($line->isDuplicate() && $line->duplicate_candidate_ids)
                                             <span class="text-orange-700">{{ count($line->duplicate_candidate_ids) }} candidates: #{{ implode(', #', $line->duplicate_candidate_ids) }}</span>

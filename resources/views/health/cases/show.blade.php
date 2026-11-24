@@ -18,6 +18,7 @@
             </p>
         </div>
 
+        <x-health.glance :cards="$glance" />
         @if(session('success'))<p role="status" class="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{{ session('success') }}</p>@endif
         @if(session('error'))<p role="alert" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ session('error') }}</p>@endif
         @if($errors->any())<ul role="alert" class="list-disc list-inside rounded-xl bg-red-50 p-3 text-sm text-red-700">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul>@endif
@@ -73,16 +74,29 @@
                     @endforelse
                 </section>
 
-                <section class="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm space-y-3">
+                <section class="space-y-3">
                     <h2 class="font-bold text-slate-900">Doses given since the case opened</h2>
-                    @forelse($doses as $dose)
-                        <a href="{{ $dose->medication_dosing_event_id ? route('doses.show', $dose->medication_dosing_event_id) : route('medications.show', $dose) }}" class="flex flex-wrap justify-between gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50 {{ $dose->isVoided() ? 'text-slate-400 line-through' : 'text-slate-800' }}">
-                            <span>{{ $dose->administration_date->format('j M') }} · {{ $dose->pig?->code }} · {{ $dose->medicine_name_snapshot ?? $dose->medication_name }} {{ $dose->dosage }}</span>
-                            <span class="text-xs text-slate-500">{{ $dose->withdrawal_period_days === null ? 'no withdrawal recorded' : $dose->withdrawal_period_days.' days withdrawal' }}</span>
-                        </a>
-                    @empty
-                        <p class="text-sm text-slate-500">No doses recorded for these animals since the case opened.</p>
-                    @endforelse
+                    <div class="health-table-wrap">
+                      <div class="overflow-x-auto">
+                        <table class="health-table min-w-[560px]">
+                            <thead><tr><th>Given</th><th>Animal</th><th>Medicine and dose</th><th>Withdrawal</th></tr></thead>
+                            <tbody>
+                                @forelse($doses as $dose)
+                                    @php $url = $dose->medication_dosing_event_id ? route('doses.show', $dose->medication_dosing_event_id) : route('medications.show', $dose); @endphp
+                                    <tr class="{{ $dose->isVoided() ? 'text-slate-400 line-through' : '' }}">
+                                        <td class="whitespace-nowrap"><a href="{{ $url }}" class="font-semibold text-emerald-800 hover:underline">{{ $dose->administration_date->format('j M Y') }}</a></td>
+                                        <td>{{ $dose->pig?->code }}</td>
+                                        <td>{{ $dose->medicine_name_snapshot ?? $dose->medication_name }} {{ $dose->dosage }}</td>
+                                        <td class="whitespace-nowrap {{ $dose->withdrawal_period_days === null ? 'text-amber-700' : '' }}">{{ $dose->withdrawal_period_days === null ? 'Not recorded' : $dose->withdrawal_period_days.' days' }}</td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="4" class="health-table-empty">No doses recorded for these animals since the case opened.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                      </div>
+                      <div class="health-table-footer"><x-health.pagination :paginator="$doses" label="doses" /></div>
+                    </div>
                 </section>
 
                 @if($notGiven->isNotEmpty())
@@ -113,6 +127,24 @@
                         <p class="text-sm text-slate-500">None yet.</p>
                     @endforelse
 
+                    {{-- Resolved: the animal recovered and is being watched until a check. --}}
+                    @if($case->case_status === 'resolved')
+                        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                            <p class="font-semibold">Recovered, being watched{{ $case->check_on ? ' until '.$case->check_on->format('j M Y') : '' }}.</p>
+                            <p class="mt-1 text-emerald-800">The check is on the health worklist that day. If the animal is still well, close the case; if it is unwell again, reopen it.</p>
+                            @can('followUp', $case)
+                                <form method="POST" action="{{ route('health-cases.close', $case) }}" class="mt-2">
+                                    @csrf
+                                    <input type="hidden" name="final_status" value="closed">
+                                    <input type="hidden" name="outcome" value="{{ $case->outcome ?: 'recovered' }}">
+                                    <input type="hidden" name="closed_at" value="{{ now()->format('Y-m-d\TH:i') }}">
+                                    <input type="hidden" name="closure_notes" value="Still well at the recovery check.">
+                                    <button class="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white">Still well — close the case</button>
+                                </form>
+                            @endcan
+                        </div>
+                    @endif
+
                     @can('followUp', $case)
                         <details class="rounded-xl border border-slate-100 p-3" @if($errors->has('response') || $errors->has('observed_at')) open @endif>
                             <summary class="cursor-pointer text-sm font-semibold text-emerald-700">Add a follow-up</summary>
@@ -130,19 +162,37 @@
                                 <button class="rounded-lg bg-emerald-700 px-3 py-1.5 font-semibold text-white">Save follow-up</button>
                             </form>
                         </details>
-                        <details class="rounded-xl border border-slate-100 p-3" @if($errors->has('outcome') || $errors->has('closed_at')) open @endif>
+                        <details class="rounded-xl border border-slate-100 p-3" @if($errors->has('outcome') || $errors->has('closed_at') || $errors->has('check_on')) open @endif>
                             <summary class="cursor-pointer text-sm font-semibold text-slate-800">Resolve or close the case</summary>
-                            <form method="POST" action="{{ route('health-cases.close', $case) }}" class="mt-3 space-y-2 text-sm">
+                            <form method="POST" action="{{ route('health-cases.close', $case) }}" class="mt-3 space-y-2 text-sm"
+                                  x-data="{ outcome: @js(old('outcome', '')), status: @js(old('final_status', 'resolved')) }"
+                                  x-effect="if (! @js(\App\Models\HealthRecord::RESOLVABLE_OUTCOMES).includes(outcome) && outcome) status = 'closed'">
                                 @csrf
-                                <select name="outcome" required class="block w-full rounded-lg border-slate-300 text-sm" aria-label="Outcome">
-                                    <option value="">Outcome</option>
-                                    @foreach(\App\Models\HealthRecord::OUTCOMES as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
-                                </select>
-                                <select name="final_status" required class="block w-full rounded-lg border-slate-300 text-sm" aria-label="Status">
-                                    <option value="resolved">Resolved — recovered, keep watching</option>
-                                    <option value="closed">Closed — no further action</option>
-                                </select>
-                                <input type="datetime-local" name="closed_at" required max="{{ now()->format('Y-m-d\TH:i') }}" value="{{ now()->format('Y-m-d\TH:i') }}" class="block w-full rounded-lg border-slate-300 text-sm" aria-label="Date">
+                                <label class="block">
+                                    <span class="text-xs font-semibold text-slate-600">What happened to the animal</span>
+                                    <select name="outcome" required x-model="outcome" class="mt-1 block w-full rounded-lg border-slate-300 text-sm">
+                                        <option value="">Choose the outcome</option>
+                                        @foreach(\App\Models\HealthRecord::OUTCOMES as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach
+                                    </select>
+                                </label>
+                                <label class="block">
+                                    <span class="text-xs font-semibold text-slate-600">What happens to the case</span>
+                                    <select name="final_status" required x-model="status" class="mt-1 block w-full rounded-lg border-slate-300 text-sm">
+                                        <option value="resolved" :disabled="outcome && ! @js(\App\Models\HealthRecord::RESOLVABLE_OUTCOMES).includes(outcome)">Resolved — recovered, keep watching</option>
+                                        <option value="closed">Closed — no further action</option>
+                                    </select>
+                                </label>
+                                <label class="block" x-show="status === 'resolved'">
+                                    <span class="text-xs font-semibold text-slate-600">Check the animal again on</span>
+                                    <input type="date" name="check_on" :required="status === 'resolved'" :disabled="status !== 'resolved'"
+                                           min="{{ now()->toDateString() }}" value="{{ old('check_on', now()->addDays(7)->toDateString()) }}"
+                                           class="mt-1 block w-full rounded-lg border-slate-300 text-sm">
+                                    <span class="mt-1 block text-xs text-slate-500">It goes on the health worklist that day.</span>
+                                </label>
+                                <label class="block">
+                                    <span class="text-xs font-semibold text-slate-600">Date</span>
+                                    <input type="datetime-local" name="closed_at" required max="{{ now()->format('Y-m-d\TH:i') }}" value="{{ now()->format('Y-m-d\TH:i') }}" class="mt-1 block w-full rounded-lg border-slate-300 text-sm">
+                                </label>
                                 <textarea name="closure_notes" rows="2" placeholder="Notes" class="block w-full rounded-lg border-slate-300 text-sm"></textarea>
                                 <p class="text-xs text-slate-500">Finishing a course does not close a case; this does.</p>
                                 <button class="rounded-lg bg-slate-800 px-3 py-1.5 font-semibold text-white">Save</button>

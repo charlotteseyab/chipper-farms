@@ -153,3 +153,44 @@ main textarea {
         overflow-y: auto;
     }
 }
+
+/* Data tables: one look across the health and feed modules (.health-table* are the original names). */
+@layer components {
+    .health-table-wrap,
+    .data-table-wrap {
+        @apply overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm;
+    }
+    .health-table,
+    .data-table {
+        @apply w-full border-collapse text-sm;
+    }
+    .health-table thead th,
+    .data-table thead th {
+        @apply whitespace-nowrap border-b border-slate-200 bg-slate-50 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500;
+    }
+    .health-table tbody td,
+    .data-table tbody td {
+        @apply border-b border-slate-100 px-4 py-3 align-top text-slate-700;
+    }
+    .health-table tbody tr:last-child td,
+    .data-table tbody tr:last-child td {
+        @apply border-b-0;
+    }
+    .health-table tbody tr,
+    .data-table tbody tr {
+        @apply transition-colors hover:bg-emerald-50/40;
+    }
+    .health-table .num,
+    .data-table .num {
+        @apply text-right tabular-nums;
+    }
+    .health-table-empty,
+    .data-table-empty {
+        @apply px-4 py-10 text-center text-sm text-slate-500;
+    }
+    .health-table-footer,
+    .data-table-footer {
+        @apply border-t border-slate-100 bg-slate-50/60 px-4 py-3;
+    }
+}
+

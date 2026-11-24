@@ -129,10 +129,20 @@ Route::middleware($protectedMiddleware)->group(function () {
     // Files on visits, examinations, cases and follow-ups.
     Route::post('/health/attachments/{type}/{id}', [App\Http\Controllers\Health\HealthAttachmentController::class, 'store'])->whereIn('type', ['visit', 'examination', 'case', 'follow-up'])->whereNumber('id')->middleware('permission:view_health_records')->name('health.attachments.store');
     Route::get('/health/attachments/{attachment}', [App\Http\Controllers\Health\HealthAttachmentController::class, 'download'])->whereNumber('attachment')->middleware('permission:view_health_records')->name('health.attachments.download');
+    Route::get('/health/attachments/{attachment}/view', [App\Http\Controllers\Health\HealthAttachmentController::class, 'view'])->whereNumber('attachment')->middleware('permission:view_health_records')->name('health.attachments.view');
     Route::post('/health/attachments/{attachment}/remove', [App\Http\Controllers\Health\HealthAttachmentController::class, 'remove'])->whereNumber('attachment')->middleware('permission:correct_health_records')->name('health.attachments.remove');
     // Worklist and reports (health upgrade Phase 4).
     Route::get('/health-reports/{tab}/export', [App\Http\Controllers\Health\HealthReportController::class, 'export'])->middleware('permission:export_health_reports')->name('health.reports.export');
     Route::get('/health/worklist', [App\Http\Controllers\Health\HealthWorklistController::class, 'index'])->middleware('permission:view_health_records')->name('health.worklist');
+    Route::get('/health/alerts', App\Http\Controllers\Health\HealthAlertController::class)->middleware('permission:view_health_records')->name('health.alerts');
+    // Herd health programmes: routine vaccinations and deworming, scheduled automatically.
+    Route::get('/health/programmes', [App\Http\Controllers\Health\HealthProgrammeController::class, 'index'])->middleware('permission:view_health_records')->name('health-programmes.index');
+    Route::get('/health/programmes/create', [App\Http\Controllers\Health\HealthProgrammeController::class, 'create'])->middleware('permission:manage_treatment_courses')->name('health-programmes.create');
+    Route::post('/health/programmes', [App\Http\Controllers\Health\HealthProgrammeController::class, 'store'])->middleware('permission:manage_treatment_courses')->name('health-programmes.store');
+    Route::get('/health/programmes/{healthProgramme}/edit', [App\Http\Controllers\Health\HealthProgrammeController::class, 'edit'])->middleware('permission:manage_treatment_courses')->name('health-programmes.edit');
+    Route::put('/health/programmes/{healthProgramme}', [App\Http\Controllers\Health\HealthProgrammeController::class, 'update'])->middleware('permission:manage_treatment_courses')->name('health-programmes.update');
+    Route::post('/health/programmes/{healthProgramme}/pause', [App\Http\Controllers\Health\HealthProgrammeController::class, 'pause'])->middleware('permission:manage_treatment_courses')->name('health-programmes.pause');
+    Route::post('/health/programmes/{healthProgramme}/resume', [App\Http\Controllers\Health\HealthProgrammeController::class, 'resume'])->middleware('permission:manage_treatment_courses')->name('health-programmes.resume');
     // Doses given, medicine batches and stock (health upgrade Phase 3).
     Route::get('/health/doses/{dosingEvent}', [App\Http\Controllers\Health\DoseController::class, 'show'])->middleware('permission:view_health_records')->name('doses.show');
     Route::get('/health/doses/{dosingEvent}/correct', [App\Http\Controllers\Health\DoseController::class, 'edit'])->middleware('permission:correct_health_records')->name('doses.edit');
@@ -210,11 +220,15 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::get('all-stocks/create', [App\Http\Controllers\PigManagementController::class, 'allCreate'])->name('all-stocks.create');
     Route::get('all-stocks/import', [App\Http\Controllers\PigStockController::class, 'allImportCreate'])->name('all-stocks.import.create');
     Route::post('all-stocks/import/preview', [App\Http\Controllers\PigStockController::class, 'allImportPreview'])->name('all-stocks.import.preview');
-    Route::post('all-stocks/import/confirm', [App\Http\Controllers\PigStockController::class, 'allImportConfirm'])->name('all-stocks.import.confirm');
+    // block(): one confirm at a time per session, so a double click cannot
+    // read the same stored preview twice before it is taken.
+    Route::post('all-stocks/import/confirm', [App\Http\Controllers\PigStockController::class, 'allImportConfirm'])->block(10, 10)->name('all-stocks.import.confirm');
     Route::get('all-stocks/import/sample', [App\Http\Controllers\PigStockController::class, 'allImportSample'])->name('all-stocks.import.sample');
     Route::get('all-stocks-export/excel', [App\Http\Controllers\PigStockController::class, 'allExportExcel'])->name('all-stocks.export.excel');
     Route::get('all-stocks-export/csv', [App\Http\Controllers\PigManagementController::class, 'allExportCsv'])->name('all-stocks.export.csv');
     Route::get('all-stocks-export/pdf', [App\Http\Controllers\PigManagementController::class, 'allExportPdf'])->name('all-stocks.export.pdf');
+    Route::get('pigs/{pig}/ear-tag/assign', [App\Http\Controllers\PigEarTagController::class, 'edit'])->name('pigs.ear-tag.assign');
+    Route::post('pigs/{pig}/ear-tag', [App\Http\Controllers\PigEarTagController::class, 'store'])->name('pigs.ear-tag.store');
     Route::get('pigs/{pig}/ear-tag/replace', [App\Http\Controllers\PigEarTagController::class, 'edit'])->name('pigs.ear-tag.replace');
     Route::patch('pigs/{pig}/ear-tag', [App\Http\Controllers\PigEarTagController::class, 'update'])->name('pigs.ear-tag.update');
     Route::resource('purchase-stock-intakes', App\Http\Controllers\PurchaseStockIntakeController::class)
@@ -223,6 +237,7 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::post('purchase-stock-intakes/{purchaseStockIntake}/receive', [App\Http\Controllers\PurchaseStockIntakeController::class, 'receive'])->name('purchase-stock-intakes.receive');
     Route::post('purchase-stock-intakes/{purchaseStockIntake}/quarantine', [App\Http\Controllers\PurchaseStockIntakeController::class, 'quarantine'])->name('purchase-stock-intakes.quarantine');
     Route::post('purchase-stock-intakes/{purchaseStockIntake}/quarantine-review', [App\Http\Controllers\PurchaseStockIntakeController::class, 'reviewQuarantine'])->name('purchase-stock-intakes.quarantine-review');
+    Route::post('purchase-stock-intakes/{purchaseStockIntake}/cancel', [App\Http\Controllers\PurchaseStockIntakeController::class, 'cancel'])->name('purchase-stock-intakes.cancel');
     Route::post('purchase-stock-intakes/{purchaseStockIntake}/approve', [App\Http\Controllers\PurchaseStockIntakeController::class, 'approve'])->name('purchase-stock-intakes.approve');
     Route::post('purchase-stock-intakes/{purchaseStockIntake}/add-to-stock', [App\Http\Controllers\PurchaseStockIntakeController::class, 'addToStock'])->name('purchase-stock-intakes.add-to-stock');
 
@@ -419,7 +434,12 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::post('settings/modules/preset', [App\Http\Controllers\Settings\ModuleFeatureController::class, 'applyPreset'])
         ->middleware('permission:manage_feature_flags')
         ->name('settings.modules.preset');
-    
+
+    // Roles & access: a farm admin decides what the farm's other roles may use.
+    Route::get('settings/roles-access', [App\Http\Controllers\Settings\RoleAccessController::class, 'index'])->name('settings.roles-access');
+    Route::put('settings/roles-access/{role}', [App\Http\Controllers\Settings\RoleAccessController::class, 'update'])->name('settings.roles-access.update');
+    Route::delete('settings/roles-access/{role}', [App\Http\Controllers\Settings\RoleAccessController::class, 'reset'])->name('settings.roles-access.reset');
+
     // Platform farm onboarding (platform superuser only)
     Route::get('settings/organizations', [App\Http\Controllers\PlatformOrganizationController::class, 'index'])->name('settings.organizations');
     Route::post('settings/organizations', [App\Http\Controllers\PlatformOrganizationController::class, 'store'])->name('settings.organizations.store');
@@ -465,6 +485,8 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::get('/feed-setup', [FeedSetupController::class, 'index'])->middleware('permission:view_feed_production')->name('feed-setup.index');
     Route::post('/feed-production/recipes', [FeedProductionController::class, 'storeRecipe'])->middleware('permission:manage_feed_production')->name('feed-production.recipes.store');
     Route::post('/feed-production/mix', [FeedProductionController::class, 'mixFeed'])->middleware('permission:manage_feed_production')->name('feed-production.mix');
+    Route::get('/mill/projection', [FeedPlanningController::class, 'projection'])->middleware('permission:view_feed_production')->name('mill.projection');
+    Route::get('/feed/mix-and-buy', [FeedPlanningController::class, 'mixBuy'])->middleware('permission:view_feed_production')->name('feed.mix-buy');
     Route::get('/mill/plan', [FeedPlanningController::class, 'plan'])->middleware('permission:view_feed_production')->name('mill.plan');
     Route::get('/feed/planned-vs-actual', [FeedPlanningController::class, 'consumption'])->middleware('permission:view_feed_production')->name('feed.planned-vs-actual');
     Route::get('/feed-setup/settings', [FeedPlanningController::class, 'settings'])->middleware('permission:view_feed_production')->name('feed-setup.settings');
@@ -473,6 +495,7 @@ Route::middleware($protectedMiddleware)->group(function () {
     Route::post('/planning-reports/standards', [FeedPlanningController::class, 'standard'])->middleware('permission:manage_feed_production')->name('planning-reports.standards');
     Route::post('/planning-reports/stage-override', [FeedPlanningController::class, 'override'])->middleware('permission:manage_feed_production')->name('planning-reports.override');
     Route::post('/feed-production/plans', [FeedProductionController::class, 'plan'])->middleware('permission:manage_feed_production')->name('feed-production.plans');
+    Route::post('/feed-production/plans/all', [FeedProductionController::class, 'planAll'])->middleware('permission:manage_feed_production')->name('feed-production.plans.all');
     Route::post('/feed-production/plans/{plan}/complete', [FeedProductionController::class, 'completePlan'])->middleware('permission:manage_feed_production')->name('feed-production.plans.complete');
     Route::post('/feed-production/plans/{plan}/cancel', [FeedProductionController::class, 'cancelPlan'])->middleware('permission:manage_feed_production')->name('feed-production.plans.cancel');
     Route::post('/feed-production/batches/{batch}/reverse', [FeedProductionController::class, 'reverseBatch'])->middleware('permission:manage_feed_production')->name('feed-production.batches.reverse');
@@ -565,8 +588,15 @@ Route::middleware($protectedMiddleware)->group(function () {
 
         // Dashboard + trial balance — view_finance gate.
         Route::middleware('permission:view_finance')->group(function () {
-            Route::get('/', \App\Http\Controllers\Finance\FinanceDashboardController::class)
+            // The ledger dashboard is part of the Advanced Accounting add-on.
+            // Plain /finance opens it when the farm has the add-on and the
+            // Finance Overview otherwise, so the module's address never 404s.
+            Route::get('/ledger', \App\Http\Controllers\Finance\FinanceDashboardController::class)
+                ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING)
                 ->name('dashboard');
+            Route::get('/', fn () => redirect()->route(
+                \App\Support\Features\FinanceHubs::canOpen('finance.dashboard', auth()->user()) ? 'finance.dashboard' : 'finance.overview'
+            ))->name('home');
 
             // Farm-facing money screen (Phase 3). Gated on the Finance Overview
             // feature AND view_finance, per the standing rule that a flag hides
@@ -820,8 +850,10 @@ Route::middleware($protectedMiddleware)->group(function () {
         | it, and a second reversal for the same goods. The return UX that
         | creates them is §43, in Phase 13.
         */
+        // Advanced Accounting add-on: a return still raises its credit note
+        // for every farm; reading them as documents is the add-on's.
         Route::prefix('credit-notes')->name('credit-notes.')
-            ->middleware(['feature:' . \App\Support\Features\FeatureCatalog::FINANCE_SALES_MONEY_IN, 'permission:view_finance'])
+            ->middleware(['feature:' . \App\Support\Features\FeatureCatalog::FINANCE_SALES_MONEY_IN, 'feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING, 'permission:view_finance'])
             ->group(function () {
                 Route::get('/', [\App\Http\Controllers\Finance\CreditNoteController::class, 'index'])->name('index');
                 Route::get('/{creditNote}', [\App\Http\Controllers\Finance\CreditNoteController::class, 'show'])
@@ -941,20 +973,22 @@ Route::middleware($protectedMiddleware)->group(function () {
 
         /* Credit hold governs whether a customer can transact on credit —
            placing or clearing a hold is a credit-control decision. */
+        // Customer Credit feature: without it there is no credit-hold screen.
         Route::get('/customers/{customer}/credit-hold',
                               [\App\Http\Controllers\Finance\CustomerController::class, 'editCreditHold'])
             ->whereNumber('customer')
-            ->middleware('permission:manage_customers')
+            ->middleware(['permission:manage_customers', 'feature:' . \App\Support\Features\FeatureCatalog::FINANCE_CUSTOMER_CREDIT])
             ->name('customers.credit-hold.edit');
         Route::post('/customers/{customer}/credit-hold',
                               [\App\Http\Controllers\Finance\CustomerController::class, 'updateCreditHold'])
             ->whereNumber('customer')
-            ->middleware('permission:manage_customers')
+            ->middleware(['permission:manage_customers', 'feature:' . \App\Support\Features\FeatureCatalog::FINANCE_CUSTOMER_CREDIT])
             ->name('customers.credit-hold.update');
 
 
             /* AR Ageing (Phase 2d) */
-            Route::prefix('ageing')->name('ageing.')->group(function () {
+            // Ageing ("who owes what") is part of the Advanced Payables add-on.
+            Route::prefix('ageing')->name('ageing.')->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_AP)->group(function () {
                 // AR (existing — back-compat aliases). These expose customer
                 // receivable balances and were previously ungated.
                 Route::get('/',        [\App\Http\Controllers\Finance\AgeingController::class, 'index'])
@@ -984,8 +1018,8 @@ Route::middleware($protectedMiddleware)->group(function () {
             ->middleware('permission:view_finance')
             ->name('statements.download');
 
-        /* Refunds (Phase 2d) */
-        Route::prefix('refunds')->name('refunds.')->group(function () {
+        /* Refunds (Phase 2d) — Advanced Accounting add-on. */
+        Route::prefix('refunds')->name('refunds.')->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING)->group(function () {
             Route::get('/',                [\App\Http\Controllers\Finance\RefundController::class, 'index'])
                 ->middleware('permission:view_finance')
                 ->name('index');
@@ -1136,7 +1170,7 @@ Route::middleware($protectedMiddleware)->group(function () {
         });
 
             /* Payments (Phase 3c) */
-        Route::prefix('payments')->name('payments.')->group(function () {
+        Route::prefix('payments')->name('payments.')->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_CASH_BANK_MOMO)->group(function () {
             Route::get('/',                          [\App\Http\Controllers\Finance\PaymentController::class, 'index'])
                 ->middleware('permission:view_finance')
                 ->name('index');
@@ -1246,7 +1280,7 @@ Route::middleware($protectedMiddleware)->group(function () {
                 // ============================================================
         // Bank Accounts (Phase 3e)
         // ============================================================
-        Route::prefix('bank-accounts')->name('bank-accounts.')->group(function () {
+        Route::prefix('bank-accounts')->name('bank-accounts.')->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_CASH_BANK_MOMO)->group(function () {
             // Reads: account numbers, SWIFT codes and opening balances.
             // Deliberately NOT OR'd with view_finance: Phase3ePermissionsSeeder
             // separates view_bank_accounts from view_finance precisely because
@@ -1312,8 +1346,9 @@ Route::middleware($protectedMiddleware)->group(function () {
         Route::prefix('bank-reconciliation')->name('bank-reconciliation.')
             ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_BANK_RECONCILIATION)
             ->group(function () {
-            // Reads — same narrower bank-data boundary as bank statements.
-            Route::middleware('permission:import_bank_statement,reconcile_bank_statement')->group(function () {
+            // Reads need reconcile_bank_statement, as the controller has always
+            // required; admitting importers here only offered them a 403.
+            Route::middleware('permission:reconcile_bank_statement')->group(function () {
                 Route::get('/',         [\App\Http\Controllers\Finance\BankReconciliationController::class, 'index'])->name('index');
                 Route::get('/{bankReconciliation}',          [\App\Http\Controllers\Finance\BankReconciliationController::class, 'show'])->whereNumber('bankReconciliation')->name('show');
             });
@@ -1337,7 +1372,9 @@ Route::middleware($protectedMiddleware)->group(function () {
         | Inventory value (read-only)
         |--------------------------------------------------------------------------
         */
-        Route::middleware('permission:view_inventory_value')
+        // Inventory value, mappings, opening stock, GR/IR and mortality
+        // write-offs are the Biological Asset Reporting add-on.
+        Route::middleware(['permission:view_inventory_value', 'feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL])
         ->prefix('inventory')
         ->name('inventory.')
         ->group(function () {
@@ -1352,6 +1389,7 @@ Route::middleware($protectedMiddleware)->group(function () {
         |--------------------------------------------------------------------------
         */
         Route::prefix('inventory/account-mappings')
+        ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL)
         ->name('inventory.account-mappings.')
         ->group(function () {
             Route::get('/',                       [InventoryAccountMappingController::class, 'index'])
@@ -1381,6 +1419,7 @@ Route::middleware($protectedMiddleware)->group(function () {
         |--------------------------------------------------------------------------
         */
         Route::prefix('inventory/opening-balances')
+        ->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL)
         ->name('inventory.opening-balances.')
         ->group(function () {
             Route::get('/',               [OpeningBalanceController::class, 'index'])
@@ -1409,7 +1448,7 @@ Route::middleware($protectedMiddleware)->group(function () {
         | GR/IR ageing report
         |--------------------------------------------------------------------------
         */
-        Route::middleware('permission:view_gr_ir_ageing')
+        Route::middleware(['permission:view_gr_ir_ageing', 'feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL])
         ->prefix('inventory/gr-ir-ageing')
         ->name('inventory.gr-ir-ageing.')
         ->group(function () {
@@ -1475,7 +1514,7 @@ Route::middleware($protectedMiddleware)->group(function () {
         | Mortality Writeoffs (read-only audit)
         |--------------------------------------------------------------------------
         */
-        Route::middleware('permission:manage_pig_mortality')
+        Route::middleware(['permission:manage_pig_mortality', 'feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL])
         ->prefix('costing/mortality-writeoffs')
         ->name('costing.mortality-writeoffs.')
         ->group(function () {
@@ -1490,9 +1529,11 @@ Route::middleware($protectedMiddleware)->group(function () {
         ->prefix('reports')
         ->name('reports.')
         ->group(function () {
-            Route::get('/income-statement', IncomeStatementController::class)->name('income-statement');
-            Route::get('/balance-sheet',    BalanceSheetController::class)->name('balance-sheet');
-            Route::get('/cash-flow',        CashFlowController::class)->name('cash-flow');
+            Route::get('/income-statement', IncomeStatementController::class)->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_REPORTS)->name('income-statement');
+            // Profit & loss is every farm's; the formal statements are the
+            // Advanced Accounting add-on.
+            Route::get('/balance-sheet',    BalanceSheetController::class)->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING)->name('balance-sheet');
+            Route::get('/cash-flow',        CashFlowController::class)->middleware('feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING)->name('cash-flow');
         });
 
 
@@ -1553,13 +1594,13 @@ Route::middleware($protectedMiddleware)->group(function () {
             Route::get('/',                       [LoanController::class, 'index'])->middleware('permission:view_loans')->name('index');
             Route::get('/create',                 [LoanController::class, 'create'])->middleware('permission:view_loans')->name('create');
             Route::post('/',                      [LoanController::class, 'store'])->middleware('permission:manage_loans')->name('store');
-            Route::get('/reclassification',       [LoanController::class, 'reclassification'])->middleware('permission:view_loans')->name('reclassification');
+            Route::get('/reclassification',       [LoanController::class, 'reclassification'])->middleware(['permission:view_loans', 'feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING])->name('reclassification');
             Route::get('/{loan}',                 [LoanController::class, 'show'])->middleware('permission:view_loans')->name('show');
             Route::post('/{loan}/disburse',       [LoanController::class, 'disburse'])->middleware('permission:manage_loans')->name('disburse');
             Route::post('/{loan}/repay',          [LoanController::class, 'repay'])->middleware('permission:manage_loans')->name('repay');
         });
         
-        Route::get('/treasury', TreasuryController::class)->middleware('permission:view_treasury')->name('treasury');
+        Route::get('/treasury', TreasuryController::class)->middleware(['permission:view_treasury', 'feature:' . \App\Support\Features\FeatureCatalog::FINANCE_ADVANCED_TREASURY])->name('treasury');
 
 
         Route::prefix('investors')->name('investors.')
@@ -1594,7 +1635,10 @@ Route::middleware($protectedMiddleware)->group(function () {
     | single role, so admin/superuser inherit via the superuser bypass and
     | explicit grants while Salesperson gets a scoped subset.
     */
-    Route::prefix('storefront-admin')->name('storefront.admin.')->group(function () {
+    // The farm's Online Store switch closes the whole back office except
+    // Orders: orders already placed (and paid) must still be fulfilled or
+    // refunded after the shop is switched off.
+    Route::prefix('storefront-admin')->name('storefront.admin.')->middleware('feature:' . \App\Support\Features\FeatureCatalog::STOREFRONT_ENABLED)->group(function () {
         Route::get('/', [\App\Http\Controllers\Storefront\AdminStorefrontController::class, 'dashboard'])
             ->middleware('permission:view_storefront_dashboard')->name('dashboard');
 
@@ -1637,11 +1681,11 @@ Route::middleware($protectedMiddleware)->group(function () {
         });
 
         // Quotes workspace (Phase 2).
-        Route::middleware('permission:view_storefront_quotes')->group(function () {
+        Route::middleware(['permission:view_storefront_quotes', 'feature:' . \App\Support\Features\FeatureCatalog::STOREFRONT_QUOTES])->group(function () {
             Route::get('/quotes',           [\App\Http\Controllers\Storefront\AdminQuoteController::class, 'index'])->name('quotes.index');
             Route::get('/quotes/{quote}',   [\App\Http\Controllers\Storefront\AdminQuoteController::class, 'show'])->name('quotes.show');
         });
-        Route::middleware('permission:manage_storefront_quotes')->group(function () {
+        Route::middleware(['permission:manage_storefront_quotes', 'feature:' . \App\Support\Features\FeatureCatalog::STOREFRONT_QUOTES])->group(function () {
             Route::post('/quotes/{quote}/review',  [\App\Http\Controllers\Storefront\AdminQuoteController::class, 'review'])->name('quotes.review');
             Route::post('/quotes/{quote}/quote',   [\App\Http\Controllers\Storefront\AdminQuoteController::class, 'quote'])->name('quotes.quote');
             Route::post('/quotes/{quote}/accept',  [\App\Http\Controllers\Storefront\AdminQuoteController::class, 'accept'])->name('quotes.accept');
@@ -1649,12 +1693,12 @@ Route::middleware($protectedMiddleware)->group(function () {
             Route::post('/quotes/{quote}/convert', [\App\Http\Controllers\Storefront\AdminQuoteController::class, 'convert'])->name('quotes.convert');
         });
 
-        // Orders workspace (Phase 3).
-        Route::middleware('permission:view_storefront_orders')->group(function () {
+        // Orders workspace (Phase 3). Open with the shop switched off.
+        Route::middleware('permission:view_storefront_orders')->withoutMiddleware('feature:' . \App\Support\Features\FeatureCatalog::STOREFRONT_ENABLED)->group(function () {
             Route::get('/orders',         [\App\Http\Controllers\Storefront\AdminOrderController::class, 'index'])->name('orders.index');
             Route::get('/orders/{order}', [\App\Http\Controllers\Storefront\AdminOrderController::class, 'show'])->name('orders.show');
         });
-        Route::middleware('permission:manage_storefront_orders')->group(function () {
+        Route::middleware('permission:manage_storefront_orders')->withoutMiddleware('feature:' . \App\Support\Features\FeatureCatalog::STOREFRONT_ENABLED)->group(function () {
             Route::post('/orders/{order}/confirm',        [\App\Http\Controllers\Storefront\AdminOrderController::class, 'confirm'])->name('orders.confirm');
             Route::post('/orders/{order}/cancel',         [\App\Http\Controllers\Storefront\AdminOrderController::class, 'cancel'])->name('orders.cancel');
             Route::post('/orders/{order}/dispatch',       [\App\Http\Controllers\Storefront\AdminOrderController::class, 'fulfil'])->name('orders.dispatch');
@@ -1678,7 +1722,7 @@ Route::middleware($protectedMiddleware)->group(function () {
         });
 
         // Refunds (Phase 6) — treasurer-grade, NOT salesperson.
-        Route::middleware('permission:refund_storefront_orders')->group(function () {
+        Route::middleware('permission:refund_storefront_orders')->withoutMiddleware('feature:' . \App\Support\Features\FeatureCatalog::STOREFRONT_ENABLED)->group(function () {
             Route::post('/orders/{order}/refund', [\App\Http\Controllers\Storefront\AdminOrderController::class, 'refund'])->name('orders.refund');
         });
 
@@ -1771,12 +1815,12 @@ Route::prefix('shop')->name('storefront.')->group(function () {
         | guest cart merges into their own when they log in.
         */
         Route::get('/cart',                [\App\Http\Controllers\Storefront\CartController::class, 'index'])->name('cart.index');
-        Route::post('/cart/add/{listing}', [\App\Http\Controllers\Storefront\CartController::class, 'add'])->name('cart.add');
+        Route::post('/cart/add/{listing}', [\App\Http\Controllers\Storefront\CartController::class, 'add'])->middleware('throttle:storefront-cart')->name('cart.add');
         // Buying a pig live or by carcass weight. Separate from cart.add
         // because it takes animals or kilograms, not a count of things.
-        Route::post('/cart/add-pigs/{listing}', [\App\Http\Controllers\Storefront\CartController::class, 'addPigs'])->name('cart.add-pigs');
-        Route::patch('/cart/items/{item}', [\App\Http\Controllers\Storefront\CartController::class, 'update'])->name('cart.update');
-        Route::delete('/cart/items/{item}',[\App\Http\Controllers\Storefront\CartController::class, 'remove'])->name('cart.remove');
+        Route::post('/cart/add-pigs/{listing}', [\App\Http\Controllers\Storefront\CartController::class, 'addPigs'])->middleware('throttle:storefront-cart')->name('cart.add-pigs');
+        Route::patch('/cart/items/{item}', [\App\Http\Controllers\Storefront\CartController::class, 'update'])->middleware('throttle:storefront-cart')->name('cart.update');
+        Route::delete('/cart/items/{item}',[\App\Http\Controllers\Storefront\CartController::class, 'remove'])->middleware('throttle:storefront-cart')->name('cart.remove');
 
         Route::get('/checkout',  [\App\Http\Controllers\Storefront\CheckoutController::class, 'show'])->name('checkout.show');
         Route::post('/checkout', [\App\Http\Controllers\Storefront\CheckoutController::class, 'place'])

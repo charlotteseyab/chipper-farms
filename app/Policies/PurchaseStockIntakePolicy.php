@@ -46,23 +46,29 @@ class PurchaseStockIntakePolicy
     public function approve(User $user, PurchaseStockIntake $purchaseStockIntake): bool
     {
         return $this->sameOrganization($user, $purchaseStockIntake)
-            && ($user->isAdmin() || $user->isManager());
+            && $user->hasPermission('approve_purchase_intakes');
     }
 
     public function reviewQuarantine(User $user, PurchaseStockIntake $purchaseStockIntake): bool
     {
         return $this->sameOrganization($user, $purchaseStockIntake)
-            && ($user->isAdmin() || $user->isManager());
+            && $user->hasPermission('approve_purchase_intakes');
     }
 
     public function addToStock(User $user, PurchaseStockIntake $purchaseStockIntake): bool
     {
         return $this->sameOrganization($user, $purchaseStockIntake)
-            && ($user->isAdmin() || $user->isManager());
+            && $user->hasPermission('approve_purchase_intakes');
+    }
+
+    public function cancel(User $user, PurchaseStockIntake $purchaseStockIntake): bool
+    {
+        return $this->sameOrganization($user, $purchaseStockIntake)
+            && $user->hasPermission('approve_purchase_intakes');
     }
 
     protected function canOperateIntake(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager() || $user->isDataEntry();
+        return $user->hasPermission('operate_purchase_intakes');
     }
 }

@@ -88,6 +88,11 @@ class PostingEngine
         ?User $postingUser = null,
         bool $bypassSoftLock = false,
     ): JournalBatch {
+        return DB::transaction(fn () => $this->postInTransaction($draft, $postingUser, $bypassSoftLock), 3);
+    }
+
+    private function postInTransaction(JournalBatchDraft $draft, ?User $postingUser, bool $bypassSoftLock): JournalBatch
+    {
         // 1+2. Resolve period + check locks (throws if rejected).
         $period = $this->periodResolver->resolveForPosting($draft->postingDate, $bypassSoftLock);
 
@@ -158,7 +163,7 @@ class PostingEngine
         }
     }
 
-    protected function validateAccounts(JournalBatchDraft $draft): void
+    public function validateAccounts(JournalBatchDraft $draft): void
     {
         $organizationId = $this->currentOrganization->id();
 

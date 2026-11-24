@@ -11,7 +11,7 @@ class RoomController extends Controller
 {
     public function storeGlobal(Request $request)
     {
-        $this->abortUnlessRole('superuser', 'admin', 'farmmanager');
+        $this->abortUnlessPermission('manage_facilities');
         $data = $request->validate([
             'structure_id' => 'required|exists:structures,id',
             'name' => 'required|string|max:255',
@@ -34,7 +34,7 @@ class RoomController extends Controller
 
     public function store(Request $request, Structure $structure)
     {
-        $this->abortUnlessRole('superuser', 'admin', 'farmmanager');
+        $this->abortUnlessPermission('manage_facilities');
         // Check if structure is full
         if ($structure->is_full) {
             return back()->withErrors(['structure' => 'This structure is at full capacity. Cannot add more rooms.'])->withInput();
@@ -56,7 +56,7 @@ class RoomController extends Controller
 
     public function destroy(Structure $structure, Room $room)
     {
-        $this->abortUnlessRole('superuser', 'admin', 'farmmanager');
+        $this->abortUnlessPermission('manage_facilities');
         if ($room->structure_id !== $structure->id) {
             abort(404);
         }
@@ -85,7 +85,7 @@ class RoomController extends Controller
 
     public function show(Room $room)
     {
-        $this->abortUnlessRole('superuser', 'admin', 'farmmanager');
+        $this->abortUnlessPermission('view_facilities');
         $room->load(['structure', 'pigs' => function($query) {
             $query->orderBy('ear_tag_number');
         }]);
@@ -95,14 +95,14 @@ class RoomController extends Controller
 
     public function edit(Room $room)
     {
-        $this->abortUnlessRole('superuser', 'admin', 'farmmanager');
+        $this->abortUnlessPermission('manage_facilities');
         $room->load('structure');
         return view('rooms.edit', compact('room'));
     }
 
     public function update(Request $request, Room $room)
     {
-        $this->abortUnlessRole('superuser', 'admin', 'farmmanager');
+        $this->abortUnlessPermission('manage_facilities');
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'code' => [

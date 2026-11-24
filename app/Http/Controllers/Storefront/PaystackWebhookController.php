@@ -21,8 +21,8 @@ use Illuminate\Support\Facades\Log;
  *
  * Both paths VERIFY SERVER-SIDE — the browser redirect is never trusted on its
  * own, and the webhook body is authenticated by HMAC signature before any
- * lookup. Verification advances the order to payment_confirmed only; a human
- * still confirms.
+ * lookup. A verified payment accepts the order (see
+ * OrderService::acceptPaidOrder()).
  */
 class PaystackWebhookController extends Controller
 {
@@ -64,8 +64,12 @@ class PaystackWebhookController extends Controller
 
         $order?->refresh();
 
+        $message = $order?->status === StorefrontOrder::STATUS_CONFIRMED
+            ? "Payment received. Order {$order->reference} is confirmed."
+            : 'Payment received. Your order is reserved for you and we\'re getting it ready.';
+
         return redirect()->to($this->orderDestination($request, $order))
-            ->with('success', 'Payment received. Your order is now awaiting confirmation.');
+            ->with('success', $message);
     }
 
     protected function orderDestination(Request $request, ?StorefrontOrder $order): string

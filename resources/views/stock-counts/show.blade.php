@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-feed-hub hub="store" />
     @php
-        $qty = fn ($value) => rtrim(rtrim(number_format((float) $value, 4), '0'), '.');
+        $qty = fn ($value) => \App\Support\Qty::kg((float) $value);
         $kinds = ['raw_material' => 'Raw materials', 'finished_feed' => 'Finished feed'];
     @endphp
     <div class="max-w-5xl mx-auto px-4 pt-6 pb-24">
@@ -16,32 +16,32 @@
         @foreach($count->lines->groupBy('item_kind') as $kind => $lines)
             <section class="mb-5 overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
                 <h2 class="border-b border-slate-100 px-4 py-3 font-bold text-slate-900">{{ $kinds[$kind] ?? $kind }}</h2>
-                <table class="w-full text-sm">
-                    <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+                <table class="data-table">
+                    <thead>
                         <tr>
-                            <th class="px-4 py-2 text-left">Item</th>
-                            <th class="px-4 py-2 text-right">System</th>
-                            <th class="px-4 py-2 text-right">Counted</th>
-                            <th class="px-4 py-2 text-right">Difference</th>
+                            <th>Item</th>
+                            <th class="num">System</th>
+                            <th class="num">Counted</th>
+                            <th class="num">Difference</th>
                             @if($showValues)
-                                <th class="px-4 py-2 text-right">Value (GH₵)</th>
-                                <th class="px-4 py-2 text-left">Posting</th>
+                                <th class="num">Value (GH₵)</th>
+                                <th>Posting</th>
                             @endif
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-slate-100">
+                    <tbody>
                         @foreach($lines as $line)
                             @php $diff = (float) $line->difference_qty; @endphp
                             <tr>
-                                <td class="px-4 py-2 font-medium text-slate-900">{{ $line->item_name }}</td>
-                                <td class="px-4 py-2 text-right font-mono">{{ $qty($line->system_qty) }} {{ $line->unit }}</td>
-                                <td class="px-4 py-2 text-right font-mono">{{ $qty($line->counted_qty) }} {{ $line->unit }}</td>
+                                <td class="font-medium text-slate-900">{{ $line->item_name }}</td>
+                                <td class="text-right font-mono num">{{ $qty($line->system_qty) }} {{ $line->unit }}</td>
+                                <td class="text-right font-mono num">{{ $qty($line->counted_qty) }} {{ $line->unit }}</td>
                                 <td class="px-4 py-2 text-right font-mono font-semibold {{ $diff == 0 ? 'text-emerald-700' : ($diff < 0 ? 'text-red-700' : 'text-amber-700') }}">
                                     {{ $diff == 0 ? 'Matches' : ($diff > 0 ? '+' : '').$qty($diff).' '.$line->unit }}
                                 </td>
                                 @if($showValues)
-                                    <td class="px-4 py-2 text-right font-mono">{{ $diff == 0 ? '—' : number_format((float) $line->value_delta, 2) }}</td>
-                                    <td class="px-4 py-2 text-xs text-slate-500">{{ $diff == 0 ? '—' : str_replace('_', ' ', $line->effective_posting_status) }}</td>
+                                    <td class="text-right font-mono num">{{ $diff == 0 ? '—' : number_format((float) $line->value_delta, 2) }}</td>
+                                    <td class="text-xs text-slate-500">{{ $diff == 0 ? '—' : str_replace('_', ' ', $line->effective_posting_status) }}</td>
                                 @endif
                             </tr>
                         @endforeach

@@ -44,6 +44,12 @@ class StorefrontServiceProvider extends ServiceProvider
         \Illuminate\Support\Facades\RateLimiter::for('storefront-quote', function ($request) {
             return \Illuminate\Cache\RateLimiting\Limit::perMinute(5)->by($request->ip());
         });
+        // Cart changes are open to any visitor and each new visitor's first
+        // add makes a cart: cap them so a bot cannot fill the table.
+        \Illuminate\Support\Facades\RateLimiter::for('storefront-cart', function ($request) {
+            return \Illuminate\Cache\RateLimiting\Limit::perMinute(60)
+                ->by($request->user()?->id ?: $request->ip());
+        });
         \Illuminate\Support\Facades\RateLimiter::for('storefront-webhook', function ($request) {
             return \Illuminate\Cache\RateLimiting\Limit::perMinute(60)->by($request->ip());
         });

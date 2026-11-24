@@ -13,7 +13,10 @@ class FeedType extends Model
         'organization_id',
         'name',
         'notes',
+        'wastage_percent',
     ];
+
+    protected $casts = ['wastage_percent' => 'decimal:2'];
 
     public function recipes()
     {

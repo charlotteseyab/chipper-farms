@@ -27,29 +27,29 @@ class FarrowingPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager() || $user->isDataEntry() || $user->isAccountant();
+        return $user->hasPermission('view_breeding');
     }
 
     public function view(User $user, Farrowing $farrowing): bool
     {
         return $this->sameOrganization($user, $farrowing)
-            && ($user->isAdmin() || $user->isManager() || $user->isDataEntry() || $user->isAccountant());
+            && $user->hasPermission('view_breeding');
     }
 
     public function create(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager() || $user->isDataEntry();
+        return $user->hasPermission('record_breeding');
     }
 
     public function update(User $user, Farrowing $farrowing): bool
     {
         return $this->sameOrganization($user, $farrowing)
-            && ($user->isAdmin() || $user->isManager() || $user->isDataEntry());
+            && $user->hasPermission('record_breeding');
     }
 
     public function delete(User $user, Farrowing $farrowing): bool
     {
         return $this->sameOrganization($user, $farrowing)
-            && ($user->isAdmin() || $user->isManager());
+            && $user->hasPermission('manage_breeding');
     }
 }

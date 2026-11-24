@@ -153,6 +153,40 @@ final class JournalLineDraft
             : '-' . $this->normalise($this->credit);
     }
 
+    /** The line's amount, on whichever side it sits. */
+    public function amount(): string
+    {
+        return $this->isDebit() ? $this->normalise($this->debit) : $this->normalise($this->credit);
+    }
+
+    /** This line with its amount replaced, on the same side, every other field kept. */
+    public function withAmount(string $amount): self
+    {
+        $isDebit = $this->isDebit();
+
+        return new self(
+            accountId: $this->accountId,
+            debit: $isDebit ? $amount : '0',
+            credit: $isDebit ? '0' : $amount,
+            description: $this->description,
+            currencyCode: $this->currencyCode,
+            exchangeRate: $this->exchangeRate,
+            debitTc: $this->debitTc,
+            creditTc: $this->creditTc,
+            costCentreId: $this->costCentreId,
+            salesChannelId: $this->salesChannelId,
+            counterpartyId: $this->counterpartyId,
+            taxCodeId: $this->taxCodeId,
+            paymentMethodId: $this->paymentMethodId,
+            structureId: $this->structureId,
+            roomId: $this->roomId,
+            groupId: $this->groupId,
+            sourceType: $this->sourceType,
+            sourceId: $this->sourceId,
+            reference: $this->reference,
+        );
+    }
+
     /**
      * Render as the array shape expected by JournalLine::create().
      * Called by PostingEngine when persisting.

@@ -40,10 +40,12 @@
                         Expenses, purchases, receipts, supplier payments, payment runs, loans, and storefront checkout should use a configured Cash, Bank, MoMo, or Paystack account. The GL code stays linked behind the scenes for the accountant.
                     </p>
                 </div>
+                @canopen('finance.bank-accounts.index')
                 <a href="{{ route('finance.bank-accounts.index') }}"
                    class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
                     Manage Money Accounts
                 </a>
+                @endcanopen
             </div>
         </div>
 

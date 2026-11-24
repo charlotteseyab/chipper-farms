@@ -70,6 +70,7 @@ class IssueFeedToGroupService
      *   feed_type_id: int,
      *   quantity_kg: float,
      *   issued_at?: ?string,
+     *   room_id?: ?int,
      *   reference?: ?string,
      *   notes?: ?string,
      * }  $data
@@ -83,6 +84,11 @@ class IssueFeedToGroupService
         }
         $groupId = (int) ($data['group_id'] ?? 0);
         $feedTypeId = (int) $data['feed_type_id'];
+        // Optional: the pen or room fed, which must be one of this farm's.
+        $roomId = ! empty($data['room_id']) ? (int) $data['room_id'] : null;
+        if ($roomId !== null && ! \App\Models\Room::where('organization_id', $orgId)->whereKey($roomId)->exists()) {
+            throw new \DomainException('That pen or room is not on this farm.');
+        }
         $qty = (float) $data['quantity_kg'];
 
         if ($qty <= 0 || ! is_finite($qty)) {
@@ -104,7 +110,7 @@ class IssueFeedToGroupService
             ? CarbonImmutable::parse($data['issued_at'])
             : CarbonImmutable::now();
 
-        return DB::transaction(function () use ($orgId, $groupId, $feedTypeId, $qty, $issuedAt, $actor, $data, $group, $feedType, $stage) {
+        return DB::transaction(function () use ($orgId, $groupId, $feedTypeId, $qty, $issuedAt, $actor, $data, $group, $feedType, $stage, $roomId) {
             Organization::whereKey($orgId)->lockForUpdate()->firstOrFail();
             if ($stage !== null) {
                 $group = FeedStageResolver::groupFor($orgId, $stage);
@@ -142,6 +148,7 @@ class IssueFeedToGroupService
                 'submission_key' => $key, 'planned_quantity_kg' => $planned, 'planning_snapshot' => $snapshot,
                 'group_id' => $groupId,
                 'feeding_stage' => $stage,
+                'room_id' => $roomId,
                 'feed_type_id' => $feedTypeId,
                 'quantity_kg' => number_format($qty, 4, '.', ''),
                 'unit_cost_at_issuance' => $unitCost,

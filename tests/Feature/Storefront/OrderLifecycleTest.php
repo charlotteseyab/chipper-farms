@@ -129,7 +129,7 @@ class OrderLifecycleTest extends StorefrontTestCase
         return [$user, $order];
     }
 
-    public function test_paystack_verify_advances_to_payment_confirmed_not_confirmed(): void
+    public function test_a_verified_paystack_payment_accepts_the_order(): void
     {
         $fake = new FakePaystackClient();
         $this->bindFake($fake);
@@ -144,10 +144,11 @@ class OrderLifecycleTest extends StorefrontTestCase
 
         $this->assertSame(StorefrontOrderPayment::STATUS_VERIFIED, $payment->status);
         $order->refresh();
-        // CRITICAL: payment success must NOT auto-confirm the order.
-        $this->assertSame(StorefrontOrder::STATUS_PAYMENT_CONFIRMED, $order->status);
-        $this->assertNotSame(StorefrontOrder::STATUS_CONFIRMED, $order->status);
+        // The stock was secured at checkout, so a buyer who has paid is not
+        // left waiting for the farm to decide whether to accept their money.
+        $this->assertSame(StorefrontOrder::STATUS_CONFIRMED, $order->status);
         $this->assertSame(StorefrontOrder::PAY_PAYSTACK_VERIF, $order->payment_status);
+        $this->assertSame(\App\Storefront\Support\OnlineShopActor::NAME, \App\Models\User::withoutGlobalScopes()->find($order->confirmed_by_user_id)?->name);
     }
 
     public function test_paystack_amount_mismatch_is_rejected(): void
@@ -187,11 +188,12 @@ class OrderLifecycleTest extends StorefrontTestCase
         $paystack->verify($init['reference']); // second call: no-op
 
         $order->refresh();
-        $this->assertSame(StorefrontOrder::STATUS_PAYMENT_CONFIRMED, $order->status);
+        $this->assertSame(StorefrontOrder::STATUS_CONFIRMED, $order->status);
+        $this->assertSame(1, $order->events()->where('to_status', StorefrontOrder::STATUS_CONFIRMED)->count());
         $this->assertSame(1, $order->payments()->count());
     }
 
-    public function test_staff_confirm_after_paystack_payment(): void
+    public function test_a_staff_confirm_after_automatic_acceptance_changes_nothing(): void
     {
         $fake = new FakePaystackClient();
         $this->bindFake($fake);
@@ -205,5 +207,6 @@ class OrderLifecycleTest extends StorefrontTestCase
         $confirmed = $this->app->make(OrderService::class)->confirm($order->fresh(), $staff);
 
         $this->assertSame(StorefrontOrder::STATUS_CONFIRMED, $confirmed->status);
+        $this->assertNotSame($staff->id, (int) $confirmed->confirmed_by_user_id);
     }
 }

@@ -64,67 +64,56 @@ class FinanceSidebarTest extends TestCase
         return collect($section['items'] ?? [])->pluck('label')->all();
     }
 
-    public function test_the_finance_section_is_built_from_the_feature_aware_navigation(): void
+    /** Tab labels of one finance page, as this user sees them (children included). */
+    protected function tabLabels(string $hub): array
     {
-        $labels = $this->financeLabels();
+        $tabs = \App\Support\Features\FinanceHubs::visible($this->user)[$hub]['tabs'] ?? [];
 
-        // §20's farm-language entries, not the ledger vocabulary the hardcoded
-        // block used.
-        $this->assertContains('Overview', $labels);
-        $this->assertContains('Cash, Bank & MoMo', $labels);
+        return collect($tabs)->flatMap(fn ($t) => [$t['label'], ...array_column($t['children'], 'label')])->all();
     }
 
-    public function test_accountant_keeps_the_advanced_accounting_dropdown_when_optional_features_are_off(): void
+    public function test_the_finance_section_is_built_from_the_feature_aware_navigation(): void
+    {
+        // One entry per job; every other screen is a tab on one of them.
+        $this->assertSame(
+            ['Overview', 'Money in', 'Money out', 'Cash & bank', 'People', 'Reports', 'Advanced Accounting'],
+            $this->financeLabels(),
+        );
+    }
+
+    public function test_an_accountant_without_the_add_on_lands_on_the_overview(): void
     {
         $this->user->syncRoleFields('accountant');
         $this->user->save();
         $this->user->clearPermissionCache();
 
-        foreach ([
-            FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING,
-            FeatureCatalog::FINANCE_ADVANCED_AP,
-            FeatureCatalog::FINANCE_WHT,
-            FeatureCatalog::FINANCE_BANK_RECONCILIATION,
-            FeatureCatalog::FINANCE_PERIOD_CLOSE,
-            FeatureCatalog::FINANCE_INVESTOR_MANAGEMENT,
-            FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL,
-            FeatureCatalog::FINANCE_ADVANCED_TREASURY,
-        ] as $feature) {
+        foreach (FeatureCatalog::inCategory(FeatureCatalog::CATEGORY_ADVANCED) as $feature) {
             $this->app->make(OrganizationFeatureService::class)->disable($feature, $this->org);
         }
 
-        $section = collect(NavigationHelper::sidebarSections($this->user))
-            ->firstWhere('title', 'Finance');
-        $advanced = collect($section['items'] ?? [])->firstWhere('label', 'Advanced Accounting');
-
-        $this->assertNotNull($advanced);
-        $this->assertContains('Accounting Dashboard', collect($advanced['children'] ?? [])->pluck('label')->all());
+        // The ledger dashboard is the add-on's; /finance opens the overview.
+        $this->assertNotContains('Advanced Accounting', $this->financeLabels());
+        $this->actingAs($this->user)->get('/finance')->assertRedirect(route('finance.overview'));
+        $this->actingAs($this->user)->get(route('finance.dashboard'))->assertNotFound();
     }
 
     /**
      * The defect, stated as a test: a surface the farm has switched off must not
      * be advertised in its own menu.
      */
-    public function test_switching_a_feature_off_removes_its_entry_from_the_sidebar(): void
+    public function test_switching_a_feature_off_removes_its_tabs(): void
     {
-        $this->assertContains('Advanced Accounting', $this->financeLabels());
+        $this->assertContains('Journals', $this->tabLabels('advanced'));
+        $this->assertContains('Supplier bills', $this->tabLabels('advanced'));
 
         $features = $this->app->make(OrganizationFeatureService::class);
         $features->disable(FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING, $this->org);
         $features->disable(FeatureCatalog::FINANCE_ADVANCED_AP, $this->org);
-        $features->disable(FeatureCatalog::FINANCE_WHT, $this->org);
-        $features->disable(FeatureCatalog::FINANCE_BANK_RECONCILIATION, $this->org);
-        $features->disable(FeatureCatalog::FINANCE_PERIOD_CLOSE, $this->org);
-        $features->disable(FeatureCatalog::FINANCE_INVESTOR_MANAGEMENT, $this->org);
-        $features->disable(FeatureCatalog::FINANCE_ADVANCED_BIOLOGICAL, $this->org);
-        $features->disable(FeatureCatalog::FINANCE_ADVANCED_TREASURY, $this->org);
 
-        $this->assertNotContains(
-            'Advanced Accounting',
-            $this->financeLabels(),
-            'The sidebar still offers advanced accounting after the farm switched every '
-            . 'advanced feature off. Clicking it answers 404 — a dead end made by the menu.'
-        );
+        $this->assertNotContains('Journals', $this->tabLabels('advanced'),
+            'Journals is still offered after the farm switched advanced accounting off. Clicking it answers 404.');
+        $this->assertNotContains('Chart of accounts', $this->tabLabels('advanced'));
+        $this->assertNotContains('Supplier bills', $this->tabLabels('advanced'));
     }
 
     /**
@@ -136,10 +125,9 @@ class FinanceSidebarTest extends TestCase
         $this->app->make(OrganizationFeatureService::class)
             ->disable(FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING, $this->org);
 
-        $labels = $this->financeLabels();
-
-        $this->assertContains('Overview', $labels);
-        $this->assertContains('Expenses', $labels);
+        $this->assertContains('Overview', $this->financeLabels());
+        $this->assertContains('Expenses', $this->tabLabels('money-out'));
+        $this->assertContains('Profit & loss', $this->tabLabels('reports'));
     }
 
     /**
@@ -150,9 +138,63 @@ class FinanceSidebarTest extends TestCase
     public function test_the_finance_entries_render_on_a_real_page(): void
     {
         $this->actingAs($this->user)
-            ->get(route('finance.overview'))
+            ->get(route('finance.expenses.index'))
             ->assertOk()
-            ->assertSee('Cash, Bank &amp; MoMo', false);
+            ->assertSee('Cash &amp; bank', false)
+            // The page's tabs: its siblings, with the open one marked.
+            ->assertSee('Finance · Money out')
+            ->assertSee('Purchases')
+            ->assertSee('aria-current="page"', false);
+    }
+
+    /**
+     * Advanced Accounting is a paid add-on: everything a farm pays for is on
+     * its page, and nothing on the free pages needs it.
+     */
+    public function test_the_add_on_holds_every_paid_screen_and_only_paid_screens(): void
+    {
+        $paid = collect(FeatureCatalog::all())
+            ->filter(fn ($d) => $d['category'] === FeatureCatalog::CATEGORY_ADVANCED)->keys()->all();
+        $featuresOf = function (array $tab): array {
+            $route = \Illuminate\Support\Facades\Route::getRoutes()->getByName($tab['route']);
+            $gates = collect($route->gatherMiddleware())
+                ->filter(fn ($m) => is_string($m) && str_starts_with($m, 'feature:'))
+                ->flatMap(fn ($m) => explode(',', substr($m, 8)))->all();
+
+            return isset($tab['feature']) ? [...$gates, $tab['feature']] : $gates;
+        };
+
+        $misplaced = [];
+        foreach (\App\Support\Features\FinanceHubs::all() as $key => $hub) {
+            foreach ($hub['tabs'] as $tab) {
+                foreach ($tab['children'] ?: [$tab] as $screen) {
+                    $isPaid = array_intersect($featuresOf($screen), $paid) !== [];
+                    if ($hub['addon'] && ! $isPaid) {
+                        $misplaced[] = "{$screen['label']} is on the add-on page but every farm gets it";
+                    }
+                    if (! $hub['addon'] && $isPaid) {
+                        $misplaced[] = "{$screen['label']} needs the add-on but is on the free {$hub['title']} page";
+                    }
+                }
+            }
+        }
+
+        $this->assertSame([], $misplaced);
+    }
+
+    public function test_a_farm_without_the_add_on_sees_only_the_free_pages(): void
+    {
+        $features = $this->app->make(OrganizationFeatureService::class);
+        foreach (FeatureCatalog::all() as $key => $definition) {
+            if ($definition['category'] === FeatureCatalog::CATEGORY_ADVANCED) {
+                $features->disable($key, $this->org);
+            }
+        }
+
+        $this->assertSame(
+            ['Overview', 'Money in', 'Money out', 'Cash & bank', 'People', 'Reports'],
+            $this->financeLabels(),
+        );
     }
 
     /**

@@ -498,11 +498,17 @@ class SettingsController extends Controller
             fputcsv($file, ['Average Sale (GHS)', $report['current']['average_sale']]);
             fputcsv($file, ['Average Price per kg (GHS)', $report['current']['average_price_per_kg']]);
             fputcsv($file, ['Mortality Rate (%)', $report['current']['mortality_rate'] ?? 'N/A']);
+            fputcsv($file, ['Pig deaths', $report['current']['deaths']]);
+            fputcsv($file, ['Piglet deaths', $report['current']['piglet_deaths']]);
             fputcsv($file, []);
 
             fputcsv($file, ['HERD MOVEMENT RECONCILIATION']);
-            fputcsv($file, ['Opening', 'Manually added', 'Purchased', 'Sold', 'Deaths', 'Closing', 'Variance']);
-            fputcsv($file, array_values($report['herdMovement']));
+            // Columns named by key, so a header can never drift from its values again.
+            $movement = ['opening' => 'Opening', 'weaned_into_stock' => 'Weaned into stock', 'purchased' => 'Bought',
+                'manually_added' => 'Added or imported', 'sold' => 'Sold', 'deaths' => 'Deaths',
+                'transferred_or_culled' => 'Transferred or culled', 'closing' => 'Closing', 'variance' => 'Variance'];
+            fputcsv($file, array_values($movement));
+            fputcsv($file, array_map(fn ($key) => $report['herdMovement'][$key], array_keys($movement)));
             fputcsv($file, []);
 
             fputcsv($file, ['BREEDING']);
@@ -524,6 +530,23 @@ class SettingsController extends Controller
             }
             fputcsv($file, []);
 
+            fputcsv($file, ['PIG SALES']);
+            fputcsv($file, ['Recorded on the farm', $report['pigSales']['direct'], $report['pigSales']['direct_revenue']]);
+            fputcsv($file, ['Through the shop', $report['pigSales']['shop'], $report['pigSales']['shop_revenue']]);
+            fputcsv($file, []);
+            fputcsv($file, ['BOUGHT ANIMALS']);
+            foreach (['intakes' => 'Purchases', 'animals_bought' => 'Animals received', 'added_to_stock' => 'Added to stock', 'lost_in_quarantine' => 'Lost in quarantine', 'cost' => 'Cost incl. transport (GHS)', 'waiting' => 'Still on the way to stock'] as $key => $label) {
+                fputcsv($file, [$label, $report['purchases'][$key]]);
+            }
+            fputcsv($file, []);
+            fputcsv($file, ['HEALTH']);
+            foreach (['cases_opened' => 'Cases opened', 'animals_affected' => 'Animals affected', 'cases_finished' => 'Resolved or closed', 'open_now' => 'Open now', 'severe_open' => 'Severe open', 'doses' => 'Doses given', 'medicine_cost' => 'Medicine used (GHS)', 'under_withdrawal' => 'Under withdrawal today'] as $key => $label) {
+                fputcsv($file, [$label, $report['health'][$key]]);
+            }
+            foreach ($report['health']['doses_by_purpose'] as $purpose => $count) {
+                fputcsv($file, ['Doses: '.$purpose, $count]);
+            }
+            fputcsv($file, []);
             fputcsv($file, ['STOREFRONT']);
             fputcsv($file, ['Orders', $report['storefront']['orders']]);
             fputcsv($file, ['Completed', $report['storefront']['completed']]);
@@ -541,8 +564,13 @@ class SettingsController extends Controller
             fputcsv($file, ['GROWTH & FEED']);
             fputcsv($file, ['Weight records', $report['weights']['records']]);
             fputcsv($file, ['Average recorded weight (kg)', $report['weights']['average_kg']]);
-            fputcsv($file, ['Feed issued (kg)', $report['feed']['issued_kg']]);
-            fputcsv($file, ['Feed issued cost (GHS)', $report['feed']['issued_cost']]);
+            fputcsv($file, ['Feed given (kg)', $report['feed']['issued_kg']]);
+            fputcsv($file, ['Feed given cost (GHS)', $report['feed']['issued_cost']]);
+            fputcsv($file, ['Feed mixed (kg)', $report['feed']['mixed_kg']]);
+            fputcsv($file, ['Feed mixed cost (GHS)', $report['feed']['mixed_cost']]);
+            foreach ($report['feed']['by_stage'] as $row) {
+                fputcsv($file, ['Feed given: '.$row->name.' (kg)', $row->quantity_kg]);
+            }
             fputcsv($file, []);
 
             fputcsv($file, ['ROOM OCCUPANCY']);
@@ -604,7 +632,7 @@ class SettingsController extends Controller
             'farms' => $actor->isSuperuser() ? Organization::active()->count() : 1,
         ];
 
-        $users = (clone $baseUsers)->with(['role', 'organization'])
+        $users = (clone $baseUsers)->with(['roleRecord', 'organization'])
             ->when($actor->isSuperuser() && $request->filled('organization_id'), fn ($query) => $query->where('organization_id', $request->integer('organization_id')))
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = '%'.trim((string) $request->input('q')).'%';

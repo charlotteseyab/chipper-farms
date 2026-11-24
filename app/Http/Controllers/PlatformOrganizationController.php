@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Organization;
 use App\Models\ActivityLog;
 use App\Models\User;
+use App\Services\Finance\ChartOfAccountsProvisioner;
 use App\Services\Users\UserProvisioningService;
 use App\Services\Email\EmailTemplateService;
 use App\Services\Reports\PlatformReportingService;
@@ -70,6 +71,8 @@ class PlatformOrganizationController extends Controller
                 'address' => $data['address'] ?? null,
                 'is_active' => true,
             ]);
+
+            app(ChartOfAccountsProvisioner::class)->sync((int) $organization->id);
 
             $admin = $provisioning->provision([
                 'first_name' => $data['admin_first_name'],

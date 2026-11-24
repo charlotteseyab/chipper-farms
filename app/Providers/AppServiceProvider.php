@@ -78,6 +78,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Settings read during one request or one queue job, so each key is
+        // queried once rather than on every call. Scoped: Laravel empties it
+        // between requests and between queue jobs, so workers never serve a
+        // stale value; a saved setting empties it at once (Setting::booted).
+        $this->app->scoped('settings.memo', fn () => new \ArrayObject());
+
+        // Feed stages are resolved for every pig on a page; the resolver keeps
+        // each farm's overrides for the request (see FeedStageResolver).
+        $this->app->scoped(\App\Services\Feed\FeedStageResolver::class);
+
         $this->app->afterResolving('validator', function ($validator, $app): void {
             $validator->setPresenceVerifier(
                 new \App\Validation\OrganizationPresenceVerifier($app['db'])
@@ -110,6 +120,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // @canopen('route.name') … @endcanopen: show a link only when the
+        // signed-in user gets past that route's feature and permission gates,
+        // so a page never offers a screen the farm has switched off.
+        \Illuminate\Support\Facades\Blade::if('canopen', fn (string $route) => auth()->user() !== null
+            && \App\Support\Features\FinanceHubs::canOpen($route, auth()->user()));
+
         try {
             Schema::defaultStringLength(191);
         } catch (\Throwable $e) {
@@ -120,11 +136,12 @@ class AppServiceProvider extends ServiceProvider
 
         // Share navigation helper with all views
         View::share('navigation', new NavigationHelper());
+        // Runs for every view, partial and component, so it must be cheap:
+        // the breeds come from the per-request settings store, and a missing
+        // table (fresh install) is caught rather than checked each time.
         View::composer('*', function ($view) {
             try {
-                $breeds = Schema::hasTable('system_configs')
-                    ? Setting::animalBreeds()
-                    : [];
+                $breeds = Setting::animalBreeds();
             } catch (\Throwable) {
                 $breeds = [];
             }
@@ -136,6 +153,8 @@ class AppServiceProvider extends ServiceProvider
         ExpectedWeightStandard::observe(ExpectedWeightStandardObserver::class);
         PigSale::observe(PigSaleObserver::class);
         \App\Models\Storefront\StorefrontOrderEvent::observe(\App\Observers\StorefrontOrderEventObserver::class);
+        \App\Models\MedicationAdministration::observe(\App\Observers\PigSaleabilityObserver::class);
+        \App\Models\HealthRecord::observe(\App\Observers\PigSaleabilityObserver::class);
 
         // --- Authorization (Phase 0.3) ---------------------------------------
         // Superuser bypass: a superuser is allowed to perform any gate check.

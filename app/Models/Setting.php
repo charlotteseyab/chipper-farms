@@ -53,8 +53,24 @@ class Setting extends Model
         return static::getForOrganization(static::currentOrganizationId(), $key, $default);
     }
 
+    /** Any save or delete empties the per-request store, so a change is seen at once. */
+    protected static function booted(): void
+    {
+        $flush = fn () => app()->bound('settings.memo') ? app('settings.memo')->exchangeArray([]) : null;
+        static::saved($flush);
+        static::deleted($flush);
+    }
+
     public static function getForOrganization(?int $organizationId, string $key, $default = null)
     {
+        // Read once per request or job (see the settings.memo binding).
+        $memo = app()->bound('settings.memo') ? app('settings.memo') : null;
+        $memoKey = ($organizationId ?? 'shared') . '|' . $key;
+        if ($memo !== null && $memo->offsetExists($memoKey)) {
+            $stored = $memo[$memoKey];
+
+            return $stored === null ? $default : static::decode($stored);
+        }
 
         $row = null;
 
@@ -72,6 +88,10 @@ class Setting extends Model
                 ->whereNull('organization_id')
                 ->where('key', $key)
                 ->first();
+        }
+
+        if ($memo !== null) {
+            $memo[$memoKey] = $row?->value;
         }
 
         if (! $row) {

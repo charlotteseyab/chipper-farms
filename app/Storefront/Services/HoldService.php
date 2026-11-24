@@ -377,6 +377,18 @@ class HoldService
     }
 
     /**
+     * Stop an order's holds expiring: the buyer has paid, so the stock stays
+     * theirs until the order is confirmed or cancelled.
+     */
+    public function keepForOrder(StorefrontOrder $order): int
+    {
+        return StorefrontInventoryHold::query()
+            ->where('order_id', $order->getKey())
+            ->where('status', StorefrontInventoryHold::STATUS_ACTIVE)
+            ->update(['expires_at' => null, 'updated_at' => now()]);
+    }
+
+    /**
      * Give the stock back to the shop.
      *
      * Cancellation, payment failure, or a buyer who never came back.

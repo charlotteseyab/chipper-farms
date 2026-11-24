@@ -64,6 +64,7 @@ class DatabaseSeeder extends Seeder
             // health, medication, weights, farrowing, facilities, feed
             // production or raw materials (CF-P0-002).
             FarmOperationsPermissionsSeeder::class,
+            LivestockAccessPermissionsSeeder::class,
         ]);
 
         // 3. Storefront permissions.

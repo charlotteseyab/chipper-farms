@@ -104,11 +104,17 @@ class FeedPerformanceService
         ];
     }
 
+    /** @var array<int, array> each farm's growth-stage ages, read once */
+    private array $stageLimits = [];
+
     /** Stage on a date: growing pigs by their age then, others by today's stage. */
     private function stageOn(PigManagement $pig, CarbonImmutable $date): ?string
     {
         if ($this->stages->agesThroughStages($pig)) {
-            return FeedStageResolver::stageForAge((int) CarbonImmutable::parse($pig->date_of_birth)->diffInDays($date));
+            $this->stageLimits[(int) $pig->organization_id] ??= FeedStageResolver::limits((int) $pig->organization_id);
+
+            return FeedStageResolver::stageForAge((int) CarbonImmutable::parse($pig->date_of_birth)->diffInDays($date),
+                $this->stageLimits[(int) $pig->organization_id]);
         }
 
         return $pig->trashed() ? null : $this->stages->resolve($pig);

@@ -38,7 +38,10 @@ class RawMaterialController extends Controller
         $search = trim((string) $request->get('search'));
         $status = trim((string) $request->get('status'));
 
-        $query = RawMaterial::query()->with('inventoryBalance')->latest();
+        // What needs attention first: out of stock, then at or below reorder level, then the rest by name.
+        $query = RawMaterial::query()->with('inventoryBalance')
+            ->orderByRaw('CASE WHEN quantity_in_stock <= 0 THEN 0 WHEN quantity_in_stock <= reorder_level THEN 1 ELSE 2 END')
+            ->orderBy('name');
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -68,18 +71,6 @@ class RawMaterialController extends Controller
             'stock_value'       => RawMaterial::ledgerStockValue(),
         ];
 
-        $lowStockAlerts = RawMaterial::query()
-            ->where(function ($q) {
-                $q->where('quantity_in_stock', '=', 0)
-                    ->orWhere(function ($sub) {
-                        $sub->where('quantity_in_stock', '>', 0)
-                            ->whereColumn('quantity_in_stock', '<=', 'reorder_level');
-                    });
-            })
-            ->orderBy('quantity_in_stock')
-            ->limit(6)
-            ->get();
-
         $recentStockActivities = RawMaterialStockLog::with(['rawMaterial', 'performer'])
             ->latest()
             ->paginate(8, ['*'], 'activity_page')
@@ -90,14 +81,19 @@ class RawMaterialController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
+        // Stock is both kinds: feed already mixed, and the ingredients for more.
+        $readyFeed = collect(app(\App\Services\Feed\FeedPlanningService::class)->calculate(
+            (int) app(\App\Support\CurrentOrganization::class)->requireId(), now()->toDateString(), now()->addDays(6)->toDateString()
+        )['feeds'])->sortBy('name')->values();
+
         return view('feeds.raw-materials.index', compact(
             'rawMaterials',
             'stats',
             'search',
             'status',
-            'lowStockAlerts',
             'recentStockActivities',
             'suppliers',
+            'readyFeed',
         ));
     }
 

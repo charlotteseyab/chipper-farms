@@ -4,6 +4,7 @@
             <h1 class="text-2xl font-bold text-slate-900">Treatment Worklist</h1>
             <p class="text-sm text-slate-500">Doses due and follow-ups for {{ $isToday ? 'today' : $day->format('l j F') }}. Record what was given; mark anything not given as missed or cancelled with a reason.</p>
         </div>
+        <x-health.glance :cards="$glance" />
         @if(session('success'))<p role="status" class="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{{ session('success') }}</p>@endif
         @if(session('error'))<p role="alert" class="rounded-xl bg-red-50 p-3 text-sm text-red-700">{{ session('error') }}</p>@endif
 

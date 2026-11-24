@@ -76,8 +76,8 @@
             ->all();
 
         $reportRows = $rows->map(function ($row) use ($activeTab) {
-            $row['mortality_rate'] = ($row['active_pigs'] + $row['sold'] + $row['deaths']) > 0 ? round($row['deaths'] / ($row['active_pigs'] + $row['sold'] + $row['deaths']) * 100, 1) : 0;
-            $row['conception_rate'] = $row['matings'] > 0 ? round($row['pregnant'] / $row['matings'] * 100, 1) : 0;
+            // mortality_rate comes from the report service (pig and piglet deaths over every animal on the farm).
+            $row['conception_rate'] = $row['checked_matings'] > 0 ? round($row['pregnant'] / $row['checked_matings'] * 100, 1) : 0;
             $row['health_resolution_rate'] = $row['health_records'] > 0 ? round(($row['health_records'] - $row['open_health_cases']) / $row['health_records'] * 100, 1) : 0;
             $row['weight_alert_rate'] = $row['weight_records'] > 0 ? round($row['alerts'] / $row['weight_records'] * 100, 1) : 0;
             $row['feed_cost_per_kg'] = $row['feed_issued_kg'] > 0 ? round($row['feed_cost'] / $row['feed_issued_kg'], 2) : 0;

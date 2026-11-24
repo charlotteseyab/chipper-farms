@@ -17,12 +17,12 @@
                         Opening Pool
                     </a>
                 @endif
-                @if(auth()->user()?->hasPermission('manage_pig_mortality'))
+                @canopen('finance.costing.mortality-writeoffs.index')
                     <a href="{{ route('finance.costing.mortality-writeoffs.index') }}"
                        class="px-3 py-2 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50">
                         Mortality Audit
                     </a>
-                @endif
+                @endcanopen
             </div>
         </div>
 

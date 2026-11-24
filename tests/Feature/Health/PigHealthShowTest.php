@@ -83,12 +83,12 @@ class PigHealthShowTest extends TestCase
                 && $records->count() === 10)
             ->assertSee('Previous')
             ->assertSee('Next')
-            ->assertSee('Page')
+            ->assertSee('Showing')
             ->assertSee('of')
             ->assertSee('>2<', false);
     }
 
-    public function test_both_cards_show_pagination_even_when_each_has_one_page(): void
+    public function test_both_cards_show_their_count_even_when_each_has_one_page(): void
     {
         $this->makeHealthRecord(1);
         MedicationAdministration::create([
@@ -102,8 +102,8 @@ class PigHealthShowTest extends TestCase
         $this->actingAs($this->user)
             ->get(route('health.show', $this->pig))
             ->assertOk()
-            ->assertSee('Page', false)
-            ->assertSeeInOrder(['Health Records', 'Page', 'Medication Administrations', 'Page']);
+            ->assertSeeInOrder(['Health Records', '1', 'records', 'Medication Administrations', '1', 'doses'])
+            ->assertDontSee('Page 1 of 1');
     }
 
     public function test_health_status_modal_endpoint_updates_only_the_chosen_record(): void
@@ -186,10 +186,12 @@ class PigHealthShowTest extends TestCase
         $this->actingAs($this->user)
             ->get(route('medications.index'))
             ->assertOk()
-            ->assertViewHas('medications', fn ($records) => $records->total() === 1)
-            ->assertSee('Latest treatment')
-            ->assertDontSee('Older treatment')
-            ->assertSee('View medication history');
+            ->assertViewHas('medications', fn ($records) => $records->total() === 1
+                && $records->first()->medication_name === 'Latest treatment')
+            ->assertSee('View medication history')
+            // The Medication Name filter offers every name used, older ones included.
+            ->assertViewHas('medicationNames', fn ($names) => in_array('Older treatment', $names, true) && in_array('Latest treatment', $names, true))
+            ->assertSee('role="combobox"', false);
     }
 
     public function test_pig_details_include_latest_health_and_medication_summary(): void

@@ -305,9 +305,10 @@ class FeedPlanningUpgradeTest extends TestCase
     {
         $this->standard();
         $this->pig(120);
-        $this->actingAs($this->actor)->get(route('mill.plan'))->assertOk()->assertSee('Mill')->assertSee('Mix &amp; batches', false)->assertSee('Shared ration');
+        $this->actingAs($this->actor)->get(route('mill.plan'))->assertRedirect(route('feed.mix-buy'));
+        $this->get(route('feed.mix-buy'))->assertOk()->assertSee('Mix &amp; buy', false)->assertSee('Shared ration');
         $this->get(route('feed.planned-vs-actual'))->assertOk()->assertSee('Planned vs actual');
-        $this->get(route('feed-setup.settings'))->assertOk()->assertSee('Ration history &amp; settings', false);
+        $this->get(route('feed-setup.index'))->assertOk()->assertSee('History and settings')->assertSee('Standard history and scheduled changes');
         $role = Role::firstOrCreate(['name' => 'viewer']);
         $viewer = User::factory()->create(['organization_id' => $this->org->id, 'role' => 'dataentry', 'role_id' => $role->id]);
         $this->actingAs($viewer)->post(route('planning-reports.standards'), [])->assertForbidden();
@@ -419,7 +420,9 @@ class FeedPlanningUpgradeTest extends TestCase
         $this->assertEquals(1.1111, $batch->batch_size_kg);
         $this->assertEquals(0.7777, $batch->items->first()->quantity_used);
         $this->assertEquals($version->id, $batch->recipe_snapshot['version_id']);
-        $this->actingAs($this->actor)->get(route('feed-production.index'))->assertOk()->assertSee('Recipe version history')->assertSee('Recipe used / expected ingredients');
+        $this->actingAs($this->actor)->get(route('feed-production.index'))->assertOk()->assertSee('Recipe used / expected ingredients');
+        // Recipe history moved from Mill → Mix & batches to Feed Setup → settings.
+        $this->actingAs($this->actor)->get(route('feed-setup.index'))->assertOk()->assertSee('Recipe history')->assertSee('version #'.$version->id);
     }
 
     public function test_alert_configuration_is_audited_and_permissions_are_not_based_on_role_name(): void

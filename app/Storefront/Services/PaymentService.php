@@ -39,8 +39,9 @@ class PaymentService
     }
 
     /**
-     * Mark a Paystack payment verified and advance the order to
-     * payment_confirmed. Idempotent: a re-delivered verification is a no-op.
+     * Mark a Paystack payment verified, advance the order to
+     * payment_confirmed, then accept it. Idempotent: a re-delivered
+     * verification is a no-op.
      *
      * @param  array<string,mixed>  $rawResponse
      */

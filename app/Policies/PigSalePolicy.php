@@ -30,45 +30,45 @@ class PigSalePolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager() || $user->isDataEntry() || $user->isAccountant();
+        return $user->hasPermission('view_pig_sales');
     }
 
     public function view(User $user, PigSale $sale): bool
     {
         return $this->sameOrganization($user, $sale)
-            && ($user->isAdmin() || $user->isManager() || $user->isDataEntry() || $user->isAccountant());
+            && $user->hasPermission('view_pig_sales');
     }
 
     public function create(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager();
+        return $user->hasPermission('record_pig_sales');
     }
 
     public function update(User $user, PigSale $sale): bool
     {
         return $this->sameOrganization($user, $sale)
-            && ($user->isAdmin() || $user->isManager());
+            && $user->hasPermission('record_pig_sales');
     }
 
     public function updatePayment(User $user, PigSale $sale): bool
     {
         return $this->sameOrganization($user, $sale)
-            && ($user->isAdmin() || $user->isManager() || $user->isAccountant());
+            && $user->hasPermission('update_sale_payment');
     }
 
     public function delete(User $user, PigSale $sale): bool
     {
-        return $this->sameOrganization($user, $sale) && $user->isAdmin();
+        return $this->sameOrganization($user, $sale) && $user->hasPermission('delete_pig_sales');
     }
 
     public function reverse(User $user, PigSale $sale): bool
     {
         return $this->sameOrganization($user, $sale)
-            && ($user->isAdmin() || $user->isManager());
+            && $user->hasPermission('record_pig_sales');
     }
 
     public function export(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager() || $user->isAccountant();
+        return $user->hasPermission('export_pig_sales');
     }
 }

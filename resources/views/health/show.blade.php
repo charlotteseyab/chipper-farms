@@ -134,28 +134,18 @@
             </dl>
         </div>
         
-        <!-- Metrics Cards -->
-        <div class="md:col-span-2 lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div class="bg-white shadow-lg rounded-xl p-5 border border-gray-100">
-                <p class="text-sm font-medium text-indigo-500">Total Records</p>
-                <p class="text-3xl font-bold text-gray-900 mt-1">{{ $healthRecords->total() }}</p>
-            </div>
-            <div class="bg-white shadow-lg rounded-xl p-5 border border-gray-100">
-                <p class="text-sm font-medium text-red-500">Last Record</p>
-                <p class="text-lg font-bold text-gray-900 mt-1">
-                    {{ $lastRecord ? $lastRecord->record_date->format('M d, Y') : 'N/A' }}
-                </p>
-                <p class="text-xs text-gray-500 truncate">{{ $lastRecord->condition ?? 'No data' }}</p>
-            </div>
-            <div class="bg-white shadow-lg rounded-xl p-5 border border-gray-100">
-                <p class="text-sm font-medium text-blue-500">Last Medication</p>
-                <p class="text-lg font-bold text-gray-900 mt-1">
-                    {{ $lastMedication ? $lastMedication->administration_date->format('M d, Y') : 'N/A' }}
-                </p>
-                <p class="text-xs text-gray-500 truncate">{{ $lastMedication->medication_name ?? 'No data' }}</p>
-            </div>
-        </div>
+        <!-- At a glance -->
+        <x-health.glance :cards="$glance" class="md:col-span-2 lg:col-span-3 content-start lg:grid-cols-2" />
     </div>
+
+    <section class="mb-8 rounded-xl border border-gray-100 bg-white p-6 shadow-xl" aria-labelledby="health-alerts-heading">
+        <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 id="health-alerts-heading" class="text-xl font-semibold text-gray-800">Health alerts</h2>
+            <a href="{{ route('health.alerts') }}" class="text-sm font-semibold text-emerald-700">All farm alerts →</a>
+        </div>
+        <x-health.alert-list :alerts="$healthAlerts" :show-state="true"
+            :empty="'No vaccination, deworming, treatment or follow-up due in the next '.\App\Services\Health\HealthAlertService::defaultDays().' days.'" />
+    </section>
 
 
     <!-- Health timeline: everything that happened to this animal, newest first -->
@@ -292,7 +282,7 @@
                     @endforelse
                 </div>
                 <div class="mt-6 border-t border-gray-100 pt-4">
-                    <x-simple-pagination :paginator="$healthRecords" />
+                    <x-health.pagination :paginator="$healthRecords" label="records" />
                 </div>
             </div>
         </div>
@@ -369,7 +359,7 @@
                     @endforelse
                 </div>
                 <div class="mt-6 border-t border-gray-100 pt-4">
-                    <x-simple-pagination :paginator="$medicationRecords" />
+                    <x-health.pagination :paginator="$medicationRecords" label="doses" />
                 </div>
             </div>
         </div>

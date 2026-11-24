@@ -192,7 +192,7 @@ class InvestorReportingService
 
         $row = JournalLine::query()
             ->join('journals', 'journal_lines.journal_id', '=', 'journals.id')
-            ->where('journals.status', Journal::STATUS_POSTED)
+            ->whereIn('journals.id', Journal::query()->affectingLedger()->select('journals.id'))
             ->where('journal_lines.account_id', $acct->id)
             ->when($organizationId !== null,
                 fn ($q) => $q->where('journal_lines.organization_id', $organizationId),

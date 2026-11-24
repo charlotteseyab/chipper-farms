@@ -202,7 +202,7 @@
             @endphp
             <tr>
                 <td>{{ $pig->code }}</td>
-                <td>{{ $pig->ear_tag_number }}</td>
+                <td>{{ $pig->tagLabelAt(null) ?? 'No tag' }}</td>
                 <td class="breed-{{ strtolower($pig->breed) }}">
                     @if($pig->breed == 'LW')
                         Large White
@@ -228,8 +228,8 @@
                     {{ ucfirst(str_replace('_', ' ', $readiness['factors']['weight']['status'])) }}
                 </td>
                 <td>{{ $pig->latestWeight ? $pig->latestWeight->weight . ' kg' : 'No data' }}</td>
-                <td>{{ $pig->father ? $pig->father->ear_tag_number : 'N/A' }}</td>
-                <td>{{ $pig->mother ? $pig->mother->ear_tag_number : 'N/A' }}</td>
+                <td>{{ $pig->father?->identityAt() ?? 'N/A' }}</td>
+                <td>{{ $pig->mother?->identityAt() ?? 'N/A' }}</td>
             </tr>
             @endforeach
         </tbody>

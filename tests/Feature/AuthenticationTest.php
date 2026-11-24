@@ -45,6 +45,10 @@ class AuthenticationTest extends TestCase
 
     public function test_accountants_land_on_the_finance_overview_after_login(): void
     {
+        // With their usual finance permissions. The landing page follows what
+        // the role can open, so a role without them lands elsewhere (see
+        // RoleAccessIntegrationTest).
+        $this->seed(\Database\Seeders\FinancePermissionsSeeder::class);
         $role = Role::firstOrCreate(['name' => 'accountant']);
         $user = User::factory()->create([
             'role' => 'accountant',
@@ -59,5 +63,6 @@ class AuthenticationTest extends TestCase
 
         $this->assertAuthenticatedAs($user);
         $response->assertRedirect(route('finance.overview'));
+        $this->get(route('finance.overview'))->assertOk();
     }
 }

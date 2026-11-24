@@ -548,6 +548,9 @@ class WeightManagementController extends Controller
             $query->where('pig_weights.weight', '<=', $request->weight_to);
         }
 
+        if ($tooMany = \App\Support\PdfExportLimit::check((clone $query)->count())) {
+            return $tooMany;
+        }
         $weights = $query->orderBy('pig_weights.pig_id')->orderBy('pig_weights.weigh_date', 'desc')
             ->select('pig_weights.*')->get();
 
@@ -569,11 +572,9 @@ class WeightManagementController extends Controller
     /**
      * Get previous weight for a pig
      */
-    public function getPreviousWeight($pigId)
+    public function getPreviousWeight(PigManagement $pig)
     {
-        $pig = PigManagement::findOrFail($pigId);
-        
-        $previousWeight = PigWeight::where('pig_id', $pigId)
+        $previousWeight = PigWeight::where('pig_id', $pig->id)
             ->orderBy('weigh_date', 'desc')
             ->first();
 
@@ -602,9 +603,8 @@ class WeightManagementController extends Controller
     /**
      * Get expected weight for a pig based on age and breed
      */
-    public function getExpectedWeight(Request $request, $pigId)
+    public function getExpectedWeight(Request $request, PigManagement $pig)
     {
-        $pig = PigManagement::findOrFail($pigId);
         $referenceDate = $request->query('date') ? Carbon::parse($request->query('date')) : now();
         $ifUserWeek = $request->query('week');
         if (is_numeric($ifUserWeek)) {

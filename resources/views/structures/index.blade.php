@@ -1,4 +1,5 @@
 <x-app-layout>
+    @php $canManageFacilities = auth()->user()?->hasPermission('manage_facilities'); @endphp
     <style>
         .structures-page{
             min-height: 100vh;
@@ -341,12 +342,14 @@
                     </div>
 
                     <div class="structures-hero-actions">
+                        @if($canManageFacilities)
                         <a href="{{ route('structures.create') }}" class="structures-top-btn">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
                             </svg>
                             New Structure
                         </a>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -440,6 +443,7 @@
                                                 View
                                             </a>
 
+                                            @if($canManageFacilities)
                                             <form action="{{ route('structures.destroy', $structure) }}" method="POST" onsubmit="return confirm('Delete this structure?');" class="inline">
                                                 @csrf
                                                 @method('DELETE')
@@ -447,6 +451,7 @@
                                                     Delete
                                                 </button>
                                             </form>
+                                            @endif
                                         </div>
                                     </td>
                                 </tr>

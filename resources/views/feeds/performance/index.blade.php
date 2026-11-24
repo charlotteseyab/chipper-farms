@@ -2,6 +2,7 @@
     <x-feed-hub hub="today" />
     @php $n = fn ($v, $d = 1) => rtrim(rtrim(number_format((float) $v, $d), '0'), '.'); @endphp
     <div class="max-w-6xl mx-auto px-4 pt-6 pb-24 space-y-5">
+        @include('feeds.partials.report-switch')
         <header>
             <h1 class="text-2xl font-bold text-slate-900">Feed Conversion</h1>
             <p class="text-sm text-slate-500">Kg of feed per kg of weight gained, by stage. Lower is better. Weight gain comes from pigs weighed at least twice in the period.</p>
@@ -14,28 +15,28 @@
         </form>
 
         <div class="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
-            <table class="w-full text-sm">
-                <thead class="bg-slate-50 text-xs uppercase text-slate-500">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <th class="px-4 py-3 text-left">Stage</th>
-                        <th class="px-4 py-3 text-right">Feed fed</th>
-                        @if($showCosts)<th class="px-4 py-3 text-right">Feed cost</th>@endif
-                        <th class="px-4 py-3 text-right">Weight gained</th>
-                        <th class="px-4 py-3 text-right">Feed conversion</th>
-                        @if($showCosts)<th class="px-4 py-3 text-right">Cost per kg gained</th>@endif
-                        <th class="px-4 py-3 text-left">Based on</th>
+                        <th>Stage</th>
+                        <th class="num">Feed fed</th>
+                        @if($showCosts)<th class="num">Feed cost</th>@endif
+                        <th class="num">Weight gained</th>
+                        <th class="num">Feed conversion</th>
+                        @if($showCosts)<th class="num">Cost per kg gained</th>@endif
+                        <th>Based on</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100">
+                <tbody>
                     @foreach($report['rows'] as $row)
                         @continue(! $row['growing'] && $row['feed_kg'] <= 0)
                         <tr>
-                            <td class="px-4 py-3 font-semibold text-slate-900">{{ $row['label'] }}</td>
-                            <td class="px-4 py-3 text-right font-mono">{{ $n($row['feed_kg']) }} kg</td>
-                            @if($showCosts)<td class="px-4 py-3 text-right font-mono">{{ number_format($row['feed_cost'], 2) }}</td>@endif
-                            <td class="px-4 py-3 text-right font-mono">{{ $row['growing'] ? $n($row['gain_kg']).' kg' : '—' }}</td>
-                            <td class="px-4 py-3 text-right font-mono font-bold">{{ $row['fcr'] ?? '—' }}</td>
-                            @if($showCosts)<td class="px-4 py-3 text-right font-mono">{{ $row['cost_per_kg_gain'] !== null ? number_format($row['cost_per_kg_gain'], 2) : '—' }}</td>@endif
+                            <td class="font-semibold text-slate-900">{{ $row['label'] }}</td>
+                            <td class="text-right font-mono num">{{ $n($row['feed_kg']) }} kg</td>
+                            @if($showCosts)<td class="text-right font-mono num">{{ number_format($row['feed_cost'], 2) }}</td>@endif
+                            <td class="text-right font-mono num">{{ $row['growing'] ? $n($row['gain_kg']).' kg' : '—' }}</td>
+                            <td class="text-right font-mono font-bold num">{{ $row['fcr'] ?? '—' }}</td>
+                            @if($showCosts)<td class="text-right font-mono num">{{ $row['cost_per_kg_gain'] !== null ? number_format($row['cost_per_kg_gain'], 2) : '—' }}</td>@endif
                             <td class="px-4 py-3 text-xs {{ $row['partial'] ? 'text-amber-700' : 'text-slate-500' }}">
                                 @if(! $row['growing'])
                                     Breeding animals: not expected to gain

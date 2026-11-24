@@ -54,7 +54,7 @@ class WeightAlertGenerationService
 
             $alert = WeightAlert::createFromWeight($pigWeight, $pig, $standard);
 
-            Log::info('Weight alert generated', [
+            Log::debug('Weight alert generated', [
                 'pig_id'           => $pig->id,
                 'ear_tag'          => $pig->ear_tag_number,
                 'weight_record_id' => $pigWeight->id,

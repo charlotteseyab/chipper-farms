@@ -157,7 +157,9 @@ class HealthWorkflowTest extends TestCase
     public function test_a_course_with_two_medicines_schedules_doses_and_moves_no_stock(): void
     {
         $pigs = [$this->pig(), $this->pig()];
-        $case = $this->openCase($pigs[0]);
+        $case = app(\App\Services\Health\HealthRecordService::class)->openCase(
+            $this->dataEntry, $pigs, ['observed_at' => now()->subHour(), 'condition' => 'Group treatment'],
+        );
         [$antibiotic, $painkiller] = [Medicine::factory()->create(['name' => 'Amoxicillin']), Medicine::factory()->create(['name' => 'Meloxicam'])];
         $movements = InventoryMovement::count();
 
@@ -271,6 +273,21 @@ class HealthWorkflowTest extends TestCase
         if ($tag) {
             $this->actingAs($this->dataEntry)->getJson(route('health.pig-search', ['q' => $tag->tag_number]))->assertOk()->assertJsonFragment(['id' => $pig->id]);
         }
+    }
+
+    /** Opening the picker lists the farm's live animals; typing still searches. */
+    public function test_the_picker_lists_live_animals_when_opened(): void
+    {
+        $first = $this->pig();
+        $second = $this->pig();
+        $gone = $this->pig();
+        $gone->delete();
+
+        $ids = collect($this->actingAs($this->dataEntry)->getJson(route('health.pig-search'))->assertOk()->json())->pluck('id');
+
+        $this->assertTrue($ids->contains($first->id) && $ids->contains($second->id));
+        $this->assertFalse($ids->contains($gone->id), 'Animals that left are found by search, not listed.');
+        $this->actingAs($this->dataEntry)->get(route('health.create'))->assertOk()->assertSee('role="combobox"', false);
     }
 
     public function test_another_farms_cases_visits_and_courses_return_404(): void

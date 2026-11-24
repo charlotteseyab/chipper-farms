@@ -3,7 +3,6 @@
 namespace Tests\Feature\Security;
 
 use App\Models\Permission;
-use App\Support\Features\FinanceNavigation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route as RouteFacade;
 use Tests\TestCase;
@@ -56,40 +55,22 @@ class NavigationPermissionIntegrityTest extends TestCase
     /**
      * Every (route, permissions) pair the finance menu can offer.
      *
-     * Read out of the class rather than restated, so the test cannot drift away
-     * from what the menu actually asks for. `build()` filters by the current
-     * user, so the raw definitions are read by reflection instead — the point is
-     * to check every entry, including ones no test user would see.
+     * Since the finance merge the menu is FinanceHubs, and a tab asks for
+     * exactly what its route enforces (it reads the route's middleware), so
+     * rule 2 holds by construction. Rule 1 is still checked: a route gated on
+     * a permission no seeder creates is a screen nobody can open.
      *
      * @return array<string, list<string>>
      */
     protected function navigationPermissions(): array
     {
-        $source = file_get_contents(app_path('Support/Features/FinanceNavigation.php'));
-        $pairs  = [];
-
-        // Top-level entries: 'route' => '...', ... 'permission' => [...]
-        preg_match_all(
-            "/'route'\s*=>\s*'([^']+)'.*?'permission'\s*=>\s*\[([^\]]*)\]/s",
-            $source,
-            $matches,
-            PREG_SET_ORDER
-        );
-
-        foreach ($matches as $match) {
-            $pairs[$match[1]] = $this->quotedStrings($match[2]);
-        }
-
-        // advanced() and childrenFor() entries: ['Label', 'route', 'active', Feature, [perms]]
-        preg_match_all(
-            "/\[\s*'[^']+',\s*'(finance\.[^']+)',\s*'[^']*',\s*FeatureCatalog::\w+,\s*\[([^\]]*)\]\s*\]/s",
-            $source,
-            $matches,
-            PREG_SET_ORDER
-        );
-
-        foreach ($matches as $match) {
-            $pairs[$match[1]] = $this->quotedStrings($match[2]);
+        $pairs = [];
+        foreach (\App\Support\Features\FinanceHubs::all() as $hub) {
+            foreach ($hub['tabs'] as $tab) {
+                foreach ([$tab, ...$tab['children']] as $entry) {
+                    $pairs[$entry['route']] = $this->routePermissions($entry['route']);
+                }
+            }
         }
 
         return $pairs;
@@ -216,8 +197,7 @@ class NavigationPermissionIntegrityTest extends TestCase
         $this->assertGreaterThan(
             25,
             count($pairs),
-            'Only ' . count($pairs) . ' navigation entries were parsed, which is fewer than '
-            . 'FinanceNavigation defines. The sweep is not reading what it thinks it is.'
+            'Only ' . count($pairs) . ' finance tabs were read. The sweep is not reading what it thinks it is.'
         );
 
         $this->assertArrayHasKey('finance.overview', $pairs);
@@ -226,5 +206,41 @@ class NavigationPermissionIntegrityTest extends TestCase
             'Route permissions are being read as empty, which is how the Phase 16 sweep '
             . 'reported no mismatches while eleven existed.'
         );
+    }
+
+    /**
+     * Every finance screen is on a tab. A screen with no tab has no link —
+     * deletion by navigation, which the merge into six pages must not cause.
+     * Forms, records and downloads are reached from their list.
+     */
+    public function test_every_finance_list_screen_is_on_a_tab(): void
+    {
+        $covered = [];
+        foreach (\App\Support\Features\FinanceHubs::all() as $hub) {
+            foreach ($hub['tabs'] as $tab) {
+                foreach ([$tab, ...$tab['children']] as $entry) {
+                    $covered = [...$covered, ...$entry['active']];
+                }
+            }
+        }
+
+        $orphans = [];
+        foreach (RouteFacade::getRoutes()->getRoutes() as $route) {
+            $name = (string) $route->getName();
+            if (! str_starts_with($name, 'finance.') || ! in_array('GET', $route->methods(), true)
+                || str_contains($route->uri(), '{')
+                || preg_match('/\.(create|export|export-ap|download|document|pdf)$/', $name)
+                // Tax settings are linked from System Settings, not a finance tab.
+                || $name === 'finance.tax.index'
+                // /finance only redirects to the overview or the ledger dashboard.
+                || $name === 'finance.home') {
+                continue;
+            }
+            if (! collect($covered)->contains(fn ($pattern) => \Illuminate\Support\Str::is($pattern, $name))) {
+                $orphans[] = $name;
+            }
+        }
+
+        $this->assertSame([], $orphans, "These finance screens are on no tab, so nothing links to them:\n  " . implode("\n  ", $orphans));
     }
 }

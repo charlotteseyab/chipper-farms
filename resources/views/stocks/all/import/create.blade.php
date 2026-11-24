@@ -62,7 +62,7 @@
                         <p><strong class="text-slate-800">Type:</strong> Breeding or Standard. <strong class="text-slate-800">Gender:</strong> Male or Female.</p>
                         <p><strong class="text-slate-800">DOB:</strong> use YYYY-MM-DD. <strong class="text-slate-800">Weight:</strong> enter kilograms, with or without “kg”.</p>
                         <p><strong class="text-slate-800">Location:</strong> use “Structure / Room”.</p>
-                        <p>Animal codes and ages are generated automatically and are not included in the spreadsheet. Parent assignments are also excluded for now. <strong class="text-slate-800">Actions:</strong> is ignored during upload.</p>
+                        <p>Animal codes and ages are generated automatically and are not included in the spreadsheet. Parent assignments are also excluded for now.</p>
                     </div>
                 </aside>
             </div>

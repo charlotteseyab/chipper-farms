@@ -3,459 +3,223 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Farrowing;
 use App\Models\Mating;
-use App\Models\PigDeath;
 use App\Models\PigManagement;
-use App\Models\PigSale;
 use App\Models\PigWeight;
 use App\Models\PurchaseStockIntake;
-use App\Models\WeightAlert;
-use App\Services\Stock\PurchasedStockDashboardMetrics;
 use Carbon\Carbon;
-use Illuminate\Support\Collection;
 
 class DataEntryController extends Controller
 {
-    public function dashboard()
+    private const MAX_DAILY_WEIGHT_RANGE_DAYS = 92;
+
+    /**
+     * The data entry dashboard: today's work first. A to-do list of the day's
+     * jobs (each only if the person can open it), quick entry, one list of
+     * records with missing details, and the latest entries.
+     */
+    public function dashboard(Request $request)
     {
-        // Enhanced pig counting including piglets
-        $weanedPigs = PigManagement::active()->count();
-        $weaningAge = (int) config('breeding.cycle.birth_to_weaning_days', 45);
+        $user = $request->user();
+        $orgId = app(\App\Support\CurrentOrganization::class)->id();
+        // Every panel asks what its destination page asks, so revoking a
+        // permission removes the data here as well as the page.
+        $access = \App\Services\Access\DashboardAccess::for($user);
+        $can = fn (string $route) => $access->canOpen($route);
+        $now = \Carbon\CarbonImmutable::now();
 
-        $recentFarrowings = Farrowing::with('pigletDeaths')
-            ->where('farrowing_date', '>=', now()->subDays($weaningAge))
-            ->where('status', 'active')
-            ->get();
+        // ---- Today: the day's jobs --------------------------------------
+        $tasks = collect();
 
-        $pigletsCount = 0;
-        foreach ($recentFarrowings as $f) {
-            $pigletsCount += max(
-                0,
-                (int) ($f->live_births ?? 0) - (int) $f->pigletDeaths->sum('count')
-            );
-        }
-
-        $totalPigs = $weanedPigs + $pigletsCount;
-        $todayWeights = PigWeight::whereDate('created_at', today())->count();
-        $todayPigs = PigManagement::whereDate('created_at', today())->count();
-        $weekWeights = PigWeight::where('created_at', '>=', now()->startOfWeek())->count();
-
-        $pendingWeighing = PigManagement::active()
-            ->whereDoesntHave('weights', function ($query) {
-                $query->where('weigh_date', '>=', now()->subDays(7));
-            })
-            ->where('date_of_birth', '<=', now()->subDays(7))
-            ->count();
-
-        $activeAlerts = WeightAlert::where('acknowledged', false)->count();
-        $overdueForWeighing = PigManagement::countOverdueForWeighing();
-        $dueForWeighing = PigManagement::countDueForWeighing();
-        $missingFirstWeight = PigManagement::active()->whereDoesntHave('weights')->count();
-        $incompletePigRecords = PigManagement::active()
-            ->where(function ($query) {
-                $query->whereNull('breed')
-                    ->orWhere('breed', '')
-                    ->orWhereNull('gender')
-                    ->orWhere('gender', '')
-                    ->orWhereNull('date_of_birth')
-                    ->orWhereNull('stock_type')
-                    ->orWhere('stock_type', '');
-            })
-            ->count();
-        $missingRoomAssignments = PigManagement::active()->whereNull('room_id')->count();
-        $pendingPurchaseIntakes = PurchaseStockIntake::whereIn('status', [
-            PurchaseStockIntake::STATUS_PENDING_RECEIVE,
-            PurchaseStockIntake::STATUS_RECEIVED,
-            PurchaseStockIntake::STATUS_QUARANTINED,
-            PurchaseStockIntake::STATUS_APPROVED,
-        ])->count();
-        $purchasedStockMetrics = app(PurchasedStockDashboardMetrics::class)->summary();
-        $recentImports = PurchaseStockIntake::whereDate('created_at', '>=', now()->subDays(7)->toDateString())->count();
-        $pregnancyFollowUpsDue = Mating::query()->pregnancyFollowUpDue()->count();
-        $pregnancyFollowUpsOverdue = Mating::query()->pregnancyFollowUpOverdue()->count();
-        $uncertainPregnancies = Mating::uncertainPregnancy()->count();
-        $validationIssues = $incompletePigRecords + $missingRoomAssignments + $pendingPurchaseIntakes + $pregnancyFollowUpsDue;
-        $entriesToday = $todayWeights + $todayPigs
-            + PigSale::whereDate('created_at', today())->count()
-            + PigDeath::whereDate('created_at', today())->count()
-            + Mating::whereDate('created_at', today())->count()
-            + PurchaseStockIntake::whereDate('created_at', today())->count();
-
-        // Chart data: last 7 days
-        $dailyWeightsData = [];
-        for ($i = 6; $i >= 0; $i--) {
-            $date = now()->subDays($i);
-            $count = PigWeight::whereDate('created_at', $date)->count();
-            $dailyWeightsData[] = [
-                'date' => $date->format('M j'),
-                'count' => $count,
-            ];
-        }
-
-        // Breeding KPIs
-        $pregNum = Mating::where('pregnancy_status', 'pregnant')->count();
-        $pregDenom = Mating::whereNotNull('female_id')->count();
-        $pregnancyRate = $pregDenom > 0 ? round($pregNum / $pregDenom * 100, 1) : 0.0;
-
-        $totalMatings = Mating::count();
-        $totalFarrowings = Farrowing::whereNotNull('farrowing_date')->count();
-        $farrowingRate = $totalMatings > 0 ? round($totalFarrowings / $totalMatings * 100, 1) : 0.0;
-
-        $totalWeaned = \App\Models\Weaning::count();
-        $totalBorn = Farrowing::sum('live_births');
-        $weaningPercentage = $totalBorn > 0 ? round($totalWeaned / $totalBorn * 100, 1) : 0.0;
-
-        $avgStillborns = (float) Farrowing::avg('stillbirths');
-        $avgBirthWeight = (float) Farrowing::whereNotNull('average_birth_weight')->avg('average_birth_weight');
-
-        // Recent Activity feed
-        $recentWeights = PigWeight::with('pig')->latest()->limit(2)->get();
-        $recentPigs = PigManagement::latest()->limit(1)->get();
-        $recentSales = PigSale::with('pig')->latest()->limit(1)->get();
-        $recentDeaths = PigDeath::with('pig')->latest()->limit(1)->get();
-        $recentMatings = Mating::with(['female', 'male'])->latest()->limit(1)->get();
-
-        $activities = collect();
-
-        foreach ($recentWeights as $weight) {
-            $activities->push([
-                'type' => 'weight',
-                'title' => 'Weight recorded',
-                'description' => $weight->pig->ear_tag_number ?? 'Unknown pig',
-                'details' => $weight->weight . 'kg',
-                'time' => $weight->created_at,
-                'icon' => 'M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3',
-                'color' => 'blue',
-                'route' => route('weights.index'),
+        if ($orgId && $can('feed.issues.create')) {
+            $stages = app(\App\Services\Feed\FeedTodayService::class)->stagesToday($orgId)->where('animals', '>', 0);
+            $notFed = $stages->where('status', 'not_fed');
+            $tasks->push([
+                'key' => 'feed', 'title' => 'Feed the animals',
+                'count' => $notFed->count(),
+                'done_detail' => $stages->isEmpty() ? 'No animals to feed.' : 'Every stage has been fed.',
+                'detail' => 'Not fed yet: ' . $notFed->pluck('label')->implode(', '),
+                'progress' => $stages->isEmpty() ? null : ($stages->count() - $notFed->count()) . ' of ' . $stages->count() . ' stages fed',
+                'action' => 'Record feeding', 'route' => route('feed.issues.create'),
             ]);
         }
 
-        foreach ($recentPigs as $pig) {
-            $activities->push([
-                'type' => 'pig',
-                'title' => 'New pig added',
-                'description' => trim(($pig->ear_tag_number ?? '') . ' (' . ($pig->breed ?? '') . ')'),
-                'details' => trim(($pig->gender ?? '') . ' • ' . ($pig->stock_type ?? '')),
-                'time' => $pig->created_at,
-                'icon' => 'M12 6v6m0 0v6m0-6h6m-6 0H6',
-                'color' => 'green',
-                'route' => route('pigs.show', $pig->id),
+        if ($can('health.worklist')) {
+            $health = app(\App\Services\Dashboard\DashboardHealthMetrics::class)->summary($now)['tasks'];
+            $tasks->push([
+                'key' => 'health', 'title' => 'Health tasks',
+                'count' => $health['overdue'] + $health['today'],
+                'done_detail' => 'Nothing due today.' . ($health['upcoming'] ? ' Coming up: ' . $health['upcoming_detail'] . '.' : ''),
+                'detail' => trim(($health['overdue'] ? 'Overdue: ' . $health['overdue_detail'] . '. ' : '') . ($health['today'] ? 'Today: ' . $health['today_detail'] . '.' : '')),
+                'progress' => null,
+                'action' => 'Open the worklist', 'route' => route('health.worklist'),
             ]);
         }
 
-        foreach ($recentSales as $sale) {
-            $activities->push([
-                'type' => 'sale',
-                'title' => 'Pig sold',
-                'description' => $sale->pig->ear_tag_number ?? 'Unknown pig',
-                'details' => '₵' . number_format((float) ($sale->sale_price ?? 0), 2),
-                'time' => $sale->created_at,
-                'icon' => 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1',
-                'color' => 'purple',
-                'route' => route('sales.show', $sale->id),
+        if ($can('weights.index')) {
+            $overdueWeighing = PigManagement::countOverdueForWeighing();
+            $dueWeighing = PigManagement::countDueForWeighing();
+            $tasks->push([
+                'key' => 'weights', 'title' => 'Weigh pigs',
+                'count' => $overdueWeighing,
+                'done_detail' => 'No pig is overdue.' . ($dueWeighing ? " {$dueWeighing} due soon." : ''),
+                'detail' => $overdueWeighing . ' ' . str('pig')->plural($overdueWeighing) . ' past their weighing date' . ($dueWeighing ? ", {$dueWeighing} more due soon." : '.'),
+                'progress' => null,
+                'action' => 'Record weights', 'route' => route('weights.index'),
             ]);
         }
 
-        foreach ($recentDeaths as $death) {
-            $activities->push([
-                'type' => 'death',
-                'title' => 'Pig death recorded',
-                'description' => $death->pig->ear_tag_number ?? 'Unknown pig',
-                'details' => (string) ($death->cause_of_death ?? ''),
-                'time' => $death->created_at,
-                'icon' => 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z',
-                'color' => 'red',
-                'route' => route('deaths.show', $death->id),
+        if ($can('mating.manage')) {
+            $pregnancyChecks = Mating::query()->pregnancyFollowUpDue()->count();
+            $pregnancyOverdue = Mating::query()->pregnancyFollowUpOverdue()->count();
+            $tasks->push([
+                'key' => 'pregnancy', 'title' => 'Pregnancy checks',
+                'count' => $pregnancyChecks,
+                'done_detail' => 'No sow needs a check.',
+                'detail' => $pregnancyChecks . ' ' . str('sow')->plural($pregnancyChecks) . ' to check again' . ($pregnancyOverdue ? " ({$pregnancyOverdue} overdue)." : '.'),
+                'progress' => null,
+                'action' => 'Check sows', 'route' => route('mating.manage'),
             ]);
         }
 
-        foreach ($recentMatings as $mating) {
-            $activities->push([
-                'type' => 'mating',
-                'title' => 'Mating planned',
-                'description' => 'Sow: ' . ($mating->female->ear_tag_number ?? 'Unknown') . ' × Boar: ' . ($mating->male->ear_tag_number ?? 'Unknown'),
-                'details' => $mating->mating_date ? $mating->mating_date->format('M j, Y') : 'TBD',
-                'time' => $mating->created_at,
-                'icon' => 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z',
-                'color' => 'pink',
-                'route' => route('mating.index'),
+        if ($can('purchase-stock-intakes.index')) {
+            $toReceive = PurchaseStockIntake::where('status', PurchaseStockIntake::STATUS_PENDING_RECEIVE)->count();
+            $toHouse = PurchaseStockIntake::where('status', PurchaseStockIntake::STATUS_RECEIVED)->count();
+            $tasks->push([
+                'key' => 'purchases', 'title' => 'Bought animals arriving',
+                'count' => $toReceive + $toHouse,
+                'done_detail' => 'No purchase waiting.',
+                'detail' => trim(($toReceive ? "{$toReceive} to receive. " : '') . ($toHouse ? "{$toHouse} to put in quarantine." : '')),
+                'progress' => null,
+                'action' => 'Open purchases', 'route' => route('purchase-stock-intakes.index'),
             ]);
         }
 
-        $recentActivities = $activities
-            ->sortByDesc('time')
-            ->take(5)
-            ->values();
+        // ---- Quick entry -------------------------------------------------
+        $quickEntry = collect([
+            ['Record feeding', 'feed.issues.create', 'feed'],
+            ['Give a dose', 'health.create-medication', 'dose'],
+            ['Record weight', 'weights.create', 'weight'],
+            ['New health case', 'health.create', 'case'],
+            ['Record mating', 'mating.index', 'mating'],
+            ['Add a pig', 'all-stocks.create', 'pig'],
+            ['Import stock', 'all-stocks.import.create', 'import'],
+            ['Purchased stock', 'purchase-stock-intakes.create', 'purchase'],
+        ])->filter(fn ($item) => \Illuminate\Support\Facades\Route::has($item[1]) && $can($item[1]))
+            ->map(fn ($item) => ['label' => $item[0], 'route' => route($item[1]), 'icon' => $item[2]])->values();
 
-        $entryMetrics = [
-            [
-                'label' => 'Entries Today',
-                'value' => $entriesToday,
-                'sub' => $todayWeights . ' weights • ' . $todayPigs . ' pigs',
-                'route' => route('weights.index'),
-                'color' => 'metric-green',
-            ],
-            [
-                'label' => 'Weights Recorded',
-                'value' => $todayWeights,
-                'sub' => 'Entries recorded today',
-                'route' => route('weights.create'),
-                'color' => 'metric-blue',
-            ],
-            [
-                'label' => 'Pending Weighing',
-                'value' => $pendingWeighing,
-                'sub' => $dueForWeighing . ' due for weighing',
-                'route' => route('weights.index'),
-                'color' => 'metric-yellow',
-            ],
-            [
-                'label' => 'Validation Issues',
-                'value' => $validationIssues,
-                'sub' => 'Missing or pending data',
-                'route' => route('all-stocks.index'),
-                'color' => 'metric-red',
-            ],
-            [
-                'label' => 'Purchased Intake',
-                'value' => $purchasedStockMetrics['pending_intakes'],
-                'sub' => $purchasedStockMetrics['recent_intakes'] . ' new this week • ' . $purchasedStockMetrics['approved_waiting_stock'] . ' ready for stock',
-                'route' => route('purchase-stock-intakes.index'),
-                'color' => 'metric-slate',
-            ],
-        ];
+        // ---- Missing details: one list -----------------------------------
+        $active = fn () => PigManagement::active();
+        $blank = fn (string $column) => fn ($q) => $q->whereNull($column)->orWhere($column, '');
+        $allStock = route('all-stocks.index');
+        $missing = ! $access->sees('pigs') ? collect() : collect([
+            ['label' => 'No first weight', 'count' => $active()->whereDoesntHave('weights')->count(), 'where' => 'Record a weight', 'route' => $can('weights.create') ? route('weights.create') : null],
+            ['label' => 'No room', 'count' => $active()->whereNull('room_id')->count(), 'where' => 'All Stock, edit the pig', 'route' => $allStock],
+            ['label' => 'No breed', 'count' => $active()->where($blank('breed'))->count(), 'where' => 'All Stock, edit the pig', 'route' => $allStock],
+            ['label' => 'No sex', 'count' => $active()->where($blank('gender'))->count(), 'where' => 'All Stock, edit the pig', 'route' => $allStock],
+            ['label' => 'No date of birth', 'count' => $active()->whereNull('date_of_birth')->count(), 'where' => 'All Stock, edit the pig', 'route' => $allStock],
+            ['label' => 'No stock type', 'count' => $active()->where($blank('stock_type'))->count(), 'where' => 'All Stock, edit the pig', 'route' => $allStock],
+        ])->filter(fn ($row) => $row['count'] > 0)->values();
+        $completeness = null;
+        if ($access->sees('pigs')) {
+            $herd = max(1, PigManagement::active()->count());
+            $incomplete = PigManagement::active()->where(fn ($q) => $q->whereNull('room_id')->orWhereDoesntHave('weights')
+                ->orWhere($blank('breed'))->orWhere($blank('gender'))->orWhereNull('date_of_birth')->orWhere($blank('stock_type')))->count();
+            $completeness = (int) round((($herd - $incomplete) / $herd) * 100);
+        }
 
-        $needsDataEntry = collect([
-            [
-                'priority' => 'high',
-                'item' => 'Overdue weights',
-                'details' => 'Pigs past their weighing schedule',
-                'count' => $overdueForWeighing,
-                'route' => route('weights.index'),
-            ],
-            [
-                'priority' => 'high',
-                'item' => 'Missing first weight',
-                'details' => 'Active pigs without an initial weight',
-                'count' => $missingFirstWeight,
-                'route' => route('weights.create'),
-            ],
-            [
-                'priority' => 'medium',
-                'item' => 'Incomplete pig records',
-                'details' => 'Missing breed, gender, stock type, or birth date',
-                'count' => $incompletePigRecords,
-                'route' => route('all-stocks.index'),
-            ],
-            [
-                'priority' => 'medium',
-                'item' => 'Pending purchase intake',
-                'details' => 'Purchased stock not fully added to stock',
-                'count' => $pendingPurchaseIntakes,
-                'route' => route('purchase-stock-intakes.index'),
-            ],
-            [
-                'priority' => $pregnancyFollowUpsOverdue > 0 ? 'high' : 'medium',
-                'item' => 'Pregnancy follow-ups',
-                'details' => 'Uncertain pregnancies needing another check',
-                'count' => $pregnancyFollowUpsDue,
-                'route' => route('mating.manage'),
-            ],
-            [
-                'priority' => 'low',
-                'item' => 'Missing room assignment',
-                'details' => 'Active pigs not assigned to housing',
-                'count' => $missingRoomAssignments,
-                'route' => route('all-stocks.index'),
-            ],
-        ])->filter(fn ($item) => $item['count'] > 0)->values();
+        // ---- Latest entries ----------------------------------------------
+        $pigLink = fn ($pig) => $pig && $access->sees('pigs') ? route('pigs.show', $pig->id) : null;
+        $entries = collect()
+            ->merge(! $access->sees('weights') ? [] : PigWeight::with('pig')->latest()->limit(8)->get()->map(fn ($w) => [
+                'type' => 'Weight', 'what' => ($w->pig?->code ?? 'Pig') . ' · ' . rtrim(rtrim(number_format((float) $w->weight, 2), '0'), '.') . ' kg',
+                'time' => $w->created_at, 'route' => $pigLink($w->pig) ?? route('weights.index')]))
+            ->merge(! $can('feed.issues.index') ? [] : \App\Models\FeedIssue::with('feedType')->latest()->limit(8)->get()->map(fn ($f) => [
+                'type' => 'Feeding', 'what' => (\App\Services\Feed\FeedStageResolver::STAGES[$f->feeding_stage] ?? 'Feed') . ' · ' . rtrim(rtrim(number_format((float) $f->quantity_kg, 2), '0'), '.') . ' kg ' . ($f->feedType?->name ?? ''),
+                'time' => $f->created_at, 'route' => route('feed.issues.index')]))
+            ->merge(! $access->sees('health') ? [] : \App\Models\MedicationAdministration::with('pig')->whereNull('voided_at')->latest()->limit(8)->get()->map(fn ($m) => [
+                'type' => 'Dose', 'what' => ($m->pig?->code ?? 'Pig') . ' · ' . $m->medication_name,
+                'time' => $m->created_at, 'route' => route('medications.show', $m->id)]))
+            ->merge(! $access->sees('pigs') ? [] : PigManagement::latest()->limit(8)->get()->map(fn ($p) => [
+                'type' => 'New pig', 'what' => $p->code . ($p->ear_tag_number ? ' · tag ' . $p->ear_tag_number : ''),
+                'time' => $p->created_at, 'route' => route('pigs.show', $p->id)]))
+            ->merge(! $access->sees('breeding') ? [] : Mating::with('female')->latest()->limit(8)->get()->map(fn ($m) => [
+                'type' => 'Mating', 'what' => 'Sow ' . ($m->female?->code ?? '?'),
+                'time' => $m->created_at, 'route' => route('mating.index')]))
+            ->filter(fn ($e) => $e['time'] !== null)
+            ->sortByDesc('time')->take(8)->values();
+        $weightsToday = $access->sees('weights') ? PigWeight::whereDate('created_at', today())->count() : 0;
+        $feedingsToday = $can('feed.issues.index') ? \App\Models\FeedIssue::whereDate('created_at', today())->count() : 0;
+        $dosesToday = $access->sees('health') ? \App\Models\MedicationAdministration::whereDate('created_at', today())->count() : 0;
+        $entriesToday = $weightsToday + $feedingsToday + $dosesToday
+            + ($access->sees('pigs') ? PigManagement::whereDate('created_at', today())->count() : 0)
+            + ($access->sees('breeding') ? Mating::whereDate('created_at', today())->count() : 0);
+        $todayParts = collect([
+            $access->sees('weights') ? "{$weightsToday} " . str('weight')->plural($weightsToday) : null,
+            $can('feed.issues.index') ? "{$feedingsToday} " . str('feeding')->plural($feedingsToday) : null,
+            $access->sees('health') ? "{$dosesToday} " . str('dose')->plural($dosesToday) : null,
+        ])->filter()->implode(' · ');
 
-        $completionBase = max(1, PigManagement::active()->count());
-        $completePigRecords = max(0, $completionBase - $incompletePigRecords);
-        $missingBreed = PigManagement::active()
-            ->where(function ($query) {
-                $query->whereNull('breed')->orWhere('breed', '');
-            })
-            ->count();
-        $missingGender = PigManagement::active()
-            ->where(function ($query) {
-                $query->whereNull('gender')->orWhere('gender', '');
-            })
-            ->count();
-        $missingDateOfBirth = PigManagement::active()->whereNull('date_of_birth')->count();
-        $missingStockType = PigManagement::active()
-            ->where(function ($query) {
-                $query->whereNull('stock_type')->orWhere('stock_type', '');
-            })
-            ->count();
-        $duplicateEarTags = PigManagement::select('ear_tag_number')
-            ->whereNotNull('ear_tag_number')
-            ->groupBy('ear_tag_number')
-            ->havingRaw('COUNT(*) > 1')
-            ->count();
+        // ---- Stat cards --------------------------------------------------
+        // Built before the cards are filtered, so a hidden card still needs a value.
+        $overdueWeighing ??= $access->sees('weights') ? PigManagement::countOverdueForWeighing() : 0;
+        $dueWeighing ??= $access->sees('weights') ? PigManagement::countDueForWeighing() : 0;
+        $purchased = $access->sees('intakes')
+            ? app(\App\Services\Stock\PurchasedStockDashboardMetrics::class)->summary()
+            : ['pending_intakes' => 0, 'recent_intakes' => 0, 'approved_waiting_stock' => 0];
+        $stats = collect([
+            ['label' => 'Entries today', 'value' => $entriesToday, 'tone' => 'emerald', 'route' => 'weights.index',
+                'sub' => $todayParts],
+            ['label' => 'Weights recorded', 'value' => $weightsToday, 'tone' => 'sky', 'route' => 'weights.create',
+                'sub' => PigWeight::where('created_at', '>=', now()->startOfWeek())->count() . ' this week'],
+            ['label' => 'Pending weighing', 'value' => $overdueWeighing, 'tone' => 'amber', 'route' => 'weights.index',
+                'sub' => "overdue · {$dueWeighing} due soon"],
+            ['label' => 'Missing details', 'value' => $missing->sum('count'), 'tone' => 'rose', 'route' => 'all-stocks.index',
+                'sub' => "{$completeness}% of pig records complete"],
+            ['label' => 'Purchased intake', 'value' => $purchased['pending_intakes'], 'tone' => 'violet', 'route' => 'purchase-stock-intakes.index',
+                'sub' => $purchased['recent_intakes'] . ' new this week · ' . $purchased['approved_waiting_stock'] . ' ready for stock'],
+        ])->filter(fn ($card) => $can($card['route']))
+            ->map(fn ($card) => ['url' => route($card['route'])] + $card)->values();
 
-        $dataQuality = [
-            'completeness' => round(($completePigRecords / $completionBase) * 100),
-            'duplicates' => $duplicateEarTags,
-            'missing_fields' => $incompletePigRecords + $missingRoomAssignments,
-            'failed_imports' => 0,
-        ];
-
-        $dataQualityDetails = collect([
-            [
-                'label' => 'Missing breed',
-                'count' => $missingBreed,
-                'where' => 'All Stock > Edit pig details',
-                'route' => route('all-stocks.index'),
-                'severity' => 'medium',
-            ],
-            [
-                'label' => 'Missing gender',
-                'count' => $missingGender,
-                'where' => 'All Stock > Edit pig details',
-                'route' => route('all-stocks.index'),
-                'severity' => 'medium',
-            ],
-            [
-                'label' => 'Missing date of birth',
-                'count' => $missingDateOfBirth,
-                'where' => 'All Stock > Edit pig details',
-                'route' => route('all-stocks.index'),
-                'severity' => 'medium',
-            ],
-            [
-                'label' => 'Missing stock type',
-                'count' => $missingStockType,
-                'where' => 'All Stock > Edit pig details',
-                'route' => route('all-stocks.index'),
-                'severity' => 'medium',
-            ],
-            [
-                'label' => 'Missing room assignment',
-                'count' => $missingRoomAssignments,
-                'where' => 'All Stock > Edit pig housing',
-                'route' => route('all-stocks.index'),
-                'severity' => 'low',
-            ],
-            [
-                'label' => 'Missing first weight',
-                'count' => $missingFirstWeight,
-                'where' => 'Record Weight',
-                'route' => route('weights.create'),
-                'severity' => 'high',
-            ],
-            [
-                'label' => 'Pending purchased stock intake',
-                'count' => $pendingPurchaseIntakes,
-                'where' => 'Purchased Stock Intake',
-                'route' => route('purchase-stock-intakes.index'),
-                'severity' => 'medium',
-            ],
-            [
-                'label' => 'Duplicate ear tags',
-                'count' => $duplicateEarTags,
-                'where' => 'All Stock > Resolve ear tags',
-                'route' => route('all-stocks.index'),
-                'severity' => 'high',
-            ],
-        ])->filter(fn ($detail) => $detail['count'] > 0)->values();
-
-        // Overdue pigs preview + modal data (computed, no Blade PHP needed)
-        $overduePigsPreview = PigManagement::getOverdueForWeighing(30)->take(5)->map(function ($pig) {
-            return [
-                'pig' => $pig,
-                'weighingStatus' => $pig->getWeighingStatus(),
-                'daysSince' => $pig->getDaysSinceLastWeighing(),
-            ];
-        });
-
-        $allOverduePigs = PigManagement::getOverdueForWeighing();
-        $allOverduePigsDetails = $allOverduePigs->map(function ($pig) {
-            $weighingStatus = $pig->getWeighingStatus();
-            $daysSince = $pig->getDaysSinceLastWeighing();
-            $lastWeighing = $pig->getLastWeighingDate();
-            $lastWeight = $pig->weights()->latest('weigh_date')->first();
-            $overdueDays = $daysSince - 14;
-
-            return [
-                'pig' => $pig,
-                'weighingStatus' => $weighingStatus,
-                'daysSince' => $daysSince,
-                'lastWeighing' => $lastWeighing,
-                'lastWeight' => $lastWeight,
-                'overdueDays' => $overdueDays,
-            ];
-        });
-
-        return view('dataentry.dashboard', compact(
-            'weanedPigs',
-            'weaningAge',
-            'recentFarrowings',
-            'pigletsCount',
-            'totalPigs',
-            'todayWeights',
-            'todayPigs',
-            'weekWeights',
-            'pendingWeighing',
-            'activeAlerts',
-            'overdueForWeighing',
-            'dueForWeighing',
-            'dailyWeightsData',
-            'pregnancyRate',
-            'farrowingRate',
-            'weaningPercentage',
-            'uncertainPregnancies',
-            'pregnancyFollowUpsDue',
-            'pregnancyFollowUpsOverdue',
-            'avgStillborns',
-            'avgBirthWeight',
-            'recentActivities',
-            'entryMetrics',
-            'needsDataEntry',
-            'dataQuality',
-            'dataQualityDetails',
-            'validationIssues',
-            'recentImports',
-            'overduePigsPreview',
-            'allOverduePigs',
-            'allOverduePigsDetails',
-            'purchasedStockMetrics',
-        ));
+        return view('dataentry.dashboard', compact('stats', 'tasks', 'quickEntry', 'missing', 'completeness', 'entries', 'entriesToday'));
     }
 
     public function getDailyWeightsData(Request $request)
     {
-        $startDate = $request->get('start_date');
-        $endDate = $request->get('end_date');
-        
-        // Default to last 7 days if no dates provided
-        if (!$startDate || !$endDate) {
-            $endDate = now()->format('Y-m-d');
-            $startDate = now()->subDays(6)->format('Y-m-d');
-        }
-        
-        $start = Carbon::parse($startDate);
-        $end = Carbon::parse($endDate);
-        
-        // Generate date range
+        // The route admits by role; the data is weights, so it needs the same
+        // permission as the Weights page.
+        $this->abortUnlessPermission('view_weights');
+
+        $validated = $request->validate([
+            'start_date' => ['nullable', 'date', 'required_with:end_date'],
+            'end_date' => ['nullable', 'date', 'required_with:start_date', 'after_or_equal:start_date'],
+        ]);
+
+        // Default to the last 7 days.
+        $end = Carbon::parse($validated['end_date'] ?? now())->startOfDay();
+        $start = Carbon::parse($validated['start_date'] ?? $end->copy()->subDays(6))->startOfDay();
+
+        // Bounded so one request cannot ask for years of daily buckets.
+        abort_if($start->diffInDays($end) > self::MAX_DAILY_WEIGHT_RANGE_DAYS, 422,
+            'Choose a range of at most '.self::MAX_DAILY_WEIGHT_RANGE_DAYS.' days.');
+
+        // One grouped query for the range rather than one per day.
+        $counts = PigWeight::query()
+            ->whereBetween('created_at', [$start, $end->copy()->endOfDay()])
+            ->selectRaw('DATE(created_at) as day, COUNT(*) as total')
+            ->groupBy('day')
+            ->pluck('total', 'day');
+
         $dates = [];
         $weightsData = [];
-        
-        $current = $start->copy();
-        while ($current->lte($end)) {
-            $date = $current->format('Y-m-d');
-            $count = PigWeight::whereDate('created_at', $date)->count();
-            
-            $dates[] = $current->format('M j');
-            $weightsData[] = $count;
-            
-            $current->addDay();
+        for ($day = $start->copy(); $day->lte($end); $day->addDay()) {
+            $dates[] = $day->format('M j');
+            $weightsData[] = (int) ($counts[$day->toDateString()] ?? 0);
         }
-        
+
         return response()->json([
             'labels' => $dates,
-            'data' => $weightsData
+            'data' => $weightsData,
         ]);
     }
 }

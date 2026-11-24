@@ -161,9 +161,12 @@
                                 @endif
                             </div>
                             <div class="text-right">
-                                @if($return->creditNote)
+                                @if($return->creditNote && $creditNotesOpen)
                                     <a href="{{ route('finance.credit-notes.show', $return->creditNote) }}"
                                        class="text-slate-600 hover:underline">{{ $return->creditNote->credit_note_number }}</a>
+                                @elseif($return->creditNote)
+                                    {{-- Credit note documents are the Advanced Accounting add-on. --}}
+                                    <span class="text-slate-600">{{ $return->creditNote->credit_note_number }}</span>
                                 @else
                                     <span class="text-xs text-slate-400">credit note pending</span>
                                 @endif

@@ -7,11 +7,26 @@ use Illuminate\Support\Collection;
 
 /**
  * Finds pigs for health forms by system code, or by ear-tag colour and number
- * ("green 21", "21"), so no form has to load every pig into a dropdown.
+ * ("green 21", "21"). The picker also opens as a list of the farm's live
+ * animals (browse), fetched when it is opened rather than built into the page.
  */
 class HealthPigFinder
 {
     public const LIMIT = 20;
+
+    /** Most animals the opened list shows; beyond it, typing searches them all. */
+    public const BROWSE_LIMIT = 1000;
+
+    /** @return Collection<int, array{id: int, code: string, label: string, room: ?string, left: bool}> live pigs by code */
+    public function browse(): Collection
+    {
+        return PigManagement::query()
+            ->with(['room', 'currentEarTagAssignment.tag.color'])
+            ->orderBy('code')
+            ->limit(self::BROWSE_LIMIT)
+            ->get()
+            ->map(fn (PigManagement $pig) => $this->row($pig));
+    }
 
     /** @return Collection<int, array{id: int, code: string, label: string, room: ?string, left: bool}> */
     public function search(string $query, bool $includeDeparted = false): Collection

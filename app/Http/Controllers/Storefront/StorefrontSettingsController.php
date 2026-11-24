@@ -47,12 +47,12 @@ use Illuminate\View\View;
  *
  * PERMISSION, NOT FEATURE FLAG
  * ----------------------------
- * Gated on `manage_storefront_settings` — which already existed and is granted
- * to admin and superuser only. It is deliberately NOT behind
- * `feature:storefront.enabled`: an administrator whose storefront module is off
- * must still be able to reach the screen that explains why the shop is dark.
- * Locking the recovery surface behind the thing that is broken is how a
- * configuration mistake becomes a support call.
+ * Gated on `manage_storefront_settings` — granted to admin and superuser only —
+ * and, like the rest of the shop back office, on `feature:storefront.enabled`.
+ * This screen used to stay open with the module off, to explain why the shop
+ * was dark; but only the platform superuser can switch the module back on
+ * (Settings → Modules & Features, per farm), so a farm without a shop has
+ * nothing to do here. Orders stay open for orders still being fulfilled.
  */
 class StorefrontSettingsController extends Controller
 {

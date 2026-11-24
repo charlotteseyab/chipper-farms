@@ -3,6 +3,7 @@
 namespace App\Console\Commands\Storefront;
 
 use App\Storefront\Services\ListingAvailabilitySyncService;
+use App\Storefront\Services\StorefrontPigPoolService;
 use Illuminate\Console\Command;
 
 /**
@@ -18,7 +19,7 @@ class SyncListingAvailabilityCommand extends Command
 
     protected $description = 'Demote published storefront listings whose operational source is no longer available.';
 
-    public function handle(ListingAvailabilitySyncService $service): int
+    public function handle(ListingAvailabilitySyncService $service, StorefrontPigPoolService $pools): int
     {
         $organizationId = $this->option('organization') !== null
             ? (int) $this->option('organization')
@@ -35,6 +36,14 @@ class SyncListingAvailabilityCommand extends Command
         if ($result['demoted'] > 0) {
             $this->line('Demoted listing ids: ' . implode(', ', $result['listing_ids']));
         }
+
+        // Pooled listings are recounted against today's date: a pig whose
+        // medicine withdrawal began drops out, one whose withdrawal has ended
+        // comes back. Nothing is saved when a withdrawal runs out, so only a
+        // sweep can notice.
+        $pooled = $pools->resyncAllPools($organizationId);
+
+        $this->info("Storefront pig pools recounted: {$pooled}.");
 
         return self::SUCCESS;
     }

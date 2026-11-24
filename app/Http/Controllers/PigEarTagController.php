@@ -28,6 +28,24 @@ class PigEarTagController extends Controller
         return view('pigs.tags.replace', compact('pig', 'colors', 'suggestions'));
     }
 
+    public function store(Request $request, PigManagement $pig, ReplaceEarTagService $service)
+    {
+        $this->authorize('update', $pig);
+        $data = $request->validate([
+            'ear_tag_color_id' => ['required', 'integer', Rule::exists('ear_tag_colors', 'id')
+                ->where('organization_id', $pig->organization_id)->where('is_active', true)],
+            'ear_tag_number' => ['required', 'string', 'max:50'],
+            'reason' => ['required', 'string', 'min:5', 'max:1000'],
+        ]);
+        try {
+            $service->assignFirst($pig, $request->user(), $data);
+        } catch (StockValidationException $exception) {
+            return back()->withErrors([$exception->field => $exception->getMessage()])->withInput();
+        }
+
+        return redirect()->route('pigs.show', $pig)->with('success', 'Physical tag assigned and its history recorded.');
+    }
+
     public function update(Request $request, PigManagement $pig, ReplaceEarTagService $service)
     {
         $this->authorize('update', $pig);

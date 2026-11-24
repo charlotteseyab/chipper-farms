@@ -69,7 +69,9 @@ class DoseController extends Controller
         $event = $dosingEvent->load(['medicine', 'givenBy', 'recordedBy', 'allocations.batch', 'administrations.pig', 'administrations.healthRecord',
             'administrations.treatmentCourse', 'administrations.scheduledDose', 'correctsEvent']);
         $replacement = MedicationDosingEvent::where('corrects_event_id', $event->id)->first();
-        return view('health.doses.show', compact('event', 'replacement'));
+        $animals = \App\Support\CollectionPage::make($event->administrations, 20, 'animals_page');
+
+        return view('health.doses.show', compact('event', 'replacement', 'animals'));
     }
 
     /** The edit form saves a correction: the original is kept and its stock put back. */
@@ -116,12 +118,14 @@ class DoseController extends Controller
 
     private function formData(Request $request, MedicineStockService $stock, ?MedicationDosingEvent $event = null): array
     {
-        $medicines = Medicine::where(fn ($q) => $q->where('is_active', true)->when($event, fn ($q) => $q->orWhere('id', $event->medicine_id)))
+        $medicines = Medicine::with('photo')->where(fn ($q) => $q->where('is_active', true)->when($event, fn ($q) => $q->orWhere('id', $event->medicine_id)))
             ->orderBy('name')->get();
         $today = now()->toDateString();
         $catalogue = $medicines->mapWithKeys(fn (Medicine $m) => [$m->id => [
             'unit' => $m->dose_unit, 'stock_unit' => $m->stock_unit, 'factor' => (string) $m->dose_units_per_stock_unit,
             'routes' => $m->allowed_routes ?? [], 'withdrawal' => $m->meat_withdrawal_days,
+            'photo' => $m->photo ? route('health.attachments.view', $m->photo) : null,
+            'used_for' => $m->used_for, 'precautions' => $m->precautions,
             'batches' => $stock->usableBatches($m, $today)->map(fn ($b) => ['id' => $b->id, 'number' => $b->batch_number,
                 'expiry' => $b->expiry_date->format('d M Y'), 'on_hand' => $this->trim($b->on_hand)])->values(),
         ]]);

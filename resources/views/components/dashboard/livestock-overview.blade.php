@@ -23,7 +23,7 @@
             <div class="text-right"><p class="text-2xl font-black text-rose-600">{{ number_format($metrics['deaths_30_days']) }}</p><p class="mt-1 text-xs font-semibold text-slate-500">Deaths in 30 days</p></div>
         </div>
         <div class="mt-5 border-t border-slate-100 pt-4 text-sm text-slate-600">
-            <span class="font-bold text-slate-900">{{ number_format($metrics['deaths_all_time']) }}</span> total recorded deaths. Rate = recent deaths ÷ current population plus recent deaths.
+            <span class="font-bold text-slate-900">{{ number_format($metrics['deaths_all_time']) }}</span> total recorded deaths. The rate is the share of animals on the farm in the last 30 days that died: deaths ÷ (alive now + died + sold or moved out).
         </div>
     </article>
 

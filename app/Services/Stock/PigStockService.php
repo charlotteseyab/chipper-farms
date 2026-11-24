@@ -170,8 +170,7 @@ class PigStockService
             throw new StockValidationException('stock_type', 'Only standard stock can be edited here.');
         }
 
-        $data['ear_tag_number'] = trim((string) $data['ear_tag_number']);
-        $this->guardManagedTagAgainstInlineChange($pig, $data['ear_tag_number']);
+        $data['ear_tag_number'] = trim((string) ($data['ear_tag_number'] ?? ''));
 
         $birthDate = Carbon::parse($data['date_of_birth']);
         $data['age_in_days'] = (int) $birthDate->diffInDays(now());
@@ -185,6 +184,10 @@ class PigStockService
         }
 
         return DB::transaction(function () use ($pig, $data) {
+            \App\Models\Organization::whereKey($pig->organization_id)->lockForUpdate()->firstOrFail();
+            $pig = PigManagement::whereKey($pig->id)->lockForUpdate()->firstOrFail();
+            $this->guardManagedTagAgainstInlineChange($pig, $data['ear_tag_number']);
+            $data['ear_tag_number'] = $pig->ear_tag_number;
             $pig->update($data);
             return $pig->fresh();
         });
@@ -217,8 +220,7 @@ class PigStockService
             }
         }
 
-        $data['ear_tag_number'] = trim((string) $data['ear_tag_number']);
-        $this->guardManagedTagAgainstInlineChange($pig, $data['ear_tag_number']);
+        $data['ear_tag_number'] = trim((string) ($data['ear_tag_number'] ?? ''));
 
         // Recalculate age only if DOB changed — preserves original behaviour.
         $currentDob = $pig->date_of_birth ? $pig->date_of_birth->format('Y-m-d') : null;
@@ -227,6 +229,10 @@ class PigStockService
         }
 
         return DB::transaction(function () use ($pig, $data) {
+            \App\Models\Organization::whereKey($pig->organization_id)->lockForUpdate()->firstOrFail();
+            $pig = PigManagement::whereKey($pig->id)->lockForUpdate()->firstOrFail();
+            $this->guardManagedTagAgainstInlineChange($pig, $data['ear_tag_number']);
+            $data['ear_tag_number'] = $pig->ear_tag_number;
             $pig->update($data);
             return $pig->fresh();
         });
@@ -235,10 +241,11 @@ class PigStockService
     private function guardManagedTagAgainstInlineChange(PigManagement $pig, string $requestedNumber): void
     {
         $current = $pig->currentEarTagAssignment()->with('tag')->first();
-        if ($current && EarTag::normalizeNumber($requestedNumber) !== $current->tag->normalized_tag_number) {
+        $number = $current?->tag?->normalized_tag_number ?? EarTag::normalizeNumber((string) $pig->ear_tag_number);
+        if (EarTag::normalizeNumber($requestedNumber) !== $number) {
             throw new StockValidationException(
                 'ear_tag_number',
-                'Use the Replace Ear Tag action to change this animal\'s physical tag and preserve its tag history.'
+                'Use the physical tag action to assign or replace a tag and preserve its history.'
             );
         }
     }

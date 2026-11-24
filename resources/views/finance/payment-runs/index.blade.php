@@ -7,9 +7,11 @@
             </div>
             @if(auth()->user()?->hasPermission('create_payment'))
                 <div class="flex gap-2">
+                    @canopen('finance.payments.index')
                     <a href="{{ route('finance.payments.index') }}" class="inline-flex items-center px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-semibold rounded-xl">
                         <i class="fa-solid fa-money-bill-transfer mr-2"></i>Payments
                     </a>
+                    @endcanopen
                     <a href="{{ route('finance.payment-runs.create') }}" class="inline-flex items-center px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl shadow-sm">
                         + New Run
                     </a>

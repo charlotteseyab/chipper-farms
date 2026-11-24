@@ -74,6 +74,7 @@ class PurchaseStockIntakeController extends Controller
             'structures' => $this->activeStructures(),
             'rooms' => Room::with('structure')->orderBy('name')->get(),
             'breeds' => \App\Models\Setting::animalBreeds(),
+            'healthStatuses' => PurchaseStockIntakeService::HEALTH_STATUSES,
         ]);
     }
 
@@ -121,6 +122,8 @@ class PurchaseStockIntakeController extends Controller
             'tagColors' => \App\Models\EarTagColor::where('is_active', true)
                 ->where('normalized_name', '!=', 'unspecified')->orderBy('name')->get(),
             'canMaterializeLegacyPiglets' => $canMaterializeLegacyPiglets,
+            'healthStatuses' => PurchaseStockIntakeService::HEALTH_STATUSES,
+            'proposedGenders' => $this->service->proposedGenders($purchaseStockIntake),
         ]);
     }
 
@@ -129,10 +132,12 @@ class PurchaseStockIntakeController extends Controller
         $this->authorize('receive', $purchaseStockIntake);
 
         $data = $request->validate([
-            'quantity_received' => ['required', 'integer', 'min:0'],
+            'quantity_received' => ['required', 'integer', 'min:1'],
             'quantity_rejected' => ['nullable', 'integer', 'min:0'],
-            'health_status' => ['nullable', 'string', 'max:40'],
-            'health_notes' => ['nullable', 'string'],
+            'health_status' => ['nullable', Rule::in(array_keys(PurchaseStockIntakeService::HEALTH_STATUSES))],
+            'health_notes' => ['nullable', 'string', 'max:3000'],
+        ], [
+            'quantity_received.min' => 'At least one animal must arrive. If none did, cancel the intake instead.',
         ]);
 
         return $this->runAction(fn () => $this->service->receive($purchaseStockIntake, $data), 'Purchased stock received.');
@@ -146,9 +151,9 @@ class PurchaseStockIntakeController extends Controller
             'room_id' => ['required', 'integer', Rule::exists('rooms', 'id')->where(
                 fn ($query) => $query->where('organization_id', $this->currentOrganization->requireId())
             )],
-            'health_status' => ['nullable', 'string', 'max:40'],
-            'health_notes' => ['nullable', 'string'],
-            'quarantine_release_date' => ['nullable', 'date'],
+            'health_status' => ['nullable', Rule::in(array_keys(PurchaseStockIntakeService::HEALTH_STATUSES))],
+            'health_notes' => ['nullable', 'string', 'max:3000'],
+            'quarantine_release_date' => ['nullable', 'date', 'after_or_equal:' . $purchaseStockIntake->purchase_date->toDateString()],
         ], [
             'room_id.required' => 'Select the physical room where these animals will be quarantined.',
         ]);
@@ -180,7 +185,7 @@ class PurchaseStockIntakeController extends Controller
             ])],
             'quarantine_review_notes' => ['nullable', 'required_if:quarantine_outcome,partially_cleared,rejected', 'string', 'max:3000'],
             'quarantine_release_date' => ['nullable', 'required_if:quarantine_outcome,extended', 'date', 'after_or_equal:today'],
-            'health_status' => ['nullable', 'string', 'max:40'],
+            'health_status' => ['nullable', Rule::in(array_keys(PurchaseStockIntakeService::HEALTH_STATUSES))],
             'health_notes' => ['nullable', 'string', 'max:3000'],
         ]);
 
@@ -207,8 +212,24 @@ class PurchaseStockIntakeController extends Controller
             fn () => $this->service->addToStock($purchaseStockIntake, $data['ear_tag_numbers'] ?? [], [
                 'room_id' => $data['room_id'] ?? null,
                 'tag_color_ids' => $data['tag_color_ids'] ?? [],
+                'genders' => $data['genders'] ?? [],
             ]),
             'Purchased stock added to stock.'
+        );
+    }
+
+    /** Stop an intake that will not enter stock (nothing arrived, order cancelled, entered by mistake). */
+    public function cancel(Request $request, PurchaseStockIntake $purchaseStockIntake)
+    {
+        $this->authorize('cancel', $purchaseStockIntake);
+
+        $data = $request->validate([
+            'cancellation_reason' => ['required', 'string', 'max:1000'],
+        ]);
+
+        return $this->runAction(
+            fn () => $this->service->cancel($purchaseStockIntake, $data['cancellation_reason']),
+            'Purchased stock intake cancelled.'
         );
     }
 
@@ -226,21 +247,28 @@ class PurchaseStockIntakeController extends Controller
     {
         return [
             'supplier_name' => ['required', 'string', 'max:255'],
-            'purchase_date' => ['required', 'date'],
+            // Animals already bought: not in the future, and not decades ago.
+            'purchase_date' => ['required', 'date', 'before_or_equal:today', 'after:' . now()->subYears(15)->toDateString()],
             'document_reference' => ['nullable', 'string', 'max:255'],
             'animal_category' => ['required', Rule::in(array_keys($this->categories()))],
-            'breed' => ['nullable', Rule::in(array_keys(\App\Models\Setting::animalBreeds()))],
-            'quantity_ordered' => ['required', 'integer', 'min:1'],
-            'male_quantity' => ['nullable', 'integer', 'min:0'],
-            'female_quantity' => ['nullable', 'integer', 'min:0'],
-            'estimated_age_days' => ['nullable', 'integer', 'min:0'],
-            'estimated_date_of_birth' => ['nullable', 'date'],
-            'average_weight_kg' => ['nullable', 'numeric', 'min:0'],
-            'total_purchase_cost' => ['nullable', 'numeric', 'min:0'],
-            'transport_cost' => ['nullable', 'numeric', 'min:0'],
-            'health_status' => ['nullable', 'string', 'max:40'],
-            'health_notes' => ['nullable', 'string'],
-            'notes' => ['nullable', 'string'],
+            // Every pig needs one of the farm's breeds; without it the pigs
+            // were created with breed "unknown".
+            'breed' => ['required', Rule::in(array_keys(\App\Models\Setting::animalBreeds()))],
+            'quantity_ordered' => ['required', 'integer', 'min:1', 'max:1000'],
+            'male_quantity' => ['nullable', 'integer', 'min:0', 'max:1000'],
+            'female_quantity' => ['nullable', 'integer', 'min:0', 'max:1000'],
+            // Age or date of birth: without either, every pig was dated as
+            // born on the purchase date (a finisher counted as a newborn).
+            'estimated_age_days' => ['nullable', 'required_without:estimated_date_of_birth', 'integer', 'min:0', 'max:5475'],
+            'estimated_date_of_birth' => ['nullable', 'required_without:estimated_age_days', 'date', 'before_or_equal:purchase_date'],
+            'average_weight_kg' => ['nullable', 'numeric', 'min:0.1', 'max:500'],
+            // Approval needs the cost and an intake cannot be edited, so it is
+            // asked for here rather than leaving the intake stuck later.
+            'total_purchase_cost' => ['required', 'numeric', 'min:0', 'max:1000000000'],
+            'transport_cost' => ['nullable', 'numeric', 'min:0', 'max:1000000000'],
+            'health_status' => ['nullable', Rule::in(array_keys(PurchaseStockIntakeService::HEALTH_STATUSES))],
+            'health_notes' => ['nullable', 'string', 'max:3000'],
+            'notes' => ['nullable', 'string', 'max:3000'],
         ];
     }
 
@@ -321,6 +349,8 @@ class PurchaseStockIntakeController extends Controller
                     $fail('This tag number is already in use.');
                 }
             }],
+            'genders' => ['required', 'array', 'size:' . $intake->clearedQuantity()],
+            'genders.*' => ['required', Rule::in(['M', 'F'])],
             'tag_color_ids' => ['nullable', 'array', 'size:' . $intake->clearedQuantity()],
             'tag_color_ids.*' => ['nullable', 'integer', Rule::exists('ear_tag_colors', 'id')->where(
                 fn ($query) => $query->where('organization_id', $this->currentOrganization->requireId())->where('is_active', true)->where('normalized_name', '!=', 'unspecified')

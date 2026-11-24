@@ -28,33 +28,33 @@ class PigDeathPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager() || $user->isDataEntry() || $user->isAccountant();
+        return $user->hasPermission('view_pig_deaths');
     }
 
     public function view(User $user, PigDeath $death): bool
     {
         return $this->sameOrganization($user, $death)
-            && ($user->isAdmin() || $user->isManager() || $user->isDataEntry() || $user->isAccountant());
+            && $user->hasPermission('view_pig_deaths');
     }
 
     public function create(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager() || $user->isDataEntry();
+        return $user->hasPermission('record_pig_deaths');
     }
 
     public function update(User $user, PigDeath $death): bool
     {
         return $this->sameOrganization($user, $death)
-            && ($user->isAdmin() || $user->isManager());
+            && $user->hasPermission('edit_pig_deaths');
     }
 
     public function delete(User $user, PigDeath $death): bool
     {
-        return $this->sameOrganization($user, $death) && $user->isAdmin();
+        return $this->sameOrganization($user, $death) && $user->hasPermission('delete_pig_deaths');
     }
 
     public function export(User $user): bool
     {
-        return $user->isAdmin() || $user->isManager() || $user->isAccountant();
+        return $user->hasPermission('export_pig_deaths');
     }
 }

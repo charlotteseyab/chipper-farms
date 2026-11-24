@@ -122,9 +122,34 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * The user's role record. Only for queries (`whereHas('role', …)`,
+     * `role()->first()`): never eager-load it. `role` is also a text column
+     * on users, and `$user->role` always returns that text, so anything that
+     * loads this relation and then reads `$user->role` gets a string. The
+     * queue does exactly that when it restores a queued user with
+     * `role.permissions` loaded: "relationLoaded() on string", on every
+     * retry. Eager-load roleRecord() instead.
+     */
     public function role()
     {
         return $this->belongsTo(Role::class);
+    }
+
+    /** The role record under a name no column shares: the one to eager-load. */
+    public function roleRecord()
+    {
+        return $this->belongsTo(Role::class, 'role_id');
+    }
+
+    /**
+     * Queued jobs and notifications carry users without their loaded
+     * relations, so a user can never be restored with a relation the queue
+     * cannot rebuild (see role()). The job reloads what it needs.
+     */
+    public function getQueueableRelations()
+    {
+        return [];
     }
 
 
@@ -177,10 +202,12 @@ class User extends Authenticatable
     {
         // First try to get role from relationship if loaded.
         // Note: this app also has a string column named "role", so `$this->role` can be a string.
-        if ($this->relationLoaded('role')) {
-            $related = $this->getRelation('role');
-            if (is_object($related) && isset($related->name)) {
-                return $related->name;
+        foreach (['roleRecord', 'role'] as $relation) {
+            if ($this->relationLoaded($relation)) {
+                $related = $this->getRelation($relation);
+                if (is_object($related) && isset($related->name)) {
+                    return $related->name;
+                }
             }
         }
 

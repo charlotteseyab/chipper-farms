@@ -6,7 +6,7 @@
         'pending_confirmation' => ['Awaiting farm confirmation', 'The farm is checking availability and will confirm your order shortly.', 'amber'],
         'payment_submitted' => ['Payment submitted', 'Your payment information has been submitted and is awaiting review.', 'amber'],
         'payment_under_review' => ['Payment under review', 'The farm is reviewing your submitted payment.', 'amber'],
-        'payment_confirmed' => ['Payment confirmed', 'Payment has been received. The farm will confirm fulfilment next.', 'green'],
+        'payment_confirmed' => ['Payment received', 'Thank you — your order is paid and reserved for you. We\'re getting it ready and will be in touch shortly.', 'green'],
         'confirmed' => ['Order confirmed', 'Your order has been accepted and is being prepared.', 'green'],
         'ready_for_pickup' => ['Ready for pickup', 'Your order is ready to collect from the farm.', 'green'],
         'out_for_delivery' => ['Out for delivery', 'Your order is currently on its way to you.', 'green'],

@@ -453,7 +453,7 @@ class QuoteService
         $recipients = User::query()
             ->when($organizationId !== null, fn ($q) => $q->where('organization_id', $organizationId))
             ->where('active_status', true)
-            ->with('role.permissions')
+            ->with('roleRecord.permissions')
             ->get()
             ->filter(fn (User $user) => $user->isSuperuser()
                 || $user->isAdmin()

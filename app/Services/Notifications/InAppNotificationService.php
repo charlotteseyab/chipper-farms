@@ -35,7 +35,7 @@ class InAppNotificationService
             ->where('organization_id', $organizationId)
             ->where('active_status', true)
             ->when($recipientUserIds !== null, fn ($query) => $query->whereIn('id', $recipientUserIds))
-            ->with('role.permissions')
+            ->with('roleRecord.permissions')
             ->get()
             ->filter(fn (User $user) => $user->isSuperuser()
                 || $user->isAdmin()

@@ -61,7 +61,9 @@ class HealthController extends Controller
         // The outbox is reported but is NOT a readiness failure. A backlog means
         // finance postings are lagging, which needs an alert — not the removal
         // of this instance from the load balancer, which would make it worse.
-        $outbox = $this->checkOutbox();
+        // Backlog counts are operational detail, not a readiness dependency.
+        // Public probes should not scan the outbox on every request.
+        $outbox = $detailed ? $this->checkOutbox() : null;
 
         $failed = array_keys(array_filter($checks, fn (array $c) => $c['ok'] === false));
         $healthy = $failed === [];
@@ -106,8 +108,31 @@ class HealthController extends Controller
                 'connection' => config('queue.default'),
                 'pending'    => $this->pendingJobCount(),
             ],
+            'disk'        => $this->diskUsage(),
             'timestamp'   => now()->toIso8601String(),
         ]);
+    }
+
+    /**
+     * Free space where the app writes (logs, uploads, cache) and the size of
+     * its logs. A full disk took production down in October 2026, and
+     * nothing reported it; alert when free_percent falls below 15.
+     */
+    protected function diskUsage(): array
+    {
+        $path = storage_path();
+        $free = @disk_free_space($path);
+        $total = @disk_total_space($path);
+        $logs = 0;
+        foreach (glob(storage_path('logs/*.log')) ?: [] as $file) {
+            $logs += (int) @filesize($file);
+        }
+
+        return [
+            'free_bytes'   => $free === false ? null : (int) $free,
+            'free_percent' => ($free === false || ! $total) ? null : round($free / $total * 100, 1),
+            'log_bytes'    => $logs,
+        ];
     }
 
     /**

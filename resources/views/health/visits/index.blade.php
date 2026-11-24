@@ -7,6 +7,7 @@
             </div>
             @can('create', \App\Models\VetVisit::class)<a href="{{ route('vet-visits.create') }}" class="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white">Record a visit</a>@endcan
         </div>
+        <x-health.glance :cards="$glance" />
         @if(session('success'))<p role="status" class="rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">{{ session('success') }}</p>@endif
 
         <form method="GET" class="grid gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:grid-cols-6 sm:items-end">
@@ -23,18 +24,19 @@
             <button class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white">Filter</button>
         </form>
 
-        <div class="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm">
-            <table class="w-full min-w-[640px] text-sm">
-                <thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="px-4 py-3 text-left">Date</th><th class="px-4 py-3 text-left">Vet</th><th class="px-4 py-3 text-left">Reason</th><th class="px-4 py-3 text-right">Examined</th><th class="px-4 py-3 text-right">Planned</th><th class="px-4 py-3 text-left">Status</th></tr></thead>
-                <tbody class="divide-y divide-slate-100">
+        <div class="health-table-wrap">
+            <div class="overflow-x-auto">
+            <table class="health-table">
+                <thead><tr><th>Date</th><th>Vet</th><th>Reason</th><th class="num">Examined</th><th class="num">Planned</th><th>Status</th></tr></thead>
+                <tbody>
                     @forelse($visits as $visit)
                         <tr>
-                            <td class="px-4 py-3"><a href="{{ route('vet-visits.show', $visit) }}" class="font-semibold text-emerald-700 hover:underline">{{ $visit->visited_at->format('j M Y, H:i') }}</a></td>
-                            <td class="px-4 py-3">{{ $visit->veterinarian_name }}<div class="text-xs text-slate-500">{{ $visit->clinic }}</div></td>
-                            <td class="px-4 py-3 text-slate-600">{{ $visit->reason ?: '—' }}</td>
-                            <td class="px-4 py-3 text-right font-mono">{{ $visit->examined_count }}</td>
-                            <td class="px-4 py-3 text-right font-mono text-slate-500">{{ $visit->planned_animals_count }}</td>
-                            <td class="px-4 py-3"><span class="rounded-full px-2 py-0.5 text-xs font-semibold {{ $visit->isFinalised() ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800' }}">{{ $visit->isFinalised() ? 'Finalised' : 'Draft' }}</span></td>
+                            <td><a href="{{ route('vet-visits.show', $visit) }}" class="font-semibold text-emerald-700 hover:underline">{{ $visit->visited_at->format('j M Y, H:i') }}</a></td>
+                            <td>{{ $visit->veterinarian_name }}<div class="text-xs text-slate-500">{{ $visit->clinic }}</div></td>
+                            <td class="text-slate-600">{{ $visit->reason ?: '—' }}</td>
+                            <td class="text-right font-mono num">{{ $visit->examined_count }}</td>
+                            <td class="text-right font-mono text-slate-500 num">{{ $visit->planned_animals_count }}</td>
+                            <td><span class="rounded-full px-2 py-0.5 text-xs font-semibold {{ $visit->isFinalised() ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800' }}">{{ $visit->isFinalised() ? 'Finalised' : 'Draft' }}</span></td>
                         </tr>
                     @empty
                         <tr><td colspan="6" class="px-4 py-10 text-center text-slate-500">No vet visits recorded.</td></tr>
@@ -42,6 +44,7 @@
                 </tbody>
             </table>
         </div>
-        <div>{{ $visits->links() }}</div>
+            <div class="health-table-footer"><x-health.pagination :paginator="$visits" label="visits" /></div>
+        </div>
     </div>
 </x-app-layout>

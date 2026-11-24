@@ -17,11 +17,14 @@ class HealthWorklistController extends Controller
         $day = isset($data['date']) ? CarbonImmutable::parse($data['date']) : CarbonImmutable::today();
         $mine = ($data['mine'] ?? false) ? (int) $request->user()->id : null;
 
+        $slots = $worklist->dueOn($day, $mine);
+        $overdue = $day->isToday() ? $worklist->overdueBefore($day, $mine) : collect();
+        $followUps = $worklist->followUpsDue($day, $mine);
+
         return view('health.worklist', [
             'day' => $day, 'mine' => (bool) $mine, 'isToday' => $day->isToday(),
-            'slots' => $worklist->dueOn($day, $mine),
-            'overdue' => $day->isToday() ? $worklist->overdueBefore($day, $mine) : collect(),
-            'followUps' => $worklist->followUpsDue($day, $mine),
+            'slots' => $slots, 'overdue' => $overdue, 'followUps' => $followUps,
+            'glance' => app(\App\Services\Health\HealthGlanceService::class)->worklist($slots, $overdue, $followUps, $day),
         ]);
     }
 }

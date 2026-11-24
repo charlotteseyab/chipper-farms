@@ -48,9 +48,9 @@ class FeedSetupTest extends TestCase
 
     public function test_empty_farm_shows_every_step_outstanding(): void
     {
-        $response = $this->actingAs($this->actor)->get(route('feed-setup.index'))->assertOk()->assertSee('0 of 5 steps done');
+        $response = $this->actingAs($this->actor)->get(route('feed-setup.index'))->assertOk()->assertSee('0 of 4 done');
 
-        $this->assertSame(['materials' => false, 'feed_types' => false, 'recipes' => false, 'standards' => false, 'stock' => false], $response->viewData('steps'));
+        $this->assertSame(['materials' => false, 'feed_types' => false, 'recipes' => false, 'standards' => false], $response->viewData('steps'));
     }
 
     public function test_fully_configured_farm_completes_every_step(): void
@@ -60,9 +60,13 @@ class FeedSetupTest extends TestCase
         app(FeedRecipeService::class)->save($this->actor, ['feed_type_id' => $feed->id, 'items' => [['raw_material_id' => $maize->id, 'quantity_per_100kg' => 100]]]);
         PigManagement::create(['ear_tag_number' => '', 'date_of_birth' => now()->subDays(120), 'stock_type' => 'standard', 'gender' => 'F']);
         app(FeedConfigurationService::class)->standard($this->actor, ['stage' => 'grower', 'feed_type_id' => $feed->id, 'daily_kg' => 2, 'effective_from' => now()->toDateString()]);
-        $this->receive('finished_feed', $feed->id, 50);
 
-        $response = $this->actingAs($this->actor)->get(route('feed-setup.index'))->assertOk()->assertSee('Feed is fully set up');
+        // Nothing mixed yet: that is day-to-day stock, not setup, so setup is still complete.
+        $response = $this->actingAs($this->actor)->get(route('feed-setup.index'))->assertOk()->assertSee('All set up')
+            ->assertDontSee('Feed in stock')
+            ->assertSeeInOrder(['4. Daily rations', 'Grower', '1 animal', '2 kg each a day', 'Change', 'Stages with no animals now'])
+            ->assertSee('set under Advanced at the bottom of this page')
+            ->assertDontSee('Ration history &amp; settings', false);
 
         $this->assertNotContains(false, $response->viewData('steps'));
         $grower = $response->viewData('stages')->firstWhere('stage', 'grower');

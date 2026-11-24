@@ -11,12 +11,14 @@ Doses are always recorded against a medicine from the catalogue, so set each med
 1. Open **Medicine Catalogue → Add a medicine**.
 2. Copy the details from the product label:
    - **Name, formulation and strength**, for example *Oxytetracycline LA*, *Injectable solution*, *200 mg/ml*.
+   - **About this medicine** (optional): what it is and does, what it is used for, how to store it, and precautions or side effects, from the label or the vet. These show on the medicine's page, and *Used for* and *Precautions* also show when recording a dose.
    - **Dose unit**: what a dose is measured in (ml, mg, dose).
    - **Stock unit**: what you count on the shelf (ml, vial, tablet).
    - **Conversion**: how many dose units are in one stock unit. For a liquid counted in ml and dosed in ml, this is 1. For a 50-dose vaccine vial, the dose unit is *dose*, the stock unit is *vial*, and the conversion is 50.
    - **Routes** it can be given by, for example *Injection (IM)*.
    - **Meat withdrawal days**, from the label, and where the figure came from (for example *Product label*). Leave the days blank only if the label gives none. A blank shows as a caution, never as "safe".
    - **Reorder level**, if you want a low-stock reminder.
+   - **Photo** of the pack or bottle (optional, JPEG, PNG or WebP). It shows in the catalogue and on the *Record a dose* form when the medicine is picked, so staff can check they have the right bottle. Replacing or removing it keeps the old photo for the record.
 3. Save, then on the medicine's page use **Receive a batch**. Enter the batch or lot number, the expiry date, the date received, the quantity in stock units, and the cost per stock unit.
 
 After that, the medicine page shows stock on hand per batch, which batches expire soon, recent doses and every adjustment.
@@ -99,16 +101,26 @@ Health records are voided the same way, with a reason. Doses recorded before thi
 
 ## Reminders
 
-Farm managers, and whoever is responsible for a course or case, get reminders in the notification bell:
+Farm managers, and whoever is responsible for a course or case, get reminders in the notification bell. Each one is sent once.
 
-- doses due today (from 6 in the morning);
-- doses still not recorded 2 hours after they were due;
-- follow-ups due tomorrow;
-- pigs whose withdrawal ends within 2 days;
-- batches expiring within 30 days;
-- medicine at or below its reorder level.
+| Reminder | When |
+|---|---|
+| Doses due today | From 6 in the morning |
+| Dose overdue | Still not recorded 2 hours after it was due |
+| Not enough stock for the doses due | Doses in the next two days need more than the usable stock (daily while short) |
+| Medicine has run out | A medicine in use reaches zero, with or without a reorder level |
+| Medicine running low | At or below its reorder level |
+| Batch expiring | Within 30 days, if stock is left |
+| Batch expired | Past its expiry with stock still recorded: dispose of it and adjust the stock |
+| Course finished | No doses left: check the animals and follow up or close the case |
+| Follow-up due | The day before a course follow-up or a vet re-check |
+| Follow-up overdue | The date has passed and nothing has been recorded since |
+| Open cases need a check | Weekly, listing open cases with no follow-up for a week and no doses still due |
+| Withdrawal ending | Two days before pigs can be sold again |
 
-Each reminder is sent once.
+## At a glance
+
+Each health and medicine page opens with cards showing what matters there, for example doses still to give and overdue on the worklist, stock on hand and what the next week's doses need on a medicine, or open cases, the next dose and whether the pig can be sold on a pig's health page. Cards in amber or red need attention, and most open the list behind them.
 
 ## Reports
 

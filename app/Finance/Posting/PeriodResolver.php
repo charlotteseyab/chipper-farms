@@ -6,6 +6,7 @@ use App\Finance\Exceptions\PeriodLockedException;
 use App\Finance\Exceptions\PeriodNotOpenException;
 use App\Models\Finance\PeriodLockDate;
 use App\Models\FiscalPeriod;
+use App\Models\FiscalYear;
 use App\Support\CurrentOrganization;
 
 /**
@@ -38,6 +39,11 @@ class PeriodResolver
         $this->checkLockDates($postingDate, $organizationId, $bypassSoftLock);
 
         $period = $this->findCoveringPeriod($postingDate, $organizationId);
+
+        $year = FiscalYear::whereKey($period->fiscal_year_id)->lockForUpdate()->firstOrFail();
+        if (! $year->isOpen()) {
+            throw new PeriodNotOpenException($postingDate->format('Y-m-d'), $period->name, 'fiscal_year_'.$year->status);
+        }
 
         if (! $period->acceptsPostings()) {
             throw new PeriodNotOpenException(
@@ -91,6 +97,8 @@ class PeriodResolver
                 fn ($q) => $q->whereNull('organization_id'),
             )
             ->active()
+            ->whereDate('lock_date', '>', $postingDate->format('Y-m-d'))
+            ->when($bypassSoftLock, fn ($q) => $q->where('is_hard', true))
             ->orderByDesc('lock_date')
             ->first();
 

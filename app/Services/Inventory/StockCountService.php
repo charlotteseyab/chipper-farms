@@ -58,6 +58,10 @@ class StockCountService
         }
         $countedAt = isset($data['counted_at']) ? CarbonImmutable::parse($data['counted_at']) : CarbonImmutable::now();
 
+        if ($countedAt->isFuture()) {
+            throw ValidationException::withMessages(['counted_at' => 'The count date cannot be in the future.']);
+        }
+
         return DB::transaction(function () use ($actor, $data, $lines, $orgId, $countedAt) {
             Organization::whereKey($orgId)->lockForUpdate()->firstOrFail();
             if ($existing = StockCount::where('organization_id', $orgId)->where('submission_key', $data['submission_key'])->first()) {
@@ -96,6 +100,7 @@ class StockCountService
             'adjustment_type' => 'set',
             'quantity'        => (float) $entry['counted_qty'],
             'reference'       => $reference,
+            'adjusted_at'     => $count->counted_at->toDateTimeString(),
             'notes'           => sprintf('Stock count: counted %s %s, system had %s.', $this->qty($line->counted_qty), $material->unit, $this->qty($line->system_qty)),
         ]);
 
@@ -152,6 +157,13 @@ class StockCountService
             ->where('item_id', $entry['item_id'])
             ->lockForUpdate()
             ->value('on_hand_qty') ?? 0);
+        // Setting today's balance from an older count would erase movements
+        // made after the physical count. Recount rather than rewrite that history.
+        if (InventoryMovement::where('organization_id', $orgId)
+            ->where('item_kind', $entry['item_kind'])->where('item_id', $entry['item_id'])
+            ->where('occurred_at', '>', $count->counted_at)->exists()) {
+            throw ValidationException::withMessages(['counted_at' => "{$name} has stock movements after this count time. Recount the item and enter the new count time."]);
+        }
         $counted = round((float) $entry['counted_qty'], 4);
 
         return $count->lines()->create([

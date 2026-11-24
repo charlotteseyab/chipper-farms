@@ -37,6 +37,8 @@ namespace App\Support\Features;
  */
 final class FeatureCatalog
 {
+    // Advanced features are the paid add-ons. Essential ones are free; some
+    // (manure, services, delivery in the shop) are free but start off.
     public const CATEGORY_ESSENTIAL = 'essential';
     public const CATEGORY_ADVANCED  = 'advanced';
 
@@ -184,12 +186,12 @@ final class FeatureCatalog
 
             self::FINANCE_ADVANCED_ACCOUNTING => [
                 'label'       => 'Advanced Accounting',
-                'description' => 'Chart of accounts, manual journals and trial balance.',
+                'description' => 'Chart of accounts, manual journals, trial balance, balance sheet and cash flow, loan reclassification, credit notes and refunds.',
                 'domain'      => self::DOMAIN_FINANCE,
                 'category'    => self::CATEGORY_ADVANCED,
                 'default'     => false,
                 'requires'    => [],
-                'backs'       => 'finance/coa, finance/journals, finance/trial-balance',
+                'backs'       => 'finance/coa, finance/journals, finance/trial-balance, finance/reports/balance-sheet, finance/reports/cash-flow, finance/loans/reclassification, finance/credit-notes, finance/refunds',
             ],
             self::FINANCE_BANK_RECONCILIATION => [
                 'label'       => 'Bank Reconciliation',
@@ -324,7 +326,7 @@ final class FeatureCatalog
                 'label'       => 'Sell Manure',
                 'description' => 'List manure and compost for sale.',
                 'domain'      => self::DOMAIN_STOREFRONT,
-                'category'    => self::CATEGORY_ADVANCED,
+                'category'    => self::CATEGORY_ESSENTIAL,
                 'default'     => false,
                 'requires'    => [self::STOREFRONT_ENABLED],
                 'backs'       => 'listing kind manure',
@@ -333,7 +335,7 @@ final class FeatureCatalog
                 'label'       => 'Sell Services',
                 'description' => 'Offer farm services such as transport or consultancy.',
                 'domain'      => self::DOMAIN_STOREFRONT,
-                'category'    => self::CATEGORY_ADVANCED,
+                'category'    => self::CATEGORY_ESSENTIAL,
                 'default'     => false,
                 'requires'    => [self::STOREFRONT_ENABLED],
                 'backs'       => 'listing kind service',
@@ -378,7 +380,7 @@ final class FeatureCatalog
                 'label'       => 'Delivery',
                 'description' => 'Offer delivery as well as pickup.',
                 'domain'      => self::DOMAIN_STOREFRONT,
-                'category'    => self::CATEGORY_ADVANCED,
+                'category'    => self::CATEGORY_ESSENTIAL,
                 'default'     => false,
                 'requires'    => [self::STOREFRONT_ENABLED],
                 'backs'       => 'storefront delivery settings',

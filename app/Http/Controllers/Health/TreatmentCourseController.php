@@ -43,7 +43,7 @@ class TreatmentCourseController extends Controller
         $course = $treatmentCourse->load(['medicines.medicine', 'medicines.scheduledDoses.pig', 'medicines.scheduledDoses.administration', 'animals.pig', 'healthRecord', 'amendedFrom', 'responsibleUser']);
         $amendedBy = TreatmentCourse::where('amended_from_course_id', $course->id)->first();
 
-        return view('health.courses.show', compact('course', 'amendedBy'));
+        return view('health.courses.show', compact('course', 'amendedBy') + ['glance' => app(\App\Services\Health\HealthGlanceService::class)->course($course)]);
     }
 
     public function edit(Request $request, TreatmentCourse $treatmentCourse, HealthPigFinder $finder)

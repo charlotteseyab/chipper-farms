@@ -1,13 +1,13 @@
 <x-app-layout>
     <x-feed-hub hub="store" />
     @php
-        $qty = fn ($value) => rtrim(rtrim(number_format((float) $value, 4), '0'), '.');
+        $qty = fn ($value) => \App\Support\Qty::kg((float) $value);
     @endphp
     <div class="max-w-5xl mx-auto px-4 pt-6 pb-24">
         <div class="mb-6">
             <a href="{{ route('stock-counts.index') }}" class="text-sm text-slate-500 hover:text-slate-700">← Back to stock counts</a>
             <h1 class="mt-2 text-2xl font-bold text-slate-900">Count Stock</h1>
-            <p class="text-sm text-slate-500">Weigh or count what is physically in the store and enter it. Leave an item blank to skip it. Saving sets the system stock to what you counted.</p>
+            <p class="text-sm text-slate-500">Weigh or count what is physically in the store and enter it. Leave an item blank to skip it. Saving sets the system stock to what you counted. If stock moved after the count time, recount that item before saving.</p>
         </div>
 
         @if($errors->any())
@@ -21,7 +21,7 @@
 
             <div class="grid gap-4 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm sm:grid-cols-2">
                 <label class="text-xs font-semibold uppercase text-slate-500">Counted at
-                    <input type="datetime-local" name="counted_at" value="{{ old('counted_at', now()->format('Y-m-d\TH:i')) }}" max="{{ now()->format('Y-m-d\TH:i') }}"
+                    <input type="datetime-local" name="counted_at" step="1" value="{{ old('counted_at', now()->format('Y-m-d\TH:i:s')) }}" max="{{ now()->format('Y-m-d\TH:i:s') }}"
                            class="mt-1 block w-full rounded-lg border-slate-200 text-sm font-normal normal-case text-slate-800">
                 </label>
                 <label class="text-xs font-semibold uppercase text-slate-500">Reference (optional)

@@ -326,7 +326,8 @@ class RawMaterialStockWorkflowBaselineTest extends TestCase
             'out_of_stock' => 1,
             'stock_value' => 38.0,
         ], array_map(fn ($value) => is_numeric($value) ? $value + 0 : $value, $response->viewData('stats')));
-        $this->assertCount(2, $response->viewData('lowStockAlerts'));
+        // The separate alert box was replaced by sorting the one list: empty first, then low.
+        $this->assertSame(['Empty', 'Low', 'Healthy'], collect($response->viewData('rawMaterials')->items())->pluck('name')->all());
     }
 
     public function test_stock_status_filters_match_the_values_sent_by_the_page(): void

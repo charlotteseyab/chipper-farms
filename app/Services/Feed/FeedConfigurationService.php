@@ -55,6 +55,7 @@ class FeedConfigurationService
             $before = app(FeedStageResolver::class)->resolve($pig);
             $row = FeedStageOverride::create(['organization_id' => $pig->organization_id, 'pig_id' => $pig->id,
                 'previous_stage' => $before, 'stage' => $stage, 'reason' => $reason, 'created_by' => $actor->id]);
+            app(FeedStageResolver::class)->forgetOverrides();
             $this->audit($actor, 'feed_stage_overridden', $row, ['stage' => $before], ['stage' => $stage], $reason);
 
             return $row;

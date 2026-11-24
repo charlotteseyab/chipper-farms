@@ -25,4 +25,12 @@ abstract class Controller
 
         abort(403, 'Access denied. You do not have permission to access this resource.');
     }
+
+    protected function abortUnlessPermission(string $permission): void
+    {
+        $user = auth()->user();
+
+        abort_unless($user, 403, 'Authentication is required.');
+        abort_unless($user->hasPermission($permission), 403, 'Access denied. You do not have permission to access this resource.');
+    }
 }

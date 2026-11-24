@@ -17,8 +17,9 @@ use Illuminate\Support\Str;
  *     client redirect or a webhook body alone.
  *   - On verify we assert the gateway status is "success" AND the amount and
  *     currency match the order — a mismatch is treated as fraud and rejected.
- *   - A verified payment advances the order to payment_confirmed only; it never
- *     auto-confirms (staff confirm explicitly).
+ *   - A verified payment advances the order to payment_confirmed and then
+ *     accepts it (OrderService::acceptPaidOrder()), unless staff still have
+ *     animals to choose.
  *   - Idempotent: re-verifying an already-verified payment is a no-op.
  */
 class PaystackService

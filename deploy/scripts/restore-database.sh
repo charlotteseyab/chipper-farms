@@ -24,6 +24,13 @@ if [[ -z "$DUMP_FILE" || -z "$TARGET_DB" ]]; then
   exit 1
 fi
 
+# The name is interpolated into SQL identifiers and a schema predicate.
+# Reject quotes/backticks rather than allowing a target to become SQL.
+if [[ ! "$TARGET_DB" =~ ^[A-Za-z0-9_]+$ ]]; then
+  echo "ERROR: target database must contain only letters, digits and underscores." >&2
+  exit 1
+fi
+
 if [[ ! -f "$DUMP_FILE" ]]; then
   echo "ERROR: dump file '${DUMP_FILE}' not found." >&2
   exit 1

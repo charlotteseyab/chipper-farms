@@ -18,7 +18,7 @@
         @elseif($order->status === \App\Models\Storefront\StorefrontOrder::STATUS_PENDING_PAYMENT)
             <div class="mt-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 text-sm">Awaiting payment. If you didn't finish paying, please contact us.</div>
         @elseif($order->status === \App\Models\Storefront\StorefrontOrder::STATUS_PAYMENT_CONFIRMED)
-            <div class="mt-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm">Payment received. Your order is now awaiting final confirmation.</div>
+            <div class="mt-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm">Payment received. Your order is paid and reserved for you. We're getting it ready and will be in touch shortly.</div>
         @endif
 
         <div class="mt-6 grid md:grid-cols-3 gap-6">

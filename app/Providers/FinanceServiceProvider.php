@@ -131,11 +131,13 @@ class FinanceServiceProvider extends ServiceProvider
                 $schedule = $this->app->make(Schedule::class);
 
                 // Outbox drain — every minute, single-server, single
-                // instance at a time.
-                $schedule->job(new ProcessPendingDomainEventsJob(50))
+                // instance at a time. Run in the scheduler itself, not queued:
+                // queued, it piled up a job a minute whenever the queue worker
+                // was down, and finance postings stopped with it.
+                $schedule->call(fn () => dispatch_sync(new ProcessPendingDomainEventsJob(50)))
+                    ->name('finance:process-events')
                     ->everyMinute()
                     ->withoutOverlapping(5)
-                    ->name('finance:process-events')
                     ->onOneServer();
             });
         }
@@ -216,6 +218,11 @@ class FinanceServiceProvider extends ServiceProvider
         $registry->register(
             \App\Domain\Events\Lifecycle\PigAcquired::TYPE,
             \App\Finance\Subscribers\Lifecycle\PigAcquiredSubscriber::class,
+        );
+
+        $registry->register(
+            \App\Domain\Events\Lifecycle\PurchaseQuarantineLoss::TYPE,
+            \App\Finance\Subscribers\Lifecycle\PurchaseQuarantineLossSubscriber::class,
         );
 
         $registry->register(

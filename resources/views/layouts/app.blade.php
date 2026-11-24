@@ -173,6 +173,9 @@
                                         >
                                             <i class="{{ $item['icon'] }} w-4 text-center"></i>
                                             <span>{{ $item['label'] }}</span>
+                                            @if(! empty($item['badge']))
+                                                <span class="ml-auto rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide {{ $isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-300/90 text-amber-950' }}">{{ $item['badge'] }}</span>
+                                            @endif
                                         </a>
                                     @endif
                                 @endforeach
@@ -193,6 +196,10 @@
             @endif
 
             <div class="flex min-h-screen flex-col px-4 {{ $user ? 'pt-24 sm:px-6 lg:px-8' : 'pt-8' }}" style="padding-bottom: var(--app-footer-clearance, 7rem);">
+                @if($user && request()->routeIs('finance.*'))
+                    <x-finance.hub-tabs />
+                @endif
+
                 @if (isset($header))
                     <header class="mb-5 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm sm:px-6">
                         {{ $header }}

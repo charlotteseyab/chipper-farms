@@ -39,7 +39,7 @@
 
     <div class="section panel">
         <h2>Herd movement reconciliation</h2>
-        <table class="data"><thead><tr>@foreach(['Opening','Manually added','Purchased','Sold','Deaths','Transferred / culled','Closing','Variance'] as $heading)<th>{{ $heading }}</th>@endforeach</tr></thead><tbody><tr>@foreach(['opening','manually_added','purchased','sold','deaths','transferred_or_culled','closing','variance'] as $key)<td class="{{ in_array($key, ['sold','deaths','transferred_or_culled']) ? 'red' : ($key === 'closing' ? 'green' : '') }}">{{ number_format($herdMovement[$key]) }}</td>@endforeach</tr></tbody></table>
+        <table class="data"><thead><tr>@foreach(['Opening','Weaned in','Bought','Added / imported','Sold','Deaths','Transferred / culled','Closing','Variance'] as $heading)<th>{{ $heading }}</th>@endforeach</tr></thead><tbody><tr>@foreach(['opening','weaned_into_stock','purchased','manually_added','sold','deaths','transferred_or_culled','closing','variance'] as $key)<td class="{{ in_array($key, ['sold','deaths','transferred_or_culled']) ? 'red' : ($key === 'closing' ? 'green' : '') }}">{{ number_format($herdMovement[$key]) }}</td>@endforeach</tr></tbody></table>
         <p class="muted" style="margin-top:8px">Opening herd + additions − recorded sales − recorded deaths − transfers and culls = closing herd.</p>
     </div>
 
@@ -49,12 +49,15 @@
             <tr><td>Farrowings</td><td class="right">{{ number_format($breeding['farrowings']) }}</td></tr>
             <tr><td>Weanings</td><td class="right">{{ number_format($breeding['weanings']) }}</td></tr>
             <tr><td>Average litter size</td><td class="right">{{ number_format($breeding['average_litter_size'], 1) }}</td></tr>
-            <tr><td>Pregnancy rate</td><td class="right">{{ $breeding['pregnancy_rate'] === null ? 'N/A' : $breeding['pregnancy_rate'].'%' }}</td></tr>
+            <tr><td>Pregnancy rate ({{ $breeding['pregnancy_checked'] }} checked)</td><td class="right">{{ $breeding['pregnancy_rate'] === null ? 'Not checked yet' : $breeding['pregnancy_rate'].'%' }}</td></tr>
         </tbody></table></div></td>
         <td><div class="panel"><h2>Growth and health</h2><table class="data"><tbody>
             <tr><td>Weight records</td><td class="right">{{ number_format($weights['records']) }}</td></tr>
             <tr><td>Average recorded weight</td><td class="right">{{ number_format($weights['average_kg'], 1) }} kg</td></tr>
-            <tr><td>Deaths</td><td class="right">{{ number_format($current['deaths']) }}</td></tr>
+            <tr><td>Feed given</td><td class="right">{{ number_format($feed['issued_kg'], 1) }} kg</td></tr>
+            <tr><td>Health cases opened / open now</td><td class="right">{{ $health['cases_opened'] }} / {{ $health['open_now'] }}</td></tr>
+            <tr><td>Doses given (medicine GHS {{ number_format($health['medicine_cost'], 2) }})</td><td class="right">{{ number_format($health['doses']) }}</td></tr>
+            <tr><td>Deaths (pigs / piglets)</td><td class="right">{{ number_format($current['deaths']) }} / {{ number_format($current['piglet_deaths']) }}</td></tr>
             <tr><td>Mortality rate</td><td class="right">{{ $current['mortality_rate'] === null ? 'N/A' : number_format($current['mortality_rate'], 2).'%' }}</td></tr>
         </tbody></table></div></td>
     </tr></table>
@@ -62,7 +65,10 @@
     <div class="section panel"><h2>Piglet tracking</h2><table class="data"><thead><tr><th>Litters</th><th>Total born</th><th>Live births</th><th>Stillbirths</th><th>Pre-weaning deaths</th><th>Weaned</th><th>Survival</th></tr></thead><tbody><tr><td>{{ $pigletTracking['litters'] }}</td><td>{{ $pigletTracking['total_born'] }}</td><td>{{ $pigletTracking['live_births'] }}</td><td>{{ $pigletTracking['stillbirths'] }}</td><td>{{ $pigletTracking['pre_weaning_deaths'] }}</td><td>{{ $pigletTracking['weaned'] }}</td><td>{{ $pigletTracking['survival_rate'] === null ? 'N/A' : $pigletTracking['survival_rate'].'%' }}</td></tr></tbody></table></div>
 
     <table class="two-col section"><tr>
-        <td><div class="panel"><h2>Storefront</h2><table class="data"><tbody>
+        <td><div class="panel"><h2>Sales and shop</h2><table class="data"><tbody>
+            <tr><td>Pig sales on the farm</td><td class="right">{{ $pigSales['direct'] }} · GHS {{ number_format($pigSales['direct_revenue'], 2) }}</td></tr>
+            <tr><td>Pig sales through the shop</td><td class="right">{{ $pigSales['shop'] }} · GHS {{ number_format($pigSales['shop_revenue'], 2) }}</td></tr>
+            <tr><td>Bought animals (cost)</td><td class="right">{{ $purchases['animals_bought'] }} · GHS {{ number_format($purchases['cost'], 2) }}</td></tr>
             <tr><td>Orders placed</td><td class="right">{{ $storefront['orders'] }}</td></tr><tr><td>Completed</td><td class="right">{{ $storefront['completed'] }}</td></tr><tr><td>Open pipeline</td><td class="right">GHS {{ number_format($storefront['pipeline'], 2) }}</td></tr><tr><td>Realised revenue</td><td class="right">GHS {{ number_format($storefront['realised_revenue'], 2) }}</td></tr>
         </tbody></table></div></td>
         <td><div class="panel"><h2>Finance ledger</h2><table class="data"><tbody>

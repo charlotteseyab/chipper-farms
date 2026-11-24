@@ -79,17 +79,26 @@ class StorefrontSettingsScreenTest extends StorefrontTestCase
     }
 
     /**
-     * The screen must stay reachable when the module is off — it is where an
-     * administrator finds out why the shop is dark.
+     * A farm whose Online Store is switched off has no shop back office —
+     * only the superuser can switch it back on — but keeps its orders, which
+     * may still need fulfilling or refunding.
      */
-    public function test_screen_is_reachable_when_the_storefront_module_is_disabled(): void
+    public function test_the_back_office_closes_when_the_storefront_module_is_disabled(): void
     {
+        $this->seedStorefrontOrderPermissions();
+        $this->seedStorefrontQuotePermissions();
         $this->disableStorefrontFeature(FeatureCatalog::STOREFRONT_ENABLED);
+        $admin = $this->makeUser('admin');
 
-        $this->actingAs($this->makeUser('admin'))
-            ->get(route('storefront.admin.settings.index'))
-            ->assertOk()
-            ->assertSee('Online Shop module is switched off', false);
+        foreach (['storefront.admin.settings.index', 'storefront.admin.dashboard', 'storefront.admin.listings.index',
+            'storefront.admin.push.create', 'storefront.admin.quotes.index', 'storefront.admin.placements.index',
+            'storefront.admin.reports.sales'] as $route) {
+            $this->actingAs($admin)->get(route($route))->assertNotFound();
+        }
+        $this->actingAs($admin)->get(route('storefront.admin.orders.index'))->assertOk();
+
+        $storefront = collect(\App\Helpers\NavigationHelper::sidebarSections($admin))->firstWhere('title', 'Storefront');
+        $this->assertSame(['Orders'], array_column($storefront['items'] ?? [], 'label'));
     }
 
     /* ---------------------------------------------------------------- */

@@ -43,6 +43,7 @@ class YearEndCloseController extends Controller
 
         $closings = YearEndClosing::query()
             ->whereIn('fiscal_year_id', $years->pluck('id'))
+            ->orderBy('id')
             ->get()
             ->keyBy('fiscal_year_id');
 

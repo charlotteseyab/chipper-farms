@@ -36,9 +36,12 @@ class FeedSetupController extends Controller
         $feedTypes = FeedType::orderByDesc('is_active')->orderBy('name')->get()
             ->map(fn (FeedType $type) => $this->feedTypeRow($type, $orgId, $today, $recipes, $planning, $costPerKg, $duplicateNames));
 
-        $animalCounts = collect($planning->calculate($orgId, $today, $today)['locations'])->countBy('stage');
+        $todayPlan = $planning->calculate($orgId, $today, $today);
+        $animalCounts = collect($todayPlan['locations'])->countBy('stage');
+        // Piglets still on their sows: not animals on the system yet, shown on the Piglet line.
+        $suckling = (int) ($todayPlan['litter_piglets'] ?? 0);
         $standards = FeedingStandard::with('feedType')->orderByDesc('effective_from')->orderByDesc('id')->get()->groupBy('stage');
-        $stages = collect(FeedStageResolver::STAGES)->map(function (string $label, string $stage) use ($standards, $animalCounts, $today) {
+        $stages = collect(FeedStageResolver::STAGES)->map(function (string $label, string $stage) use ($standards, $animalCounts, $today, $suckling) {
             $versions = $standards[$stage] ?? collect();
             $current = $versions->first(fn (FeedingStandard $s) => $s->effective_from->toDateString() <= $today);
             $usable = $current && $current->is_active && $current->feedType?->is_active;
@@ -52,20 +55,32 @@ class FeedSetupController extends Controller
                 'scheduled' => $versions->filter(fn (FeedingStandard $s) => $s->effective_from->toDateString() > $today)->sortBy('effective_from')->first(),
                 'daily_kg'  => $usable ? round($animals * (float) $current->daily_kg, 2) : null,
                 'needs_standard' => $animals > 0 && ! $usable,
+                'suckling'  => $stage === 'piglet' ? $suckling : 0,
             ];
         })->values();
 
         $activeTypes = $feedTypes->where('is_active', true);
-        $feedsInUse = $stages->pluck('current')->filter()->pluck('feed_type_id')->unique();
         $steps = [
             'materials'  => $materials->where('usable', true)->isNotEmpty(),
             'feed_types' => $activeTypes->isNotEmpty() && $duplicateNames->isEmpty(),
             'recipes'    => $activeTypes->isNotEmpty() && $activeTypes->every(fn (array $type) => $type['recipe_ok']),
             'standards'  => $stages->contains(fn (array $s) => $s['animals'] > 0) && ! $stages->contains('needs_standard', true),
-            'stock'      => $feedsInUse->isNotEmpty() && $feedsInUse->every(fn ($id) => ($feedTypes->firstWhere('id', $id)['stock_kg'] ?? 0) > 0),
+            // Whether feed is mixed is day-to-day stock (Stock, Mix & buy), not setup.
         ];
 
-        return view('feeds.setup.index', compact('materials', 'feedTypes', 'stages', 'steps'));
+        // Everything that used to be on "Ration history & settings", so the
+        // whole of setup is one page.
+        $settings = [
+            'standards'         => FeedingStandard::with('feedType')->orderBy('stage')->orderByDesc('effective_from')->get(),
+            'stages'            => FeedStageResolver::STAGES,
+            'feedTypes'         => FeedType::where('is_active', true)->orderBy('name')->get(),
+            'animals'           => \App\Models\PigManagement::active()->orderBy('code')->get(['id', 'code']),
+            'recipeVersions'    => FeedRecipeVersion::with('feedType')->orderByDesc('effective_from')->orderByDesc('id')->get(),
+            'varianceThreshold' => \App\Models\Setting::get('feed.alerts.variance_percent'),
+            'compact'           => true,
+        ];
+
+        return view('feeds.setup.index', compact('materials', 'feedTypes', 'stages', 'steps', 'settings'));
     }
 
     private function materials(int $orgId, FeedPlanningService $planning): Collection
@@ -94,6 +109,7 @@ class FeedSetupController extends Controller
             'name'         => $type->name,
             'notes'        => $type->notes,
             'is_active'    => (bool) $type->is_active,
+            'wastage_percent' => $type->wastage_percent !== null ? (float) $type->wastage_percent : null,
             'duplicate'    => $duplicateNames->contains(mb_strtolower(trim($type->name))),
             'stock_kg'     => $planning->available($orgId, 'finished_feed', $type->id),
             'recipe_ok'    => false,
@@ -124,7 +140,7 @@ class FeedSetupController extends Controller
     /** The latest saved ingredients, valid or not, so a broken recipe can be fixed in place. */
     private function draftIngredients(FeedType $type): array
     {
-        $version = FeedRecipeVersion::where('feed_type_id', $type->id)->latest('effective_from')->first();
+        $version = FeedRecipeVersion::where('feed_type_id', $type->id)->latest('effective_from')->latest('id')->first();
         $rows = $version ? $version->ingredients : $type->recipes()->with('rawMaterial')->get()->map(fn ($r) => [
             'raw_material_id' => $r->raw_material_id, 'name' => $r->rawMaterial?->name, 'quantity_per_100kg' => (string) $r->quantity_per_100kg,
         ])->all();

@@ -52,7 +52,7 @@ class WeaningAlertService
 
         foreach ($unweaned as $pig) {
             $targetDate       = $pig->date_of_birth->copy()->addDays($weaningAge);
-            $daysUntilWeaning = $today->diffInDays($targetDate, false);
+            $daysUntilWeaning = (int) $today->diffInDays($targetDate, false);
 
             if ($daysUntilWeaning === 2) {
                 $alerts['upcoming'][] = [

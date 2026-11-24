@@ -88,11 +88,11 @@ class FeedDashboardTest extends TestCase
         $this->pig(130);
         $this->feed(now()->toDateTimeString(), 3);   // ration is 2 x 2 = 4 kg
 
-        $this->get(route('feed-dashboard.index'))
+        // Whoever records feedings works from Today, which says what is off the ration.
+        $this->get(route('feed-dashboard.index'))->assertRedirect(route('feed.issues.create'));
+        $this->get(route('feed.issues.create'))
             ->assertOk()
-            ->assertSee('Under ration')
-            ->assertSee('of 4 kg by ration')
-            ->assertSee('Covered');
+            ->assertSee('Fed far from the ration: Grower (3 of 4 kg)');
 
         $this->get(route('feed-performance.index'))->assertOk()->assertSee('Feed Conversion');
     }

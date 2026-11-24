@@ -24,10 +24,12 @@ class PigHealthController extends Controller
 
         $query = PigManagement::with(['healthRecords' => function($q) {
             $q->notVoided()->latest('record_date')->latest('id')->limit(1);
+        }, 'groupHealthRecords' => function ($q) {
+            $q->notVoided()->latest('record_date')->latest('health_records.id')->limit(1);
         }, 'medicationAdministrations' => function($q) {
             $q->notVoided()->latest('administration_date')->latest('id')->limit(1);
         }])
-            ->whereHas('healthRecords', fn ($q) => $q->notVoided())
+            ->where(fn ($q) => $this->whereHealthRecords($q, fn ($hr) => $hr->notVoided()))
             ->when($includeDeparted, fn ($q) => $q->withTrashed(), fn ($q) => $q->whereDoesntHave('deaths')->whereDoesntHave('sales'));
 
         if ($search = $request->get('q')) {
@@ -45,18 +47,18 @@ class PigHealthController extends Controller
         $to = $request->date('to');
 
         if ($request->string('attention')->toString() === 'open_critical') {
-            $query->whereHas('healthRecords', function ($health) {
+            $query->where(fn ($q) => $this->whereHealthRecords($q, function ($health) {
                 $health->notVoided()->whereNull('resolved_at')
                     ->where(function ($status) {
                         $status->whereNull('treatment_status')
                             ->orWhereIn('treatment_status', ['planned', 'ongoing']);
                     })
                     ->where('severity', 'severe');
-            });
+            }));
         }
 
         if (($condition || $severity || $from || $to) && $request->string('attention')->toString() !== 'open_critical') {
-            $query->whereHas('healthRecords', function($hr) use ($condition, $severity, $from, $to) {
+            $query->where(fn ($q) => $this->whereHealthRecords($q, function($hr) use ($condition, $severity, $from, $to) {
                 $hr->notVoided();
                 if ($condition) {
                     $hr->where('condition', 'like', "%{$condition}%");
@@ -70,10 +72,14 @@ class PigHealthController extends Controller
                 if ($to) {
                     $hr->whereDate('record_date', '<=', $to);
                 }
-            });
+            }));
         }
 
         $pigs = $query->orderBy('code')->paginate(15)->withQueryString();
+        $pigs->each(function ($pig) {
+            $pig->setRelation('healthRecords', $pig->healthRecords->merge($pig->groupHealthRecords)
+                ->sortByDesc(fn ($record) => $record->record_date->format('Y-m-d').sprintf('%020d', $record->id))->take(1));
+        });
         $counts = app(\App\Services\Health\HealthWorklistService::class)->counts(\Carbon\CarbonImmutable::today());
 
         return view('health.index', compact('pigs', 'counts'));
@@ -103,7 +109,7 @@ class PigHealthController extends Controller
             ->paginate(10, ['*'], 'medication_page')
             ->withQueryString();
 
-        $lastRecord = $pig->healthRecords()->notVoided()->latest('record_date')->latest('id')->first();
+        $lastRecord = $this->recordsForPig($pig)->notVoided()->latest('record_date')->latest('id')->first();
         $lastMedication = $pig->medicationAdministrations()->notVoided()->latest('administration_date')->latest('id')->first();
         $withdrawal = $withdrawals->forPig($pig);
         $hasLeft = $dates->hasLeft($pig);
@@ -118,7 +124,21 @@ class PigHealthController extends Controller
             'withdrawal',
             'hasLeft',
             'timeline'
-        ));
+        ) + [
+            'glance' => app(\App\Services\Health\HealthGlanceService::class)->pig($pig, $withdrawal),
+            'healthAlerts' => app(\App\Services\Health\HealthAlertService::class)->alerts(\Carbon\CarbonImmutable::now(), pigId: $pig->id),
+        ]);
+    }
+
+    private function recordsForPig(PigManagement $pig)
+    {
+        return HealthRecord::where(fn ($q) => $q->where('pig_id', $pig->id)
+            ->orWhereHas('animals', fn ($a) => $a->where('pig_id', $pig->id)));
+    }
+
+    private function whereHealthRecords($query, \Closure $filter)
+    {
+        return $query->whereHas('healthRecords', $filter)->orWhereHas('groupHealthRecords', $filter);
     }
 
     public function updateRecordStatus(UpdateHealthRecordRequest $request, HealthRecord $healthRecord, HealthRecordService $service)
@@ -132,7 +152,7 @@ class PigHealthController extends Controller
         $pig = $healthPig;
         $pig->loadMissing('earTagAssignments.tag.color');
 
-        $healthRecords = $pig->healthRecords()
+        $healthRecords = $this->recordsForPig($pig)
             ->with('recordedBy')
             ->latest('record_date')
             ->latest('id')
@@ -240,7 +260,15 @@ class PigHealthController extends Controller
             ->orderByDesc('id')
             ->paginate(15)
             ->withQueryString();
-        return view('health.medications-index', compact('medications'));
+        // For the Medication Name dropdown: the farm's medicine catalogue plus
+        // any other name already recorded on a dose (older records were typed).
+        $medicationNames = \App\Models\Medicine::query()->orderBy('name')->pluck('name')
+            ->merge(MedicationAdministration::query()->whereNull('voided_at')->whereNotNull('medication_name')
+                ->distinct()->orderBy('medication_name')->limit(500)->pluck('medication_name'))
+            ->map(fn ($name) => trim((string) $name))->filter()
+            ->unique(fn ($name) => mb_strtolower($name))->sort(SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
+
+        return view('health.medications-index', compact('medications', 'medicationNames') + ['glance' => app(\App\Services\Health\HealthGlanceService::class)->medicationLog()]);
     }
 
     public function showMedication(MedicationAdministration $medication)

@@ -114,7 +114,7 @@
 
                 <p class="text-xs text-slate-400">
                     The same figures the ageing reports show, from the same calculation.
-                    <a class="underline" href="{{ route('finance.ageing.ar') }}">Full ageing report</a>
+                    @canopen('finance.ageing.ar')<a class="underline" href="{{ route('finance.ageing.ar') }}">Full ageing report</a>@endcanopen
                 </p>
             @else
                 <form method="GET" class="flex flex-wrap gap-2">

@@ -68,9 +68,17 @@ class FinanceOverviewScreenTest extends TestCase
         ]);
     }
 
+    /** Sidebar entries plus every finance tab and sub-tab the user sees. */
     protected function labels(User $user): array
     {
-        return array_column(FinanceNavigation::build($user), 'label');
+        $labels = array_column(FinanceNavigation::build($user), 'label');
+        foreach (\App\Support\Features\FinanceHubs::visible($user) as $hub) {
+            foreach ($hub['tabs'] as $tab) {
+                $labels = [...$labels, $tab['label'], ...array_column($tab['children'], 'label')];
+            }
+        }
+
+        return $labels;
     }
 
     /* ------------------------------------------------------------------ */
@@ -176,8 +184,9 @@ class FinanceOverviewScreenTest extends TestCase
         $svc->enable(FeatureCatalog::FINANCE_LOANS);
         $svc->disable(FeatureCatalog::FINANCE_REPORTS);
 
+        // view_loans: the permission the loans list itself checks.
         $labels = $this->labels($this->user([
-            'manage_loans', 'view_financial_reports',
+            'view_loans', 'view_financial_reports',
         ]));
 
         $this->assertContains('Loans', $labels);
@@ -191,7 +200,7 @@ class FinanceOverviewScreenTest extends TestCase
         $svc->enable(FeatureCatalog::FINANCE_REPORTS);
 
         // Feature is on for both, but only one permission is held.
-        $labels = $this->labels($this->user(['manage_loans']));
+        $labels = $this->labels($this->user(['view_loans']));
 
         $this->assertContains('Loans', $labels);
         $this->assertNotContains(
@@ -201,36 +210,25 @@ class FinanceOverviewScreenTest extends TestCase
         );
     }
 
-    public function test_advanced_accounting_is_grouped_rather_than_listed_flat(): void
+    public function test_ledger_screens_are_tabs_on_the_add_on_rather_than_sidebar_entries(): void
     {
         $svc = $this->features();
         $svc->enable(FeatureCatalog::FINANCE_ADVANCED_ACCOUNTING);
 
         // `view_finance` and `view_financial_reports`, because those are the
         // permissions the ledger routes actually enforce.
-        //
-        // This fixture used to grant 'view_chart_of_accounts' and
-        // 'view_journals' — names no seeder creates. It passed because
-        // FinanceNavigation asked for exactly those phantom names, so the test
-        // and the code were wrong together and agreed with each other. Phase 18
-        // found eighteen such names; the menu now asks for what the routes check.
-        $nav = FinanceNavigation::build($this->user([
-            'view_finance', 'view_financial_reports',
-        ]));
+        $user = $this->user(['view_finance', 'view_financial_reports']);
+        $advanced = \App\Support\Features\FinanceHubs::visible($user)['advanced'] ?? null;
 
-        $advanced = collect($nav)->firstWhere('label', 'Advanced Accounting');
+        $this->assertNotNull($advanced, 'Ledger screens must be gathered on the Advanced Accounting page.');
+        $ledger = collect($advanced['tabs'])->firstWhere('label', 'Ledger');
+        $this->assertContains('Chart of accounts', array_column($ledger['children'], 'label'));
 
-        $this->assertNotNull($advanced, 'Ledger screens must be gathered under Advanced Accounting.');
-        $this->assertNotEmpty($advanced['children']);
-
-        $childLabels = array_column($advanced['children'], 'label');
-        $this->assertContains('Chart of Accounts', $childLabels);
-
-        // And not duplicated at the top level.
-        $this->assertNotContains('Chart of Accounts', array_column($nav, 'label'));
+        // And not listed in the sidebar.
+        $this->assertNotContains('Chart of accounts', array_column(FinanceNavigation::build($user), 'label'));
     }
 
-    public function test_advanced_accounting_vanishes_entirely_when_nothing_in_it_is_available(): void
+    public function test_advanced_tabs_vanish_when_their_features_are_off(): void
     {
         $svc = $this->features();
         foreach ([
@@ -246,13 +244,11 @@ class FinanceOverviewScreenTest extends TestCase
             $svc->disable($key);
         }
 
-        $labels = $this->labels($this->user(['view_chart_of_accounts', 'view_financial_reports']));
+        $labels = $this->labels($this->user(['view_finance', 'view_financial_reports']));
 
-        $this->assertNotContains(
-            'Advanced Accounting',
-            $labels,
-            'An empty group is a dead end — it must not render at all.',
-        );
+        foreach (['Advanced Accounting', 'Chart of accounts', 'Journals', 'Trial balance', 'Month end', 'Pig & stock value'] as $ledger) {
+            $this->assertNotContains($ledger, $labels, "{$ledger} is switched off; its tab is a dead end.");
+        }
     }
 
     public function test_navigation_never_references_a_route_that_does_not_exist(): void

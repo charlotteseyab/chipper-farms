@@ -14,7 +14,26 @@ return [
         'overdue_lookback_days' => 7,
         'follow_up_days_ahead' => 1,
         'withdrawal_days_ahead' => 2,
+        // Vaccinations and deworming are announced this many days ahead, so
+        // the product can be fetched and the animals penned. 0 turns it off.
+        'routine_doses_days_ahead' => 1,
         'batch_expiry_days_ahead' => 30,
+    ],
+
+    /*
+    | Health alerts: overdue, due today and coming up (alerts page, pig
+    | profile, dashboards). "Coming up" looks this many days ahead.
+    */
+    'alerts' => [
+        'upcoming_days' => (int) env('HEALTH_ALERTS_UPCOMING_DAYS', 7),
+    ],
+
+    /*
+    | Herd health programmes: doses are scheduled this many days before they
+    | are due, so the alerts and day-ahead reminders see them in time.
+    */
+    'programmes' => [
+        'schedule_days_ahead' => (int) env('HEALTH_PROGRAMMES_DAYS_AHEAD', 14),
     ],
 
     /*

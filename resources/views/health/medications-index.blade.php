@@ -5,6 +5,7 @@
             <h1 class="text-3xl font-extrabold text-gray-900">Medication Administration Log</h1>
             <p class="mt-1 text-sm text-gray-500">One row is shown per animal using its most recent medication. Open the medication history to review every previous administration.</p>
         </div>
+        <x-health.glance :cards="$glance" class="mb-6" />
 
         <!-- Filter and Action Card -->
         <div class="bg-white p-6 md:p-8 shadow-xl rounded-xl mb-8 border border-gray-100">
@@ -20,8 +21,7 @@
 
                     <!-- Medication Name (2/5 column width) -->
                     <div class="col-span-1 sm:col-span-2">
-                        <label for="q" class="block text-sm font-medium text-gray-700">Medication Name</label>
-                        <input id="q" type="text" name="q" value="{{ request('q') }}" placeholder="e.g., Penicillin, Vitamin E" class="mt-1 w-full rounded-lg border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm" />
+                        <x-filter-combobox name="q" label="Medication Name" :options="$medicationNames" placeholder="Choose a medicine, or type a name" />
                     </div>
 
                     <!-- Purpose (1/5 column width, now a SELECT for data integrity) -->
@@ -79,10 +79,10 @@
         </div>
 
         <!-- Medication Table Card -->
-        <div class="bg-white shadow-xl rounded-xl overflow-hidden border border-gray-100">
+        <div class="health-table-wrap">
             <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-100">
+                <table class="health-table">
+                    <thead>
                         @php
                             $sortBy = request('sort_by', 'administration_date'); // Default sort column
                             $sortDir = request('sort_dir', 'desc'); // Default sort direction
@@ -105,7 +105,7 @@
                         <tr>
                             <!-- Date Sorting -->
                             @php($dateSort = $sortLink('administration_date'))
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            <th>
                                 <a href="{{ $dateSort['link'] }}" class="flex items-center group hover:text-gray-900 transition duration-150">
                                     Latest date
                                     <svg class="w-4 h-4 ml-1 transition-transform duration-200 {{ $dateSort['iconClasses'] }} {{ $dateSort['isCurrent'] ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -116,7 +116,7 @@
 
                             <!-- Pig ID Sorting (assuming a column like 'pig_code' or 'pig_tag' is used for sorting) -->
                             @php($pigIdSort = $sortLink('pig_code'))
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            <th>
                                 <a href="{{ $pigIdSort['link'] }}" class="flex items-center group hover:text-gray-900 transition duration-150">
                                     Ear Tag Number
                                     <svg class="w-4 h-4 ml-1 transition-transform duration-200 {{ $pigIdSort['iconClasses'] }} {{ $pigIdSort['isCurrent'] ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -127,7 +127,7 @@
 
                             <!-- Medication Name Sorting -->
                             @php($medNameSort = $sortLink('medication_name'))
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            <th>
                                 <a href="{{ $medNameSort['link'] }}" class="flex items-center group hover:text-gray-900 transition duration-150">
                                     Latest medication
                                     <svg class="w-4 h-4 ml-1 transition-transform duration-200 {{ $medNameSort['iconClasses'] }} {{ $medNameSort['isCurrent'] ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -138,7 +138,7 @@
 
                             <!-- Dosage Sorting -->
                             @php($dosageSort = $sortLink('dosage'))
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                            <th>
                                 <a href="{{ $dosageSort['link'] }}" class="flex items-center group hover:text-gray-900 transition duration-150">
                                     Dosage
                                     <svg class="w-4 h-4 ml-1 transition-transform duration-200 {{ $dosageSort['iconClasses'] }} {{ $dosageSort['isCurrent'] ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 text-gray-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -148,20 +148,20 @@
                             </th>
 
                             <!-- Purpose (Not clickable, too many non-sortable options typically) -->
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Purpose</th>
+                            <th>Purpose</th>
 
                             <!-- Route (Not clickable) -->
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Route</th>
+                            <th>Route</th>
                             
                             <!-- Actions (Not clickable) -->
-                            <th class="px-6 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                            <th class="num">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-100">
+                    <tbody>
                         @forelse($medications as $m)
-                        <tr class="hover:bg-indigo-50/50 transition duration-100">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700">{{ $m->administration_date->format('M d, Y') }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <tr>
+                            <td class="whitespace-nowrap text-sm font-medium text-gray-700">{{ $m->administration_date->format('M d, Y') }}</td>
+                            <td class="whitespace-nowrap text-sm">
     @if($m->pig)
         <a href="{{ route('health.show', $m->pig->id) }}" class="text-indigo-600 hover:text-indigo-800 font-semibold transition duration-150">
             {{ $m->pig->identityAt($m->administration_date) ?? 'Pig #' . $m->pig->id }}
@@ -170,11 +170,11 @@
         <span class="text-gray-400 italic">No pig linked</span>
     @endif
 </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $m->medication_name }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $m->dosage }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $m->purpose ?? 'N/A' }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ $m->route ?? 'N/A' }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-xs font-medium">
+                            <td class="whitespace-nowrap text-sm text-gray-900">{{ $m->medication_name }}</td>
+                            <td class="whitespace-nowrap text-sm text-gray-700">{{ $m->dosage }}</td>
+                            <td class="whitespace-nowrap text-sm text-gray-700">{{ $m->purpose ?? 'N/A' }}</td>
+                            <td class="whitespace-nowrap text-sm text-gray-700">{{ $m->route ?? 'N/A' }}</td>
+                            <td class="whitespace-nowrap text-right text-xs font-medium num">
                                 <div class="relative inline-block text-left" x-data="{ open: false }" @click.away="open = false">
                                     <!-- Dropdown Toggle Button (Kebab Icon) -->
                                     <button type="button" @click="open = !open" class="text-gray-500 hover:text-gray-700 p-1 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-500 transition duration-150">
@@ -207,20 +207,7 @@
                     </tbody>
                 </table>
             </div>
-            <!-- Pagination (embedded, simple style) -->
-            @if($medications->hasPages())
-                    <div class="px-6 py-4 border-t border-gray-200 bg-white">
-                        <div class="flex items-center justify-between">
-                            <div class="text-sm text-gray-700">
-                                Showing {{ $medications->firstItem() }} to {{ $medications->lastItem() }} of {{ $medications->total() }} results
-                            </div>
-                            <!-- IMPORTANT: Ensure your pagination component retains all query parameters, including sort_by and sort_dir -->
-                            <div class="flex items-center space-x-2">
-                                <x-simple-pagination :paginator="$medications" />
-                            </div>
-                        </div>
-                    </div>
-                @endif
+            <div class="health-table-footer"><x-health.pagination :paginator="$medications" label="animals" /></div>
             </div>
         </div>                               
     </div>
